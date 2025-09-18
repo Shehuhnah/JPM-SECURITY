@@ -18,9 +18,8 @@ import GuardSchedule from "./Admin/GuardSchedule.jsx";
 
 // Applicant pages
 
-
 // Sub-admin pages
-
+//
 
 // Components
 import Navbar from "./components/navbar.jsx";
