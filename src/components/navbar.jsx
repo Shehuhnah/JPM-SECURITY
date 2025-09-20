@@ -152,6 +152,10 @@ export default function Navbar() {
           <FaRegClock />
           <span>Attendance</span>
         </Link>
+
+        <button
+          
+        ><Link to={'/'}>Logout</Link></button>
       </nav>
     </div>
   );

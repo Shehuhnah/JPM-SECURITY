@@ -80,7 +80,7 @@ const navigate = useNavigate();
           name="email"
           value={formData.email}
           onChange={handleChange}
-          required
+          // required
           className="w-full p-2 mb-4 border rounded-md focus:ring-2 focus:ring-blue-400"
         />
 
@@ -90,7 +90,7 @@ const navigate = useNavigate();
           name="password"
           value={formData.password}
           onChange={handleChange}
-          required
+          // required
           className="w-full p-2 mb-4 border rounded-md focus:ring-2 focus:ring-blue-400"
         />
 
@@ -109,7 +109,9 @@ const navigate = useNavigate();
           type="submit"
           className="w-full bg-green-900 text-white py-2 px-4 rounded-md hover:bg-green-700 transition"
         >
-          Log In
+          <Link to={'/Guard/GuardAttendanceTimeIn'}>
+            Login
+          </Link>
         </button>
 
         
