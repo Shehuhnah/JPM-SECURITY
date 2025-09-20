@@ -59,6 +59,11 @@ export default function UserAccounts() {
         }),
       });
 
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error);
+      }
+
       const newUser = await res.json();
       setUsers([...users, newUser]);
 
@@ -72,20 +77,27 @@ export default function UserAccounts() {
         confirmPassword: "",
       });
       setShowForm(false);
+
+      alert("✅ User saved successfully!");
     } catch (err) {
       console.error("Add user error:", err);
+      alert("❌ Failed to save user. Check backend connection.");
     }
   };
 
   // ✅ Delete user from backend
   const handleDelete = async (id) => {
     try {
-      await fetch(`http://localhost:5000/api/users/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/users/${id}`, {
         method: "DELETE",
       });
+
+      if (!res.ok) throw new Error("Failed to delete user");
+
       setUsers(users.filter((u) => u._id !== id));
     } catch (err) {
       console.error("Delete user error:", err);
+      alert("❌ Failed to delete user.");
     }
   };
 

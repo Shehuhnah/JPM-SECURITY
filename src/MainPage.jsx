@@ -8,7 +8,7 @@ function MainPage() {
 
   const handleAdminAccess = () => {
     if (code === "1234") {
-      navigate("/Admin/AdminDeployment"); // ✅ redirect to AdminDeployment
+      navigate("/Admin/AdminDeployment"); 
     } else {
       alert("Invalid code. Try again!");
     }
@@ -35,7 +35,7 @@ function MainPage() {
                 <FaUsers className="text-5xl text-black mb-2 text-center" />
                 <h2 className="text-lg font-semibold mb-2 text-black">Guard</h2>
                 <button className="bg-black hover:bg-gray-600 text-white font-medium px-6 py-2 rounded-full text-base transition-all duration-300 w-full md:w-auto">
-                  <Link to="/components/GuardDashboard"> Click this</Link>
+                  <Link to="/Guard/GuardLogin"> Click this</Link>
                 </button>
               </div>
 

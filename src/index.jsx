@@ -12,14 +12,13 @@ import AdminHiring from "./Admin/AdminHiring.jsx";
 import UserAccounts from "./Admin/UserAccounts.jsx";
 import CompanyDetails from "./Admin/CompanyDetails.jsx";
 import Dashboard from "./components/Dashboard.jsx";
-
-// Guard pages
 import GuardSchedule from "./Admin/GuardSchedule.jsx";
 
-// Applicant pages
+// Guard pages
 
-// Sub-admin pages
-//
+import GuardLogin from "./Guard/GuardLogin.jsx";
+import GuardAttendance from "./Guard/GuardAttendance.jsx";
+
 
 // Components
 import Navbar from "./components/navbar.jsx";
@@ -36,17 +35,21 @@ root.render(
         <Route path="/MainPage" element={<MainPage />} />
 
         {/* Admin routes */}
-        <Route path="/admin/dashboard" element={<Dashboard />} />
-        <Route path="/admin/deployment" element={<AdminDeployment />} />
-        <Route path="/admin/posts" element={<AdminPosts />} />
-        <Route path="/admin/hiring" element={<AdminHiring />} />
-        <Route path="/admin/users" element={<UserAccounts />} />
-        <Route path="/admin/company" element={<CompanyDetails />} />
-
-        {/* Guard routes */}
-
+        <Route path="/Admin/Dashboard" element={<Dashboard />} />
+        <Route path="/Admin/AdminDeployment" element={<AdminDeployment />} />
+        <Route path="/Admin/AdminPosts" element={<AdminPosts />} />
+        <Route path="/Admin/AdminHiring" element={<AdminHiring />} />
+        <Route path="/Admin/UserAccounts" element={<UserAccounts />} />
+        <Route path="/Admin/CompanyDetails" element={<CompanyDetails />} />
         <Route path="/guard/:id/schedule" element={<GuardSchedule />} />
 
+        {/* Guard routes */}
+       
+        
+        <Route path="/Guard/GuardLogin" element={<GuardLogin />} />
+        <Route path="/Guard/GuardAttendance" element={<GuardAttendance />} />
+     
+        
         {/* Applicant routes */}
         {/* <Route path="/applicant/dashboard" element={<ApplicantDashboard />} /> */}
 
@@ -62,3 +65,4 @@ root.render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
