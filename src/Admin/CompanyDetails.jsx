@@ -58,16 +58,10 @@ export default function CompanyDetails() {
 
   return (
     <div
-      className="min-h-screen bg-center bg-repeat text-white flex itemsjustify-center "
-      style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23333' fill-opacity='0.15'%3E%3Cpath d='M0 0h10v10H0zM10 10h10v10H10z'/%3E%3C/g%3E%3C/svg%3E")`,
-        backgroundColor: "#111",
-        backgroundSize: "40px 40px",
-      }}
-    >
+      className="flex min-h-screen bg-[#0f172a]">
       <Navbar />
       <div className="flex-1 p-6">
-        <h2 className="text-xl font-bold mb-4">Post Company Details</h2>
+        <h2 className="text-xl font-bold mb-4 text-white">Post Company Details</h2>
 
         {/* Post input box */}
         <div className="bg-gray-100 p-4 rounded-lg mb-4 text-black">
@@ -91,7 +85,7 @@ export default function CompanyDetails() {
           </div>
           <button
             onClick={handlePost}
-            className="bg-green-900 text-white px-4 py-2 rounded"
+            className="bg-[#183D3D] hover:bg-[#5C8374] text-white px-4 py-2 rounded"
           >
             POST
           </button>

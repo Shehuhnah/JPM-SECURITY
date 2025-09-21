@@ -10,7 +10,7 @@ import GuardsLayout from "../Layouts/GuardsLayout.jsx";
 import MainPage from "../components/MainPage.jsx";
 import ErrorPage from "../components/error/ErrorPage.jsx";
 import Dashboard from "../components/Dashboard.jsx";
-import Navbar from "../components/Navbar.jsx";
+import Navbar from "../components/navbar.jsx";
 
 // Admin pages
 import AdminDeployment from "../Admin/AdminDeployment.jsx";
@@ -18,6 +18,8 @@ import AdminPosts from "../Admin/AdminPosts.jsx";
 import AdminHiring from "../Admin/AdminHiring.jsx";
 import UserAccounts from "../Admin/UserAccounts.jsx";
 import CompanyDetails from "../Admin/CompanyDetails.jsx";
+import AdminGuardsProfile from "../Admin/AdminGuardsProfile.jsx";
+import AdminCOE from "../Admin/AdminCOE.jsx";
 
 // Guard pages
 import GuardLogin from "../Guard/GuardLogin.jsx";
@@ -46,6 +48,8 @@ const Router = () => {
             { path: "AdminHiring", element: <AdminHiring /> },
             { path: "UserAccounts", element: <UserAccounts /> },
             { path: "CompanyDetails", element: <CompanyDetails /> },
+            { path: "AdminGuardsProfile", element: <AdminGuardsProfile />},
+            { path: "AdminCOE", element: <AdminCOE /> }
           ],
         },
         {

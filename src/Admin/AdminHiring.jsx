@@ -43,7 +43,7 @@ export default function AdminHiring() {
 
     const newPost = {
       id: Date.now(),
-      author: audience.toUpperCase(),
+      author: "ADMIN",
       date: new Date().toLocaleDateString(),
       time: new Date().toLocaleTimeString([], {
         hour: "2-digit",
@@ -68,17 +68,12 @@ export default function AdminHiring() {
 
   return (
     <div
-      className="min-h-screen bg-center bg-repeat text-white flex itemsjustify-center"
-      style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23333' fill-opacity='0.15'%3E%3Cpath d='M0 0h10v10H0zM10 10h10v10H10z'/%3E%3C/g%3E%3C/svg%3E")`,
-        backgroundColor: "#111",
-        backgroundSize: "40px 40px",
-      }}
+      className="flex min-h-screen bg-[#0f172a]"
     >
       <Navbar />
 
       <main className="flex-1 p-6">
-        <h2 className="text-2xl font-bold mb-4">Admin Hiring Posts</h2>
+        <h2 className="text-2xl font-bold mb-4 text-white">Admin Hiring Posts</h2>
 
         {/* Post Form */}
         <div className="p-4 border border-gray-300 rounded-lg mb-6 bg-white shadow text-black">

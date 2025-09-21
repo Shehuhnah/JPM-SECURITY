@@ -5,6 +5,7 @@ export default function AdminPosts() {
   const [message, setMessage] = useState("");
   const [audience, setAudience] = useState("all");
   const [posts, setPosts] = useState([]);
+  const [file, setFile] = useState(null);
 
   // ✅ Load posts from localStorage on mount
   useEffect(() => {
@@ -18,22 +19,20 @@ export default function AdminPosts() {
     }
   }, []);
 
-  // ✅ Save posts only when posts changes and not empty
+  // ✅ Save posts only when posts changes
   useEffect(() => {
-    if (posts.length > 0) {
-      localStorage.setItem("posts", JSON.stringify(posts));
-    }
+    localStorage.setItem("posts", JSON.stringify(posts));
   }, [posts]);
 
   const handlePost = () => {
-    if (!message.trim()) {
-      alert("Please type an announcement!");
+    if (!message.trim() && !file) {
+      alert("Please type an announcement or attach a file!");
       return;
     }
 
     const newPost = {
       id: Date.now(),
-      author: audience.toUpperCase(),
+      author: "ADMIN", // always admin
       date: new Date().toLocaleDateString(),
       time: new Date().toLocaleTimeString([], {
         hour: "2-digit",
@@ -42,33 +41,30 @@ export default function AdminPosts() {
       }),
       message,
       audience,
+      file: file ? URL.createObjectURL(file) : null,
     };
 
     setPosts([newPost, ...posts]);
     setMessage("");
+    setFile(null);
   };
 
   const handleDelete = (id) => {
     const updatedPosts = posts.filter((p) => p.id !== id);
     setPosts(updatedPosts);
-
-    // ✅ Update localStorage after delete
     localStorage.setItem("posts", JSON.stringify(updatedPosts));
   };
 
   return (
-    
-    <div className="min-h-screen bg-center bg-repeat text-white flex itemsjustify-center "
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23333' fill-opacity='0.15'%3E%3Cpath d='M0 0h10v10H0zM10 10h10v10H10z'/%3E%3C/g%3E%3C/svg%3E")`,
-          backgroundColor: "#111",
-          backgroundSize: "40px 40px",
-           }}
-      >
-      <Navbar />
+    <div className="flex min-h-screen bg-[#0f172a]">
+      {/* Sidebar */}
+      <div className="w-64 bg-white">
+        <Navbar />
+      </div>
 
+      {/* Main Content */}
       <main className="flex-1 p-6">
-        <h2 className="text-2xl font-bold mb-4">Admin Posts</h2>
+        <h2 className="text-2xl font-bold mb-4 text-white">Admin Posts</h2>
 
         {/* Post Form */}
         <div className="p-4 border border-gray-300 rounded-lg mb-6 bg-white shadow text-black">
@@ -77,6 +73,13 @@ export default function AdminPosts() {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             className="w-full h-24 p-3 rounded-lg border border-gray-900 focus:outline-none focus:ring"
+          />
+
+          {/* File Upload */}
+          <input
+            type="file"
+            onChange={(e) => setFile(e.target.files[0])}
+            className="mt-3"
           />
 
           <div className="flex justify-between items-center mt-3">
@@ -92,7 +95,7 @@ export default function AdminPosts() {
 
             <button
               onClick={handlePost}
-              className="bg-green-900 hover:bg-green-700 text-white px-6 py-2 rounded-lg shadow"
+              className="bg-gray-900 hover:bg-gray-700 text-white px-6 py-2 rounded-lg shadow"
             >
               Post
             </button>
@@ -112,7 +115,19 @@ export default function AdminPosts() {
                   {p.date} • {p.time}
                 </span>
               </div>
+
               <p className="mb-2">{p.message}</p>
+
+              {p.file && (
+                <div className="mt-2">
+                  <img
+                    src={p.file}
+                    alt="attachment"
+                    className="max-h-48 rounded-lg"
+                  />
+                </div>
+              )}
+
               <p className="text-xs italic text-gray-500">
                 Audience:{" "}
                 {p.audience === "guards"
