@@ -20,6 +20,7 @@ import UserAccounts from "../Admin/UserAccounts.jsx";
 import CompanyDetails from "../Admin/CompanyDetails.jsx";
 import AdminGuardsProfile from "../Admin/AdminGuardsProfile.jsx";
 import AdminCOE from "../Admin/AdminCOE.jsx";
+import AdminAttendance from "../Admin/AdminAttendance.jsx";
 
 // Guard pages
 import GuardLogin from "../Guard/GuardLogin.jsx";
@@ -49,7 +50,8 @@ const Router = () => {
             { path: "UserAccounts", element: <UserAccounts /> },
             { path: "CompanyDetails", element: <CompanyDetails /> },
             { path: "AdminGuardsProfile", element: <AdminGuardsProfile />},
-            { path: "AdminCOE", element: <AdminCOE /> }
+            { path: "AdminCOE", element: <AdminCOE /> },
+            { path: "AdminAttendance", element: <AdminAttendance /> }
           ],
         },
         {

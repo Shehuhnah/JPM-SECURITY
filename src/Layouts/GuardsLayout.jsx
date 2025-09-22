@@ -1,119 +1,102 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { useState } from "react";
+import { Link, Outlet } from "react-router-dom";
+
+import logo from "../assets/jpmlogo.png"; 
 
 export default function GuardsLayout() {
+  const [openAttendance, setOpenAttendance] = useState(false);
+
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white shadow-md p-6 flex flex-col">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-400 rounded-full flex items-center justify-center shadow-inner">
-            <span className="text-3xl">👤</span>
+    <div className="flex min-h-screen bg-gray-900">
+      <aside className="w-64 bg-white shadow-md flex flex-col items-center">
+       <div className="flex items-center justify-center py-6 border-b px-4">
+               <img src={logo} alt="logo" className="w-12 h-12" />
+               <span className="font-bold text-gray-800 text-lg text-center">
+                 JPM SECURITY AGENCY
+               </span>
+             </div>
+       
+
+        {/* Profile (temporary icon) */}
+        <div className="flex flex-col items-center mt-6 mb-6">
+          <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center text-2xl">
+            👤
           </div>
-          <h2 className="mt-3 font-semibold text-center text-gray-800">
-            Guard Name
-          </h2>
-          <p className="text-sm text-gray-500">Guard</p>
+          <h3 className="font-medium text-gray-700 mt-2">Guard Name</h3>
+          <p className="text-xs text-gray-500">Security Guard</p>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1">
-          <ul className="space-y-3 text-gray-700">
-            <li>
-              <NavLink
-                to="GuardAttendanceTimeIn"
-                className={({ isActive }) =>
-                  `block px-3 py-2 rounded-md font-medium transition ${
-                    isActive ? "bg-blue-100 text-blue-600" : "hover:bg-gray-100"
-                  }`
-                }
-              >
-                📊 Attendance
-              </NavLink>
-              <ul className="ml-6 mt-2 space-y-1 text-sm text-gray-600">
+        <nav className="w-full flex-1 px-6 space-y-2 text-gray-700">
+          <Link
+            to="GuardDetachment"
+            className="block p-2 rounded hover:bg-gray-100 font-medium"
+          >
+            Detachment / Deployment
+          </Link>
+
+          <Link
+            to="GuardAnnouncement"
+            className="block p-2 rounded hover:bg-gray-100 font-medium"
+          >
+            Announcement
+          </Link>
+
+          <Link
+            to="GuardLogBook"
+            className="block p-2 rounded hover:bg-gray-100 font-medium"
+          >
+            Log Book
+          </Link>
+
+          <Link
+            to="GuardReqCOE"
+            className="block p-2 rounded hover:bg-gray-100 font-medium"
+          >
+            Request COE
+          </Link>
+
+          <Link
+            to="hirings"
+            className="block p-2 rounded hover:bg-gray-100 font-medium"
+          >
+            Hirings
+          </Link>
+
+          {/* Attendance Dropdown */}
+          <div>
+            <button
+              onClick={() => setOpenAttendance(!openAttendance)}
+              className="w-full text-left p-2 rounded hover:bg-gray-100 font-medium"
+            >
+              Attendance
+            </button>
+
+            {openAttendance && (
+              <ul className="ml-4 mt-1 space-y-1 text-sm">
                 <li>
-                  <NavLink
+                  <Link
                     to="GuardAttendanceTimeIn"
-                    className={({ isActive }) =>
-                      isActive ? "text-blue-600" : "hover:text-blue-600"
-                    }
+                    className="block p-2 rounded hover:bg-gray-100"
                   >
                     Time In
-                  </NavLink>
+                  </Link>
                 </li>
                 <li>
-                  <NavLink
+                  <Link
                     to="GuardAttendanceTimeOut"
-                    className={({ isActive }) =>
-                      isActive ? "text-blue-600" : "hover:text-blue-600"
-                    }
+                    className="block p-2 rounded hover:bg-gray-100"
                   >
                     Time Out
-                  </NavLink>
+                  </Link>
                 </li>
               </ul>
-            </li>
-            <li>
-              <NavLink
-                to="GuardDetachment"
-                className={({ isActive }) =>
-                  `block px-3 py-2 rounded-md font-medium transition ${
-                    isActive ? "bg-blue-100 text-blue-600" : "hover:bg-gray-100"
-                  }`
-                }
-              >
-                📄 Detachment / Deployment
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="GuardAnnouncement"
-                className={({ isActive }) =>
-                  `block px-3 py-2 rounded-md font-medium transition ${
-                    isActive ? "bg-blue-100 text-blue-600" : "hover:bg-gray-100"
-                  }`
-                }
-              >
-                📢 Announcement
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="GuardLogBook"
-                className={({ isActive }) =>
-                  `block px-3 py-2 rounded-md font-medium transition ${
-                    isActive ? "bg-blue-100 text-blue-600" : "hover:bg-gray-100"
-                  }`
-                }
-              >
-                🔄 Log Book
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="GuardReqCOE"
-                className={({ isActive }) =>
-                  `block px-3 py-2 rounded-md font-medium transition ${
-                    isActive ? "bg-blue-100 text-blue-600" : "hover:bg-gray-100"
-                  }`
-                }
-              >
-                📑 Request COE
-              </NavLink>
-            </li>
-            
-            <li>
-              <NavLink
-                to="hirings"
-                className={({ isActive }) =>
-                  `block px-3 py-2 rounded-md font-medium transition ${
-                    isActive ? "bg-blue-100 text-blue-600" : "hover:bg-gray-100"
-                  }`
-                }
-              >
-                📝 Hirings
-              </NavLink>
-            </li>
-          </ul>
+            )}
+          </div>
+
+          <button className="w-full text-left p-2 rounded hover:bg-gray-100 font-medium">
+            <Link to="/">Logout</Link>
+          </button>
         </nav>
       </aside>
 

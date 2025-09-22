@@ -62,7 +62,7 @@ export default function GuardTable() {
       <div className="flex-1 flex flex-col p-4 md:p-6">
         {/* Header with Filters & Search */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
-          <h2 className="text-xl text-white font-bold">Admin Hiring Posts</h2>
+          <h2 className="text-xl text-white font-bold fi">Guards Profile</h2>
 
           <div className="flex flex-col sm:flex-row gap-2">
             <select
@@ -87,20 +87,20 @@ export default function GuardTable() {
         </div>
 
         {/* Table Container (scrollable on small screens) */}
-        <div className="overflow-x-auto flex-1">
+        <div className="overflow-x-auto flex-1  bg-white shadow-md rounded-lg">
           <table className="w-full min-w-[800px] border-collapse rounded-lg overflow-hidden">
-            <thead className="bg-gray-500 text-white text-sm md:text-base">
+            <thead className="bg-gray-500 text-white text-sm md:text-base sticky top-0 z-10">
               <tr>
-                <th className="p-3 text-left">Guard Name</th>
-                <th className="p-3 text-left">Guard ID</th>
-                <th className="p-3 text-left">Hiring Date</th>
-                <th className="p-3 text-left">Tenure</th>
-                <th className="p-3 text-left">Position</th>
-                <th className="p-3 text-left">Status</th>
-                <th className="p-3 text-left">Address</th>
-                <th className="p-3 text-left">Contact</th>
-                <th className="p-3 text-left">Email</th>
-                <th className="p-3 text-left">Role</th>
+                <th className="p-3 text-left w-40">Guard Name</th>
+                <th className="p-3 text-left w-24">Guard ID</th>
+                <th className="p-3 text-left w-32">Hiring Date</th>
+                <th className="p-3 text-left w-28">Tenure</th>
+                <th className="p-3 text-left w-40">Position</th>
+                <th className="p-3 text-left w-32">Status</th>
+                <th className="p-3 text-left w-48">Address</th>
+                <th className="p-3 text-left w-32">Contact</th>
+                <th className="p-3 text-left w-56">Email</th>
+                <th className="p-3 text-left w-32">Role</th>
               </tr>
             </thead>
             <tbody>
@@ -108,7 +108,7 @@ export default function GuardTable() {
                 filteredData.map((g, i) => (
                   <tr
                     key={i}
-                    className="border-t border-gray-700 text-white hover:bg-gray-700 text-sm md:text-base"
+                    className="border-t border-gray-700 hover:bg-gray-200 text-sm md:text-base"
                   >
                     <td className="p-3">{g.name}</td>
                     <td className="p-3">{g.id}</td>
