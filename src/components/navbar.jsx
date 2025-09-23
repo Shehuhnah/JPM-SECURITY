@@ -13,9 +13,9 @@ import {
   FaChevronDown,
 } from "react-icons/fa";
 
-// Import avatar and logo from assets
-import avatar from "../assets/gerard.jpg";   // adjust filename to match your file
-import logo from "../assets/jpmlogo.png";   // adjust filename to match your file
+
+import avatar from "../assets/gerard.jpg";  
+import logo from "../assets/jpmlogo.png";   
 
 export default function Navbar() {
   const [openDropdown, setOpenDropdown] = useState(false);
@@ -24,7 +24,9 @@ export default function Navbar() {
     <div className="w-64 bg-white border-r shadow min-h-screen flex flex-col">
       {/* Logo */}
       <div className="flex items-center justify-center py-6 border-b px-4">
-        <img src={logo} alt="logo" className="w-12 h-12 mr-2" />
+        <Link to="/">
+         <img src={logo} alt="logo" className="w-12 h-12" />
+        </Link>
         <span className="font-bold text-gray-800 text-lg text-center">
           JPM SECURITY AGENCY
         </span>
@@ -146,7 +148,7 @@ export default function Navbar() {
         </Link>
 
         <Link
-          to="/admin/AdminAttendance"
+          to="/Admin/AdminAttendance"
           className="flex items-center gap-3 p-2 rounded hover:bg-gray-100"
         >
           <FaRegClock />

@@ -10,7 +10,9 @@ export default function GuardsLayout() {
     <div className="flex min-h-screen bg-gray-900">
       <aside className="w-64 bg-white shadow-md flex flex-col items-center">
        <div className="flex items-center justify-center py-6 border-b px-4">
-               <img src={logo} alt="logo" className="w-12 h-12" />
+               <Link to="/">
+                  <img src={logo} alt="logo" className="w-12 h-12" />
+              </Link>
                <span className="font-bold text-gray-800 text-lg text-center">
                  JPM SECURITY AGENCY
                </span>

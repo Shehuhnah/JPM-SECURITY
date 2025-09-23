@@ -86,7 +86,7 @@ export default function GuardTable() {
           </div>
         </div>
 
-        {/* Table Container (scrollable on small screens) */}
+        {/* Table Container */}
         <div className="overflow-x-auto flex-1  bg-white shadow-md rounded-lg">
           <table className="w-full min-w-[800px] border-collapse rounded-lg overflow-hidden">
             <thead className="bg-gray-500 text-white text-sm md:text-base sticky top-0 z-10">

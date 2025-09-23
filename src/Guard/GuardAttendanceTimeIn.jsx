@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 
 function GuardAttendanceTimeIn() {
   const user = JSON.parse(localStorage.getItem("loggedInUser"));
@@ -22,7 +23,7 @@ function GuardAttendanceTimeIn() {
         </div>
 
         <button className="mt-4 bg-[#708993]  hover:bg-[#A1C2BD] transition text-white px-6 py-2 rounded-md">
-          SUBMIT
+          <Link to="/Guard/GuardAttendanceTimeOut"> SUBMIT</Link>
         </button>
       </main>
     </div>
