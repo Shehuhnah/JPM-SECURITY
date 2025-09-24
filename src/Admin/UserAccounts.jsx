@@ -107,7 +107,7 @@ export default function UserAccounts() {
       <Navbar />
 
       <main className="flex-1 p-6">
-        <h2 className="text-2xl text-black font-bold text-white ">Users</h2>
+        <h2 className="text-2xl font-bold text-white ">Users</h2>
 
         {/* Add User Button */}
         <div className="flex justify-end mb-4">
