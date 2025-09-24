@@ -113,7 +113,7 @@ export default function AdminHiring() {
 
             <button
               onClick={handlePost}
-              className="bg-green-900 hover:bg-green-700 text-white px-6 py-2 rounded-lg shadow"
+              className="bg-gray-900 hover:bg-gray-700 text-white px-6 py-2 rounded-lg shadow"
             >
               Post
             </button>

@@ -51,7 +51,7 @@ export default function CompanyDetails() {
       date: new Date().toLocaleString(),
     };
 
-    setPosts([newPost, ...posts]); // add new post to top
+    setPosts([newPost, ...posts]); 
     setNewText("");
     setImage(null);
   };
@@ -84,11 +84,11 @@ export default function CompanyDetails() {
             </select>
           </div>
           <button
-            onClick={handlePost}
-            className="bg-[#183D3D] hover:bg-[#5C8374] text-white px-4 py-2 rounded"
-          >
-            POST
-          </button>
+              onClick={handlePost}
+              className="bg-gray-900 hover:bg-gray-700 text-white px-6 py-2 rounded-lg shadow"
+            >
+              Post
+            </button>
         </div>
 
         {/* Posts list */}

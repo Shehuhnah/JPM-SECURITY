@@ -103,23 +103,17 @@ export default function UserAccounts() {
 
   return (
     <div
-      className="min-h-screen bg-center bg-repeat text-white flex itemsjustify-center "
-      style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23333' fill-opacity='0.15'%3E%3Cpath d='M0 0h10v10H0zM10 10h10v10H10z'/%3E%3C/g%3E%3C/svg%3E")`,
-        backgroundColor: "#111",
-        backgroundSize: "40px 40px",
-      }}
-    >
+      className="flex min-h-screen bg-[#0f172a]">
       <Navbar />
 
-      <main className="flex-1 p-6 bg-gray-100">
-        <h2 className="text-2xl text-black font-bold ">Users</h2>
+      <main className="flex-1 p-6">
+        <h2 className="text-2xl text-black font-bold text-white ">Users</h2>
 
         {/* Add User Button */}
         <div className="flex justify-end mb-4">
           <button
             onClick={() => setShowForm(!showForm)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow"
+            className="bg-[#456882] hover:bg-[#234C6A] text-white px-4 py-2 rounded-lg shadow"
           >
             {showForm ? "Close Form" : "Add new users"}
           </button>
@@ -181,7 +175,7 @@ export default function UserAccounts() {
             </div>
             <button
               onClick={handleAddUser}
-              className="mt-4 bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg shadow"
+              className="mt-4 bg-[#234C6A] hover:bg-[#456882] px-6 py-2 rounded-lg shadow text-white"
             >
               Save User
             </button>
