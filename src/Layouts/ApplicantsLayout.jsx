@@ -38,7 +38,7 @@ export default function ApplicantsLayout() {
           </Link>
 
           <Link
-            to="Apllicants/ApplicantsCompanyDetails"
+            to="Apicants/ApplicantsCompanyDetails"
             className="block p-2 rounded hover:bg-gray-100 font-medium"
           >
             Company Details

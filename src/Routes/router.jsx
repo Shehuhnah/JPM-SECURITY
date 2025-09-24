@@ -5,6 +5,8 @@ import { useRoutes } from "react-router-dom";
 import RootLayout from "../Layouts/RootLayout.jsx";
 import AdminLayout from "../Layouts/AdminLayout.jsx";
 import GuardsLayout from "../Layouts/GuardsLayout.jsx";
+import ApplicantsLayout from "../Layouts/ApplicantsLayout.jsx";
+import SubAdminLayout from "../Layouts/SubAdminLayout.jsx";
 
 // Components
 import MainPage from "../components/MainPage.jsx";
@@ -30,6 +32,22 @@ import GuardLogBook from "../Guard/GuardLogBook.jsx";
 import GuardReqCOE from "../Guard/GuardReqCOE.jsx";
 import GuardAttendanceTimeIn from "../Guard/GuardAttendanceTimeIn.jsx";
 import GuardAttendanceTimeOut from "../Guard/GuardAttendanceTimeOut.jsx";
+
+// Applicants pages
+import ApplicantsCompanyDetails from "../Applicants/ApplicantsCompanyDetails.jsx";
+import ApplicantsHiringDetails from "../Applicants/ApplicantsHiringDetails.jsx";
+import ApplicantsMessages from "../Applicants/ApplicantsMessages.jsx";  
+
+// SubAdmin pages
+import SubAnnouncement from "../SubAdmin/SubAnnouncement.jsx";
+import SubApplicantResume from "../SubAdmin/SubApplicantResume.jsx";
+import SubCompanyDetails from "../SubAdmin/SubCompanyDetails.jsx";
+import SubGuardAttendance from "../SubAdmin/SubGuardAttendance.jsx";
+import SubGuardMessages from "../SubAdmin/SubGuardMessages.jsx";  
+import SubGuardSchedule from "../SubAdmin/SubGuardSchedule.jsx";
+import SubGuardUpdates from "../SubAdmin/SubGuardUpdates.jsx";
+import SubHiring from "../SubAdmin/SubHiring.jsx";
+import SubLogin from "../SubAdmin/SubLogin.jsx";
 
 
 const Router = () => {
@@ -65,6 +83,30 @@ const Router = () => {
             { path: "GuardAnnouncement", element: <GuardAnnouncement /> },
             { path: "GuardLogBook", element: <GuardLogBook /> },
             { path: "GuardReqCOE", element: <GuardReqCOE /> },
+          ],
+        },
+        {
+          path: "Applicants",
+          element: <ApplicantsLayout />,
+          children: [
+            { path: "ApplicantsCompanyDetails", element: <ApplicantsCompanyDetails /> },
+            { path: "ApplicantsHiringDetails", element: <ApplicantsHiringDetails /> },
+            { path: "ApplicantsMessages", element: <ApplicantsMessages /> }
+          ],
+        },
+        {
+          path: "SubAdmin",
+          element: <SubAdminLayout />,
+          children: [
+            { path: "SubAnnouncement", element: <SubAnnouncement /> },
+            { path: "SubApplicantResume", element : <SubApplicantResume /> },
+            { path: "SubCompanyDetails", element: <SubCompanyDetails /> },
+            { path: "SubGuardAttendance", element: <SubGuardAttendance /> },
+            { path: "SubGuardMessages", element: <SubGuardMessages /> },
+            { path: "SubGuardSchedule", element: <SubGuardSchedule /> },
+            { path: "SubGuardUpdates", element: <SubGuardUpdates /> },
+            { path: "SubHiring", element: <SubHiring /> },
+            { path: "SubLogin", element: <SubLogin /> }
           ],
         },
         { path: "navbar", element: <Navbar /> },

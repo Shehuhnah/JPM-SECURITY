@@ -1,7 +1,6 @@
 
 import React from "react";
 import ApplicantsLayout from "../Layouts/ApplicantsLayout";
-import Navbar from "../Applicants/ApplicantsLayout";
 
 const ApplicantsHiringDetails = () => {
   const hirings = [
