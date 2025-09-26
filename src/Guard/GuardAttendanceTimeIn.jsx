@@ -4,28 +4,40 @@ function GuardAttendanceTimeIn() {
   const user = JSON.parse(localStorage.getItem("loggedInUser"));
 
   return (
-    <div className="flex min-h-screen">
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center">
-        <div className="bg-[#A1C2BD] w-60 h-60 rounded-xl flex flex-col items-center justify-center">
-          <div className="w-20 h-20 border-2 border-gray-500 rounded-full flex items-center justify-center">
-            👤
+    <div className="flex min-h-screen bg-gray-100 items-center justify-center p-4">
+      {/* Card Container */}
+      <div className="bg-gradient-to-br from-white to-gray-100 shadow-xl rounded-2xl w-full max-w-md p-8 flex flex-col items-center">
+        {/* Avatar */}
+        <div className="w-28 h-28 rounded-full bg-gradient-to-tr from-[#A1C2BD] to-[#708993] flex items-center justify-center shadow-md mb-6 text-4xl">
+          👤
+        </div>
+
+        {/* User Info */}
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+            {user?.fullName?.toUpperCase() || "GUARD NAME"}
+          </h2>
+          <div className="text-gray-600 space-y-1">
+            <p>
+              <span className="font-medium text-gray-700">Date:</span> —
+            </p>
+            <p>
+              <span className="font-medium text-gray-700">Time In:</span> —
+            </p>
+            <p>
+              <span className="font-medium text-gray-700">Place:</span> —
+            </p>
           </div>
         </div>
 
-        <div className="mt-4 text-center text-white">
-          <h2 className="font-bold text-lg text-white">
-            {user?.fullName?.toUpperCase() || "GUARD NAME"}
-          </h2>
-          <p>Date: </p>
-          <p>Time In: </p>
-          <p>Place: </p>
-        </div>
-
-        <button className="mt-4 bg-[#708993]  hover:bg-[#A1C2BD] transition text-white px-6 py-2 rounded-md">
-          <Link to="/Guard/GuardAttendanceTimeOut"> SUBMIT</Link>
-        </button>
-      </main>
+        {/* Submit Button */}
+        <Link
+          to="/Guard/GuardAttendanceTimeOut"
+          className="w-full bg-[#708993] hover:bg-[#A1C2BD] transition-colors text-white font-semibold py-3 rounded-xl shadow-lg text-center"
+        >
+          SUBMIT
+        </Link>
+      </div>
     </div>
   );
 }

@@ -1,25 +1,43 @@
 import { useState } from "react";
 import { Link, Outlet } from "react-router-dom";
+import {
+  Shield,
+  Megaphone,
+  BookOpen,
+  FileText,
+  Briefcase,
+  Clock,
+  LogOut,
+} from "lucide-react";
 
-import logo from "../assets/jpmlogo.png"; 
+import logo from "../assets/jpmlogo.png";
 
 export default function GuardsLayout() {
   const [openAttendance, setOpenAttendance] = useState(false);
 
-  return (
-    <div className="flex min-h-screen bg-gray-900">
-      <aside className="w-64 bg-white shadow-md flex flex-col items-center">
-       <div className="flex items-center justify-center py-6 border-b px-4">
-               <Link to="/">
-                  <img src={logo} alt="logo" className="w-12 h-12" />
-              </Link>
-               <span className="font-bold text-gray-800 text-lg text-center">
-                 JPM SECURITY AGENCY
-               </span>
-             </div>
-       
+  const navItems = [
+    { to: "/Guard/GuardDetachment", label: "Detachment / Deployment", icon: <Shield size={18} /> },
+    { to: "/Guard/GuardAnnouncement", label: "Announcement", icon: <Megaphone size={18} /> },
+    { to: "/Guard/GuardLogBook", label: "Log Book", icon: <BookOpen size={18} /> },
+    { to: "/Guard/GuardReqCOE", label: "Request COE", icon: <FileText size={18} /> },
+    { to: "/Guard/hirings", label: "Hirings", icon: <Briefcase size={18} /> },
+  ];
 
-        {/* Profile (temporary icon) */}
+  return (
+    <div className="flex min-h-screen ">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white shadow-md flex flex-col items-center">
+        {/* Logo */}
+        <div className="flex items-center justify-center py-6 border-b px-4 ">
+          <Link to="/">
+            <img src={logo} alt="logo" className="w-18 h-15" />
+          </Link>
+          <span className="font-bold text-gray-800 text-lg text-center ">
+            JPM SECURITY AGENCY
+          </span>
+        </div>
+
+        {/* Profile */}
         <div className="flex flex-col items-center mt-6 mb-6">
           <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center text-2xl">
             👤
@@ -30,58 +48,35 @@ export default function GuardsLayout() {
 
         {/* Navigation */}
         <nav className="w-full flex-1 px-6 space-y-2 text-gray-700">
-          <Link
-            to="GuardDetachment"
-            className="block p-2 rounded hover:bg-gray-100 font-medium"
-          >
-            Detachment / Deployment
-          </Link>
-
-          <Link
-            to="GuardAnnouncement"
-            className="block p-2 rounded hover:bg-gray-100 font-medium"
-          >
-            Announcement
-          </Link>
-
-          <Link
-            to="GuardLogBook"
-            className="block p-2 rounded hover:bg-gray-100 font-medium"
-          >
-            Log Book
-          </Link>
-
-          <Link
-            to="GuardReqCOE"
-            className="block p-2 rounded hover:bg-gray-100 font-medium"
-          >
-            Request COE
-          </Link>
-
-          <Link
-            to="hirings"
-            className="block p-2 rounded hover:bg-gray-100 font-medium"
-          >
-            Hirings
-          </Link>
+          {navItems.map(({ to, label, icon }) => (
+            <Link
+              key={to}
+              to={to}
+              className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 font-medium"
+            >
+              {icon}
+              <span>{label}</span>
+            </Link>
+          ))}
 
           {/* Attendance Dropdown */}
           <div>
             <button
               onClick={() => setOpenAttendance(!openAttendance)}
-              className="w-full text-left p-2 rounded hover:bg-gray-100 font-medium"
+              className="flex items-center gap-2 w-full text-left p-2 rounded hover:bg-gray-100 font-medium"
             >
-              Attendance
+              <Clock size={18} />
+              <span>Attendance</span>
             </button>
 
             {openAttendance && (
-              <ul className="ml-4 mt-1 space-y-1 text-sm">
+              <ul className="ml-6 mt-1 space-y-1 text-sm">
                 <li>
                   <Link
                     to="GuardAttendanceTimeIn"
                     className="block p-2 rounded hover:bg-gray-100"
                   >
-                    Time In
+                    ⏱ Time In
                   </Link>
                 </li>
                 <li>
@@ -89,21 +84,26 @@ export default function GuardsLayout() {
                     to="GuardAttendanceTimeOut"
                     className="block p-2 rounded hover:bg-gray-100"
                   >
-                    Time Out
+                    ⏱ Time Out
                   </Link>
                 </li>
               </ul>
             )}
           </div>
 
-          <button className="w-full text-left p-2 rounded hover:bg-gray-100 font-medium">
-            <Link to="/">Logout</Link>
-          </button>
+          {/* Logout */}
+          <Link
+            to="/"
+            className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 font-medium text-red-600"
+          >
+            <LogOut size={18} />
+            <span>Logout</span>
+          </Link>
         </nav>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-6">
+      <main className="flex-1">
         <Outlet />
       </main>
     </div>
