@@ -4,7 +4,7 @@ function GuardAttendanceTimeIn() {
   const user = JSON.parse(localStorage.getItem("loggedInUser"));
 
   return (
-    <div className="flex min-h-screen bg-gray-100 items-center justify-center p-4">
+    <div className="flex min-h-screen bg-[#0f172a] items-center justify-center p-4 ">
       {/* Card Container */}
       <div className="bg-gradient-to-br from-white to-gray-100 shadow-xl rounded-2xl w-full max-w-md p-8 flex flex-col items-center">
         {/* Avatar */}

@@ -3,7 +3,7 @@ function GuardAttendanceTimeOut() {
   const user = JSON.parse(localStorage.getItem("loggedInUser"));
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-[#0f172a]">
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center">
         <div className="bg-[#A1C2BD] w-60 h-60 rounded-xl flex flex-col items-center justify-center">
