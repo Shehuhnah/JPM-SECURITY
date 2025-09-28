@@ -37,13 +37,8 @@ const ApplicantsHiringDetails = () => {
   ];
 
   return (
-    <ApplicantsLayout>
-      {/*Header */}
-      <header className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
-        <ApplicantsLayout />
-        <h1 className="text-center text-2xl font-bold py-4">HIRINGS</h1>
-      </header>
-
+    <>
+    <header className="text-center text-2xl font-bold py-4 bg-gray-700">HIRINGS</header>
       {}
       <main className="flex min-h-screen bg-[#0f172a]">
         {hirings.map((job) => (
@@ -99,7 +94,7 @@ const ApplicantsHiringDetails = () => {
           </div>
         ))}
       </main>
-    </ApplicantsLayout>
+      </>
   );
 };
 

@@ -61,7 +61,7 @@ export default function Navbar() {
         </Link>
 
         <Link
-          to="/Admin/AdminGuardUpdate"
+          to="/Admin/AdminGuardUpdates"
           className="flex items-center gap-3 p-2 rounded hover:bg-gray-100"
         >
           <FaUserShield />

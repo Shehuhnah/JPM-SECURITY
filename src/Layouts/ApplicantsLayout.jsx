@@ -7,7 +7,7 @@ export default function ApplicantsLayout() {
   const [openAttendance, setOpenAttendance] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-gray-900">
+    <div className="flex min-h-screen  bg-[#0f172a]">
       <aside className="w-64 bg-white shadow-md flex flex-col items-center">
        <div className="flex items-center justify-center py-6 border-b px-4">
                <Link to="/">

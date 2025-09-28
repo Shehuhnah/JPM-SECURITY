@@ -89,7 +89,7 @@ export default function AnnouncementPage() {
     <div className="h-screen flex flex-col bg-[#1B3C53]">
     {/* Page Header */}
     <header className="sticky top-0 bg-gray-900 shadow-md z-10">
-      <h1 className="text-3xl font-extrabold text-center py-8 text-gray-900 tracking-wide text-white">
+      <h1 className="text-3xl font-extrabold text-center py-8 tracking-wide text-white">
         📢IMPORTANT ANNOUNCEMENTS
       </h1>
     </header>

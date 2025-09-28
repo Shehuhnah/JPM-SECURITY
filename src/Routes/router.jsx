@@ -23,6 +23,8 @@ import CompanyDetails from "../Admin/CompanyDetails.jsx";
 import AdminGuardsProfile from "../Admin/AdminGuardsProfile.jsx";
 import AdminCOE from "../Admin/AdminCOE.jsx";
 import AdminAttendance from "../Admin/AdminAttendance.jsx";
+import GuardUpdates from "../Admin/AdminGuardUpdates.jsx";
+import GuardUpdates2 from "../Admin/AdminGuardUpdates2.jsx";
 
 // Guard pages
 import GuardLogin from "../Guard/GuardLogin.jsx";
@@ -69,7 +71,10 @@ const Router = () => {
             { path: "CompanyDetails", element: <CompanyDetails /> },
             { path: "AdminGuardsProfile", element: <AdminGuardsProfile />},
             { path: "AdminCOE", element: <AdminCOE /> },
-            { path: "AdminAttendance", element: <AdminAttendance /> }
+            { path: "AdminAttendance", element: <AdminAttendance /> },
+            { path: "guard-updates", element: <GuardUpdates /> },
+            { path: "guard-updates2/:id", element: <GuardUpdates2 /> },
+
           ],
         },
         {
