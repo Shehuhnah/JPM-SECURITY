@@ -79,15 +79,19 @@ const Router = () => {
         },
         {
           path: "guard",
-          element: <GuardsLayout />,
           children: [
-            { path: "GuardAttendanceTimeIn", element: <GuardAttendanceTimeIn /> },
-            { path: "GuardAttendanceTimeOut", element: <GuardAttendanceTimeOut /> },
-            { path: "GuardLogin", element: <GuardLogin /> },
-            { path: "GuardDetachment", element: <GuardDetachment /> },
-            { path: "GuardAnnouncement", element: <GuardAnnouncement /> },
-            { path: "GuardLogBook", element: <GuardLogBook /> },
-            { path: "GuardReqCOE", element: <GuardReqCOE /> },
+            { path: "GuardLogin", element: <GuardLogin /> }, // ⬅️ not wrapped in GuardsLayout
+            {
+              element: <GuardsLayout />,
+              children: [
+                { path: "GuardAttendanceTimeIn", element: <GuardAttendanceTimeIn /> },
+                { path: "GuardAttendanceTimeOut", element: <GuardAttendanceTimeOut /> },
+                { path: "GuardDetachment", element: <GuardDetachment /> },
+                { path: "GuardAnnouncement", element: <GuardAnnouncement /> },
+                { path: "GuardLogBook", element: <GuardLogBook /> },
+                { path: "GuardReqCOE", element: <GuardReqCOE /> },
+              ],
+            },
           ],
         },
         {
@@ -101,17 +105,21 @@ const Router = () => {
         },
         {
           path: "SubAdmin",
-          element: <SubAdminLayout />,
-          children: [
-            { path: "SubAnnouncement", element: <SubAnnouncement /> },
-            { path: "SubApplicantResume", element : <SubApplicantResume /> },
-            { path: "SubCompanyDetails", element: <SubCompanyDetails /> },
-            { path: "SubGuardAttendance", element: <SubGuardAttendance /> },
-            { path: "SubGuardMessages", element: <SubGuardMessages /> },
-            { path: "SubGuardSchedule", element: <SubGuardSchedule /> },
-            { path: "SubGuardUpdates", element: <SubGuardUpdates /> },
-            { path: "SubHiring", element: <SubHiring /> },
-            { path: "SubLogin", element: <SubLogin /> }
+          children:[
+            { path: "SubLogin", element: <SubLogin /> },
+            {
+              element: <SubAdminLayout />,
+              children: [
+                { path: "SubAnnouncement", element: <SubAnnouncement /> },
+                { path: "SubApplicantResume", element : <SubApplicantResume /> },
+                { path: "SubCompanyDetails", element: <SubCompanyDetails /> },
+                { path: "SubGuardAttendance", element: <SubGuardAttendance /> },
+                { path: "SubGuardMessages", element: <SubGuardMessages /> },
+                { path: "SubGuardSchedule", element: <SubGuardSchedule /> },
+                { path: "SubGuardUpdates", element: <SubGuardUpdates /> },
+                { path: "SubHiring", element: <SubHiring /> },
+              ],
+            },
           ],
         },
         { path: "navbar", element: <Navbar /> },

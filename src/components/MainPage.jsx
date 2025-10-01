@@ -29,7 +29,7 @@ function MainPage() {
             <h1 className="text-2xl font-bold text-center">JPM SECURITY AGENCY</h1>
             <p className="text-lg text-center">What type of user are you?</p>
 
-            <div className="fixed-center grid grid-cols-1 md:grid-cols-2 lg:grid-cols- gap-7 text-center mt-10">
+            <div className="fixed-center grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xs:grid-cols-2 gap-7 text-center mt-10 px-1">
               {/* Guard */}
               <div className="bg-white rounded-xl shadow p-4 flex flex-col justify-center items-center">
                 <FaUsers className="text-5xl text-black mb-2 text-center" />
@@ -43,9 +43,12 @@ function MainPage() {
               <div className="bg-white rounded-xl shadow p-4 flex flex-col justify-center items-center">
                 <FaUser className="text-5xl text-black mb-2" />
                 <h2 className="text-lg font-semibold mb-2 text-black">Sub-Admin</h2>
-                <button className="bg-black hover:bg-gray-600 text-white font-medium px-6 py-2 rounded-full text-base transition-all duration-300 w-full md:w-auto">
-                  <Link to="/components/SubDashboard"> Click this</Link>
-                </button>
+                <Link
+                  to="/SubAdmin/SubLogin"
+                  className="bg-black hover:bg-gray-600 text-white font-medium px-6 py-2 rounded-full text-base transition-all duration-300 w-full md:w-auto flex justify-center"
+                >
+                  Click this
+                </Link>
               </div>
 
               {/* Applicant */}

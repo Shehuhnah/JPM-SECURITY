@@ -1,119 +1,94 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
-
-
-function LoginForm({ onSwitch }) {
-const navigate = useNavigate();
+export default function LoginForm() {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [rememberMe, setRememberMe] = useState(false);
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    // Auto login if "rememberMe" was checked before
-    const loggedInUser = localStorage.getItem("loggedInUser");
-    if (loggedInUser) {
-      setMessage(`✅ Welcome back, ${JSON.parse(loggedInUser).fullName}!`);
-    }
-  }, []);
+  // useEffect(() => {
+  //   if (message) {
+  //     const timer = setTimeout(() => setMessage(""), 3000);
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [message]);
 
-  useEffect(() => {
-    if (message) {
-      const timer = setTimeout(() => setMessage(""), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [message]);
+  // const handleChange = (e) => {
+  //   setFormData({ ...formData, [e.target.name]: e.target.value });
+  // };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    const savedUser = JSON.parse(localStorage.getItem("userData"));
-    if (!savedUser) {
-      setMessage("❌ No user found. Please register first.");
-      return;
-    }
-
-    const isPasswordMatch = await bcrypt.compare(
-      formData.password,
-      savedUser.password
-    );
-
-    if (savedUser.email === formData.email && isPasswordMatch) {
-      setMessage(`✅ Welcome back, ${savedUser.fullName}!`);
-
-      if (rememberMe) {
-        localStorage.setItem("loggedInUser", JSON.stringify(savedUser));
-      } else {
-        sessionStorage.setItem("loggedInUser", JSON.stringify(savedUser));
-      }
-    } else {
-      setMessage("❌ Invalid email or password.");
-    }
-  };
+  // const handleSubmit = (e) => {
+  //   e.preventDefault();
+  //   // For now just simulate login
+  //   if (formData.email && formData.password) {
+  //     setMessage(`✅ Welcome, ${formData.email}`);
+  //   } else {
+  //     setMessage("❌ Please fill in all fields.");
+  //   }
+  // };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-[#0f172a]">
+    <div className="flex justify-center items-center min-h-screen bg-[#0f172a] px-4">
       <form
-        onSubmit={handleSubmit}
-        className="bg-white shadow-md rounded-xl px-8 pt-6 pb-8 w-96"
+        // onSubmit={handleSubmit}
+        className="bg-white shadow-lg rounded-xl px-8 pt-6 pb-8 w-full max-w-md"
       >
-        <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
+        <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
+          Login
+        </h2>
 
         {message && (
           <div className="mb-4 p-2 text-sm text-white bg-blue-500 rounded-md text-center">
-            {message}
+            {/* {message} */}
           </div>
         )}
 
-        <label className="block mb-2 text-sm font-medium">Email</label>
-        <input
-          type="email"
-          name="email"
-          value={formData.email}
-          onChange={handleChange}
-          // required
-          className="w-full p-2 mb-4 border rounded-md focus:ring-2 focus:ring-blue-400"
-        />
-
-        <label className="block mb-2 text-sm font-medium">Password</label>
-        <input
-          type="password"
-          name="password"
-          value={formData.password}
-          onChange={handleChange}
-          // required
-          className="w-full p-2 mb-4 border rounded-md focus:ring-2 focus:ring-blue-400"
-        />
-
-        <div className="flex items-center mb-4">
+        {/* Email */}
+        <div className="mb-4">
+          <label className="block mb-2 text-sm font-medium text-gray-700">
+            Email
+          </label>
           <input
-            type="checkbox"
-            checked={rememberMe}
-            onChange={(e) => setRememberMe(e.target.checked)}
-            className="mr-2"
+            type="email"
+            name="email"
+            // value={formData.email}
+            // onChange={handleChange}
+            className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-400 focus:outline-none"
           />
-          <span className="text-sm">Remember Me</span>
         </div>
 
-        <button
-          type="submit"
+        {/* Password */}
+        <div className="mb-4">
+          <label className="block mb-2 text-sm font-medium text-gray-700">
+            Password
+          </label>
+          <input
+            type="password"
+            name="password"
+            // value={formData.password}
+            // onChange={handleChange}
+            className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-400 focus:outline-none"
+          />
+        </div>
+
+        {/* Remember Me */}
+        <div className="flex items-center mb-6">
+          <input
+            type="checkbox"
+            // checked={rememberMe}
+            // onChange={(e) => setRememberMe(e.target.checked)}
+            className="mr-2"
+          />
+          <span className="text-sm text-gray-600">Remember Me</span>
+        </div>
+
+        {/* Button */}
+        <Link to="/Guard/GuardAnnouncement"
           className="w-full bg-green-900 text-white py-2 px-4 rounded-md hover:bg-green-700 transition"
         >
-          <Link to={'/Guard/GuardAttendanceTimeIn'}>
-            Login
-          </Link>
-        </button>
-
-        
-
-
+          Login
+        </Link>
       </form>
     </div>
   );
 }
-
-export default LoginForm;

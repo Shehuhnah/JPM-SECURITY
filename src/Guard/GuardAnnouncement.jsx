@@ -1,4 +1,4 @@
-import { UserCircle, ShieldUser  } from "lucide-react";
+import { ShieldUser  } from "lucide-react";
 
 export default function AnnouncementPage() {
   const announcements = [
@@ -86,10 +86,10 @@ export default function AnnouncementPage() {
 
 
   return (
-    <div className="h-screen flex flex-col bg-[#1B3C53]">
+    <div className="h-screen flex flex-col bg-[#1B3C53] overflow-y-hidden">
     {/* Page Header */}
-    <header className="sticky top-0 bg-gray-900 shadow-md z-10">
-      <h1 className="text-3xl font-extrabold text-center py-8 tracking-wide text-white">
+    <header className="bg-gray-900 shadow-md ">
+      <h1 className="2xl:text-3xl xs:text-md font-extrabold text-center py-8 xs:py-4 tracking-wide text-white">
         📢IMPORTANT ANNOUNCEMENTS
       </h1>
     </header>
