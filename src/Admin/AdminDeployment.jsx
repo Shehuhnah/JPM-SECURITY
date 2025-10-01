@@ -33,8 +33,6 @@ export default function AdminDeployment() {
 
   return (
     <div className="flex min-h-screen bg-[#0f172a] text-white">
-      <Navbar />
-
       {/* Content Area */}
       <div className="flex-1 p-6 space-y-6">
         {/* Header */}

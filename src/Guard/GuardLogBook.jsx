@@ -11,7 +11,6 @@ export default function GuardLogBook() {
   const [editingId, setEditingId] = useState(null);
   const [editingText, setEditingText] = useState("");
 
-  // Add new update
   const handleAddUpdate = () => {
     if (!newUpdate.trim()) return;
     const now = new Date();
@@ -23,7 +22,6 @@ export default function GuardLogBook() {
     setNewUpdate("");
   };
 
-  // Save edit
   const handleSaveEdit = (id) => {
     const now = new Date();
     const editedAt = now.toLocaleTimeString("en-US", { hour12: false });
@@ -37,7 +35,6 @@ export default function GuardLogBook() {
     setEditingText("");
   };
 
-  // Cancel edit
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditingText("");
