@@ -81,14 +81,14 @@ export default function MessagesPage() {
     <div className="flex h-screen bg-gradient-to-br from-gray-100 to-purple-100">
       {/* Sidebar */}
       <aside className="w-72 border-r bg-white/90 backdrop-blur-md flex flex-col shadow-lg">
-        <h2 className="p-4 text-lg font-bold bg-gradient-to-r from-[#0f172a] to-purple-400 text-white rounded-b-lg shadow">
+        <h2 className="p-4 text-lg font-bold bg-gradient-to-r from-[#1B3C53] to-[#456882] text-white rounded-b-lg shadow">
           Messages
         </h2>
 
         {/* Search bar */}
         <div className="p-3">
           <div className="flex items-center bg-gray-100 rounded-full px-3 py-2">
-            <Search size={16} className="text-gray-500" />
+            <Search size={16} className="text-[#1B3C53]" />
             <input
               type="text"
               placeholder="Search..."
@@ -114,14 +114,14 @@ export default function MessagesPage() {
                 }}
                 className={`flex items-center gap-3 p-3 cursor-pointer transition ${
                   selectedUser.id === user.id
-                    ? "bg-purple-50 border-l-4 border-purple-500"
+                    ? "bg-gray-300 border-l-4 border-[#1B3C53]"
                     : "hover:bg-gray-100"
                 }`}
               >
                 <img
                   src={user.avatar}
                   alt={user.name}
-                  className="w-10 h-10 rounded-full border shadow-sm"
+                  className="w-10 h-10 rounded-full border shadow-sm "
                 />
                 <div className="flex-1">
                   <div className="flex justify-between">
@@ -145,7 +145,7 @@ export default function MessagesPage() {
       {/* Chat Window */}
       <main className="flex-1 flex flex-col bg-white/95 backdrop-blur-md shadow-xl">
         {/* Chat Header */}
-        <div className="p-4 border-b flex items-center gap-3 bg-gradient-to-r from-purple-600 to-[#0f172a] text-white shadow">
+        <div className="p-4 border-b flex items-center gap-3 bg-gradient-to-r from-[#456882] to-[#1B3C53] text-white shadow">
           <img
             src={selectedUser.avatar}
             alt={selectedUser.name}
@@ -155,7 +155,7 @@ export default function MessagesPage() {
             <h3 className="font-semibold">{selectedUser.name}</h3>
             <p className="text-xs opacity-80 flex items-center gap-1">
                 {selectedUser.online && (
-                    <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
+                    <span className="w-2 h-2 bg-[#234C6A] rounded-full inline-block"></span>
                 )}
                 {selectedUser.online ? "Online" : "Offline"}
             </p>
@@ -163,7 +163,7 @@ export default function MessagesPage() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 p-6 overflow-y-auto space-y-3 bg-gradient-to-b from-white to-purple-50">
+        <div className="flex-1 p-6 overflow-y-auto space-y-3 bg-gradient-to-l from-white to-[#234C6A]">
           <div className="flex justify-center">
             <span className="text-xs bg-gray-200 px-3 py-1 rounded-full text-gray-600 shadow-sm">
               Today
@@ -180,12 +180,12 @@ export default function MessagesPage() {
               <div
                 className={`px-4 py-2 rounded-2xl max-w-xs shadow transition-transform transform hover:scale-[1.02] ${
                   msg.sender === "me"
-                    ? "bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-br-none"
-                    : "bg-gray-200 text-gray-800 rounded-bl-none"
+                    ? "bg-[#1B3C53] rounded-br-none text-white"
+                    : "bg-gray-900 text-white rounded-bl-none"
                 }`}
               >
                 {msg.text}
-                <div className="text-[10px] text-gray-400 mt-1">{msg.time}</div>
+                <div className="text-[10px] text-gray-200 mt-1">{msg.time}</div>
               </div>
             </div>
           ))}
@@ -199,11 +199,11 @@ export default function MessagesPage() {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type your message..."
-            className="flex-1 px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-purple-400"
+            className="flex-1 px-4 py-2 border rounded-full focus:outline-none focus:ring-1 focus:ring-gray-700"
           />
           <button
             onClick={handleSend}
-            className="bg-gradient-to-r from-purple-600 to-purple-500 p-2 rounded-full text-white hover:opacity-90 shadow"
+            className="bg-gradient-to-r from-[#1B3C53] to-[#456882] p-2 rounded-full text-white hover:opacity-90 shadow"
           >
             <Send size={18} />
           </button>
