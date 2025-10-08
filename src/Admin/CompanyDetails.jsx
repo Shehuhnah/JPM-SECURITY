@@ -59,10 +59,8 @@ export default function CompanyDetails() {
   return (
     <div
       className="flex min-h-screen bg-[#0f172a]">
-      <Navbar />
       <div className="flex-1 p-6">
         <h2 className="text-xl font-bold mb-4 text-white">Post Company Details</h2>
-
         {/* Post input box */}
         <div className="bg-gray-100 p-4 rounded-lg mb-4 text-black">
           <textarea

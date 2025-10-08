@@ -7,27 +7,26 @@ import {
   FaUser,
   FaRegEnvelope,
   FaRegClipboard,
-  FaBuilding,
   FaUsers,
   FaRegClock,
   FaChevronDown,
 } from "react-icons/fa";
 
-
-import avatar from "../assets/gerard.jpg";  
-import logo from "../assets/jpmlogo.png";   
+import avatar from "../assets/gerard.jpg";
+import logo from "../assets/jpmlogo.png";
 
 export default function Navbar() {
-  const [openDropdown, setOpenDropdown] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState(false); // Posts dropdown
+  const [openCOE, setOpenCOE] = useState(false); // ✅ COE dropdown
 
   return (
-    <div className="w-64 bg-white border-r shadow min-h-screen flex flex-col">
+    <div className="w-64 bg-white border-r shadow min-h-screen flex flex-col overflow-y-auto">
       {/* Logo */}
       <div className="flex items-center justify-center py-6 border-b px-4">
         <Link to="/">
-         <img src={logo} alt="logo" className="w-12 h-12" />
+          <img src={logo} alt="logo" className="w-12 h-12" />
         </Link>
-        <span className="font-bold text-gray-800 text-lg text-center">
+        <span className="font-bold text-gray-800 text-lg text-center ml-2">
           JPM SECURITY AGENCY
         </span>
       </div>
@@ -42,7 +41,7 @@ export default function Navbar() {
         <h3 className="font-semibold text-gray-700">Gerard N.O Way</h3>
       </div>
 
-      {/* Menu */}
+      {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-2 text-gray-700">
         <Link
           to="/Admin/AdminDeployment"
@@ -68,13 +67,53 @@ export default function Navbar() {
           <span>Guard Update</span>
         </Link>
 
-        <Link
-          to="/Admin/AdminCOE"
-          className="flex items-center gap-3 p-2 rounded hover:bg-gray-100"
-        >
-          <FaRegClipboard />
-          <span>Requested COE</span>
-        </Link>
+        {/* ✅ COE DROPDOWN */}
+        <div>
+          <button
+            onClick={() => setOpenCOE(!openCOE)}
+            className="flex items-center justify-between w-full p-2 rounded hover:bg-gray-100"
+          >
+            <div className="flex items-center gap-3">
+              <FaRegClipboard />
+              <span>Certificate of Employment</span>
+            </div>
+            <FaChevronDown
+              className={`transition-transform duration-200 ${
+                openCOE ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {/* Dropdown content */}
+          {openCOE && (
+            <ul className="ml-8 mt-1 space-y-1 text-sm animate-fadeIn">
+              <li>
+                <Link
+                  to="/Admin/AdminCOE"
+                  className="block p-2 rounded hover:bg-gray-100"
+                >
+                  Requested COE
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/Admin/AdminCOEApproved"
+                  className="block p-2 rounded hover:bg-gray-100"
+                >
+                  Approved COE
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/Admin/AdminCOEDeclined"
+                  className="block p-2 rounded hover:bg-gray-100"
+                >
+                  Declined COE
+                </Link>
+              </li>
+            </ul>
+          )}
+        </div>
 
         <Link
           to="/Admin/AdminMessages"
@@ -95,7 +134,7 @@ export default function Navbar() {
               <span>Posts</span>
             </div>
             <FaChevronDown
-              className={`transition-transform ${
+              className={`transition-transform duration-200 ${
                 openDropdown ? "rotate-180" : ""
               }`}
             />
@@ -155,9 +194,9 @@ export default function Navbar() {
           <span>Attendance</span>
         </Link>
 
-        <button
-          
-        ><Link to={'/'}>Logout</Link></button>
+        <button className="w-full mt-4 text-left p-2 text-red-600 hover:bg-gray-100 rounded">
+          <Link to="/">Logout</Link>
+        </button>
       </nav>
     </div>
   );

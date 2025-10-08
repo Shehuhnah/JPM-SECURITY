@@ -45,7 +45,6 @@ export default function GuardAttendancePage() {
 
   return (
     <div className="flex min-h-screen bg-[#0f172a]">
-      <Navbar />
       {/* Main Content */}
       <div className="flex-1 flex flex-col p-4 md:p-6 overflow-x-auto">
         <h2 className="text-xl text-white font-bold pb-3">

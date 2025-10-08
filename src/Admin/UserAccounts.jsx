@@ -102,10 +102,7 @@ export default function UserAccounts() {
   };
 
   return (
-    <div
-      className="flex min-h-screen bg-[#0f172a]">
-      <Navbar />
-
+    <div className="flex min-h-screen bg-[#0f172a]">
       <main className="flex-1 p-6">
         <h2 className="text-2xl font-bold text-white ">Users</h2>
 

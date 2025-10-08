@@ -53,11 +53,6 @@ export default function GuardTable() {
 
   return (
     <div className="flex min-h-screen bg-[#0f172a]">
-      {/* Sidebar */}
-      <div className="w-64 bg-white">
-        <Navbar />
-      </div>
-
       {/* Main Content */}
       <div className="flex-1 flex flex-col p-4 md:p-6">
         {/* Header with Filters & Search */}

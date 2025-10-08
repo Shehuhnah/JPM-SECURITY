@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from "react";
-import Navbar from "../components/navbar";
+import { Image as ImageIcon, Send, Trash2 } from "lucide-react";
 
 export default function AdminHiring() {
-  const [message, setMessage] = useState("");
+  const [title, setTitle] = useState("");
+  const [position, setPosition] = useState("");
+  const [location, setLocation] = useState("");
+  const [employmentType, setEmploymentType] = useState("full-time");
+  const [description, setDescription] = useState("");
   const [audience, setAudience] = useState("all");
   const [image, setImage] = useState(null);
   const [posts, setPosts] = useState([]);
 
-  // Load hiring posts from localStorage
+  // Load posts
   useEffect(() => {
     const savedPosts = localStorage.getItem("hiringPosts");
     if (savedPosts) {
@@ -19,7 +23,7 @@ export default function AdminHiring() {
     }
   }, []);
 
-  // Save hiring posts only when posts changes
+  // Save posts
   useEffect(() => {
     localStorage.setItem("hiringPosts", JSON.stringify(posts));
   }, [posts]);
@@ -29,15 +33,15 @@ export default function AdminHiring() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImage(reader.result); // Base64 string
+        setImage(reader.result);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handlePost = () => {
-    if (!message.trim() && !image) {
-      alert("Please type a hiring announcement or attach an image!");
+    if (!title.trim() || !position.trim() || !description.trim()) {
+      alert("Please fill in at least Title, Position, and Description!");
       return;
     }
 
@@ -50,13 +54,21 @@ export default function AdminHiring() {
         minute: "2-digit",
         hour12: false,
       }),
-      message,
+      title,
+      position,
+      location,
+      employmentType,
+      description,
       audience,
       image,
     };
 
     setPosts([newPost, ...posts]);
-    setMessage("");
+    setTitle("");
+    setPosition("");
+    setLocation("");
+    setEmploymentType("full-time");
+    setDescription("");
     setImage(null);
   };
 
@@ -67,55 +79,103 @@ export default function AdminHiring() {
   };
 
   return (
-    <div
-      className="flex min-h-screen bg-[#0f172a]"
-    >
-      <Navbar />
-
+    <div className="flex min-h-screen bg-[#0f172a]">
       <main className="flex-1 p-6">
-        <h2 className="text-2xl font-bold mb-4 text-white">Admin Hiring Posts</h2>
+        <h2 className="text-2xl font-bold mb-6 text-white">📢 Create Hiring Post</h2>
 
         {/* Post Form */}
-        <div className="p-4 border border-gray-300 rounded-lg mb-6 bg-white shadow text-black">
-          <textarea
-            placeholder="Add new hiring post..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            className="w-full h-24 p-3 rounded-lg border border-gray-900 focus:outline-none focus:ring"
+        <div className="p-6 border border-gray-200 rounded-xl mb-6 bg-white shadow-lg space-y-4">
+          {/* Title */}
+          <input
+            type="text"
+            placeholder="Job Title (e.g. We’re Hiring Security Guards!)"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
 
-          <div className="flex items-center gap-3 mt-3">
+          {/* Position & Location */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="text-sm text-gray-700"
+              type="text"
+              placeholder="Position (e.g. Security Guard)"
+              value={position}
+              onChange={(e) => setPosition(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
-            {image && (
+            <input
+              type="text"
+              placeholder="Location (e.g. Cavite / Client Site)"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          {/* Employment Type */}
+          <select
+            value={employmentType}
+            onChange={(e) => setEmploymentType(e.target.value)}
+            className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:outline-none"
+          >
+            <option value="full-time">Full-time</option>
+            <option value="part-time">Part-time</option>
+            <option value="contractual">Contractual</option>
+            <option value="internship">Internship</option>
+          </select>
+
+          {/* Description */}
+          <textarea
+            placeholder="Job Description, qualifications, requirements..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full h-28 p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+          />
+
+          {/* Image Upload */}
+          {image && (
+            <div className="mt-3 relative w-40 h-40">
               <img
                 src={image}
                 alt="Preview"
-                className="w-16 h-16 object-cover rounded border"
+                className="w-40 h-40 object-cover rounded-lg border"
               />
-            )}
-          </div>
+              <button
+                onClick={() => setImage(null)}
+                className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow hover:bg-red-600"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
-          <div className="flex justify-between items-center mt-3">
+          <div className="flex justify-between items-center mt-4">
+            <label className="flex items-center gap-2 cursor-pointer bg-purple-50 hover:bg-purple-100 text-purple-600 px-3 py-2 rounded-lg text-sm">
+              <ImageIcon size={16} />
+              <span>Attach Image</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="hidden"
+              />
+            </label>
+
             <select
               value={audience}
               onChange={(e) => setAudience(e.target.value)}
-              className="border rounded px-3 py-2 bg-white text-gray-800"
+              className="border rounded px-3 py-2 bg-gray-50 text-gray-700 focus:outline-none"
             >
-              <option value="guards">Guards Only</option>
-              <option value="applicants">Applicants Only</option>
-              <option value="all">All</option>
+              <option value="guards">🛡️ Guards Only</option>
+              <option value="applicants">👥 Applicants Only</option>
+              <option value="all">🌍 All</option>
             </select>
 
             <button
               onClick={handlePost}
-              className="bg-gray-900 hover:bg-gray-700 text-white px-6 py-2 rounded-lg shadow"
+              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg shadow transition"
             >
-              Post
+              <Send size={16} /> Post
             </button>
           </div>
         </div>
@@ -125,42 +185,56 @@ export default function AdminHiring() {
           {posts.map((p) => (
             <div
               key={p.id}
-              className="p-4 border rounded-lg bg-white shadow text-gray-900"
+              className="p-5 border rounded-xl bg-white shadow-md hover:shadow-lg transition"
             >
               <div className="flex justify-between text-sm text-gray-500 mb-2">
-                <span>👤 {p.author}</span>
+                <span className="font-semibold">👤 {p.author}</span>
                 <span>
                   {p.date} • {p.time}
                 </span>
               </div>
 
-              <p className="mb-2">{p.message}</p>
+              <h3 className="text-lg font-bold text-gray-800">{p.title}</h3>
+              <p className="text-sm text-gray-600 mb-2">
+                <strong>Position:</strong> {p.position} •{" "}
+                <strong>Location:</strong> {p.location} •{" "}
+                <strong>Type:</strong> {p.employmentType}
+              </p>
+
+              <p className="mb-3 text-gray-800">{p.description}</p>
 
               {p.image && (
                 <img
                   src={p.image}
                   alt="Hiring"
-                  className="w-full max-h-60 object-cover rounded mb-2"
+                  className="w-full max-h-60 object-cover rounded-lg mb-3"
                 />
               )}
 
-              <p className="text-xs italic text-gray-500">
-                Audience:{" "}
-                {p.audience === "guards"
-                  ? "Guards"
-                  : p.audience === "applicants"
-                  ? "Applicants"
-                  : "All"}
-              </p>
-
-              <button
-                onClick={() => handleDelete(p.id)}
-                className="mt-2 bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded shadow text-sm"
-              >
-                Delete
-              </button>
+              <div className="flex justify-between items-center text-xs text-gray-500">
+                <span className="italic">
+                  🎯 Audience:{" "}
+                  {p.audience === "guards"
+                    ? "Guards"
+                    : p.audience === "applicants"
+                    ? "Applicants"
+                    : "All"}
+                </span>
+                <button
+                  onClick={() => handleDelete(p.id)}
+                  className="flex items-center gap-1 bg-red-100 hover:bg-red-200 text-red-600 px-3 py-1 rounded shadow text-xs"
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              </div>
             </div>
           ))}
+
+          {posts.length === 0 && (
+            <p className="text-center text-gray-400 italic mt-6">
+              No hiring posts yet.
+            </p>
+          )}
         </div>
       </main>
     </div>

@@ -1,4 +1,4 @@
-import { Outlet, Link } from "react-router-dom";
+import { Outlet, NavLink, Link } from "react-router-dom";
 import { useState } from "react";
 import {
   Calendar,
@@ -21,13 +21,14 @@ import logo from "../assets/jpmlogo.png";
 
 export default function AdminLayout() {
   const [openDropdown, setOpenDropdown] = useState(false);
+  const [openCOE, setOpenCOE] = useState(false); // ✅ Added
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navItems = [
     { to: "/Admin/AdminDeployment", label: "Deployment", icon: <Calendar size={18} /> },
     { to: "/Admin/AdminResume", label: "Resume", icon: <FileText size={18} /> },
     { to: "/Admin/AdminGuardUpdates", label: "Updates", icon: <Shield size={18} /> },
-    { to: "/Admin/AdminCOE", label: "COE", icon: <ClipboardList size={18} /> },
+    // ⛔ Removed COE here — will be handled in dropdown
     { to: "/Admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
     { to: "/Admin/UserAccounts", label: "Users", icon: <Users size={18} /> },
     { to: "/Admin/AdminGuardsProfile", label: "Guards", icon: <Users size={18} /> },
@@ -40,11 +41,18 @@ export default function AdminLayout() {
     { to: "/Admin/CompanyDetails", label: "Company", icon: <Building2 size={16} /> },
   ];
 
+  // ✅ COE sub-items
+  const coeItems = [
+    { to: "/Admin/AdminCOE", label: "Requested COE" },
+    { to: "/Admin/AdminCOEApproved", label: "Approved COE" },
+    { to: "/Admin/AdminCOEDeclined", label: "Declined COE" },
+  ];
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-screen w-64 bg-white shadow-md flex flex-col z-50
+        className={`fixed top-0 left-0 h-screen w-64 bg-white shadow-md flex flex-col
         transition-transform duration-300
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         md:translate-x-0`}
@@ -71,16 +79,61 @@ export default function AdminLayout() {
 
         {/* Navigation */}
         <nav className="flex-1 px-4 py-6 space-y-2 text-gray-700 overflow-y-auto">
+          {/* Regular links */}
           {navItems.map((item, idx) => (
-            <Link
+            <NavLink
               key={idx}
               to={item.to}
-              className="flex items-center gap-3 p-2 rounded hover:bg-gray-100"
+              className={({ isActive }) =>
+                `flex items-center gap-3 p-2 rounded transition-colors ${
+                  isActive
+                    ? "bg-gray-600 text-white font-semibold shadow"
+                    : "hover:bg-gray-100"
+                }`
+              }
             >
               {item.icon}
               <span>{item.label}</span>
-            </Link>
+            </NavLink>
           ))}
+
+          {/* ✅ COE Dropdown */}
+          <div>
+            <button
+              onClick={() => setOpenCOE(!openCOE)}
+              className="flex items-center justify-between w-full p-2 rounded hover:bg-gray-100"
+            >
+              <div className="flex items-center gap-3">
+                <ClipboardList size={18} />
+                <span>COE</span>
+              </div>
+              <ChevronDown
+                size={16}
+                className={`transition-transform ${openCOE ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {openCOE && (
+              <ul className="ml-8 mt-1 space-y-1 text-sm">
+                {coeItems.map((item, idx) => (
+                  <li key={idx}>
+                    <NavLink
+                      to={item.to}
+                      className={({ isActive }) =>
+                        `flex items-center gap-2 p-2 rounded transition-colors ${
+                          isActive
+                            ? "bg-gray-600 text-white font-semibold shadow"
+                            : "hover:bg-gray-100"
+                        }`
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           {/* Posts Dropdown */}
           <div>
@@ -94,9 +147,7 @@ export default function AdminLayout() {
               </div>
               <ChevronDown
                 size={16}
-                className={`transition-transform ${
-                  openDropdown ? "rotate-180" : ""
-                }`}
+                className={`transition-transform ${openDropdown ? "rotate-180" : ""}`}
               />
             </button>
 
@@ -104,13 +155,19 @@ export default function AdminLayout() {
               <ul className="ml-8 mt-1 space-y-1 text-sm">
                 {postItems.map((item, idx) => (
                   <li key={idx}>
-                    <Link
+                    <NavLink
                       to={item.to}
-                      className="flex items-center gap-2 p-2 rounded hover:bg-gray-100"
+                      className={({ isActive }) =>
+                        `flex items-center gap-2 p-2 rounded transition-colors ${
+                          isActive
+                            ? "bg-gray-600 text-white font-semibold shadow"
+                            : "hover:bg-gray-100"
+                        }`
+                      }
                     >
                       {item.icon}
                       {item.label}
-                    </Link>
+                    </NavLink>
                   </li>
                 ))}
               </ul>
@@ -128,7 +185,7 @@ export default function AdminLayout() {
         </nav>
       </aside>
 
-      {/* Main Content (with left margin so it doesn’t overlap) */}
+      {/* Main Content */}
       <main className="flex-1 overflow-y-auto ml-64">
         <Outlet />
       </main>

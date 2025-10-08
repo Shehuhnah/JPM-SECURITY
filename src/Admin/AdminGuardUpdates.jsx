@@ -17,19 +17,17 @@ function AdminGuardUpdates() {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <Navbar />
+    <div className="flex min-h-screen  bg-[#0f172a]">
 
       {/* Content */}
       <main className="flex-1 px-6 py-6">
-        <h1 className="text-2xl font-bold text-center mb-6">GUARDS UPDATES</h1>
+        <h1 className="text-2xl font-bold text-center mb-6 text-white">GUARDS UPDATES</h1>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {guards.map((guard) => (
             <div
               key={guard.id}
-              onClick={() => navigate(`/Admin/guard-AdminGuardUpdates2/${guard.id}`)}
+              onClick={() => navigate(`/Admin/AdminGuardUpdates2/${guard.id}`)}
               className="flex items-center gap-4 bg-white rounded-xl shadow p-4 hover:shadow-lg transition cursor-pointer"
             >
               <img

@@ -22,9 +22,12 @@ import UserAccounts from "../Admin/UserAccounts.jsx";
 import CompanyDetails from "../Admin/CompanyDetails.jsx";
 import AdminGuardsProfile from "../Admin/AdminGuardsProfile.jsx";
 import AdminCOE from "../Admin/AdminCOE.jsx";
+import AdminCOEApproved from "../Admin/AdminCOEApproved.jsx";
+import AdminCOEDeclined from "../Admin/AdminCOEDeclined.jsx"
 import AdminAttendance from "../Admin/AdminAttendance.jsx";
-import GuardUpdates from "../Admin/AdminGuardUpdates.jsx";
-import GuardUpdates2 from "../Admin/AdminGuardUpdates2.jsx";
+import AdminGuardUpdates from "../Admin/AdminGuardUpdates.jsx";
+import AdminGuardUpdates2 from "../Admin/AdminGuardUpdates2.jsx";
+import AdminMessage from "../Admin/AdminMessage.jsx";
 
 // Guard pages
 import GuardLogin from "../Guard/GuardLogin.jsx";
@@ -71,9 +74,12 @@ const Router = () => {
             { path: "CompanyDetails", element: <CompanyDetails /> },
             { path: "AdminGuardsProfile", element: <AdminGuardsProfile />},
             { path: "AdminCOE", element: <AdminCOE /> },
+            { path: "AdminCOEApproved", element: <AdminCOEApproved /> },
+            { path: "AdminCOEDeclined", element: <AdminCOEDeclined />},
             { path: "AdminAttendance", element: <AdminAttendance /> },
-            { path: "guard-updates", element: <GuardUpdates /> },
-            { path: "guard-updates2/:id", element: <GuardUpdates2 /> },
+            { path: "AdminGuardUpdates", element: <AdminGuardUpdates /> },
+            { path: "AdminGuardUpdates2/:id", element: <AdminGuardUpdates2 /> },
+            { path: "AdminMessages", element: <AdminMessage /> },
 
           ],
         },
