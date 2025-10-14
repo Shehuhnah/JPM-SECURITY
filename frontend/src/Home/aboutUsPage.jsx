@@ -1,8 +1,14 @@
+import { useEffect } from "react";
 import { ShieldCheck, Users, Award } from "lucide-react";
 import logo from "../assets/jpmlogo.png";
 import bg from "../Home/assets/about-bg.jpg";
 
 export default function AboutUsPage() {
+
+  useEffect(() => {
+    document.title = "About Us | JPM Security Agency";
+  }, []);
+
   return (
     <div className="bg-[#0f172a] text-gray-100">
       {/* Hero Section */}
