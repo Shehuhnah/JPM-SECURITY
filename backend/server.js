@@ -15,19 +15,19 @@ app.use("/api/auth", authRoutes);
 
 app.get("/", (req, res) => res.send("API is running"));
 
-app.post("/api/users", async (req, res) => {
-  try {
-    const user = await User.create(req.body);
-    res.status(201).json(user);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-});
+// app.post("/api/users", async (req, res) => {
+//   try {
+//     const user = await User.create(req.body);
+//     res.status(201).json(user);
+//   } catch (error) {
+//     res.status(400).json({ message: error.message });
+//   }
+// });
 
-app.get("/api/users", async (req, res) => {
-  const users = await User.find();
-  res.json(users);
-});
+// app.get("/api/users", async (req, res) => {
+//   const users = await User.find();
+//   res.json(users);
+// });
 
 mongoose
   .connect(process.env.MONGO_URI)

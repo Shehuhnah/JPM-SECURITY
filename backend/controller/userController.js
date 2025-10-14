@@ -1,12 +1,11 @@
 import User from "../models/User.model.js";
 
-// GET all users
 export const getUsers = async (req, res) => {
   try {
-    const users = await User.find();
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    const users = await User.find().select("-password"); 
+    res.status(200).json(users);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -23,7 +22,6 @@ export const createUser = async (req, res) => {
 };
 
 // DELETE user
-
 export const deleteUser = async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.params.id);
