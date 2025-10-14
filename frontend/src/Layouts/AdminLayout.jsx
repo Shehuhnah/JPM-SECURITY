@@ -73,7 +73,7 @@ export default function AdminLayout() {
             alt="Admin Avatar"
             className="w-16 h-16 rounded-full border mb-3"
           />
-          <h3 className="font-semibold text-gray-700">Gerard N.O Way</h3>
+          <h3 className="font-semibold text-gray-700">No name</h3>
         </div>
 
         {/* Navigation */}
