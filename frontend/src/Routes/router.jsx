@@ -7,9 +7,9 @@ import AdminLayout from "../Layouts/AdminLayout.jsx";
 import GuardsLayout from "../Layouts/GuardsLayout.jsx";
 import ApplicantsLayout from "../Layouts/ApplicantsLayout.jsx";
 import SubAdminLayout from "../Layouts/SubAdminLayout.jsx";
+import HomeLayout from "../Layouts/HomeLayout.jsx";
 
 // Components
-import MainPage from "../components/MainPage.jsx";
 import ErrorPage from "../components/error/ErrorPage.jsx";
 import Dashboard from "../components/Dashboard.jsx";
 import Navbar from "../components/navbar.jsx";
@@ -23,7 +23,7 @@ import CompanyDetails from "../Admin/CompanyDetails.jsx";
 import AdminGuardsProfile from "../Admin/AdminGuardsProfile.jsx";
 import AdminCOE from "../Admin/AdminCOE.jsx";
 import AdminCOEApproved from "../Admin/AdminCOEApproved.jsx";
-import AdminCOEDeclined from "../Admin/AdminCOEDeclined.jsx"
+import AdminCOEDeclined from "../Admin/AdminCOEDeclined.jsx";
 import AdminAttendance from "../Admin/AdminAttendance.jsx";
 import AdminGuardUpdates from "../Admin/AdminGuardUpdates.jsx";
 import AdminGuardUpdates2 from "../Admin/AdminGuardUpdates2.jsx";
@@ -41,19 +41,26 @@ import GuardAttendanceTimeOut from "../Guard/GuardAttendanceTimeOut.jsx";
 // Applicants pages
 import ApplicantsCompanyDetails from "../Applicants/ApplicantsCompanyDetails.jsx";
 import ApplicantsHiringDetails from "../Applicants/ApplicantsHiringDetails.jsx";
-import ApplicantsMessages from "../Applicants/ApplicantsMessages.jsx";  
+import ApplicantsMessages from "../Applicants/ApplicantsMessages.jsx";
 
 // SubAdmin pages
 import SubAnnouncement from "../SubAdmin/SubAnnouncement.jsx";
 import SubApplicantResume from "../SubAdmin/SubApplicantResume.jsx";
 import SubCompanyDetails from "../SubAdmin/SubCompanyDetails.jsx";
 import SubGuardAttendance from "../SubAdmin/SubGuardAttendance.jsx";
-import SubGuardMessages from "../SubAdmin/SubGuardMessages.jsx";  
+import SubGuardMessages from "../SubAdmin/SubGuardMessages.jsx";
 import SubGuardSchedule from "../SubAdmin/SubGuardSchedule.jsx";
 import SubGuardUpdates from "../SubAdmin/SubGuardUpdates.jsx";
 import SubHiring from "../SubAdmin/SubHiring.jsx";
 import SubLogin from "../SubAdmin/SubLogin.jsx";
 
+// Public pages
+import HomePage from "../Home/homePage.jsx";
+import AboutUs from "../Home/aboutUsPage.jsx";
+import ContactUs from "../Home/contactUsPage.jsx";
+import ClientPage from "../Home/clientPage.jsx";
+import ServicesPage from "../Home/servicesPage.jsx";
+import Gallery from "../Home/galleryPage.jsx";
 
 const Router = () => {
   const routes = useRoutes([
@@ -61,73 +68,94 @@ const Router = () => {
       path: "/",
       element: <RootLayout />,
       children: [
-        { index: true, element: <MainPage /> },
+        {
+          path: "/",
+          element: <HomeLayout />,
+          children: [
+            { index: true, element: <HomePage /> },
+            { path: "home", element: <HomePage /> },
+            { path: "about-us", element: <AboutUs /> },
+            { path: "contact-us", element: <ContactUs /> },
+            { path: "clients", element: <ClientPage /> },
+            { path: "services", element: <ServicesPage /> },
+            { path: "gallery", element: <Gallery /> },
+          ],
+        },
+
+        // ✅ Admin Section
         {
           path: "admin",
           element: <AdminLayout />,
           children: [
-            { path: "Dashboard", element: <Dashboard /> },
-            { path: "AdminDeployment", element: <AdminDeployment /> },
-            { path: "AdminPosts", element: <AdminPosts /> },
-            { path: "AdminHiring", element: <AdminHiring /> },
-            { path: "UserAccounts", element: <UserAccounts /> },
-            { path: "CompanyDetails", element: <CompanyDetails /> },
-            { path: "AdminGuardsProfile", element: <AdminGuardsProfile />},
-            { path: "AdminCOE", element: <AdminCOE /> },
-            { path: "AdminCOEApproved", element: <AdminCOEApproved /> },
-            { path: "AdminCOEDeclined", element: <AdminCOEDeclined />},
-            { path: "AdminAttendance", element: <AdminAttendance /> },
-            { path: "AdminGuardUpdates", element: <AdminGuardUpdates /> },
-            { path: "AdminGuardUpdates2/:id", element: <AdminGuardUpdates2 /> },
-            { path: "AdminMessages", element: <AdminMessage /> },
-
+            { path: "dashboard", element: <Dashboard /> },
+            { path: "deployment", element: <AdminDeployment /> },
+            { path: "posts", element: <AdminPosts /> },
+            { path: "hiring", element: <AdminHiring /> },
+            { path: "accounts", element: <UserAccounts /> },
+            { path: "company-details", element: <CompanyDetails /> },
+            { path: "guards-profile", element: <AdminGuardsProfile /> },
+            { path: "coe", element: <AdminCOE /> },
+            { path: "coe-approved", element: <AdminCOEApproved /> },
+            { path: "coe-declined", element: <AdminCOEDeclined /> },
+            { path: "attendance", element: <AdminAttendance /> },
+            { path: "guard-updates", element: <AdminGuardUpdates /> },
+            { path: "guard-updates/:id", element: <AdminGuardUpdates2 /> },
+            { path: "messages", element: <AdminMessage /> },
           ],
         },
+
+        // ✅ Guard Section
         {
           path: "guard",
           children: [
-            { path: "GuardLogin", element: <GuardLogin /> }, 
+            { path: "login", element: <GuardLogin /> },
             {
               element: <GuardsLayout />,
               children: [
-                { path: "GuardAttendanceTimeIn", element: <GuardAttendanceTimeIn /> },
-                { path: "GuardAttendanceTimeOut", element: <GuardAttendanceTimeOut /> },
-                { path: "GuardDetachment", element: <GuardDetachment /> },
-                { path: "GuardAnnouncement", element: <GuardAnnouncement /> },
-                { path: "GuardLogBook", element: <GuardLogBook /> },
-                { path: "GuardReqCOE", element: <GuardReqCOE /> },
+                { path: "time-in", element: <GuardAttendanceTimeIn /> },
+                { path: "time-out", element: <GuardAttendanceTimeOut /> },
+                { path: "detachment", element: <GuardDetachment /> },
+                { path: "announcements", element: <GuardAnnouncement /> },
+                { path: "logbook", element: <GuardLogBook /> },
+                { path: "request-coe", element: <GuardReqCOE /> },
               ],
             },
           ],
         },
+
+        // ✅ Applicants Section
         {
-          path: "Applicants",
+          path: "applicants",
           element: <ApplicantsLayout />,
           children: [
-            { path: "ApplicantsCompanyDetails", element: <ApplicantsCompanyDetails /> },
-            { path: "ApplicantsHiringDetails", element: <ApplicantsHiringDetails /> },
-            { path: "ApplicantsMessages", element: <ApplicantsMessages /> }
+            { path: "company-details", element: <ApplicantsCompanyDetails /> },
+            { path: "hiring-details", element: <ApplicantsHiringDetails /> },
+            { path: "messages", element: <ApplicantsMessages /> },
           ],
         },
+
+        // ✅ SubAdmin Section
         {
-          path: "SubAdmin",
-          children:[
-            { path: "SubLogin", element: <SubLogin /> },
+          path: "subadmin",
+          children: [
+            { path: "login", element: <SubLogin /> },
             {
               element: <SubAdminLayout />,
               children: [
-                { path: "SubAnnouncement", element: <SubAnnouncement /> },
-                { path: "SubApplicantResume", element : <SubApplicantResume /> },
-                { path: "SubCompanyDetails", element: <SubCompanyDetails /> },
-                { path: "SubGuardAttendance", element: <SubGuardAttendance /> },
-                { path: "SubGuardMessages", element: <SubGuardMessages /> },
-                { path: "SubGuardSchedule", element: <SubGuardSchedule /> },
-                { path: "SubGuardUpdates", element: <SubGuardUpdates /> },
-                { path: "SubHiring", element: <SubHiring /> },
+                { path: "announcements", element: <SubAnnouncement /> },
+                { path: "applicant-resume", element: <SubApplicantResume /> },
+                { path: "company-details", element: <SubCompanyDetails /> },
+                { path: "guard-attendance", element: <SubGuardAttendance /> },
+                { path: "guard-messages", element: <SubGuardMessages /> },
+                { path: "guard-schedule", element: <SubGuardSchedule /> },
+                { path: "guard-updates", element: <SubGuardUpdates /> },
+                { path: "hiring", element: <SubHiring /> },
               ],
             },
           ],
         },
+
+        // Misc
         { path: "navbar", element: <Navbar /> },
         { path: "*", element: <ErrorPage /> },
       ],

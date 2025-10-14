@@ -1,0 +1,1 @@
+export default function galleryPage (second) {third}

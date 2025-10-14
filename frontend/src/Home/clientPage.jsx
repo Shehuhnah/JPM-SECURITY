@@ -1,0 +1,1 @@
+export default function clientPage (second) {third}
