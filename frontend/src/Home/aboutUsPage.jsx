@@ -10,7 +10,7 @@ export default function AboutUsPage() {
   }, []);
 
   return (
-    <div className="bg-[#0f172a] text-gray-100">
+    <div className="bg-[#152430] text-gray-100">
       {/* Hero Section */}
       <section className="">
         <div className="relative max-w-6xl mx-auto px-6 py-24 text-center">
