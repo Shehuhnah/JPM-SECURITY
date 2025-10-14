@@ -48,7 +48,7 @@ export default function UserAccounts() {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/users", {
+      const res = await fetch("http://localhost:5000/api/auth/create-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
