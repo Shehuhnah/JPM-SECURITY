@@ -1,0 +1,33 @@
+function GuardAttendanceTimeOut() {
+  
+  const user = JSON.parse(localStorage.getItem("loggedInUser"));
+
+  return (
+    <div className="flex min-h-screen bg-[#0f172a]">
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col items-center justify-center">
+        <div className="bg-[#A1C2BD] w-60 h-60 rounded-xl flex flex-col items-center justify-center">
+          <div className="w-20 h-20 border-2 border-gray-500 rounded-full flex items-center justify-center">
+            👤
+          </div>
+        </div>
+
+        <div className="mt-4 text-center text-white">
+          <h2 className="font-bold text-lg text-white">
+            {user?.fullName?.toUpperCase() || "GUARD NAME"}
+          </h2>
+          <p>Date: 12/12/2025 </p>
+          <p>Time In: 12:12 AM </p>
+          <p>Place: CvSU Main</p>
+        </div>
+
+        <button className="mt-4 bg-[#1B3C53] hover:bg-[#456882]  transition text-white font-bold px-6 py-2 rounded-md">
+
+          SUBMIT
+        </button>
+      </main>
+    </div>
+  );
+}
+
+export default GuardAttendanceTimeOut;
