@@ -44,7 +44,7 @@ export default function Navbar() {
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-2 text-gray-700">
         <Link
-          to="/Admin/AdminDeployment"
+          to="/adminDeployment"
           className="flex items-center gap-3 p-2 rounded hover:bg-gray-100"
         >
           <FaCalendarAlt />

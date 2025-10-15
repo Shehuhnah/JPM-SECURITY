@@ -87,7 +87,7 @@ const Router = () => {
           path: "admin",
           element: <AdminLayout />,
           children: [
-            { path: "dashboard", element: <Dashboard /> },
+            { index: true, element: <Dashboard /> },
             { path: "deployment", element: <AdminDeployment /> },
             { path: "posts", element: <AdminPosts /> },
             { path: "hiring", element: <AdminHiring /> },

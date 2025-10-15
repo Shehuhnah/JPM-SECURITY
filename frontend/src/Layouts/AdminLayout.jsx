@@ -25,7 +25,7 @@ export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navItems = [
-    { to: "/Admin/AdminDeployment", label: "Deployment", icon: <Calendar size={18} /> },
+    { to: "/admin/deployment", label: "Deployment", icon: <Calendar size={18} /> },
     { to: "/Admin/AdminResume", label: "Resume", icon: <FileText size={18} /> },
     { to: "/Admin/AdminGuardUpdates", label: "Updates", icon: <Shield size={18} /> },
     { to: "/Admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
