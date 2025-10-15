@@ -44,7 +44,7 @@ export default function ApplicantsLayout() {
         {/* Navigation */}
         <nav className="w-full flex-1 px-6 space-y-2 text-gray-700 overflow-y-auto">
           <Link
-            to="/Applicants/ApplicantsHiringDetails"
+            to="/job-application-process/applicants"
             onClick={() => setSidebarOpen(false)}
             className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 font-medium"
           >
@@ -53,16 +53,7 @@ export default function ApplicantsLayout() {
           </Link>
 
           <Link
-            to="/Applicants/ApplicantsCompanyDetails"
-            onClick={() => setSidebarOpen(false)}
-            className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 font-medium"
-          >
-            <Building2 size={18} />
-            Company Details
-          </Link>
-
-          <Link
-            to="/Applicants/ApplicantsMessages"
+            to="/job-application-process/applicants/messages"
             onClick={() => setSidebarOpen(false)}
             className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 font-medium"
           >

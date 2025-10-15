@@ -125,11 +125,11 @@ const Router = () => {
 
         // ✅ Applicants Section
         {
-          path: "applicants",
+          path: "job-application-process/applicants",
           element: <ApplicantsLayout />,
           children: [
-            { path: "company-details", element: <ApplicantsCompanyDetails /> },
-            { path: "hiring-details", element: <ApplicantsHiringDetails /> },
+            { index: true, element: <ApplicantsHiringDetails /> },
+            { path: "/job-application-process/applicants", element: <ApplicantsHiringDetails /> },
             { path: "messages", element: <ApplicantsMessages /> },
           ],
         },

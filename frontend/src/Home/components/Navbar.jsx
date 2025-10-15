@@ -12,6 +12,8 @@ export default function Navbar() {
     { name: "Our Services", path: "/services" },
     { name: "Gallery", path: "/gallery" },
     { name: "Contact Us", path: "/contact-us" },
+    { name: "Apply Now", path: "/job-application-process/applicants" },
+
   ];
 
   return (

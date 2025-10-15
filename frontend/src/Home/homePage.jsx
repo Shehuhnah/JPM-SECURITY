@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import bg from "./assets/home-bg.jpg"; // or correct path
 import AboutUs from "./aboutUsPage.jsx";
+import { Link } from "react-router-dom";
 
 export default function HomePage() {
 
@@ -25,9 +26,12 @@ export default function HomePage() {
           <p className="text-lg md:text-xl mb-8 text-gray-200 max-w-2xl mx-auto">
             Providing trusted, professional, and reliable security services for our clients.
           </p>
-          <button className="bg-yellow-600 hover:bg-yellow-900 px-6 py-3 rounded-lg text-white font-semibold transition">
-            Learn More
-          </button>
+          <Link to="/job-application-process/applicants">
+            <button className="bg-yellow-600 hover:bg-yellow-900 px-6 py-3 rounded-lg text-white font-semibold transition">
+              Apply Now!
+            </button>
+          </Link>
+          
         </div>
         
       </section>
