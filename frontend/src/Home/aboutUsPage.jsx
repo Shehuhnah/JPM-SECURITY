@@ -17,7 +17,7 @@ export default function AboutUsPage() {
           <img src={logo} alt="JPM Logo" className="w-28 h-28 mx-auto mb-6 rounded-lg shadow-lg" />
           <h1 className="text-4xl font-extrabold text-white mb-3">JPM Security Agency</h1>
           <p className="text-gray-300 max-w-2xl mx-auto">
-            Your trusted partner in protection, vigilance, and peace of mind.
+            "Prepared with Discipline. Professional with EveryDetail. Protected Without Compromise."
           </p>
         </div>
       </section>
@@ -37,23 +37,37 @@ export default function AboutUsPage() {
                 <ShieldCheck className="w-10 h-10 mx-auto text-blue-400 mb-3" />
                 <h3 className="text-xl font-semibold mb-2">Integrity</h3>
                 <p className="text-gray-200 text-sm">
-                  We uphold the highest standards of honesty, discipline, and ethical conduct in every aspect of our service.
+                  Upholding honesty and strong moral principles in every action and decision.
                 </p>
               </div>
 
               <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/10 hover:shadow-blue-800/30 hover:scale-105 transition duration-300">
                 <Users className="w-10 h-10 mx-auto text-blue-400 mb-3" />
-                <h3 className="text-xl font-semibold mb-2">Commitment</h3>
+                <h3 className="text-xl font-semibold mb-2">Professionalism</h3>
                 <p className="text-gray-200 text-sm">
-                  We go beyond expectations, ensuring every client receives unparalleled dedication and security support.
+                 Delivering services with excellence, discipline, and respect in all situations.
                 </p>
               </div>
 
               <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/10 hover:shadow-blue-800/30 hover:scale-105 transition duration-300">
                 <Award className="w-10 h-10 mx-auto text-blue-400 mb-3" />
-                <h3 className="text-xl font-semibold mb-2">Excellence</h3>
+                <h3 className="text-xl font-semibold mb-2">Reliability</h3>
                 <p className="text-gray-200 text-sm">
-                  We strive for continuous improvement, adopting advanced techniques and technologies to enhance service quality.
+                  Being dependable and consistent in providing security and protection at all times.
+                </p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/10 hover:shadow-blue-800/30 hover:scale-105 transition duration-300">
+                <Award className="w-10 h-10 mx-auto text-blue-400 mb-3" />
+                <h3 className="text-xl font-semibold mb-2">Vigilance</h3>
+                <p className="text-gray-200 text-sm">
+                  Staying alert, attentive, and proactive in identifying and mitigating potential threats.
+                </p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/10 hover:shadow-blue-800/30 hover:scale-105 transition duration-300">
+                <Award className="w-10 h-10 mx-auto text-blue-400 mb-3" />
+                <h3 className="text-xl font-semibold mb-2">Teamwork</h3>
+                <p className="text-gray-200 text-sm">
+                  Fostering collaboration and communication to ensure cohesive and effective security operations
                 </p>
               </div>
             </div>
@@ -71,17 +85,22 @@ export default function AboutUsPage() {
                   Who We Are
                 </h2>
                 <p className="text-gray-200 leading-relaxed text-justify">
-                  <span className="font-semibold text-blue-400">JPM Security Agency</span> is a professional security provider based in Cavite, Philippines.
-                  With years of experience in safeguarding people, property, and businesses, we have built a reputation for reliability, discipline,
-                  and integrity. Our highly trained security personnel are committed to ensuring every client experiences safety and peace of mind.
+                  <span className=" text-white">
+                    <strong>JPM SECURITY AGENCY CORP. (JPMSA) </strong> is duly established Security Management Operating by the virtue of Republic Act 11917, otherwise known as "The Private Security Services Industry Act. " , with SEC REG. NO. 2025020187022-03, with its office address; Checkpoint, Purok 4, Brgy. Mataas na Lupa, Indang, Cavite 4122. As mandated by laws, JPMSA has sufficient personnel, equipment and necessary assets to support its operation, consequent obligation and responsibility as Security Agency.
+                    </span>
                 </p>
-
                 <div className="mt-6">
-                  <p className="text-sm text-gray-400">
-                    📍 Checkpoint, Purok 4, Brgy. Mataas na Lupa, Indang, Cavite
+                  <p className="text-sm text-gray-300">
+                    📍<strong>Main Office: </strong>Checkpoint, Purok 4, Brgy. Mataas na Lupa, Indang, Cavite 4122
                   </p>
-                  <p className="text-sm text-gray-400">
-                    📞 0917 144 6563 | ✉️ jpmsecagency@gmail.com
+                  <p className="text-sm text-gray-300">
+                    📍<strong>Sattelite Office: </strong>RGDM Bldg., Brgy.Galicia2, Mendez-Nunez, Cavite 4121
+                  </p>
+                  <p className="text-sm text-gray-300">
+                    📞 09368835488 / 09923728671 
+                  </p>
+                  <p className="text-sm text-gray-300">
+                    📩 jpmsecagency@gmail.com
                   </p>
                 </div>
               </div>
@@ -91,15 +110,16 @@ export default function AboutUsPage() {
                   Our Mission
                 </h3>
                 <p className="text-gray-200 leading-relaxed text-justify mb-6">
-                  To deliver dependable, client-focused, and innovative security solutions that ensure safety and peace of mind — protecting people, assets,
-                  and communities with professionalism and care.
+                  Our mission is to protect our clients with a team of seasoned professionals by providing dependable protection with professionalism and ethics. It is to be the reliable option for people and companies in need of protection.
+
                 </p>
 
                 <h3 className="text-2xl font-semibold mb-4 text-blue-400">
                   Our Vision
                 </h3>
                 <p className="text-gray-200 leading-relaxed text-justify">
-                  To be recognized as the most trusted and respected security agency in the Philippines — a symbol of integrity, excellence, and commitment.
+                  Our vision is to become the leading provider of precise security solutions, ensuring client safety. We aim to set industry standards through innovative methods and continuously pursue excellence and growth in all our services.
+
                 </p>
               </div>
             </div>
@@ -111,7 +131,7 @@ export default function AboutUsPage() {
       {/* Closing Section */}
       <section className="text-center py-12 bg-[#456882] border-t border-gray-700">
         <h3 className="text-lg font-semibold text-white italic">
-          “Your safety is our priority.”
+          "PREPARED. PROFESSIONAL. PROTECTED"
         </h3>
         <p className="text-gray-400 text-sm mt-2">
           — The JPM Security Agency Team

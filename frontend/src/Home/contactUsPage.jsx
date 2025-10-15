@@ -57,7 +57,8 @@ export default function ContactUsPage() {
                     <span className="text-blue-400 text-lg">📍</span>
                     <p>
                     <span className="block font-semibold text-white">Address</span>
-                    Checkpoint, Purok 4, Brgy. Mataas na Lupa, Indang, Cavite, Philippines
+                      <strong>Main Office: </strong>Checkpoint, Purok 4, Brgy. Mataas na Lupa, Indang, Cavite 4122<br/>
+                      <strong>Sattelite Office: </strong>RGDM Bldg., Brgy.Galicia2, Mendez-Nunez, Cavite 4121
                     </p>
                 </div>
 
@@ -65,7 +66,7 @@ export default function ContactUsPage() {
                     <span className="text-blue-400 text-lg">📞</span>
                     <p>
                     <span className="block font-semibold text-white">Phone</span>
-                    0917 144 6563
+                    09368835488 / 09923728671 
                     </p>
                 </div>
 

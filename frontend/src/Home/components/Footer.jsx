@@ -24,8 +24,7 @@ export default function Footer() {
               JPM Security Agency
             </h2>
             <p className="text-sm text-gray-400 leading-relaxed">
-              Providing trusted and professional security services across
-              Cavite and beyond. Your safety is our top priority.
+              "Prepared with Discipline. Professional with EveryDetail. Protected Without Compromise."
             </p>
           </div>
 
@@ -60,15 +59,18 @@ export default function Footer() {
             <ul className="space-y-3 text-sm text-gray-400">
               <li className="flex items-start gap-2">
                 <MapPin size={16} className="text-gray-400 mt-[2px]" />
-                <span>123 Security St., Dasmariñas, Cavite, Philippines</span>
+                <span>
+                  <strong>Main Office: </strong>Checkpoint, Purok 4, Brgy. Mataas na Lupa, Indang, Cavite 4122 <br/>
+                  <strong>Sattelite Office: </strong>RGDM Bldg., Brgy.Galicia2, Mendez-Nunez, Cavite 4121
+                </span>
               </li>
               <li className="flex items-center gap-2">
                 <Phone size={16} className="text-gray-400" />
-                <span>+63 912 345 6789</span>
+                <span>09368835488 / 09923728671 </span>
               </li>
               <li className="flex items-center gap-2">
                 <Mail size={16} className="text-gray-400" />
-                <span>info@jpmsecurity.com</span>
+                <span>jpmsecagency@gmail.com</span>
               </li>
             </ul>
           </div>

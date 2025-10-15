@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Building2, ShieldCheck, Briefcase, GraduationCap, Home, Leaf } from "lucide-react";
+import { Building2, ShieldCheck, UtensilsCrossed, Briefcase, GraduationCap, Home,  } from "lucide-react";
 import bg from "../Home/assets/clients-bg.jpg";
 
 export default function ClientPage() {
@@ -8,11 +8,11 @@ export default function ClientPage() {
   }, []);
 
   const clientCategories = [
-    { title: "Government Agencies", icon: ShieldCheck },
-    { title: "Educational Institutions", icon: GraduationCap },
-    { title: "Commercial Establishments", icon: Briefcase },
-    { title: "Agricultural Facilities", icon: Leaf },
-    { title: "Residential Communities", icon: Home },
+    { title: "Retail, Food & Hospitality", icon: UtensilsCrossed },
+    { title: "Institutions & Essential Services", icon: GraduationCap },
+    { title: "Corporate & Commercial Offices", icon: Briefcase },
+    { title: "Industrial, Logistics & Manufacturing", icon: Building2 },
+    { title: " Residential & Property Sites", icon: Home },
   ];
 
   return (
