@@ -29,6 +29,7 @@ import AdminAttendance from "../Admin/AdminAttendance.jsx";
 import AdminGuardUpdates from "../Admin/AdminGuardUpdates.jsx";
 import AdminGuardUpdates2 from "../Admin/AdminGuardUpdates2.jsx";
 import AdminMessage from "../Admin/AdminMessage.jsx";
+import ApplicantList from "../Admin/ApplicantList.jsx";
 
 // Guard pages
 import GuardLogin from "../Guard/GuardLogin.jsx";
@@ -103,6 +104,7 @@ const Router = () => {
                 { path: "AdminGuardUpdates", element: <AdminGuardUpdates /> },
                 { path: "guard-updates/:id", element: <AdminGuardUpdates2 /> },
                 { path: "AdminMessages", element: <AdminMessage /> },
+                { path: "ApplicantList", element: <ApplicantList />}
               ],
             },
           ],

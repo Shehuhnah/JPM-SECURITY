@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { UserPlus, Search, ShieldAlert, Trash2, Edit3 } from "lucide-react";
+import { UserPlus, Search, ShieldAlert, Trash2, Edit3, Users, User  } from "lucide-react";
 
 export default function UserAccounts() {
   const [users, setUsers] = useState([]);
@@ -117,7 +117,8 @@ export default function UserAccounts() {
       <main className="flex-1 p-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6">
-          <h2 className="text-3xl font-bold tracking-wide text-white">
+          <h2 className="text-3xl font-bold text-white flex items-center gap-2">
+            <Users className="text-blue-500" />
             User Management
           </h2>
           <button

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import Navbar from "../components/navbar";
+import { useState } from "react";
+import { Search, Shield, UserCheck, Clock } from "lucide-react";
 
 export default function GuardTable() {
   const [filter, setFilter] = useState("All");
@@ -10,98 +10,102 @@ export default function GuardTable() {
       name: "Juan Dela Cruz",
       id: "G-001",
       position: "Security Guard",
-      dutystation: "Site A",
+      dutystation: "SM Mall of Asia",
       address: "Quezon City",
       contact: "09123456789",
       email: "juan@email.com",
       shift: "Night Shift",
     },
-        {
-      name: "Juan Dela Cruz",
-      id: "G-001",
+    {
+      name: "Maria Santos",
+      id: "G-002",
+      position: "Officer in Charge",
+      dutystation: "Robinsons Tagaytay",
+      address: "Dasmariñas",
+      contact: "09998887777",
+      email: "maria@email.com",
+      shift: "Day Shift",
+    },
+    {
+      name: "Jose Ramos",
+      id: "G-003",
+      position: "Inspector",
+      dutystation: "Ayala Mall Dasma",
+      address: "Silang",
+      contact: "09223334444",
+      email: "jose@email.com",
+      shift: "Night Shift",
+    },
+    {
+      name: "Pedro Cruz",
+      id: "G-004",
       position: "Security Guard",
-      dutystation: "Site A",
-      address: "Quezon City",
-      contact: "09123456789",
-      email: "juan@email.com",
-      shift: "Night Shift",
+      dutystation: "Lancaster Residences",
+      address: "Imus",
+      contact: "09771234567",
+      email: "pedro@email.com",
+      shift: "Day Shift",
     },
-
-        {
-      name: "Juan Dela Cruz",
-      id: "G-001",
-      position: "Security Guard",
-      dutystation: "Site A",
-      address: "Quezon City",
-      contact: "09123456789",
-      email: "juan@email.com",
-      shift: "Night Shift",
-    },
-
-        {
-      name: "Juan Dela Cruz",
-      id: "G-001",
-      position: "Security Guard",
-      dutystation: "Site A",
-      address: "Quezon City",
-      contact: "09123456789",
-      email: "juan@email.com",
-      shift: "Night Shift",
-    },
-
-
   ];
 
+  // Filter logic
   const filteredData = guards.filter(
     (g) =>
-      (filter === "All" || g.role === filter) &&
+      (filter === "All" || g.position === filter) &&
       (g.name.toLowerCase().includes(search.toLowerCase()) ||
-        g.email.toLowerCase().includes(search.toLowerCase()))
+        g.email.toLowerCase().includes(search.toLowerCase()) ||
+        g.id.toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
-    <div className="flex min-h-screen bg-[#0f172a]">
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col p-4 md:p-6">
-        {/* Header with Filters & Search */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
-          <h2 className="text-xl text-white font-bold fi">Guards Profile</h2>
+    <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
+      <div className="flex-1 flex flex-col p-6">
+        {/* Header Section */}
+        <header className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+          <div>
+            <h2 className="text-3xl font-bold text-white flex items-center gap-2">
+              <Shield className="text-blue-500" /> Guards Profile
+            </h2>
+          </div>
 
-          <div className="flex flex-col sm:flex-row gap-2">
+          {/* Filters & Search */}
+          <div className="flex flex-col sm:flex-row gap-3 mt-4 md:mt-0">
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="border px-3 py-2 rounded-md shadow-sm bg-gray-900 text-white hover:bg-gray-900 transition"
+              className="border border-gray-700 px-3 py-2 rounded-md bg-[#1e293b] text-white focus:ring-2 focus:ring-blue-500"
             >
-              <option value="All">Security Guard</option>
-              <option value="Guard">Officer in Charge</option>
-              <option value="Sub-admin">Inspector</option>
-              <option value="Applicant">Operation Officer</option>
-              <option value="Applicant">Head Operation</option>
+              <option value="All">All Positions</option>
+              <option value="Security Guard">Security Guard</option>
+              <option value="Officer in Charge">Officer in Charge</option>
+              <option value="Inspector">Inspector</option>
             </select>
 
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search..."
-              className="border px-3 py-2 rounded-md bg-gray-900 text-white focus:outline-none focus:ring focus:ring-blue-300 w-full sm:w-64"
-            />
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search name or email..."
+                className="pl-9 pr-3 py-2 w-full sm:w-64 rounded-md bg-[#1e293b] border border-gray-700 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
-        </div>
+        </header>
 
-        {/* Table Container */}
-        <div className="overflow-x-auto flex-1  bg-white shadow-md rounded-lg">
-          <table className="w-full min-w-[800px] border-collapse rounded-lg overflow-hidden">
-            <thead className="bg-gray-500 text-white text-sm md:text-base sticky top-0 z-10">
+        {/* Table Section */}
+        <div className="overflow-x-auto bg-[#1e293b]/70 backdrop-blur-md border border-gray-700 rounded-xl shadow-lg">
+          <table className="w-full text-sm md:text-base">
+            <thead className="bg-[#10263a] text-gray-100 uppercase tracking-wide text-xs md:text-sm">
               <tr>
-                <th className="p-3 text-left w-50">Guard Name</th>
-                <th className="p-3 text-left w-24">Guard ID</th>
-                <th className="p-3 text-left w-35">Position</th>
-                <th className="p-3 text-left w-30">Duty Station</th>
-                <th className="p-3 text-left w-32">Contact</th>
-                <th className="p-3 text-left w-56">Email</th>
-                <th className="p-3 text-left w-32">Shift</th>
+                <th className="p-3 text-left">Guard Name</th>
+                <th className="p-3 text-left">Guard ID</th>
+                <th className="p-3 text-left">Position</th>
+                <th className="p-3 text-left">Duty Station</th>
+                <th className="p-3 text-left">Contact</th>
+                <th className="p-3 text-left">Email</th>
+                <th className="p-3 text-left">Shift</th>
               </tr>
             </thead>
             <tbody>
@@ -109,24 +113,27 @@ export default function GuardTable() {
                 filteredData.map((g, i) => (
                   <tr
                     key={i}
-                    className="border-t border-gray-700 hover:bg-gray-200 text-sm md:text-base"
+                    className="border-t border-gray-700 hover:bg-blue-900/20 transition"
                   >
-                    <td className="p-3">{g.name}</td>
+                    <td className="p-3 font-medium flex items-center gap-2">
+                      <UserCheck className="w-4 h-4 text-blue-400" />
+                      {g.name}
+                    </td>
                     <td className="p-3">{g.id}</td>
-                    <td className="p-3">{g.position}</td>
+                    <td className="p-3 text-blue-400">{g.position}</td>
                     <td className="p-3">{g.dutystation}</td>
                     <td className="p-3">{g.contact}</td>
-                    <td className="p-3">{g.email}</td>
-                    <td className="p-3">{g.shift}</td>
+                    <td className="p-3 text-gray-300">{g.email}</td>
+                    <td className="p-3 flex items-center gap-1">
+                      <Clock className="w-4 h-4 text-blue-500" />
+                      {g.shift}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td
-                    colSpan="10"
-                    className="text-center py-6 text-gray-400 italic"
-                  >
-                    No results found
+                  <td colSpan="7" className="text-center py-6 text-gray-500 italic">
+                    No results found.
                   </td>
                 </tr>
               )}
