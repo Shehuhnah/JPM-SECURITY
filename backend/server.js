@@ -13,13 +13,12 @@ import postRoutes from "./routes/postRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 
-
 dotenv.config();
 
 const app = express();
 app.use(
   cors({
-    origin: "http://localhost:5173", // frontend URL (Vite runs here)
+    origin: "http://localhost:5173",
     credentials: true,
   })
 );

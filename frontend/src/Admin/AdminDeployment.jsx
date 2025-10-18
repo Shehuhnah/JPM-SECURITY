@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/navbar";
+import { useAuth } from "../hooks/useAuth";
 
 export default function AdminDeployment() {
   const months = [
@@ -12,6 +14,15 @@ export default function AdminDeployment() {
   const [schedules, setSchedules] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editIndex, setEditIndex] = useState(null);
+
+  const { admin, token } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!admin || !token) {
+      navigate("/admin/Login");
+    }
+  }, [admin, token, navigate]);
 
   // Get number of days in selected month/year
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();

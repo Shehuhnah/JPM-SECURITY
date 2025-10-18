@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { Fragment } from "react";
-import Navbar from "../components/navbar";
+import { UserPlus, Search, ShieldAlert, Trash2, Edit3 } from "lucide-react";
 
 export default function UserAccounts() {
   const [users, setUsers] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("All");
 
   const [form, setForm] = useState({
     name: "",
@@ -30,6 +32,8 @@ export default function UserAccounts() {
 
   // ✅ Add new user
   const handleAddUser = async () => {
+    setErrorMsg("");
+
     if (
       !form.name ||
       !form.guardId ||
@@ -38,12 +42,12 @@ export default function UserAccounts() {
       !form.password ||
       !form.confirmPassword
     ) {
-      alert("Please fill in all fields.");
+      setErrorMsg("⚠️ Please fill in all fields.");
       return;
     }
 
     if (form.password !== form.confirmPassword) {
-      alert("Passwords do not match!");
+      setErrorMsg("⚠️ Passwords do not match.");
       return;
     }
 
@@ -65,7 +69,6 @@ export default function UserAccounts() {
       const newUser = await res.json();
       setUsers([...users, newUser]);
 
-      // Reset form + close modal
       setForm({
         name: "",
         guardId: "",
@@ -75,16 +78,16 @@ export default function UserAccounts() {
         confirmPassword: "",
       });
       setIsOpen(false);
-
-      alert("✅ User saved successfully!");
+      alert("✅ User added successfully!");
     } catch (err) {
       console.error("Add user error:", err);
-      alert("❌ Failed to save user. Check backend connection.");
+      setErrorMsg("❌ Failed to save user. Check backend connection.");
     }
   };
 
   // ✅ Delete user
   const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
       const res = await fetch(`http://localhost:5000/api/auth/users/${id}`, {
         method: "DELETE",
@@ -99,35 +102,113 @@ export default function UserAccounts() {
     }
   };
 
-  return (
-    <div className="flex min-h-screen bg-[#0f172a]">
-      <main className="flex-1 p-6">
-        <h2 className="text-2xl font-bold text-white mb-4">Users</h2>
+  // ✅ Filtered users
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch =
+      u.name.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase());
+    const matchesRole =
+      roleFilter === "All" || (u.role && u.role === roleFilter);
+    return matchesSearch && matchesRole;
+  });
 
-        {/* Add User Button */}
-        <div className="flex justify-end mb-4 gap-x-2">
-          <div className="flex flex-col sm:flex-row gap-2">
-            <select className="border px-3 py-2 rounded-md shadow-sm bg-gray-900 text-white hover:bg-gray-900 transition">
-              <option value="All">All</option>
+  return (
+    <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
+      <main className="flex-1 p-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6">
+          <h2 className="text-3xl font-bold tracking-wide text-white">
+            User Management
+          </h2>
+          <button
+            onClick={() => setIsOpen(true)}
+            className="mt-4 sm:mt-0 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-4 py-2.5 rounded-lg shadow-md transition-transform transform hover:-translate-y-0.5"
+          >
+            <UserPlus size={18} />
+            Add User
+          </button>
+        </div>
+
+        {/* Filters & Search */}
+        <div className="flex flex-col sm:flex-row justify-between mb-6 gap-3">
+          <div className="flex gap-3">
+            <select
+              className="bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+            >
+              <option value="All">All Roles</option>
               <option value="Guard">Guard</option>
               <option value="Sub-admin">Sub-admin</option>
               <option value="Applicant">Applicant</option>
             </select>
+          </div>
+
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search..."
-              className="border px-3 py-2 rounded-md bg-gray-900 text-white focus:outline-none focus:ring focus:ring-blue-300 w-full sm:w-64"
+              placeholder="Search user..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="bg-[#1e293b] border border-gray-700 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
             />
           </div>
-          <button
-            onClick={() => setIsOpen(true)}
-            className="bg-[#456882] hover:bg-[#234C6A] text-white px-4 py-2 rounded-lg shadow"
-          >
-            Add new user
-          </button>
         </div>
 
-        {/*Modal*/}
+        {/* Users Table */}
+        <div className="overflow-x-auto bg-[#1e293b]/80 backdrop-blur-md border border-gray-700 rounded-xl shadow-lg">
+          <table className="w-full text-left">
+            <thead className="bg-[#234C6A] text-white">
+              <tr>
+                <th className="py-3 px-4 text-sm font-semibold">Name</th>
+                <th className="py-3 px-4 text-sm font-semibold">Phone</th>
+                <th className="py-3 px-4 text-sm font-semibold">Email</th>
+                <th className="py-3 px-4 text-sm font-semibold">Role</th>
+                <th className="py-3 px-4 text-sm font-semibold text-center">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan="5"
+                    className="text-center py-6 text-gray-400 italic"
+                  >
+                    No users found.
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((u) => (
+                  <tr
+                    key={u._id}
+                    className="border-t border-gray-700 hover:bg-[#2a3a4f]/40 transition"
+                  >
+                    <td className="px-4 py-3">{u.name}</td>
+                    <td className="px-4 py-3">{u.phone}</td>
+                    <td className="px-4 py-3">{u.email}</td>
+                    <td className="px-4 py-3">{u.role || "N/A"}</td>
+                    <td className="px-4 py-3 flex justify-center gap-2">
+                      <button className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-md flex items-center gap-1 text-sm">
+                        <Edit3 size={14} /> Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(u._id)}
+                        className="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-md flex items-center gap-1 text-sm"
+                      >
+                        <Trash2 size={14} /> Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Add User Modal */}
         <Transition appear show={isOpen} as={Fragment}>
           <Dialog as="div" className="relative z-50" onClose={() => setIsOpen(false)}>
             <Transition.Child
@@ -153,72 +234,48 @@ export default function UserAccounts() {
                   leaveFrom="opacity-100 scale-100"
                   leaveTo="opacity-0 scale-95"
                 >
-                  <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                    <Dialog.Title className="text-lg font-semibold text-gray-900 mb-4">
+                  <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 text-left align-middle shadow-xl border border-gray-700">
+                    <Dialog.Title className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                      <ShieldAlert className="text-blue-400" />
                       Add New User
                     </Dialog.Title>
 
+                    {errorMsg && (
+                      <div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-4">
+                        {errorMsg}
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <input
-                        type="text"
-                        name="name"
-                        placeholder="Full Name"
-                        value={form.name}
-                        onChange={handleChange}
-                        className="border rounded px-3 py-2"
-                      />
-                      <input
-                        type="text"
-                        name="guardId"
-                        placeholder="Guard ID"
-                        value={form.guardId}
-                        onChange={handleChange}
-                        className="border rounded px-3 py-2"
-                      />
-                      <input
-                        type="email"
-                        name="email"
-                        placeholder="Email Address"
-                        value={form.email}
-                        onChange={handleChange}
-                        className="border rounded px-3 py-2"
-                      />
-                      <input
-                        type="text"
-                        name="phone"
-                        placeholder="Phone Number"
-                        value={form.phone}
-                        onChange={handleChange}
-                        className="border rounded px-3 py-2"
-                      />
-                      <input
-                        type="password"
-                        name="password"
-                        placeholder="Password"
-                        value={form.password}
-                        onChange={handleChange}
-                        className="border rounded px-3 py-2"
-                      />
-                      <input
-                        type="password"
-                        name="confirmPassword"
-                        placeholder="Confirm Password"
-                        value={form.confirmPassword}
-                        onChange={handleChange}
-                        className="border rounded px-3 py-2"
-                      />
+                      {["name", "guardId", "email", "phone", "password", "confirmPassword"].map(
+                        (field, i) => (
+                          <input
+                            key={i}
+                            type={field.includes("password") ? "password" : "text"}
+                            name={field}
+                            placeholder={
+                              field === "confirmPassword"
+                                ? "Confirm Password"
+                                : field.charAt(0).toUpperCase() + field.slice(1)
+                            }
+                            value={form[field]}
+                            onChange={handleChange}
+                            className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                          />
+                        )
+                      )}
                     </div>
 
                     <div className="mt-6 flex justify-end gap-3">
                       <button
                         onClick={() => setIsOpen(false)}
-                        className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded-lg"
+                        className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-white"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={handleAddUser}
-                        className="bg-[#234C6A] hover:bg-[#456882] px-6 py-2 rounded-lg shadow text-white"
+                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-6 py-2 rounded-lg shadow text-white font-medium"
                       >
                         Save User
                       </button>
@@ -229,50 +286,6 @@ export default function UserAccounts() {
             </div>
           </Dialog>
         </Transition>
-
-        {/* Users Table */}
-        <div className="overflow-x-auto bg-white text-black shadow rounded-lg">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-gray-200">
-              <tr>
-                <th className="px-4 py-2">Full Name</th>
-                <th className="px-4 py-2">Guard ID</th>
-                <th className="px-4 py-2">Phone Number</th>
-                <th className="px-4 py-2">Email Address</th>
-                <th className="px-4 py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="text-center text-gray-500 py-4 italic">
-                    No users added yet.
-                  </td>
-                </tr>
-              ) : (
-                users.map((u) => (
-                  <tr key={u._id} className="border-t">
-                    <td className="px-4 py-2">{u.name}</td>
-                    <td className="px-4 py-2">{u.guardId}</td>
-                    <td className="px-4 py-2">{u.phone}</td>
-                    <td className="px-4 py-2">{u.email}</td>
-                    <td className="px-4 py-2 space-x-2">
-                      <button className="bg-blue-600 text-white px-3 py-1 rounded shadow">
-                        Update
-                      </button>
-                      <button
-                        onClick={() => handleDelete(u._id)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded shadow"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
       </main>
     </div>
   );

@@ -9,39 +9,47 @@ export default function GuardTable() {
     {
       name: "Juan Dela Cruz",
       id: "G-001",
-      hiringDate: "2022-01-10",
-      tenure: "2 years",
       position: "Security Guard",
-      status: "Active",
+      dutystation: "Site A",
       address: "Quezon City",
       contact: "09123456789",
       email: "juan@email.com",
-      role: "Guard",
+      shift: "Night Shift",
     },
-    {
-      name: "Pedro Santos",
-      id: "G-002",
-      hiringDate: "2021-05-22",
-      tenure: "3 years",
-      position: "Head Guard",
-      status: "Suspended",
-      address: "Makati City",
-      contact: "09987654321",
-      email: "pedro@email.com",
-      role: "Sub-admin",
-    },
-    {
-      name: "Maria Lopez",
-      id: "G-003",
-      hiringDate: "2023-03-15",
-      tenure: "1 year",
+        {
+      name: "Juan Dela Cruz",
+      id: "G-001",
       position: "Security Guard",
-      status: "Active",
-      address: "Cebu City",
-      contact: "09112223333",
-      email: "maria@email.com",
-      role: "Applicant",
+      dutystation: "Site A",
+      address: "Quezon City",
+      contact: "09123456789",
+      email: "juan@email.com",
+      shift: "Night Shift",
     },
+
+        {
+      name: "Juan Dela Cruz",
+      id: "G-001",
+      position: "Security Guard",
+      dutystation: "Site A",
+      address: "Quezon City",
+      contact: "09123456789",
+      email: "juan@email.com",
+      shift: "Night Shift",
+    },
+
+        {
+      name: "Juan Dela Cruz",
+      id: "G-001",
+      position: "Security Guard",
+      dutystation: "Site A",
+      address: "Quezon City",
+      contact: "09123456789",
+      email: "juan@email.com",
+      shift: "Night Shift",
+    },
+
+
   ];
 
   const filteredData = guards.filter(
@@ -65,10 +73,11 @@ export default function GuardTable() {
               onChange={(e) => setFilter(e.target.value)}
               className="border px-3 py-2 rounded-md shadow-sm bg-gray-900 text-white hover:bg-gray-900 transition"
             >
-              <option value="All">All</option>
-              <option value="Guard">Guard</option>
-              <option value="Sub-admin">Sub-admin</option>
-              <option value="Applicant">Applicant</option>
+              <option value="All">Security Guard</option>
+              <option value="Guard">Officer in Charge</option>
+              <option value="Sub-admin">Inspector</option>
+              <option value="Applicant">Operation Officer</option>
+              <option value="Applicant">Head Operation</option>
             </select>
 
             <input
@@ -86,16 +95,13 @@ export default function GuardTable() {
           <table className="w-full min-w-[800px] border-collapse rounded-lg overflow-hidden">
             <thead className="bg-gray-500 text-white text-sm md:text-base sticky top-0 z-10">
               <tr>
-                <th className="p-3 text-left w-40">Guard Name</th>
+                <th className="p-3 text-left w-50">Guard Name</th>
                 <th className="p-3 text-left w-24">Guard ID</th>
-                <th className="p-3 text-left w-32">Hiring Date</th>
-                <th className="p-3 text-left w-28">Tenure</th>
-                <th className="p-3 text-left w-40">Position</th>
-                <th className="p-3 text-left w-32">Status</th>
-                <th className="p-3 text-left w-48">Address</th>
+                <th className="p-3 text-left w-35">Position</th>
+                <th className="p-3 text-left w-30">Duty Station</th>
                 <th className="p-3 text-left w-32">Contact</th>
                 <th className="p-3 text-left w-56">Email</th>
-                <th className="p-3 text-left w-32">Role</th>
+                <th className="p-3 text-left w-32">Shift</th>
               </tr>
             </thead>
             <tbody>
@@ -107,24 +113,11 @@ export default function GuardTable() {
                   >
                     <td className="p-3">{g.name}</td>
                     <td className="p-3">{g.id}</td>
-                    <td className="p-3">{g.hiringDate}</td>
-                    <td className="p-3">{g.tenure}</td>
                     <td className="p-3">{g.position}</td>
-                    <td className="p-3">
-                      {g.status === "Active" ? (
-                        <span className="px-3 py-1 text-sm rounded-full bg-green-900 text-green-300">
-                          ● Active
-                        </span>
-                      ) : (
-                        <span className="px-3 py-1 text-sm rounded-full bg-gray-600 text-gray-300">
-                          ● Suspended
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-3">{g.address}</td>
+                    <td className="p-3">{g.dutystation}</td>
                     <td className="p-3">{g.contact}</td>
                     <td className="p-3">{g.email}</td>
-                    <td className="p-3">{g.role}</td>
+                    <td className="p-3">{g.shift}</td>
                   </tr>
                 ))
               ) : (

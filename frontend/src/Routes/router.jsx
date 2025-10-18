@@ -13,6 +13,7 @@ import HomeLayout from "../Layouts/HomeLayout.jsx";
 import ErrorPage from "../components/error/ErrorPage.jsx";
 import Dashboard from "../components/Dashboard.jsx";
 import Navbar from "../components/navbar.jsx";
+import Login from "../Admin/Login.jsx";
 
 // Admin pages
 import AdminDeployment from "../Admin/AdminDeployment.jsx";
@@ -81,30 +82,31 @@ const Router = () => {
             { path: "gallery", element: <Gallery /> },
           ],
         },
-
-        // ✅ Admin Section
         {
           path: "admin",
-          element: <AdminLayout />,
           children: [
-            { index: true, element: <Dashboard /> },
-            { path: "deployment", element: <AdminDeployment /> },
-            { path: "posts", element: <AdminPosts /> },
-            { path: "hiring", element: <AdminHiring /> },
-            { path: "accounts", element: <UserAccounts /> },
-            { path: "company-details", element: <CompanyDetails /> },
-            { path: "guards-profile", element: <AdminGuardsProfile /> },
-            { path: "coe", element: <AdminCOE /> },
-            { path: "coe-approved", element: <AdminCOEApproved /> },
-            { path: "coe-declined", element: <AdminCOEDeclined /> },
-            { path: "attendance", element: <AdminAttendance /> },
-            { path: "guard-updates", element: <AdminGuardUpdates /> },
-            { path: "guard-updates/:id", element: <AdminGuardUpdates2 /> },
-            { path: "messages", element: <AdminMessage /> },
+            { path: "Login", element: <Login /> },
+            {
+              element: <AdminLayout />,
+              children: [
+                { index: true, element: <Dashboard /> },
+                { path: "deployment", element: <AdminDeployment /> },
+                { path: "AdminPosts", element: <AdminPosts /> },
+                { path: "AdminHiring", element: <AdminHiring /> },
+                { path: "UserAccounts", element: <UserAccounts /> },
+                { path: "CompanyDetails", element: <CompanyDetails /> },
+                { path: "AdminGuardsProfile", element: <AdminGuardsProfile /> },
+                { path: "AdminCOE", element: <AdminCOE /> },
+                { path: "AdminCOEApproved", element: <AdminCOEApproved /> },
+                { path: "AdminCOEDeclined", element: <AdminCOEDeclined /> },
+                { path: "AdminAttendance", element: <AdminAttendance /> },
+                { path: "AdminGuardUpdates", element: <AdminGuardUpdates /> },
+                { path: "guard-updates/:id", element: <AdminGuardUpdates2 /> },
+                { path: "AdminMessages", element: <AdminMessage /> },
+              ],
+            },
           ],
         },
-
-        // ✅ Guard Section
         {
           path: "guard",
           children: [

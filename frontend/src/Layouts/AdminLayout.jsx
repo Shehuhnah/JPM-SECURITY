@@ -1,5 +1,6 @@
-import { Outlet, NavLink, Link } from "react-router-dom";
-import { useState } from "react";
+import { Outlet, NavLink, Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import {useAuth} from "../hooks/useAuth";
 import {
   Calendar,
   FileText,
@@ -21,8 +22,23 @@ import logo from "../assets/jpmlogo.png";
 
 export default function AdminLayout() {
   const [openDropdown, setOpenDropdown] = useState(false);
-  const [openCOE, setOpenCOE] = useState(false); // ✅ Added
+  const [openCOE, setOpenCOE] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const { admin, token } = useAuth(); //fetch admin data
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!admin || !token) {
+      navigate("/admin/Login");
+    }
+  }, [admin, token, navigate]);
+
+  function handleLogout() {
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminData");
+    navigate("/admin/Login");
+  }
 
   const navItems = [
     { to: "/admin/deployment", label: "Deployment", icon: <Calendar size={18} /> },
@@ -73,7 +89,7 @@ export default function AdminLayout() {
             alt="Admin Avatar"
             className="w-16 h-16 rounded-full border mb-3"
           />
-          <h3 className="font-semibold text-gray-700">No name</h3>
+          <h3 className="font-semibold text-gray-700">{admin.name}</h3>
         </div>
 
         {/* Navigation */}
@@ -174,13 +190,13 @@ export default function AdminLayout() {
           </div>
 
           {/* Logout */}
-          <Link
-            to="/"
+          <button
+            onClick={() => handleLogout()}
             className="flex items-center gap-3 p-2 rounded hover:bg-gray-100 text-red-600 font-medium"
           >
             <LogOut size={18} />
             <span>Logout</span>
-          </Link>
+          </button>
         </nav>
       </aside>
 
