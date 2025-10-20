@@ -42,13 +42,13 @@ export default function AdminLayout() {
 
   const navItems = [
     { to: "/Admin/deployment", label: "Deployment", icon: <Calendar size={18} /> },
-    { to: "/Admin/AdminResume", label: "Resume", icon: <FileText size={18} /> },
     { to: "/Admin/AdminGuardUpdates", label: "Updates", icon: <Shield size={18} /> },
     { to: "/Admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
     { to: "/Admin/UserAccounts", label: "Users", icon: <Users size={18} /> },
     { to: "/Admin/ApplicantList", label: "Applicants", icon: <User size={18} /> },
     { to: "/Admin/AdminGuardsProfile", label: "Guards", icon: <Users size={18} /> },
     { to: "/Admin/AdminAttendance", label: "Attendance", icon: <Clock size={18} /> },
+    { to: "/Admin/AdminCOE", label: "COE ", icon: <FileText size={18} /> },
   ];
 
   const postItems = [
@@ -112,44 +112,6 @@ export default function AdminLayout() {
               <span>{item.label}</span>
             </NavLink>
           ))}
-
-          {/* ✅ COE Dropdown */}
-          <div>
-            <button
-              onClick={() => setOpenCOE(!openCOE)}
-              className="flex items-center justify-between w-full p-2 rounded hover:bg-gray-100"
-            >
-              <div className="flex items-center gap-3">
-                <ClipboardList size={18} />
-                <span>COE</span>
-              </div>
-              <ChevronDown
-                size={16}
-                className={`transition-transform ${openCOE ? "rotate-180" : ""}`}
-              />
-            </button>
-
-            {openCOE && (
-              <ul className="ml-8 mt-1 space-y-1 text-sm">
-                {coeItems.map((item, idx) => (
-                  <li key={idx}>
-                    <NavLink
-                      to={item.to}
-                      className={({ isActive }) =>
-                        `flex items-center gap-2 p-2 rounded transition-colors ${
-                          isActive
-                            ? "bg-gray-600 text-white font-semibold shadow"
-                            : "hover:bg-gray-100"
-                        }`
-                      }
-                    >
-                      {item.label}
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
 
           {/* Posts Dropdown */}
           <div>

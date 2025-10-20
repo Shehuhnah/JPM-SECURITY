@@ -1,6 +1,9 @@
 import React, { useState, useEffect, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { UserPlus, Search, ShieldAlert, Trash2, Edit3, Users, User  } from "lucide-react";
+import { UserPlus, Search, ShieldAlert, Trash2, Edit3, Users, User, RefreshCw   } from "lucide-react";
+import Loader from "../components/Loading.jsx";
+import DeleteUserModal from "../components/DeleteUserModal";
+
 
 export default function UserAccounts() {
   const [users, setUsers] = useState([]);
@@ -8,6 +11,8 @@ export default function UserAccounts() {
   const [errorMsg, setErrorMsg] = useState("");
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
+  const [loading, setLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState(null); // For modal
 
   const [form, setForm] = useState({
     name: "",
@@ -20,13 +25,16 @@ export default function UserAccounts() {
 
   // ✅ Fetch users
   useEffect(() => {
+    document.title = "Users List | JPM Security Agency";
     fetch("http://localhost:5000/api/auth/users")
       .then((res) => res.json())
       .then((data) => setUsers(data))
       .catch((err) => console.error("Fetch users error:", err));
+      setLoading(false);
   }, []);
 
   const handleChange = (e) => {
+    console.log(e.target.name, e.target.value);
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
@@ -85,20 +93,19 @@ export default function UserAccounts() {
     }
   };
 
-  // ✅ Delete user
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/auth/users/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/auth/delete-user/${id}`, {
         method: "DELETE",
       });
-
       if (!res.ok) throw new Error("Failed to delete user");
 
-      setUsers(users.filter((u) => u._id !== id));
+      setUsers((prev) => prev.filter((u) => u._id !== id));
+      setSelectedUser(null); // close modal after delete
+      console.log("✅ User deleted successfully");
     } catch (err) {
-      console.error("Delete user error:", err);
-      alert("❌ Failed to delete user.");
+      console.error("❌ Delete user error:", err);
+      alert("Failed to delete user");
     }
   };
 
@@ -111,6 +118,21 @@ export default function UserAccounts() {
       roleFilter === "All" || (u.role && u.role === roleFilter);
     return matchesSearch && matchesRole;
   });
+
+  const handleRefresh = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("http://localhost:5000/api/auth/users");
+      const data = await res.json();
+      setUsers(data);
+    } catch (err) {
+      console.error("Fetch users error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <Loader text="Loading users..." />;
 
   return (
     <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
@@ -145,15 +167,25 @@ export default function UserAccounts() {
             </select>
           </div>
 
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search user..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="bg-[#1e293b] border border-gray-700 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
-            />
+          <div className="relative w-full sm:w-64 flex items-center gap-2">
+            <button
+              onClick={handleRefresh} 
+              className="p-2 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-[#243046] transition"
+              title="Refresh List"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search user..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="bg-[#1e293b] border border-gray-700 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+              />
+            </div>
           </div>
         </div>
 
@@ -163,6 +195,7 @@ export default function UserAccounts() {
             <thead className="bg-[#234C6A] text-white">
               <tr>
                 <th className="py-3 px-4 text-sm font-semibold">Name</th>
+                <th className="py-3 px-4 text-sm font-semibold">Position</th>
                 <th className="py-3 px-4 text-sm font-semibold">Phone</th>
                 <th className="py-3 px-4 text-sm font-semibold">Email</th>
                 <th className="py-3 px-4 text-sm font-semibold">Role</th>
@@ -188,7 +221,8 @@ export default function UserAccounts() {
                     className="border-t border-gray-700 hover:bg-[#2a3a4f]/40 transition"
                   >
                     <td className="px-4 py-3">{u.name}</td>
-                    <td className="px-4 py-3">{u.phone}</td>
+                    <td className="px-4 py-3">{u.position || "N/A"}</td>
+                    <td className="px-4 py-3">{u.contactNumber}</td>
                     <td className="px-4 py-3">{u.email}</td>
                     <td className="px-4 py-3">{u.role || "N/A"}</td>
                     <td className="px-4 py-3 flex justify-center gap-2">
@@ -196,7 +230,7 @@ export default function UserAccounts() {
                         <Edit3 size={14} /> Edit
                       </button>
                       <button
-                        onClick={() => handleDelete(u._id)}
+                        onClick={() => setSelectedUser(u)}
                         className="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-md flex items-center gap-1 text-sm"
                       >
                         <Trash2 size={14} /> Delete
@@ -287,6 +321,15 @@ export default function UserAccounts() {
             </div>
           </Dialog>
         </Transition>
+
+        {/* Modal */}
+        {selectedUser && (
+          <DeleteUserModal
+            user={selectedUser}
+            onConfirm={handleDelete}
+            onCancel={() => setSelectedUser(null)}
+          />
+        )}
       </main>
     </div>
   );
