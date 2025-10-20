@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const applicantSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    email: { type: String, required: true },
+    position: { type: String, required: true },
     phone: String,
     resumeUrl: String,
     status: {
@@ -11,7 +11,6 @@ const applicantSchema = new mongoose.Schema(
       enum: ["Pending", "Reviewed", "Accepted", "Rejected"],
       default: "Pending",
     },
-    notes: String,
   },
   { timestamps: true }
 );
