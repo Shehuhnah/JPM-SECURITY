@@ -138,54 +138,51 @@ export default function UserAccounts() {
     <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
       <main className="flex-1 p-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6">
+        <div className="flex flex-row justify-between mb-4 py-2">
           <h2 className="text-3xl font-bold text-white flex items-center gap-2">
             <Users className="text-blue-500" />
-            User Management
+            <p>User Management</p>
           </h2>
-          <button
-            onClick={() => setIsOpen(true)}
-            className="mt-4 sm:mt-0 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-4 py-2.5 rounded-lg shadow-md transition-transform transform hover:-translate-y-0.5"
-          >
-            <UserPlus size={18} />
-            Add User
-          </button>
-        </div>
-
-        {/* Filters & Search */}
-        <div className="flex flex-col sm:flex-row justify-between mb-6 gap-3">
-          <div className="flex gap-3">
-            <select
-              className="bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
-              <option value="All">All Roles</option>
-              <option value="Guard">Guard</option>
-              <option value="Sub-admin">Sub-admin</option>
-              <option value="Applicant">Applicant</option>
-            </select>
-          </div>
-
-          <div className="relative w-full sm:w-64 flex items-center gap-2">
-            <button
-              onClick={handleRefresh} 
-              className="p-2 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-[#243046] transition"
-              title="Refresh List"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search user..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="bg-[#1e293b] border border-gray-700 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
-              />
+          {/* Filters & Search */}
+          <div className="flex flex-col sm:flex-row justify-end mb-6 gap-3">
+            <div className="flex gap-3">
+              <select
+                className="bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+              >
+                <option value="All">All Roles</option>
+                <option value="Guard">Guard</option>
+                <option value="Sub-admin">Sub-admin</option>
+                <option value="Applicant">Applicant</option>
+              </select>
             </div>
+            <div className="relative w-full sm:w-64 flex items-center gap-2">
+              <button
+                onClick={handleRefresh}
+                className="p-2 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-[#243046] transition"
+                title="Refresh List"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search user..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="bg-[#1e293b] border border-gray-700 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+                />
+              </div>
+            </div>
+            <button
+              onClick={() => setIsOpen(true)}
+              className="mt-4 sm:mt-0 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-4 py-2.5 rounded-lg shadow-md transition-transform transform hover:-translate-y-0.5"
+            >
+              <UserPlus size={18} />
+              Add User
+            </button>
           </div>
         </div>
 

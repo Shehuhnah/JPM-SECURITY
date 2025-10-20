@@ -62,7 +62,7 @@ export default function GuardTable() {
       <div className="flex-1 flex flex-col p-6">
         {/* Header Section */}
         <header className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
-          <div>
+          <div className="py-3">
             <h2 className="text-3xl font-bold text-white flex items-center gap-2">
               <Shield className="text-blue-500" /> Guards Profile
             </h2>
