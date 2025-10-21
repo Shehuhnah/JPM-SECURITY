@@ -1,6 +1,6 @@
 import Post from "../models/post.model.js";
 
-// ✅ CREATE new post
+// CREATE new post
 export const createPost = async (req, res) => {
   try {
     const { title, subject, body, author } = req.body;
@@ -22,7 +22,7 @@ export const createPost = async (req, res) => {
   }
 };
 
-// ✅ GET all posts
+// GET all posts
 export const getPosts = async (req, res) => {
   try {
     const posts = await Post.find().sort({ createdAt: -1 }); // newest first
@@ -32,7 +32,7 @@ export const getPosts = async (req, res) => {
   }
 };
 
-// ✅ GET post by ID
+// GET post by ID
 export const getPostById = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -43,7 +43,7 @@ export const getPostById = async (req, res) => {
   }
 };
 
-// ✅ UPDATE post by ID
+// UPDATE post by ID
 export const updatePost = async (req, res) => {
   try {
     const { title, subject, body, author } = req.body;
@@ -62,7 +62,7 @@ export const updatePost = async (req, res) => {
   }
 };
 
-// ✅ DELETE post by ID
+// DELETE post by ID
 export const deletePost = async (req, res) => {
   try {
     const post = await Post.findByIdAndDelete(req.params.id);

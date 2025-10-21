@@ -1,239 +1,278 @@
 import React, { useState, useEffect } from "react";
-import { Image as ImageIcon, Send, Trash2 } from "lucide-react";
+import { Send, Trash2, Edit3, Save } from "lucide-react";
 
 export default function AdminHiring() {
   const [title, setTitle] = useState("");
   const [position, setPosition] = useState("");
   const [location, setLocation] = useState("");
-  const [employmentType, setEmploymentType] = useState("full-time");
+  const [employmentType, setEmploymentType] = useState("Full-time");
   const [description, setDescription] = useState("");
-  const [audience, setAudience] = useState("all");
-  const [image, setImage] = useState(null);
   const [posts, setPosts] = useState([]);
+  const [expandedPosts, setExpandedPosts] = useState([]);
 
-  // Load posts
-  useEffect(() => {
-    const savedPosts = localStorage.getItem("hiringPosts");
-    if (savedPosts) {
-      try {
-        setPosts(JSON.parse(savedPosts));
-      } catch (err) {
-        console.error("Error parsing hiringPosts:", err);
-      }
-    }
-  }, []);
+  // 🆕 Track editing state
+  const [editingId, setEditingId] = useState(null);
 
-  // Save posts
-  useEffect(() => {
-    localStorage.setItem("hiringPosts", JSON.stringify(posts));
-  }, [posts]);
-
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result);
-      };
-      reader.readAsDataURL(file);
+  // ✅ Load all hiring posts from backend
+  const fetchPosts = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/hirings");
+      if (!res.ok) throw new Error("Failed to fetch posts");
+      const data = await res.json();
+      setPosts(data);
+    } catch (err) {
+      console.error("Error fetching posts:", err);
     }
   };
 
-  const handlePost = () => {
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  // ✅ Create or Update hiring post
+  const handlePost = async () => {
     if (!title.trim() || !position.trim() || !description.trim()) {
-      alert("Please fill in at least Title, Position, and Description!");
+      alert("Please fill in Title, Position, and Description!");
       return;
     }
 
-    const newPost = {
-      id: Date.now(),
-      author: "ADMIN",
-      date: new Date().toLocaleDateString(),
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }),
+    const postData = {
       title,
       position,
       location,
       employmentType,
       description,
-      audience,
-      image,
+      author: "ADMIN",
     };
 
-    setPosts([newPost, ...posts]);
-    setTitle("");
-    setPosition("");
-    setLocation("");
-    setEmploymentType("full-time");
-    setDescription("");
-    setImage(null);
+    try {
+      if (editingId) {
+        // 🆕 UPDATE existing post
+        const res = await fetch(`http://localhost:5000/api/hirings/${editingId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(postData),
+        });
+
+        if (!res.ok) throw new Error("Failed to update post");
+        const updated = await res.json();
+
+        setPosts(posts.map((p) => (p._id === updated._id ? updated : p)));
+        setEditingId(null);
+      } else {
+        // ✅ CREATE new post
+        const res = await fetch("http://localhost:5000/api/hirings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(postData),
+        });
+
+        if (!res.ok) throw new Error("Failed to create post");
+        const created = await res.json();
+        setPosts([created, ...posts]);
+      }
+
+      // Reset form
+      setTitle("");
+      setPosition("");
+      setLocation("");
+      setEmploymentType("Full-time");
+      setDescription("");
+    } catch (err) {
+      console.error("Error saving post:", err);
+      alert("Error saving post");
+    }
   };
 
-  const handleDelete = (id) => {
-    const updatedPosts = posts.filter((p) => p.id !== id);
-    setPosts(updatedPosts);
-    localStorage.setItem("hiringPosts", JSON.stringify(updatedPosts));
+  // ✅ Delete post by ID
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this post?")) return;
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/hiring/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to delete post");
+      setPosts(posts.filter((p) => p._id !== id));
+    } catch (err) {
+      console.error("Error deleting post:", err);
+    }
+  };
+
+  // 🆕 Edit post handler
+  const handleEdit = (post) => {
+    setTitle(post.title);
+    setPosition(post.position);
+    setLocation(post.location);
+    setEmploymentType(post.employmentType);
+    setDescription(post.description);
+    setEditingId(post._id);
+  };
+
+  const toggleExpand = (id) => {
+    setExpandedPosts((prev) =>
+      prev.includes(id) ? prev.filter((pid) => pid !== id) : [...prev, id]
+    );
   };
 
   return (
-    <div className="flex min-h-screen bg-[#0f172a]">
+    <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
       <main className="flex-1 p-6">
-        <h2 className="text-2xl font-bold mb-6 text-white">📢 Create Hiring Post</h2>
+        <h2 className="text-3xl font-bold mb-6 text-white flex items-center gap-2">
+          💼 Admin Hiring Management
+        </h2>
 
-        {/* Post Form */}
-        <div className="p-6 border border-gray-200 rounded-xl mb-6 bg-white shadow-lg space-y-4">
-          {/* Title */}
-          <input
-            type="text"
-            placeholder="Job Title (e.g. We’re Hiring Security Guards!)"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
+        {/* ✅ Create / Update Post Form */}
+        <div className="p-6 border border-gray-800 bg-[#1e293b]/80 backdrop-blur-md rounded-2xl shadow-xl space-y-4 mb-10">
+          <h3 className="text-lg font-semibold text-blue-400 flex items-center gap-2">
+            {editingId ? "✏️ Edit Hiring Post" : "📝 Create New Hiring Post"}
+          </h3>
 
-          {/* Position & Location */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <input
               type="text"
-              placeholder="Position (e.g. Security Guard)"
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="Job Title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-sm"
             />
             <input
               type="text"
-              placeholder="Location (e.g. Cavite / Client Site)"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="Position"
+              value={position}
+              onChange={(e) => setPosition(e.target.value)}
+              className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-sm"
             />
           </div>
 
-          {/* Employment Type */}
-          <select
-            value={employmentType}
-            onChange={(e) => setEmploymentType(e.target.value)}
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:outline-none"
-          >
-            <option value="full-time">Full-time</option>
-            <option value="part-time">Part-time</option>
-            <option value="contractual">Contractual</option>
-            <option value="internship">Internship</option>
-          </select>
+          <div className="grid grid-cols-2 gap-4">
+            <input
+              type="text"
+              placeholder="Location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-sm"
+            />
+            <select
+              value={employmentType}
+              onChange={(e) => setEmploymentType(e.target.value)}
+              className="w-full bg-[#0f172a] border border-gray-700 text-gray-200 rounded-lg px-4 py-2 text-sm"
+            >
+              <option>Full-time</option>
+              <option>Part-time</option>
+              <option>Contractual</option>
+              <option>Internship</option>
+            </select>
+          </div>
 
-          {/* Description */}
           <textarea
-            placeholder="Job Description, qualifications, requirements..."
+            placeholder="Write job description..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full h-28 p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+            className="w-full h-32 bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg p-3"
           />
 
-          {/* Image Upload */}
-          {image && (
-            <div className="mt-3 relative w-40 h-40">
-              <img
-                src={image}
-                alt="Preview"
-                className="w-40 h-40 object-cover rounded-lg border"
-              />
+          <div className="flex justify-between">
+            {editingId && (
               <button
-                onClick={() => setImage(null)}
-                className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow hover:bg-red-600"
+                onClick={() => {
+                  setEditingId(null);
+                  setTitle("");
+                  setPosition("");
+                  setLocation("");
+                  setEmploymentType("Full-time");
+                  setDescription("");
+                }}
+                className="text-sm text-gray-400 hover:text-gray-200"
               >
-                ✕
+                Cancel Edit
               </button>
-            </div>
-          )}
-
-          <div className="flex justify-between items-center mt-4">
-            <label className="flex items-center gap-2 cursor-pointer bg-purple-50 hover:bg-purple-100 text-purple-600 px-3 py-2 rounded-lg text-sm">
-              <ImageIcon size={16} />
-              <span>Attach Image</span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="hidden"
-              />
-            </label>
-
-            <select
-              value={audience}
-              onChange={(e) => setAudience(e.target.value)}
-              className="border rounded px-3 py-2 bg-gray-50 text-gray-700 focus:outline-none"
-            >
-              <option value="guards">🛡️ Guards Only</option>
-              <option value="applicants">👥 Applicants Only</option>
-              <option value="all">🌍 All</option>
-            </select>
-
+            )}
             <button
               onClick={handlePost}
-              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg shadow transition"
+              className={`flex items-center gap-2 ${
+                editingId ? "bg-green-600 hover:bg-green-500" : "bg-blue-600 hover:bg-blue-500"
+              } text-white px-6 py-2 rounded-lg shadow-md transition`}
             >
-              <Send size={16} /> Post
+              {editingId ? <Save size={16} /> : <Send size={16} />}
+              {editingId ? "Update Post" : "Post Job"}
             </button>
           </div>
         </div>
 
-        {/* Posts List */}
-        <div className="space-y-4">
-          {posts.map((p) => (
-            <div
-              key={p.id}
-              className="p-5 border rounded-xl bg-white shadow-md hover:shadow-lg transition"
-            >
-              <div className="flex justify-between text-sm text-gray-500 mb-2">
-                <span className="font-semibold">👤 {p.author}</span>
-                <span>
-                  {p.date} • {p.time}
-                </span>
-              </div>
-
-              <h3 className="text-lg font-bold text-gray-800">{p.title}</h3>
-              <p className="text-sm text-gray-600 mb-2">
-                <strong>Position:</strong> {p.position} •{" "}
-                <strong>Location:</strong> {p.location} •{" "}
-                <strong>Type:</strong> {p.employmentType}
-              </p>
-
-              <p className="mb-3 text-gray-800">{p.description}</p>
-
-              {p.image && (
-                <img
-                  src={p.image}
-                  alt="Hiring"
-                  className="w-full max-h-60 object-cover rounded-lg mb-3"
-                />
-              )}
-
-              <div className="flex justify-between items-center text-xs text-gray-500">
-                <span className="italic">
-                  🎯 Audience:{" "}
-                  {p.audience === "guards"
-                    ? "Guards"
-                    : p.audience === "applicants"
-                    ? "Applicants"
-                    : "All"}
-                </span>
-                <button
-                  onClick={() => handleDelete(p.id)}
-                  className="flex items-center gap-1 bg-red-100 hover:bg-red-200 text-red-600 px-3 py-1 rounded shadow text-xs"
-                >
-                  <Trash2 size={14} /> Delete
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {posts.length === 0 && (
-            <p className="text-center text-gray-400 italic mt-6">
+        {/* ✅ Posts List */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {posts.length === 0 ? (
+            <p className="text-center text-gray-400 italic col-span-full">
               No hiring posts yet.
             </p>
+          ) : (
+            posts.map((p) => {
+              const isExpanded = expandedPosts.includes(p._id);
+              const shortText =
+                p.description.length > 200 && !isExpanded
+                  ? p.description.slice(0, 200) + "..."
+                  : p.description;
+
+              return (
+                <div
+                  key={p._id}
+                  className="bg-[#1e293b] border border-gray-800 p-5 rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
+                >
+                  <div className="flex justify-between text-xs text-gray-400 mb-3">
+                    <span className="font-semibold text-blue-400">
+                      👤 {p.author}
+                    </span>
+                    <span>
+                      {new Date(p.createdAt).toLocaleDateString()} •{" "}
+                      {new Date(p.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+
+                  <h3 className="text-xl font-semibold text-white mb-1">
+                    {p.title}
+                  </h3>
+
+                  <p className="text-sm text-blue-300 mb-3">
+                    <strong>Position:</strong> {p.position} <br />
+                    <strong>Location:</strong> {p.location || "Not specified"} <br />
+                    <strong>Type:</strong> {p.employmentType}
+                  </p>
+
+                  <p className="text-gray-100 text-sm mb-3 whitespace-pre-line break-words">
+                    {shortText}
+                  </p>
+
+                  {p.description.length > 200 && (
+                    <button
+                      onClick={() => toggleExpand(p._id)}
+                      className="text-blue-400 text-sm hover:underline mb-2"
+                    >
+                      {isExpanded ? "See Less" : "See More"}
+                    </button>
+                  )}
+
+                  <div className="flex justify-between items-center text-xs text-gray-400 mt-auto">
+                    <button
+                      onClick={() => handleEdit(p)}
+                      className="flex items-center gap-1 bg-green-600/20 hover:bg-green-600/40 text-green-400 px-3 py-1 rounded-md"
+                    >
+                      <Edit3 size={14} /> Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(p._id)}
+                      className="flex items-center gap-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 px-3 py-1 rounded-md"
+                    >
+                      <Trash2 size={14} /> Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       </main>

@@ -44,7 +44,7 @@ export default function AdminLayout() {
     { to: "/Admin/deployment", label: "Deployment", icon: <Calendar size={18} /> },
     { to: "/Admin/AdminGuardUpdates", label: "Updates", icon: <Shield size={18} /> },
     { to: "/Admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
-    { to: "/Admin/UserAccounts", label: "Users", icon: <Users size={18} /> },
+    { to: "/Admin/UserAccounts", label: "Staff", icon: <Users size={18} /> },
     { to: "/Admin/ApplicantList", label: "Applicants", icon: <User size={18} /> },
     { to: "/Admin/AdminGuardsProfile", label: "Guards", icon: <Users size={18} /> },
     { to: "/Admin/AdminAttendance", label: "Attendance", icon: <Clock size={18} /> },

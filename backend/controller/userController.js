@@ -34,7 +34,30 @@ export const deleteUser = async (req, res) => {
     }
 };
 
-// PUT update a user 
 export const updateUser = async (req, res) => {
-  
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    if (updateData.password) {
+      return res.status(400).json({ message: "Password update not allowed here." });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(id, updateData, {
+      new: true, 
+      runValidators: true, 
+    }).select("-password"); 
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    res.status(200).json({
+      message: "User updated successfully.",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Update user error:", error);
+    res.status(500).json({ message: "Internal Server Error." });
+  }
 };
