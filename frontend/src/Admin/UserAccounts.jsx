@@ -204,6 +204,13 @@ export default function UserAccounts() {
           </h2>
           {/* Filters & Search */}
           <div className="flex flex-col sm:flex-row justify-end mb-6 gap-3">
+            <button
+              onClick={handleRefresh}
+              className="px-4 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-[#243046] transition"
+              title="Refresh List"
+            >
+              <RefreshCw className="size-4" />
+            </button>
             <div className="flex gap-3">
               <select
                 className="bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -216,13 +223,7 @@ export default function UserAccounts() {
               </select>
             </div>
             <div className="relative w-full sm:w-64 flex items-center gap-2">
-              <button
-                onClick={handleRefresh}
-                className="p-2 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-[#243046] transition"
-                title="Refresh List"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
+              
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                 <input
@@ -544,7 +545,7 @@ export default function UserAccounts() {
 
       <ToastContainer />
 
-        {/* Modal */}
+        {/* Delete Modal */}
         {selectedUser && (
           <DeleteUserModal
             user={selectedUser}
