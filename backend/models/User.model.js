@@ -8,7 +8,7 @@ const adminSchema = new mongoose.Schema(
     password: { type: String, required: true },
     role: {
       type: String,
-      enum: ["admin", "subadmin"],
+      enum: ["Admin", "Subadmin"],
       required: true,
     },
     accessLevel: {

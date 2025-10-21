@@ -1,12 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search, Eye, Clock } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 export default function GuardAttendancePage() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const navigate = useNavigate();
 
   const { admin, token } = useAuth(); //fetch admin data
+  
   useEffect(() => {
       if (!admin || !token) {
         navigate("/admin/Login");

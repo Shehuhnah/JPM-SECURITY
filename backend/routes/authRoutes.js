@@ -9,9 +9,7 @@ router.post("/login", loginUser); // Login user
 
 router.get("/users", getUsers); // Get all users
 router.post("/create-user", createUser); // Create new user
-
 router.put("/update-user/:id", updateUser); // Update user
-
 router.delete("/delete-user/:id", deleteUser); //delete user
 
 export default router;

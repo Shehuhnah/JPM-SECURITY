@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Search, Shield, UserCheck, Clock } from "lucide-react";
+import { Search, Shield, UserCheck, Clock, UserPlus } from "lucide-react";
 
 export default function GuardTable() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
-
+  const [isOpen, setIsOpen] = useState(false);
+  
   const guards = [
     {
       name: "Juan Dela Cruz",
@@ -91,6 +92,14 @@ export default function GuardTable() {
                 className="pl-9 pr-3 py-2 w-full sm:w-64 rounded-md bg-[#1e293b] border border-gray-700 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+
+            <button
+              onClick={() => setIsOpen(true)}
+              className="mt-4 sm:mt-0 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-4 py-2.5 rounded-lg shadow-md transition-transform transform hover:-translate-y-0.5"
+            >
+              <UserPlus size={18} />
+              Add Guard
+            </button>
           </div>
         </header>
 

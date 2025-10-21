@@ -2,67 +2,70 @@ import mongoose from "mongoose";
 
 const guardSchema = new mongoose.Schema(
   {
-    guardName: {
+    fullName: {
       type: String,
-      required: true,
+      required: [true, "Full name is required"],
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: [true, "Email is required"],
+      unique: true,
+      lowercase: true,
       trim: true,
     },
     guardId: {
-      type: Number,
-      required: true,
+      type: String,
+      required: [true, "Guard ID is required"],
       unique: true,
       uppercase: true,
       trim: true,
     },
-    hiringDate: {
-      type: Date,
-      required: true,
-    },
-    tenure: {
+    password: {
       type: String,
-      default: "0 years",
-    },
-    position: {
-      type: String,
-      required: true,
-      default: "Security Guard",
-    },
-    status: {
-      type: String,
-      default: "Active",
-      enum: ["Active", "Inactive", "On Leave", "Terminated"],
+      required: [true, "Password is required"],
+      minlength: 6,
     },
     address: {
       type: String,
-      required: true,
-      trim: true,
+      required: [true, "Address is required"],
     },
-    contact: {
+    position: {
       type: String,
-      required: true,
-      match: [/^\d{10,15}$/, "Invalid contact number"], // optional validation
+      default: "Security Guard",
+      enum: ["Security Guard", "Officer in Charge", "Inspector", "Head Operation"],
     },
-    email: {
+    dutyStation: {
       type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true,
-      match: [/.+\@.+\..+/, "Invalid email format"],
+      required: [true, "Duty station is required"],
+    },
+    shift: {
+      type: String,
+      enum: ["Day Shift", "Night Shift", "Rotational"],
+      required: [true, "Shift is required"],
+    },
+    phoneNumber: {
+      type: String,
+      required: [true, "Phone number is required"],
+      match: [/^\d{10,11}$/, "Please enter a valid phone number"],
+    },
+    status: {
+      type: String,
+      enum: ["Active", "Inactive"],
+      default: "Active",
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true, // ✅ adds createdAt and updatedAt
+  }
 );
 
-// Optional: Pre-save hook to calculate tenure automatically
-guardSchema.pre("save", function (next) {
-  if (this.hiringDate) {
-    const today = new Date();
-    const diff = today.getFullYear() - this.hiringDate.getFullYear();
-    this.tenure = `${diff} year${diff !== 1 ? "s" : ""}`;
-  }
-  next();
-});
+// Optional: Hide password when sending JSON
+guardSchema.methods.toJSON = function () {
+  const guard = this.toObject();
+  delete guard.password;
+  return guard;
+};
 
 const Guard = mongoose.model("Guard", guardSchema);
 

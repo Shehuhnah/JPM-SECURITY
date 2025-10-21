@@ -121,27 +121,36 @@ export default function UserAccounts() {
 
       if (!res.ok) throw new Error("Failed to update user");
 
-      await handleRefresh(); 
+      handleRefresh(); 
       setIsEditOpen(false);
 
-      toast.success("✅ User updated successfully", {
+      toast.success("Staff Updated Successfully", {
         position: "top-right",
         autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
         theme: "dark",
         transition: Bounce,
       });
+
     } catch (err) {
-      console.error("Update user error:", err);
-      toast.error("❌ Failed to update user.", {
+      console.error("Update Staff error:", err);
+      toast.error("Update Staff Error: ", err, {
         position: "top-right",
         autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
         theme: "dark",
         transition: Bounce,
       });
     }
   };
-
-
 
   const handleDelete = async (id) => {
     try {
@@ -203,7 +212,7 @@ export default function UserAccounts() {
               >
                 <option value="All">All Roles</option>
                 <option value="Sub-admin">Sub-admin</option>
-                <option value="admin">Admin</option>
+                <option value="Admin">Admin</option>
               </select>
             </div>
             <div className="relative w-full sm:w-64 flex items-center gap-2">
@@ -371,8 +380,8 @@ export default function UserAccounts() {
                       className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select Role</option>
-                      <option value="admin">Admin</option>
-                      <option value="subadmin">Subadmin</option>
+                      <option value="Admin">Admin</option>
+                      <option value="Subadmin">Subadmin</option>
                     </select>
                     <select
                       name="accessLevel"
@@ -496,8 +505,8 @@ export default function UserAccounts() {
                       }
                       className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="admin">Admin</option>
-                      <option value="subadmin">Subadmin</option>
+                      <option value="Admin">Admin</option>
+                      <option value="Subadmin">Subadmin</option>
                     </select>
                     <select
                       name="accessLevel"
