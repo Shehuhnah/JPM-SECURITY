@@ -2,21 +2,26 @@ import mongoose from "mongoose";
 
 const postSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true },
-    message: { type: String, required: true },
-    audience: {
+    title: {
       type: String,
-      enum: ["all", "guards", "subadmin", "applicants"],
-      default: "all",
+      required: true,
+      trim: true,
     },
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // admin or subadmin who posted
+    subject: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    body: {
+      type: String,
       required: true,
     },
-    file: { type: String }, // optional: store filename or URL
+    author: {
+      type: String,
+      default: "ADMIN",
+    },
   },
-  { timestamps: true }
+  { timestamps: true } // Automatically adds createdAt, updatedAt
 );
 
 export default mongoose.model("Post", postSchema);

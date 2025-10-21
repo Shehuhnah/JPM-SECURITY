@@ -83,7 +83,7 @@ export default function LoginForm() {
         </div>
 
         {/* Button */}
-        <Link to="/Guard/GuardAnnouncement"
+        <Link to="/Guard/announcements"
           className="w-full bg-[#1B3C53] text-white py-2 px-43 rounded-md hover:bg-[#456882] transition"
         >
           Login

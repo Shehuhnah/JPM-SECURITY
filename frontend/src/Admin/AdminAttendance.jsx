@@ -1,9 +1,17 @@
 import React, { useState } from "react";
 import { Search, Eye, Clock } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
 
 export default function GuardAttendancePage() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+
+  const { admin, token } = useAuth(); //fetch admin data
+  useEffect(() => {
+      if (!admin || !token) {
+        navigate("/admin/Login");
+      }
+    }, [admin, token, navigate]);
 
   // ✅ Sample static data (replace with backend later)
   const attendance = [

@@ -1,15 +1,19 @@
 import express from "express";
 import {
-  getPosts,
   createPost,
+  getPosts,
+  getPostById,
+  updatePost,
   deletePost,
 } from "../controller/postController.js";
-import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.get("/", protect, getPosts);
-router.post("/", protect, authorizeRoles("admin", "subadmin"), createPost);
-router.delete("/:id", protect, authorizeRoles("admin", "subadmin"), deletePost);
+// CRUD routes
+router.post("/", createPost);
+router.get("/", getPosts);
+router.get("/:id", getPostById);
+router.put("/:id", updatePost);
+router.delete("/:id", deletePost);
 
 export default router;

@@ -19,11 +19,11 @@ export default function GuardsLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navItems = [
-    { to: "/Guard/GuardDetachment", label: "Detachment / Deployment", icon: <Shield size={18} /> },
-    { to: "/Guard/GuardAnnouncement", label: "Announcement", icon: <Megaphone size={18} /> },
-    { to: "/Guard/GuardLogBook", label: "Log Book", icon: <BookOpen size={18} /> },
+    { to: "/Guard/detachment", label: "Detachment / Deployment", icon: <Shield size={18} /> },
+    { to: "/Guard/announcements", label: "Announcement", icon: <Megaphone size={18} /> },
+    { to: "/Guard/logbook", label: "Log Book", icon: <BookOpen size={18} /> },
     { to: "/Guard/GuardReqCOE", label: "Request COE", icon: <FileText size={18} /> },
-    { to: "/Guard/hirings", label: "Hirings", icon: <Briefcase size={18} /> },
+    { to: "/Guard/request-coe", label: "Hirings", icon: <Briefcase size={18} /> },
   ];
 
   return (

@@ -54,7 +54,6 @@ export default function AdminLayout() {
   const postItems = [
     { to: "/Admin/AdminPosts", label: "Announcement", icon: <Megaphone size={16} /> },
     { to: "/Admin/AdminHiring", label: "Hiring", icon: <Briefcase size={16} /> },
-    { to: "/Admin/CompanyDetails", label: "Company", icon: <Building2 size={16} /> },
   ];
 
   // ✅ COE sub-items
