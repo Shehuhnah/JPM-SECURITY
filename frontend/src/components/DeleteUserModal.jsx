@@ -7,7 +7,7 @@ export default function DeleteUserModal({ user, onConfirm, onCancel }) {
         <h2 className="text-lg font-semibold mb-3">Delete User</h2>
         <p className="text-sm text-gray-300 mb-5">
           Are you sure you want to delete{" "}
-          <span className="font-medium text-red-400">{user.name}</span>?  
+          <span className="font-medium text-red-400">{user.fullName}</span>?  
           This action cannot be undone.
         </p>
 

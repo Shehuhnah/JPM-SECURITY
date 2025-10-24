@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.model.js";
+import Guard from "../models/guard.model.js";
 
 const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "15d" });
@@ -90,6 +91,49 @@ export const loginUser = async (req, res) => {
 
   } catch (err) {
     console.error("Login error:", err.message);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const loginGuard = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const guard = await Guard.findOne({ email, role: "Guard" });
+    if (!guard) {
+      return res.status(400).json({ message: "Invalid Email Address" });
+    }
+
+    const isMatch = await guard.matchPassword(password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Incorrect password" });
+    }
+
+    const token = generateToken(guard._id, guard.role);
+
+    // ✅ Updated field names
+    res.json({
+      token,
+      guard: {
+        _id: guard._id,
+        fullName: guard.fullName,
+        email: guard.email,
+        role: guard.role,
+        guardId: guard.guardId,
+        address: guard.address,
+        position: guard.position,
+        dutyStation: guard.dutyStation,
+        shift: guard.shift,
+        phoneNumber: guard.phoneNumber,
+        status: guard.status,
+        lastLogin: guard.lastLogin,
+      },
+    });
+
+    guard.lastLogin = new Date();
+    await guard.save();
+  } catch (err) {
+    console.error("Guard login error:", err.message);
     res.status(500).json({ message: err.message });
   }
 };

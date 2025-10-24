@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 const guardSchema = new mongoose.Schema(
   {
@@ -49,18 +50,33 @@ const guardSchema = new mongoose.Schema(
       required: [true, "Phone number is required"],
       match: [/^\d{10,11}$/, "Please enter a valid phone number"],
     },
+    role: {
+      type: String,
+      default: "Guard",
+    },
     status: {
       type: String,
       enum: ["Active", "Inactive"],
       default: "Active",
     },
+    lastLogin: {
+      type: Date,
+    },
   },
-  {
-    timestamps: true, // ✅ adds createdAt and updatedAt
-  }
+  { timestamps: true }
 );
 
-// Optional: Hide password when sending JSON
+guardSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
+});
+
+guardSchema.methods.matchPassword = async function (enteredPassword) {
+  return await bcrypt.compare(enteredPassword, this.password);
+};
+
 guardSchema.methods.toJSON = function () {
   const guard = this.toObject();
   delete guard.password;
@@ -68,5 +84,4 @@ guardSchema.methods.toJSON = function () {
 };
 
 const Guard = mongoose.model("Guard", guardSchema);
-
 export default Guard;

@@ -1,6 +1,16 @@
 import express from "express";
-import { registerUser, loginUser } from "../controller/authController.js";
-import { getUsers, createUser, updateUser, deleteUser } from "../controller/userController.js";
+import { 
+    registerUser, 
+    loginUser, 
+    loginGuard 
+} from "../controller/authController.js";
+
+import { 
+    getUsers,
+    createUser,
+    updateUser,
+    deleteUser,
+} from "../controller/userController.js";
 
 const router = express.Router();
 
@@ -11,5 +21,7 @@ router.get("/users", getUsers); // Get all users
 router.post("/create-user", createUser); // Create new user
 router.put("/update-user/:id", updateUser); // Update user
 router.delete("/delete-user/:id", deleteUser); //delete user
+
+router.post("/login-guard", loginGuard); // Login guard
 
 export default router;
