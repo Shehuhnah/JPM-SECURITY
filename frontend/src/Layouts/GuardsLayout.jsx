@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, Outlet } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, Outlet, useNavigate } from "react-router-dom";
 import {
   Shield,
   Megaphone,
@@ -12,11 +12,27 @@ import {
   X,
 } from "lucide-react";
 
+import { guardAuth } from "../hooks/guardAuth";
+
 import logo from "../assets/jpmlogo.png";
 
 export default function GuardsLayout() {
   const [openAttendance, setOpenAttendance] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const { guard, token } = guardAuth();
+  const navigate = useNavigate();
+ 
+  useEffect(() => {
+    document.title = "Guard Dashboard | JPM Security Agency";
+   
+  }, []);
+
+  function handleLogout() {
+    localStorage.removeItem("guardToken");
+    localStorage.removeItem("guardData");
+    navigate("/Guard/Login");
+  }
 
   const navItems = [
     { to: "/Guard/detachment", label: "Detachment / Deployment", icon: <Shield size={18} /> },
@@ -55,8 +71,8 @@ export default function GuardsLayout() {
             <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center text-2xl">
               👤
             </div>
-            <h3 className="font-medium text-gray-700 mt-2">Guard Name</h3>
-            <p className="text-xs text-gray-500">Security Guard</p>
+            <h3 className="font-medium text-gray-700 mt-2">{guard.fullName}</h3>
+            <p className="text-xs text-gray-500">{guard.position}</p>
           </div>
 
           {/* Navigation */}
@@ -108,14 +124,14 @@ export default function GuardsLayout() {
             </div>
 
             {/* Logout */}
-            <Link
+            <button
               to="/"
-              onClick={() => setSidebarOpen(false)}
-              className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 font-medium text-red-600"
+              onClick={() => handleLogout()}
+              className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 font-medium text-red-600 w-full"
             >
               <LogOut size={18} />
               <span>Logout</span>
-            </Link>
+            </button>
           </nav>
         </aside>
 

@@ -12,7 +12,12 @@ export default function LoginForm() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false) 
 
-  useEffect
+  useEffect(() => {
+    document.title = "Guard Login | JPM Security Agency";
+    if(localStorage.getItem("guardToken")) {
+      navigate("/Guard/announcements");
+    }
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -44,7 +49,7 @@ export default function LoginForm() {
 
       if (data.token) {
         localStorage.setItem("guardToken", data.token);
-        localStorage.setItem("guardData", data.guard)
+        localStorage.setItem("guardData", JSON.stringify(data.guard))
       }
 
       setMessage("✅ Login successful! Redirecting...");

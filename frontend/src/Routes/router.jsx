@@ -102,7 +102,7 @@ const Router = () => {
                 { path: "AdminCOEDeclined", element: <AdminCOEDeclined /> },
                 { path: "AdminAttendance", element: <AdminAttendance /> },
                 { path: "AdminGuardUpdates", element: <AdminGuardUpdates /> },
-                { path: "guard-updates/:id", element: <AdminGuardUpdates2 /> },
+                { path: "AdminGuardUpdates2/:id", element: <AdminGuardUpdates2 /> },
                 { path: "AdminMessages", element: <AdminMessage /> },
                 { path: "ApplicantList", element: <ApplicantList />}
               ],

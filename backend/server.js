@@ -11,6 +11,7 @@ import messageRoutes from "./routes/messageRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import hiringRoutes from "./routes/hiringRoutes.js";
 import guardRoutes from "./routes/guardRoutes.js";
+import logbookRoutes from "./routes/logbookRoutes.js";
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.use("/api/posts", postRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/hirings", hiringRoutes);
 app.use("/api/guards", guardRoutes);
+app.use("/api/logbook", logbookRoutes);
 
 app.get("/", (req, res) => res.send("API is running"));
 

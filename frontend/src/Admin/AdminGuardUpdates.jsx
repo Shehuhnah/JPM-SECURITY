@@ -1,33 +1,57 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Shield, UserCheck } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
 
 export default function AdminGuardUpdates() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const [guards, setGuards] = useState([
-    { id: 1, name: "Vic Fuentes", avatar: "/avatars/male1.png", status: "Active", site: "SM Dasmariñas" },
-    { id: 2, name: "Tony Perry", avatar: "/avatars/male2.png", status: "On Duty", site: "Vista Mall Tagaytay" },
-    { id: 3, name: "Gerard N.O Way", avatar: "/avatars/male3.png", status: "Off Duty", site: "Robinsons Imus" },
-    { id: 4, name: "Kellin Quinn", avatar: "/avatars/female1.png", status: "Active", site: "Ayala Mall Bacoor" },
-    { id: 4, name: "Kellin Quinn", avatar: "/avatars/female1.png", status: "Active", site: "Ayala Mall Bacoor" },
+  const [guards, setGuards] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  
+  const { user, token } = useAuth();
 
-  ]);
-
-  // ✅ For future backend integration
+  // Load guards from backend
   useEffect(() => {
     document.title = "Guards Updates | JPM Security Agency";
-    // Example:
-    // fetch("http://localhost:5000/api/guards")
-    //   .then((res) => res.json())
-    //   .then(setGuards)
-    //   .catch((err) => console.error("Failed to fetch guards:", err));
+    fetchGuards();
   }, []);
 
-  // ✅ Filter guards by search
+  // Fetch guards from backend
+  const fetchGuards = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      
+      const response = await fetch("http://localhost:5000/api/guards", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setGuards(data);
+      } else {
+        setError("Failed to load guards");
+      }
+    } catch (error) {
+      console.error("Error fetching guards:", error);
+      setError("Error loading guards");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter guards by search
   const filteredGuards = guards.filter((g) =>
-    g.name.toLowerCase().includes(search.toLowerCase())
+    g.fullName.toLowerCase().includes(search.toLowerCase()) ||
+    g.guardId.toLowerCase().includes(search.toLowerCase()) ||
+    g.dutyStation.toLowerCase().includes(search.toLowerCase())
   );
+
+  
 
   return (
     <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
@@ -52,60 +76,74 @@ export default function AdminGuardUpdates() {
           </div>
         </div>
 
-        {/* ===== Guards Grid ===== */}
-        {filteredGuards.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-6">
-            {filteredGuards.map((guard) => (
-              <div
-                key={guard.id}
-                onClick={() => navigate(`/Admin/AdminGuardUpdates2/${guard.id}`)}
-                className="group relative bg-[#1e293b] rounded-2xl shadow-lg p-5 flex flex-col items-center text-center hover:bg-[#243046] hover:scale-[1.02] hover:shadow-xl transition-all cursor-pointer"
-              >
-                {/* Avatar */}
-                <div className="relative">
-                  <img
-                    src={guard.avatar}
-                    alt={guard.name}
-                    className="w-20 h-20 rounded-full border-2 border-blue-500 shadow-md mb-3"
-                  />
-                  <span
-                    className={`absolute bottom-2 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#1e293b] ${
-                      guard.status === "Active"
-                        ? "bg-green-400"
-                        : guard.status === "On Duty"
-                        ? "bg-yellow-400"
-                        : "bg-gray-400"
-                    }`}
-                  ></span>
-                </div>
-
-                {/* Info */}
-                <h2 className="text-lg font-semibold text-white group-hover:text-blue-400 transition">
-                  {guard.name}
-                </h2>
-                <p className="text-sm text-gray-400 mt-1">{guard.site}</p>
-
-                <div
-                  className={`mt-3 px-3 py-1 rounded-full text-xs font-medium ${
-                    guard.status === "Active"
-                      ? "bg-green-500/20 text-green-400"
-                      : guard.status === "On Duty"
-                      ? "bg-yellow-500/20 text-yellow-400"
-                      : "bg-gray-500/20 text-gray-400"
-                  }`}
-                >
-                  {guard.status}
-                </div>
-
-                {/* Hover indicator */}
-                <div className="absolute inset-0 border-2 border-transparent rounded-2xl group-hover:border-blue-500 transition-all"></div>
-              </div>
-            ))}
+        {/* ===== Loading State ===== */}
+        {loading ? (
+          <div className="text-center mt-16">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+            <p className="text-gray-400 mt-2">Loading guards...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center mt-16">
+            <p className="text-red-400 mb-4">{error}</p>
+            <button
+              onClick={fetchGuards}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
+            >
+              Try Again
+            </button>
           </div>
         ) : (
-          <div className="text-center mt-16 text-gray-400 italic">
-            No guards found matching “{search}”.
-          </div>
+          /* ===== Guards Grid ===== */
+          filteredGuards.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-6">
+              {filteredGuards.map((guard) => (
+                <div
+                  key={guard._id}
+                  onClick={() => navigate(`/admin/AdminGuardUpdates2/${guard._id}`)}
+                  className="group relative bg-[#1e293b] rounded-2xl shadow-lg p-5 flex flex-col items-center text-center hover:bg-[#243046] hover:scale-[1.02] hover:shadow-xl transition-all cursor-pointer"
+                >
+                  {/* Avatar */}
+                  <div className="relative">
+                    <div className="w-20 h-20 rounded-full border-2 border-blue-500 shadow-md mb-3 bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+                      {guard.fullName.charAt(0).toUpperCase()}
+                    </div>
+                    <span
+                      className={`absolute bottom-2 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#1e293b] ${
+                        guard.status === "Active"
+                          ? "bg-green-400"
+                          : "bg-gray-400"
+                      }`}
+                    ></span>
+                  </div>
+
+                  {/* Info */}
+                  <h2 className="text-lg font-semibold text-white group-hover:text-blue-400 transition">
+                    {guard.fullName}
+                  </h2>
+                  <p className="text-xs text-gray-500 mb-1">ID: {guard.guardId}</p>
+                  <p className="text-sm text-gray-400 mt-1">{guard.dutyStation}</p>
+                  <p className="text-xs text-gray-500">{guard.position}</p>
+
+                  <div
+                    className={`mt-3 px-3 py-1 rounded-full text-xs font-medium ${
+                      guard.status === "Active"
+                        ? "bg-green-500/20 text-green-400"
+                        : "bg-gray-500/20 text-gray-400"
+                    }`}
+                  >
+                    {guard.status}
+                  </div>
+
+                  {/* Hover indicator */}
+                  <div className="absolute inset-0 border-2 border-transparent rounded-2xl group-hover:border-blue-500 transition-all"></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center mt-16 text-gray-400 italic">
+              {search ? `No guards found matching "${search}".` : "No guards found."}
+            </div>
+          )
         )}
 
         {/* ===== Footer ===== */}

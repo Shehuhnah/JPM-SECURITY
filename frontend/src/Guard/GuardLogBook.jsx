@@ -1,184 +1,312 @@
 import { useState, useEffect } from "react";
+import { ClipboardList, Clock, MapPin, FileText, Trash2, Edit3, Save, X } from "lucide-react";
+import { guardAuth } from "../hooks/guardAuth";
 
 export default function GuardLogBook() {
-  const [updates, setUpdates] = useState([]);
-  const [newUpdate, setNewUpdate] = useState("");
-  const [image, setImage] = useState(null);
+  const [logs, setLogs] = useState([]);
+  const [form, setForm] = useState({
+    post: "",
+    shift: "",
+    type: "",
+    remarks: "",
+  });
   const [editingId, setEditingId] = useState(null);
-  const [editingText, setEditingText] = useState("");
+  const [editingData, setEditingData] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  // 🧠 Load saved logs
+  
+  const { guard, token } = guardAuth();
+  console.log(guard);
+  console.log(form);
+  console.log(form)
+
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem("guardLogBook")) || [];
-    setUpdates(saved);
+    fetchLogs();
   }, []);
 
-  // 💾 Save logs
-  useEffect(() => {
-    localStorage.setItem("guardLogBook", JSON.stringify(updates));
-  }, [updates]);
-
-  // 📸 Handle file or camera image
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => setImage(event.target.result);
-    reader.readAsDataURL(file);
+  const fetchLogs = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`http://localhost:5000/api/logbook?guardId=${guard._id}`, {
+        
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setLogs(data);
+      } else {
+        setMessage("❌ Failed to load logs");
+      }
+    } catch (error) {
+      console.error("Error fetching logs:", error);
+      setMessage("❌ Error loading logs");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAddUpdate = () => {
-    if (!newUpdate.trim() && !image) return;
+  const handleAddLog = async () => {
+    if (!form.post || !form.shift || !form.type || !form.remarks) {
+      setMessage("⚠️ Please fill in all fields before adding a log entry.");
+      return;
+    }
 
-    const now = new Date();
-    const time = now.toLocaleTimeString("en-US", { hour12: false });
+    try {
+      setLoading(true);
+      setMessage("");
+      
+      const response = await fetch("http://localhost:5000/api/logbook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...form,
+          guardId: guard._id,
+        }),
+      });
 
-    const newEntry = {
-      id: Date.now(),
-      time,
-      text: newUpdate,
-      image,
-      editedAt: null,
-    };
-
-    setUpdates([newEntry, ...updates]);
-    setNewUpdate("");
-    setImage(null);
+      if (response.ok) {
+        const newLog = await response.json();
+        setLogs([newLog, ...logs]);
+        setForm({ post: "", shift: "", type: "", remarks: "" });
+        setMessage("✅ Log entry added successfully!");
+      } else {
+        const error = await response.json();
+        setMessage(`❌ ${error.message || "Failed to add log entry"}`);
+      }
+    } catch (error) {
+      console.error("Error adding log:", error);
+      setMessage("❌ Error adding log entry");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // 💾 Save edits
-  const handleSaveEdit = (id) => {
-    const now = new Date();
-    const editedAt = now.toLocaleTimeString("en-US", { hour12: false });
+  // ✏️ Edit log entry
+  // const handleEdit = (entry) => {
+  //   setEditingId(entry.id);
+  //   setEditingData(entry);
+  //   console.log(entry);
+  // };
 
-    setUpdates(
-      updates.map((u) =>
-        u.id === id ? { ...u, text: editingText, editedAt } : u
-      )
-    );
+  // const handleSaveEdit = async () => {
+  //   try {
+  //     setLoading(true);
+  //     setMessage("");
+      
+  //     const response = await fetch(`http://localhost:5000/api/logbook/${editingId}`, {
+  //       method: "PUT",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify(editingData),
+  //     });
 
-    setEditingId(null);
-    setEditingText("");
-  };
+  //     if (response.ok) {
+  //       const updatedLog = await response.json();
+  //       setLogs(logs.map((l) => (l._id === editingId ? updatedLog : l)));
+  //       setEditingId(null);
+  //       setEditingData({});
+  //       setMessage("✅ Log entry updated successfully!");
+  //     } else {
+  //       const error = await response.json();
+  //       setMessage(`❌ ${error.message || "Failed to update log entry"}`);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error updating log:", error);
+  //     setMessage("❌ Error updating log entry");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setEditingText("");
-  };
+  // const handleDelete = async (id) => {
+  //   if (window.confirm("Are you sure you want to delete this log?")) {
+  //     try {
+  //       setLoading(true);
+  //       setMessage("");
+        
+  //       const response = await fetch(`http://localhost:5000/api/logbook/${id}`, {
+  //         method: "DELETE",
+          
+  //       });
+
+  //       if (response.ok) {
+  //         setLogs(logs.filter((l) => l._id !== id));
+  //         setMessage("✅ Log entry deleted successfully!");
+  //       } else {
+  //         const error = await response.json();
+  //         setMessage(`❌ ${error.message || "Failed to delete log entry"}`);
+  //       }
+  //     } catch (error) {
+  //       console.error("Error deleting log:", error);
+  //       setMessage("❌ Error deleting log entry");
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   }
+  // };
 
   return (
-    <div className="items-center p-7 min-h-screen bg-[#0f172a]">
-      {/* Input Box */}
-      <div className="bg-white rounded-xl shadow p-4 mb-6">
-        <h2 className="text-lg font-bold text-gray-700 mb-3">Add Update</h2>
+    <div className="min-h-screen bg-[#0f172a] text-gray-100 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-center mb-8">
+        <ClipboardList className="text-blue-400 w-7 h-7 mr-3" />
+        <h1 className="text-2xl font-bold tracking-wide text-white">
+          Guard Logbook
+        </h1>
+      </div>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          <textarea
-            value={newUpdate}
-            onChange={(e) => setNewUpdate(e.target.value)}
-            placeholder="Type here to add a new update..."
-            className="flex-1 border rounded-lg p-3 focus:ring focus:ring-blue-300"
-          />
-          <button
-            onClick={handleAddUpdate}
-            className="bg-gray-900 text-white px-7 py-2 rounded-lg hover:bg-gray-700"
+      {/* Log Form */}
+      <div className="bg-[#1e293b] border border-gray-700 rounded-2xl shadow-xl p-6 space-y-4 mb-10">
+        <h2 className="text-lg font-semibold text-blue-400 flex items-center gap-2">
+          <FileText size={18} /> Log New Entry
+        </h2>
+
+        {message && (
+          <div
+            className={`p-3 text-sm text-center rounded-md ${
+              message.includes("✅")
+                ? "bg-green-500/20 text-green-400 border border-green-500"
+                : "bg-red-500/20 text-red-400 border border-red-500"
+            }`}
           >
-            Add
-          </button>
+            {message}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <input
+            type="text"
+            placeholder="Post / Duty Station"
+            value={form.post}
+            onChange={(e) => setForm({ ...form, post: e.target.value })}
+            className="bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+          />
+          <select
+            value={form.shift}
+            onChange={(e) => setForm({ ...form, shift: e.target.value })}
+            className="bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Select Shift</option>
+            <option value="Day Shift">Day Shift</option>
+            <option value="Night Shift">Night Shift</option>
+          </select>
+          <select
+            value={form.type}
+            onChange={(e) => setForm({ ...form, type: e.target.value })}
+            className="bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Log Type</option>
+            <option value="Routine Check">Routine Check</option>
+            <option value="Visitor Entry">Visitor Entry</option>
+            <option value="Incident Report">Incident Report</option>
+            <option value="Equipment Check">Equipment Check</option>
+          </select>
         </div>
 
-        {/* Image / Camera Input */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-3">
-          <label className="text-sm font-medium text-gray-700">
-            Attach Image:
-          </label>
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleImageChange}
-            className="text-sm text-gray-600"
-          />
-          {image && (
-            <img
-              src={image}
-              alt="preview"
-              className="w-24 h-24 object-cover rounded-lg border mt-2 sm:mt-0"
-            />
-          )}
+        <textarea
+          placeholder="Enter remarks or incident details..."
+          value={form.remarks}
+          onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+          className="w-full h-28 bg-[#0f172a] border border-gray-700 rounded-lg p-3 text-gray-100 focus:ring-2 focus:ring-blue-500 resize-none"
+        />
+
+        <div className="flex justify-center">
+          <button
+            onClick={handleAddLog}
+            disabled={loading}
+            className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:from-gray-600 disabled:to-gray-500 text-white font-semibold px-5 py-2 rounded-lg shadow-md transition"
+          >
+            {loading ? "Adding..." : "Add Log Entry"}
+          </button>
         </div>
       </div>
 
-      {/* Updates List */}
-      <div className="space-y-4">
-        {updates.length === 0 ? (
-          <p className="text-gray-400 text-center">No updates yet.</p>
+      {/* Log Entries */}
+      <div className="space-y-5">
+        {loading && logs.length === 0 ? (
+          <p className="text-center text-gray-400 italic">Loading logs...</p>
+        ) : logs.length === 0 ? (
+          <p className="text-center text-gray-400 italic">No log entries yet.</p>
         ) : (
-          updates.map((u) => (
+          logs.map((log) => (
             <div
-              key={u.id}
-              className="bg-white shadow rounded-xl p-4 flex flex-col gap-3"
+              key={log._id}
+              className="bg-[#1e293b] border border-gray-700 rounded-2xl p-5 shadow-lg hover:shadow-blue-500/10 transition"
             >
-              <div className="flex items-center justify-between flex-wrap gap-1">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <span className="text-sm font-mono text-gray-600">
-                    {u.time}
-                  </span>
-                  {u.editedAt && (
-                    <span className="text-xs text-gray-500">
-                      (edited at {u.editedAt})
+              <div className="flex justify-between items-center mb-3">
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <Clock size={14} className="text-blue-400" />
+                  <span>{new Date(log.createdAt).toLocaleDateString()}</span>•<span>{new Date(log.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                  {log.updatedAt && log.updatedAt !== log.createdAt && (
+                    <span className="italic text-gray-500">
+                      (edited {new Date(log.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})
                     </span>
                   )}
                 </div>
 
-                {/*Edit Button */}
-                {editingId !== u.id && (
+                {/* Edit/Delete Buttons
+                <div className="flex gap-2">
                   <button
-                    onClick={() => {
-                      setEditingId(u.id);
-                      setEditingText(u.text);
-                    }}
-                    className="text-gray-500 hover:text-blue-600"
+                    onClick={() => handleEdit(log)}
+                    disabled={loading}
+                    className="text-blue-400 hover:text-blue-300 disabled:text-gray-500"
                   >
-                    ✎
+                    <Edit3 size={16} />
                   </button>
-                )}
+                  <button
+                    onClick={() => handleDelete(log._id)}
+                    disabled={loading}
+                    className="text-red-400 hover:text-red-300 disabled:text-gray-500"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div> */}
               </div>
 
-              {/*Edit */}
-              {editingId === u.id ? (
-                <div className="flex flex-col sm:flex-row gap-2">
+              {editingId === log._id ? (
+                <div className="space-y-2">
                   <textarea
-                    value={editingText}
-                    onChange={(e) => setEditingText(e.target.value)}
-                    className="flex-1 border rounded-lg p-2 focus:ring focus:ring-blue-300"
+                    value={editingData.remarks}
+                    onChange={(e) =>
+                      setEditingData({ ...editingData, remarks: e.target.value })
+                    }
+                    className="w-full bg-[#0f172a] border border-gray-700 rounded-lg p-2 text-gray-100"
                   />
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleSaveEdit(u.id)}
-                      className="bg-green-900 text-white px-3 py-1 rounded-lg hover:bg-green-700"
+                      onClick={handleSaveEdit}
+                      disabled={loading}
+                      className="bg-green-600 px-4 py-1 rounded-lg text-white flex items-center gap-1 hover:bg-green-500 disabled:bg-gray-600"
                     >
-                      Save
+                      <Save size={14} /> {loading ? "Saving..." : "Save"}
                     </button>
                     <button
-                      onClick={handleCancelEdit}
-                      className="bg-gray-400 text-white px-3 py-1 rounded-lg hover:bg-gray-500"
+                      onClick={() => setEditingId(null)}
+                      disabled={loading}
+                      className="bg-gray-600 px-4 py-1 rounded-lg text-white flex items-center gap-1 hover:bg-gray-500 disabled:bg-gray-700"
                     >
-                      Cancel
+                      <X size={14} /> Cancel
                     </button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <p className="text-gray-700">{u.text}</p>
-                  {u.image && (
-                    <img
-                      src={u.image}
-                      alt="attached"
-                      className="w-full sm:w-60 h-60 object-cover rounded-lg border"
-                    />
-                  )}
+                  <h3 className="text-lg font-semibold text-blue-400 mb-1">
+                    {log.type}
+                  </h3>
+                  <p className="text-sm text-gray-300 mb-2">
+                    <MapPin className="inline w-4 h-4 text-blue-400 mr-1" />
+                    <span className="font-semibold">{log.post}</span> —{" "}
+                    {log.shift}
+                  </p>
+                  <p className="text-gray-100 leading-relaxed">
+                    {log.remarks}
+                  </p>
+                  
                 </>
               )}
             </div>
