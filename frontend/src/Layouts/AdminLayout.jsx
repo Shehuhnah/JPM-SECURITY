@@ -56,44 +56,40 @@ export default function AdminLayout() {
     { to: "/Admin/AdminHiring", label: "Hiring", icon: <Briefcase size={16} /> },
   ];
 
-  // ✅ COE sub-items
-  const coeItems = [
-    { to: "/Admin/AdminCOE", label: "Requested COE" },
-    { to: "/Admin/AdminCOEApproved", label: "Approved COE" },
-    { to: "/Admin/AdminCOEDeclined", label: "Declined COE" },
-  ];
-
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-screen w-64 bg-white shadow-md flex flex-col
+        className={`fixed top-0 left-0 h-screen w-64 bg-[#0f172a] text-gray-100 shadow-md flex flex-col
         transition-transform duration-300
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         md:translate-x-0`}
       >
         {/* Logo */}
-        <div className="flex items-center justify-center py-6 border-b px-4 gap-2">
+        <div className="flex items-center justify-center py-6 border-b border-gray-800 px-4 gap-2">
           <Link to="/">
             <img src={logo} alt="logo" className="w-12 h-12" />
           </Link>
-          <span className="font-bold text-gray-800 text-lg">
+          <span className="font-bold text-white text-lg">
             JPM SECURITY
           </span>
         </div>
 
         {/* User Profile */}
-        <div className="flex flex-col items-center py-6 border-b">
+        <div className="flex flex-col items-center py-6 border-b border-gray-800">
           <img
             src={avatar}
             alt="Admin Avatar"
             className="w-16 h-16 rounded-full border mb-3"
           />
-          <h3 className="font-semibold text-gray-700">{admin.name}</h3>
+          <div className="text-center">
+            <h3 className="font-semibold text-gray-200">{admin.name}</h3>
+            <span className="text-sm font-light">{admin.position} | {admin.role}</span>
+          </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 py-6 space-y-2 text-gray-700 overflow-y-auto">
+        <nav className="flex-1 px-4 py-6 space-y-2 text-gray-200 overflow-y-auto">
           {/* Regular links */}
           {navItems.map((item, idx) => (
             <NavLink
@@ -102,8 +98,8 @@ export default function AdminLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 p-2 rounded transition-colors ${
                   isActive
-                    ? "bg-gray-600 text-white font-semibold shadow"
-                    : "hover:bg-gray-100"
+                    ? "bg-[#142235] text-white font-semibold shadow"
+                    : "hover:bg-[#0b2433]"
                 }`
               }
             >
@@ -116,7 +112,7 @@ export default function AdminLayout() {
           <div>
             <button
               onClick={() => setOpenDropdown(!openDropdown)}
-              className="flex items-center justify-between w-full p-2 rounded hover:bg-gray-100"
+              className="flex items-center justify-between w-full p-2 rounded hover:bg-[#0b2433]"
             >
               <div className="flex items-center gap-3">
                 <User size={18} />
@@ -137,8 +133,8 @@ export default function AdminLayout() {
                       className={({ isActive }) =>
                         `flex items-center gap-2 p-2 rounded transition-colors ${
                           isActive
-                            ? "bg-gray-600 text-white font-semibold shadow"
-                            : "hover:bg-gray-100"
+                            ? "bg-[#142235] text-white font-semibold shadow"
+                            : "hover:bg-[#0b2433]"
                         }`
                       }
                     >
@@ -151,10 +147,11 @@ export default function AdminLayout() {
             )}
           </div>
 
+
           {/* Logout */}
           <button
             onClick={() => handleLogout()}
-            className="flex items-center gap-3 p-2 rounded hover:bg-gray-100 text-red-600 font-medium"
+            className="flex items-center gap-3 p-2 rounded hover:bg-[#0b2433] text-red-400 font-medium mt-4"
           >
             <LogOut size={18} />
             <span>Logout</span>

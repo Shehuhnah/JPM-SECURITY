@@ -23,8 +23,6 @@ import UserAccounts from "../Admin/UserAccounts.jsx";
 import CompanyDetails from "../Admin/CompanyDetails.jsx";
 import AdminGuardsProfile from "../Admin/AdminGuardsProfile.jsx";
 import AdminCOE from "../Admin/AdminCOE.jsx";
-import AdminCOEApproved from "../Admin/AdminCOEApproved.jsx";
-import AdminCOEDeclined from "../Admin/AdminCOEDeclined.jsx";
 import AdminAttendance from "../Admin/AdminAttendance.jsx";
 import AdminGuardUpdates from "../Admin/AdminGuardUpdates.jsx";
 import AdminGuardUpdates2 from "../Admin/AdminGuardUpdates2.jsx";
@@ -98,8 +96,6 @@ const Router = () => {
                 { path: "CompanyDetails", element: <CompanyDetails /> },
                 { path: "AdminGuardsProfile", element: <AdminGuardsProfile /> },
                 { path: "AdminCOE", element: <AdminCOE /> },
-                { path: "AdminCOEApproved", element: <AdminCOEApproved /> },
-                { path: "AdminCOEDeclined", element: <AdminCOEDeclined /> },
                 { path: "AdminAttendance", element: <AdminAttendance /> },
                 { path: "AdminGuardUpdates", element: <AdminGuardUpdates /> },
                 { path: "AdminGuardUpdates2/:id", element: <AdminGuardUpdates2 /> },
@@ -116,8 +112,8 @@ const Router = () => {
             {
               element: <GuardsLayout />,
               children: [
-                { path: "time-in", element: <GuardAttendanceTimeIn /> },
-                { path: "time-out", element: <GuardAttendanceTimeOut /> },
+                { path: "guard-attendance/time-in", element: <GuardAttendanceTimeIn /> },
+                { path: "guard-attendance/time-out", element: <GuardAttendanceTimeOut /> },
                 { path: "detachment", element: <GuardDetachment /> },
                 { path: "announcements", element: <GuardAnnouncement /> },
                 { path: "logbook", element: <GuardLogBook /> },

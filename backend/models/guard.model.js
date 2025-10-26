@@ -33,8 +33,7 @@ const guardSchema = new mongoose.Schema(
     },
     position: {
       type: String,
-      default: "Security Guard",
-      enum: ["Security Guard", "Officer in Charge", "Inspector", "Head Operation"],
+      required: [true, "Please specify your Position"]
     },
     dutyStation: {
       type: String,

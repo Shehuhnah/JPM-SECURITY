@@ -1,22 +1,57 @@
 import React, { useState, useEffect } from "react";
-import { Filter, CheckCircle, XCircle, Clock, IdCardLanyard  } from "lucide-react";
+import { Filter, RefreshCw, CheckCircle, XCircle, Clock, IdCardLanyard, Eye, Download, FileText, Calendar, User, Phone, Mail } from "lucide-react";
+import { generateAndDownloadCOE } from "../utils/pdfGenerator";
+import { useAuth } from "../hooks/useAuth";
+import header from "../assets/headerpdf/header.png"
 
 export default function AdminCOE() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [requests, setRequests] = useState([
-    { id: 1, name: "Vic Fuentes", guardId: "123", phone: "09123456789", email: "vic@mail.com", status: "Pending" },
-    { id: 2, name: "Tony Perry", guardId: "124", phone: "09123456788", email: "tony@mail.com", status: "Accepted" },
-    { id: 3, name: "Gerard N.O Way", guardId: "125", phone: "09123456787", email: "gerard@mail.com", status: "Declined" },
-    { id: 4, name: "Kellin Quinn", guardId: "126", phone: "09123456786", email: "kellin@mail.com", status: "Pending" },
-  ]);
+  const [requests, setRequests] = useState([]);
 
   const [showPopup, setShowPopup] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedAction, setSelectedAction] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [declineReason, setDeclineReason] = useState("");
   const [isFading, setIsFading] = useState(false);
   const [toasts, setToasts] = useState([]);
+
+  const { token } = useAuth();
+
+  // Load COE requests from localStorage on component mount
+  const fetchRequests = async () => {
+    try {
+      const res = await fetch('/api/coe', {
+        headers: { Authorization: token ? `Bearer ${token}` : '' }
+      });
+      if (!res.ok) throw new Error('Failed to load requests');
+      const data = await res.json();
+      const items = data.items || [];
+      const mapped = items.map((req, index) => ({
+        id: req._id,
+        name: req.guardName,
+        guardId: req.guardId,
+        purpose: req.purpose,
+        status: req.status,
+        requestedAt: new Date(req.requestedAt).toLocaleString(),
+        phone: req.phone || `0912345678${index + 1}`,
+        email: req.email || `${req.guardName ? req.guardName.toLowerCase().replace(/\s+/g, '.') : 'guard'}@jpmsecurity.com`,
+        processedAt: req.processedAt ? new Date(req.processedAt).toLocaleString() : null,
+        processedBy: req.processedBy || null,
+        declineReason: req.declineReason || null,
+        raw: req,
+      }));
+      setRequests(mapped);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Toast helper
   const showToast = (message, type) => {
@@ -33,6 +68,11 @@ export default function AdminCOE() {
     setDeclineReason("");
   };
 
+  const handleViewDetails = (request) => {
+    setSelectedRequest(request);
+    setShowDetailModal(true);
+  };
+
   const closePopup = () => {
     setIsFading(true);
     setTimeout(() => {
@@ -41,23 +81,84 @@ export default function AdminCOE() {
     }, 200);
   };
 
+  const closeDetailModal = () => {
+    setIsFading(true);
+    setTimeout(() => {
+      setShowDetailModal(false);
+      setIsFading(false);
+    }, 200);
+  };
+
   // Confirm action
   const handleConfirm = () => {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === selectedRequest.id
-          ? { ...r, status: selectedAction === "accept" ? "Accepted" : "Declined" }
-          : r
-      )
-    );
+    (async () => {
+      try {
+        const token = useAuth().token;
+        const body = selectedAction === 'accept' ? { action: 'accept' } : { action: 'decline', declineReason };
+        const res = await fetch(`/api/coe/${selectedRequest.id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error('Failed to update request');
+        const updated = await res.json();
+        setRequests((prev) => prev.map((r) => (r.id === selectedRequest.id ? {
+          ...r,
+          status: updated.status,
+          processedAt: updated.processedAt ? new Date(updated.processedAt).toLocaleString() : r.processedAt,
+          processedBy: updated.processedBy || r.processedBy,
+          declineReason: updated.declineReason || null,
+          raw: updated,
+        } : r)));
 
-    showToast(
-      selectedAction === "accept"
-        ? `✅ ${selectedRequest.name}'s request accepted`
-        : `❌ ${selectedRequest.name}'s request declined`,
-      selectedAction === "accept" ? "success" : "error"
-    );
-    closePopup();
+        showToast(
+          selectedAction === 'accept' ? `✅ ${selectedRequest.name}'s request accepted` : `❌ ${selectedRequest.name}'s request declined`,
+          selectedAction === 'accept' ? 'success' : 'error'
+        );
+      } catch (err) {
+        console.error(err);
+        showToast('Error updating request', 'error');
+      } finally {
+        closePopup();
+      }
+    })();
+  };
+
+  // Export COE function
+  const handleExportCOE = (request) => {
+    try {
+      generateAndDownloadCOE(
+        {
+          name: request.name,
+          guardId: request.guardId,
+          purpose: request.purpose,
+          id: request.id,
+        },
+        {
+          headerImage: header, // ✅ pulls the image at top-left/right
+          position: request.raw?.position || "Security Officer",
+          employmentStart: "November 2023",
+          employmentEnd: "current date",
+          salary: "Twenty-Four Thousand Pesos (P24,000)",
+          companyName: "JPM SECURITY AGENCY CORP",
+          companyAddress: "Indang, Cavite, Philippines",
+          issuedDate: new Date().toLocaleDateString("en-US", {
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          }),
+          location: "Indang, Cavite",
+          signatory: "KYLE CHRISTOPHER E. PASTRANA",
+          signatoryTitle: "HR and Head Administrator",
+          companyShort: "JPMSA Corp.",
+        }
+      );
+
+      showToast("📄 COE generated successfully", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("❌ Error generating COE", "error");
+    }
   };
 
   // Filtering
@@ -101,6 +202,15 @@ export default function AdminCOE() {
 
           {/* Filter Dropdown */}
           <div className="flex flex-col sm:flex-row gap-3 items-center">
+            {/* Refresh button (left of filter) */}
+            <button
+              onClick={fetchRequests}
+              title="Refresh"
+              className="p-2 bg-[#1e293b] border border-gray-700 rounded-lg text-blue-400 hover:bg-[#233444] transition"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+
             <div className="flex items-center bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2">
               <Filter className="w-4 h-4 text-blue-400 mr-2" />
               <select
@@ -131,10 +241,9 @@ export default function AdminCOE() {
           <table className="w-full text-left text-sm">
             <thead className="bg-[#234C6A] text-white text-sm">
               <tr>
-                <th className="px-4 py-3">Full Name</th>
-                <th className="px-4 py-3">Guard ID</th>
-                <th className="px-4 py-3">Phone</th>
-                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Guard Information</th>
+                <th className="px-4 py-3">Purpose</th>
+                <th className="px-4 py-3">Request Date</th>
                 <th className="px-4 py-3 text-center">Status</th>
                 <th className="px-4 py-3 text-center">Actions</th>
               </tr>
@@ -145,43 +254,80 @@ export default function AdminCOE() {
                   key={r.id}
                   className="border-b border-gray-700 hover:bg-[#243447]/60 transition-all"
                 >
-                  <td className="px-4 py-3 flex items-center gap-2">
-                    <img
-                      src={`https://i.pravatar.cc/40?u=${r.id}`}
-                      alt={r.name}
-                      className="w-8 h-8 rounded-full border border-gray-600"
-                    />
-                    {r.name}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={`https://i.pravatar.cc/40?u=${r.id}`}
+                        alt={r.name}
+                        className="w-10 h-10 rounded-full border border-gray-600"
+                      />
+                      <div>
+                        <div className="font-medium text-white">{r.name}</div>
+                        <div className="text-xs text-gray-400">ID: {r.guardId}</div>
+                        <div className="text-xs text-gray-400">{r.phone}</div>
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-4 py-3">{r.guardId}</td>
-                  <td className="px-4 py-3">{r.phone}</td>
-                  <td className="px-4 py-3">{r.email}</td>
+                  <td className="px-4 py-3">
+                    <div className="max-w-xs">
+                      <p className="text-gray-200 text-sm line-clamp-2">{r.purpose}</p>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1 text-gray-300">
+                      <Calendar size={14} />
+                      <span className="text-xs">{r.requestedAt}</span>
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-center">{getStatusBadge(r.status)}</td>
                   <td className="px-4 py-3 text-center">
-                    {r.status === "Pending" && (
-                      <div className="flex justify-center gap-2">
+                    <div className="flex justify-center gap-2">
+                      <button
+                        onClick={() => handleViewDetails(r)}
+                        className="p-2 bg-blue-600/20 text-blue-400 rounded-md hover:bg-blue-600/30 transition"
+                        title="View Details"
+                      >
+                        <Eye size={14} />
+                      </button>
+                      
+                      {r.status === "Pending" && (
+                        <>
+                          <button
+                            onClick={() => handleActionClick("accept", r)}
+                            className="px-3 py-1.5 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-md hover:opacity-90 transition text-xs"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            onClick={() => handleActionClick("decline", r)}
+                            className="px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-md hover:opacity-90 transition text-xs"
+                          >
+                            Decline
+                          </button>
+                        </>
+                      )}
+                      
+                      {r.status === "Accepted" && (
                         <button
-                          onClick={() => handleActionClick("accept", r)}
-                          className="px-3 py-1.5 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-md hover:opacity-90 transition text-xs"
+                          onClick={() => handleExportCOE(r)}
+                          className="p-2 bg-green-600/20 text-green-400 rounded-md hover:bg-green-600/30 transition"
+                          title="Export COE"
                         >
-                          Accept
+                          <Download size={14} />
                         </button>
-                        <button
-                          onClick={() => handleActionClick("decline", r)}
-                          className="px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-md hover:opacity-90 transition text-xs"
-                        >
-                          Decline
-                        </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="px-4 py-6 text-center text-gray-400 italic">
-                    No matching requests found.
+                  <td colSpan="5" className="px-4 py-6 text-center text-gray-400 italic">
+                    <div className="flex flex-col items-center gap-2">
+                      <FileText className="w-8 h-8 text-gray-500" />
+                      No COE requests found.
+                    </div>
                   </td>
                 </tr>
               )}
@@ -258,6 +404,169 @@ export default function AdminCOE() {
                     </button>
                   </div>
                 </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Detail Modal */}
+        {showDetailModal && (
+          <div
+            className={`fixed inset-0 flex items-center justify-center bg-black/60 z-50 transition duration-300 ${
+              isFading ? "opacity-0" : "opacity-100"
+            }`}
+          >
+            <div
+              className={`bg-[#1e293b] text-white p-6 rounded-xl border border-gray-700 w-full max-w-2xl mx-4 shadow-2xl transform transition-all duration-300 ${
+                isFading ? "scale-95 opacity-0" : "scale-100 opacity-100"
+              }`}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-blue-400 flex items-center gap-2">
+                  <FileText size={20} />
+                  COE Request Details
+                </h2>
+                <button
+                  onClick={closeDetailModal}
+                  className="text-gray-400 hover:text-white transition"
+                >
+                  <XCircle size={20} />
+                </button>
+              </div>
+
+              {selectedRequest && (
+                <div className="space-y-6">
+                  {/* Guard Information */}
+                  <div className="bg-[#0f172a] rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-blue-400 mb-3 flex items-center gap-2">
+                      <User size={18} />
+                      Guard Information
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={`https://i.pravatar.cc/60?u=${selectedRequest.id}`}
+                          alt={selectedRequest.name}
+                          className="w-12 h-12 rounded-full border border-gray-600"
+                        />
+                        <div>
+                          <div className="font-medium text-white">{selectedRequest.name}</div>
+                          <div className="text-sm text-gray-400">ID: {selectedRequest.guardId}</div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Phone size={14} className="text-blue-400" />
+                          <span className="text-gray-300">{selectedRequest.phone}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Mail size={14} className="text-blue-400" />
+                          <span className="text-gray-300">{selectedRequest.email}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Request Details */}
+                  <div className="bg-[#0f172a] rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-blue-400 mb-3 flex items-center gap-2">
+                      <FileText size={18} />
+                      Request Details
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-sm text-gray-400">Purpose</label>
+                        <p className="text-gray-200 mt-1 p-3 bg-[#1e293b] rounded-lg">
+                          {selectedRequest.purpose}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm text-gray-400">Request Date</label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Calendar size={14} className="text-blue-400" />
+                            <span className="text-gray-300">{selectedRequest.requestedAt}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-400">Status</label>
+                          <div className="mt-1">{getStatusBadge(selectedRequest.status)}</div>
+                        </div>
+                      </div>
+                      
+                      {selectedRequest.processedAt && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm text-gray-400">Processed Date</label>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Clock size={14} className="text-blue-400" />
+                              <span className="text-gray-300">{selectedRequest.processedAt}</span>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-sm text-gray-400">Processed By</label>
+                            <p className="text-gray-300 mt-1">{selectedRequest.processedBy}</p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {selectedRequest.declineReason && (
+                        <div>
+                          <label className="text-sm text-gray-400">Decline Reason</label>
+                          <p className="text-red-300 mt-1 p-3 bg-red-500/10 rounded-lg border border-red-500/20">
+                            {selectedRequest.declineReason}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end gap-3">
+                    {selectedRequest.status === "Pending" && (
+                      <>
+                        <button
+                          onClick={() => {
+                            closeDetailModal();
+                            handleActionClick("accept", selectedRequest);
+                          }}
+                          className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-lg hover:opacity-90 transition"
+                        >
+                          Accept Request
+                        </button>
+                        <button
+                          onClick={() => {
+                            closeDetailModal();
+                            handleActionClick("decline", selectedRequest);
+                          }}
+                          className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-lg hover:opacity-90 transition"
+                        >
+                          Decline Request
+                        </button>
+                      </>
+                    )}
+                    
+                    {selectedRequest.status === "Accepted" && (
+                      <button
+                        onClick={() => {
+                          closeDetailModal();
+                          handleExportCOE(selectedRequest);
+                        }}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg hover:opacity-90 transition flex items-center gap-2"
+                      >
+                        <Download size={16} />
+                        Export COE
+                      </button>
+                    )}
+                    
+                    <button
+                      onClick={closeDetailModal}
+                      className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>

@@ -3,6 +3,7 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors"; 
+import path from "path";
 
 //ROUTES
 import attendanceRoutes from "./routes/attendanceRoutes.js";
@@ -12,6 +13,7 @@ import authRoutes from "./routes/authRoutes.js";
 import hiringRoutes from "./routes/hiringRoutes.js";
 import guardRoutes from "./routes/guardRoutes.js";
 import logbookRoutes from "./routes/logbookRoutes.js";
+import coeRoutes from "./routes/coeRoutes.js";
 
 dotenv.config();
 
@@ -25,6 +27,9 @@ app.use(
 
 app.use(express.json());
 
+// Serve uploaded files (PDFs)
+app.use('/uploads', express.static(path.join(process.cwd(), 'backend', 'uploads')));
+
 app.use("/api/auth", authRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/posts", postRoutes);
@@ -32,6 +37,7 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/hirings", hiringRoutes);
 app.use("/api/guards", guardRoutes);
 app.use("/api/logbook", logbookRoutes);
+app.use("/api/coe", coeRoutes);
 
 app.get("/", (req, res) => res.send("API is running"));
 
