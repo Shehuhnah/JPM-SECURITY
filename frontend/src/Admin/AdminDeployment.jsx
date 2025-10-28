@@ -38,7 +38,7 @@ export default function AdminDeployment() {
     },
   }));
 
-  // 📅 Add or edit event
+  //  Add or edit event
   const handleAddSchedule = (schedule) => {
     if (editEvent !== null) {
       setSchedules((prev) =>
@@ -53,12 +53,11 @@ export default function AdminDeployment() {
     setShowForm(false);
   };
 
-  // 🗑️ Delete
   const handleDeleteSchedule = (id) => {
     setSchedules((prev) => prev.filter((_, i) => i !== parseInt(id)));
   };
 
-  // 🎯 Drag & Drop
+  //  Drag & Drop
   const handleEventDrop = (info) => {
     const updated = schedules.map((s, i) =>
       i === parseInt(info.event.id)
@@ -72,7 +71,7 @@ export default function AdminDeployment() {
     setSchedules(updated);
   };
 
-  // 📏 Resize Event
+  //  Resize Event
   const handleEventResize = (info) => {
     const updated = schedules.map((s, i) =>
       i === parseInt(info.event.id)
@@ -82,7 +81,7 @@ export default function AdminDeployment() {
     setSchedules(updated);
   };
 
-  // 🧠 Add new client
+  //  Add new client
   const handleAddClient = (newClient) => {
     if (!clients.includes(newClient)) {
       setClients([...clients, newClient]);

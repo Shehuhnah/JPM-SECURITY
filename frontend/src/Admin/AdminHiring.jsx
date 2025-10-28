@@ -47,7 +47,7 @@ export default function AdminHiring() {
 
     try {
       if (editingId) {
-        // 🆕 UPDATE existing post
+        //  UPDATE existing post
         const res = await fetch(`http://localhost:5000/api/hirings/${editingId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -60,7 +60,7 @@ export default function AdminHiring() {
         setPosts(posts.map((p) => (p._id === updated._id ? updated : p)));
         setEditingId(null);
       } else {
-        // ✅ CREATE new post
+        // CREATE new post
         const res = await fetch("http://localhost:5000/api/hirings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -84,7 +84,7 @@ export default function AdminHiring() {
     }
   };
 
-  // ✅ Delete post by ID
+  // Delete post by ID
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this post?")) return;
 
@@ -100,7 +100,7 @@ export default function AdminHiring() {
     }
   };
 
-  // 🆕 Edit post handler
+  //  Edit post handler
   const handleEdit = (post) => {
     setTitle(post.title);
     setPosition(post.position);
@@ -123,7 +123,7 @@ export default function AdminHiring() {
           💼 Admin Hiring Management
         </h2>
 
-        {/* ✅ Create / Update Post Form */}
+        {/* Create / Update Post Form */}
         <div className="p-6 border border-gray-800 bg-[#1e293b]/80 backdrop-blur-md rounded-2xl shadow-xl space-y-4 mb-10">
           <h3 className="text-lg font-semibold text-blue-400 flex items-center gap-2">
             {editingId ? "✏️ Edit Hiring Post" : "📝 Create New Hiring Post"}
@@ -201,7 +201,7 @@ export default function AdminHiring() {
           </div>
         </div>
 
-        {/* ✅ Posts List */}
+        {/*Posts List */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {posts.length === 0 ? (
             <p className="text-center text-gray-400 italic col-span-full">

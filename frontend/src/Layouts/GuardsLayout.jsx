@@ -41,7 +41,7 @@ export default function GuardsLayout() {
     { to: "/guard/announcements", label: "Announcement", icon: <Megaphone size={18} /> },
     { to: "/guard/logbook", label: "Log Book", icon: <BookOpen size={18} /> },
     { to: "/guard/request-coe", label: "Request COE", icon: <FileText size={18} /> },
-    { to: "/guard/profile", label: "Guard Profile", icon: <UserRoundPen size={18}/>}
+    { to: "/guard/manage-profile", label: "Guard Profile", icon: <UserRoundPen size={18}/>}
   ];
 
   const attendanceItems = [

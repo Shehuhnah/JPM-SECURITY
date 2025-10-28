@@ -36,6 +36,7 @@ import GuardLogBook from "../Guard/GuardLogBook.jsx";
 import GuardReqCOE from "../Guard/GuardReqCOE.jsx";
 import GuardAttendanceTimeIn from "../Guard/GuardAttendanceTimeIn.jsx";
 import GuardAttendanceTimeOut from "../Guard/GuardAttendanceTimeOut.jsx";
+import GuardProfile from "../Guard/GuardProfile.jsx";
 
 // Applicants pages
 import ApplicantsHiringDetails from "../Applicants/ApplicantsHiringDetails.jsx";
@@ -117,6 +118,7 @@ const Router = () => {
                 { path: "announcements", element: <GuardAnnouncement /> },
                 { path: "logbook", element: <GuardLogBook /> },
                 { path: "request-coe", element: <GuardReqCOE /> },
+                { path: "manage-profile", element: <GuardProfile/>}
               ],
             },
           ],
