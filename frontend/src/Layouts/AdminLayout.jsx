@@ -1,6 +1,6 @@
 import { Outlet, NavLink, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import {useAuth} from "../hooks/useAuth";
+import { useAuth } from "../hooks/useAuth";
 import {
   Calendar,
   FileText,
@@ -15,6 +15,7 @@ import {
   Building2,
   Megaphone,
   Briefcase,
+  LayoutDashboard 
 } from "lucide-react";
 
 import avatar from "../assets/gerard.jpg";
@@ -25,7 +26,7 @@ export default function AdminLayout() {
   const [openCOE, setOpenCOE] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const { admin, token } = useAuth(); //fetch admin data
+  const { admin, token } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -41,6 +42,7 @@ export default function AdminLayout() {
   }
 
   const navItems = [
+    { to:"/Admin", label: "Dashboard", icon: <LayoutDashboard size={18}/>},
     { to: "/Admin/deployment", label: "Deployment", icon: <Calendar size={18} /> },
     { to: "/Admin/AdminGuardUpdates", label: "Updates", icon: <Shield size={18} /> },
     { to: "/Admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },

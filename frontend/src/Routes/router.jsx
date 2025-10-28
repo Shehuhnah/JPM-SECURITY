@@ -11,7 +11,6 @@ import HomeLayout from "../Layouts/HomeLayout.jsx";
 
 // Components
 import ErrorPage from "../components/error/ErrorPage.jsx";
-import Dashboard from "../components/Dashboard.jsx";
 import Navbar from "../components/navbar.jsx";
 import Login from "../Admin/Login.jsx";
 
@@ -39,7 +38,6 @@ import GuardAttendanceTimeIn from "../Guard/GuardAttendanceTimeIn.jsx";
 import GuardAttendanceTimeOut from "../Guard/GuardAttendanceTimeOut.jsx";
 
 // Applicants pages
-import ApplicantsCompanyDetails from "../Applicants/ApplicantsCompanyDetails.jsx";
 import ApplicantsHiringDetails from "../Applicants/ApplicantsHiringDetails.jsx";
 import ApplicantsMessages from "../Applicants/ApplicantsMessages.jsx";
 
@@ -61,6 +59,7 @@ import ContactUs from "../Home/contactUsPage.jsx";
 import ClientPage from "../Home/clientPage.jsx";
 import ServicesPage from "../Home/servicesPage.jsx";
 import Gallery from "../Home/galleryPage.jsx";
+import AdminDashboard from "../Admin/AdminDashboard.jsx";
 
 const Router = () => {
   const routes = useRoutes([
@@ -88,7 +87,7 @@ const Router = () => {
             {
               element: <AdminLayout />,
               children: [
-                { index: true, element: <Dashboard /> },
+                { index: true, element: <AdminDashboard /> },
                 { path: "deployment", element: <AdminDeployment /> },
                 { path: "AdminPosts", element: <AdminPosts /> },
                 { path: "AdminHiring", element: <AdminHiring /> },
