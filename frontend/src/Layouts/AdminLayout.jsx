@@ -5,17 +5,16 @@ import {
   Calendar,
   FileText,
   Shield,
-  ClipboardList,
   Mail,
   User,
   ChevronDown,
   Users,
   Clock,
   LogOut,
-  Building2,
   Megaphone,
   Briefcase,
-  LayoutDashboard 
+  LayoutDashboard, 
+  IdCardLanyard 
 } from "lucide-react";
 
 import avatar from "../assets/gerard.jpg";
@@ -50,6 +49,7 @@ export default function AdminLayout() {
     { to: "/Admin/ApplicantList", label: "Applicants", icon: <User size={18} /> },
     { to: "/Admin/AdminGuardsProfile", label: "Guards", icon: <Users size={18} /> },
     { to: "/Admin/AdminAttendance", label: "Attendance", icon: <Clock size={18} /> },
+    { to: "/Admin/Request-ID", label: "Request ID", icon: <IdCardLanyard size={18}/>},
     { to: "/Admin/AdminCOE", label: "COE ", icon: <FileText size={18} /> },
   ];
 

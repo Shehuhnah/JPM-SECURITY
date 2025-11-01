@@ -8,7 +8,6 @@ export function guardAuth() {
             guard = JSON.parse(storedGuard);
         } catch (error) {
             console.error("Error parsing guard data from localStorage:", error);
-            // Clear invalid data
             localStorage.removeItem("guardData");
         }
     }

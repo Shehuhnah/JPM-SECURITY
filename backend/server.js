@@ -14,6 +14,7 @@ import hiringRoutes from "./routes/hiringRoutes.js";
 import guardRoutes from "./routes/guardRoutes.js";
 import logbookRoutes from "./routes/logbookRoutes.js";
 import coeRoutes from "./routes/coeRoutes.js";
+import idrequestRoutes from "./routes/IDrequestRoutes.js"
 
 dotenv.config();
 
@@ -38,6 +39,8 @@ app.use("/api/hirings", hiringRoutes);
 app.use("/api/guards", guardRoutes);
 app.use("/api/logbook", logbookRoutes);
 app.use("/api/coe", coeRoutes);
+app.use("/api/idrequests", idrequestRoutes);
+
 
 app.get("/", (req, res) => res.send("API is running"));
 

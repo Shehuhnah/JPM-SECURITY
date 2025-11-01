@@ -84,71 +84,6 @@ export default function GuardLogBook() {
     }
   };
 
-  // ✏️ Edit log entry
-  // const handleEdit = (entry) => {
-  //   setEditingId(entry.id);
-  //   setEditingData(entry);
-  //   console.log(entry);
-  // };
-
-  // const handleSaveEdit = async () => {
-  //   try {
-  //     setLoading(true);
-  //     setMessage("");
-      
-  //     const response = await fetch(`http://localhost:5000/api/logbook/${editingId}`, {
-  //       method: "PUT",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify(editingData),
-  //     });
-
-  //     if (response.ok) {
-  //       const updatedLog = await response.json();
-  //       setLogs(logs.map((l) => (l._id === editingId ? updatedLog : l)));
-  //       setEditingId(null);
-  //       setEditingData({});
-  //       setMessage("✅ Log entry updated successfully!");
-  //     } else {
-  //       const error = await response.json();
-  //       setMessage(`❌ ${error.message || "Failed to update log entry"}`);
-  //     }
-  //   } catch (error) {
-  //     console.error("Error updating log:", error);
-  //     setMessage("❌ Error updating log entry");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  // const handleDelete = async (id) => {
-  //   if (window.confirm("Are you sure you want to delete this log?")) {
-  //     try {
-  //       setLoading(true);
-  //       setMessage("");
-        
-  //       const response = await fetch(`http://localhost:5000/api/logbook/${id}`, {
-  //         method: "DELETE",
-          
-  //       });
-
-  //       if (response.ok) {
-  //         setLogs(logs.filter((l) => l._id !== id));
-  //         setMessage("✅ Log entry deleted successfully!");
-  //       } else {
-  //         const error = await response.json();
-  //         setMessage(`❌ ${error.message || "Failed to delete log entry"}`);
-  //       }
-  //     } catch (error) {
-  //       console.error("Error deleting log:", error);
-  //       setMessage("❌ Error deleting log entry");
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   }
-  // };
-
   return (
     <div className="min-h-screen bg-[#0f172a] text-gray-100 p-6">
       {/* Header */}
@@ -194,17 +129,13 @@ export default function GuardLogBook() {
             <option value="Day Shift">Day Shift</option>
             <option value="Night Shift">Night Shift</option>
           </select>
-          <select
+          <input 
+            type="text"
+            placeholder="Log Type"
             value={form.type}
             onChange={(e) => setForm({ ...form, type: e.target.value })}
             className="bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Log Type</option>
-            <option value="Routine Check">Routine Check</option>
-            <option value="Visitor Entry">Visitor Entry</option>
-            <option value="Incident Report">Incident Report</option>
-            <option value="Equipment Check">Equipment Check</option>
-          </select>
+             />
         </div>
 
         <textarea

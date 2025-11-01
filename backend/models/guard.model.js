@@ -49,6 +49,26 @@ const guardSchema = new mongoose.Schema(
       required: [true, "Phone number is required"],
       match: [/^\d{10,11}$/, "Please enter a valid phone number"],
     },
+    SSSID: {
+      type: String,
+      required: [true, "SSS ID is required"]
+    },
+    PhilHealthID: {
+      type: String,
+      required: [true, "PhilHealth is required"]
+    },
+    PagibigID: {
+      type: String,
+      required: [true, "Pagibig ID is required"]
+    },
+    EmergencyPerson: {
+      type: String,
+      required: [true, "Emergency Person is required"]
+    },
+    EmergencyContact: {
+      type: String,
+      required: [true, "Emergency Contact is required"]
+    },
     role: {
       type: String,
       default: "Guard",
@@ -81,6 +101,12 @@ guardSchema.methods.toJSON = function () {
   delete guard.password;
   return guard;
 };
+
+guardSchema.virtual("idRequests", {
+  ref: "IDRequest",
+  localField: "_id",
+  foreignField: "guard",
+});
 
 const Guard = mongoose.model("Guard", guardSchema);
 export default Guard;

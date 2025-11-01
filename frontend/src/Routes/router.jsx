@@ -27,6 +27,8 @@ import AdminGuardUpdates from "../Admin/AdminGuardUpdates.jsx";
 import AdminGuardUpdates2 from "../Admin/AdminGuardUpdates2.jsx";
 import AdminMessage from "../Admin/AdminMessage.jsx";
 import ApplicantList from "../Admin/ApplicantList.jsx";
+import AdminRequestID from "../Admin/AdminRequestID.jsx";
+
 
 // Guard pages
 import GuardLogin from "../Guard/GuardLogin.jsx";
@@ -37,6 +39,7 @@ import GuardReqCOE from "../Guard/GuardReqCOE.jsx";
 import GuardAttendanceTimeIn from "../Guard/GuardAttendanceTimeIn.jsx";
 import GuardAttendanceTimeOut from "../Guard/GuardAttendanceTimeOut.jsx";
 import GuardProfile from "../Guard/GuardProfile.jsx";
+import GuardReqID from "../Guard/GuardReqID.jsx";
 
 // Applicants pages
 import ApplicantsHiringDetails from "../Applicants/ApplicantsHiringDetails.jsx";
@@ -100,7 +103,8 @@ const Router = () => {
                 { path: "AdminGuardUpdates", element: <AdminGuardUpdates /> },
                 { path: "AdminGuardUpdates2/:id", element: <AdminGuardUpdates2 /> },
                 { path: "AdminMessages", element: <AdminMessage /> },
-                { path: "ApplicantList", element: <ApplicantList />}
+                { path: "ApplicantList", element: <ApplicantList />},
+                { path: "Request-ID", element: <AdminRequestID/>}
               ],
             },
           ],
@@ -118,7 +122,8 @@ const Router = () => {
                 { path: "announcements", element: <GuardAnnouncement /> },
                 { path: "logbook", element: <GuardLogBook /> },
                 { path: "request-coe", element: <GuardReqCOE /> },
-                { path: "manage-profile", element: <GuardProfile/>}
+                { path: "manage-profile", element: <GuardProfile/>},
+                { path: "request-id", element: <GuardReqID/>}
               ],
             },
           ],

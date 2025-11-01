@@ -19,7 +19,7 @@ const logbookSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      required: [true, "Type is required"], // e.g., "Incident", "Routine", "Report"
+      required: [true, "Log type is required"],
       trim: true,
     },
     remarks: {

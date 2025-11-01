@@ -17,8 +17,11 @@ import { ToastContainer, toast, Bounce } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Loader from "../components/Loading.jsx";
 import DeleteUserModal from "../components/DeleteUserModal";
+import { useAuth } from "../hooks/useAuth.js"
 
 export default function GuardTable() {
+  const { adminData, token } = useAuth();
+
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false); // For Add Guard Modal
@@ -29,15 +32,20 @@ export default function GuardTable() {
   const [selectedUser, setSelectedUser] = useState(null); // For modal
   
   const [form, setForm] = useState({
-    fullName: "",
-    email: "",
-    guardId: "",
-    password: "",
-    address: "",
-    dutyStation: "",
-    shift: "",
-    phoneNumber: "",
-    position: "Security Guard",
+      fullName: "",
+      email: "",
+      guardId: "",
+      password: "",
+      address: "",
+      position: "",
+      dutyStation: "",
+      shift: "",
+      phoneNumber: "",
+      SSSID: "",
+      PhilHealthID: "",
+      PagibigID: "",
+      EmergencyPerson: "",
+      EmergencyContact: ""
   });
 
   //  Fetch users
@@ -46,7 +54,9 @@ export default function GuardTable() {
 
     const fetchGuards = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/guards");
+        const res = await fetch("http://localhost:5000/api/guards", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (!res.ok) throw new Error("Failed to fetch guards");
 
         const data = await res.json();
@@ -70,15 +80,20 @@ export default function GuardTable() {
       setGuards(data);
       setForm(
         {
-          FullName: "",
+          fullName: "",
           email: "",
           guardId: "",
           password: "",
           address: "",
+          position: "",
           dutyStation: "",
           shift: "",
           phoneNumber: "",
-          position: "Security Guard",
+          SSSID: "",
+          PhilHealthID: "",
+          PagibigID: "",
+          EmergencyPerson: "",
+          EmergencyContact: ""
         }
       )
     } catch (err) {
@@ -98,8 +113,24 @@ export default function GuardTable() {
   const handleAddGuard = async () => {
     setErrorMsg("");
 
-    if (!form.fullName || !form.email || !form.password || !form.guardId || !form.dutyStation || !form.shift) {
+    if (!form.fullName || !form.email || !form.password || !form.guardId ||!form.address || !form.dutyStation || !form.shift || !form.position || !form.phoneNumber || !form.SSSID || !form.PhilHealthID || !form.PagibigID || !form.EmergencyPerson || !form.EmergencyContact) {
       setErrorMsg("⚠️ Please fill in all required fields.");
+      return;
+    }
+
+    if (form.password.length < 8){
+      setErrorMsg("")
+      setErrorMsg("⚠️ Password Must be atleast 8 characters.", form.password.length)
+      return;
+    }
+
+    const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+    if (!strongPasswordRegex.test(form.password)) {
+      setErrorMsg("")
+      setErrorMsg(
+        "⚠️ Password must include uppercase, lowercase, number, and special character."
+      );
       return;
     }
 
@@ -118,15 +149,20 @@ export default function GuardTable() {
       setIsOpen(false);
 
       setForm({
-        fullName: "",
-        email: "",
-        guardId: "",
-        password: "",
-        address: "",
-        dutyStation: "",
-        shift: "",
-        phoneNumber: "",
-        position: "Security Guard",
+          fullName: "",
+          email: "",
+          guardId: "",
+          password: "",
+          address: "",
+          position: "",
+          dutyStation: "",
+          shift: "",
+          phoneNumber: "",
+          SSSID: "",
+          PhilHealthID: "",
+          PagibigID: "",
+          EmergencyPerson: "",
+          EmergencyContact: ""
       });
 
       handleRefresh();
@@ -354,98 +390,182 @@ export default function GuardTable() {
                   leaveFrom="opacity-100 scale-100"
                   leaveTo="opacity-0 scale-95"
                 >
-                  <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 text-left align-middle shadow-xl border border-gray-700">
-                    <Dialog.Title className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                      <Shield className="text-blue-400" />
-                      Add New Guard
-                    </Dialog.Title>
+                  <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-8 text-left align-middle shadow-xl border border-gray-700">
+                    {/* Header */}
+                    <div className="flex gap-x-3">
+                      {/* Avatar Placeholder */}
+                      <div className="flex justify-center mb-6">
+                        <div className="w-20 h-20 bg-[#0f172a] rounded-full flex items-center justify-center border-2 border-gray-600">
+                          <Shield className="text-blue-400 w-8 h-8" />
+                        </div>
+                      </div>
 
+                      <div className="mt-3">
+                        <Dialog.Title className="text-2xl font-bold text-white ">
+                          Add New Guard
+                        </Dialog.Title>
+                        <p className="text-gray-400 text-sm mb-6">
+                          Fill out the guard’s information below.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Error Message */}
                     {errorMsg && (
-                      <div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-4">
+                      <div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-6 text-center">
                         {errorMsg}
                       </div>
                     )}
 
+                    {/* 2-Column Form Layout */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <input
-                        type="text"
-                        name="fullName"
-                        placeholder="Full Name"
-                        value={form.fullName}
-                        onChange={handleChange}
-                        className="bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                      />
-                      <input
-                        type="text"
-                        name="guardId"
-                        placeholder="Guard ID"
-                        value={form.guardId}
-                        onChange={handleChange}
-                        className="bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                      />
-                      <input
-                        type="email"
-                        name="email"
-                        placeholder="Email"
-                        value={form.email}
-                        onChange={handleChange}
-                        className="bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                      />
-                      <input
-                        type="password"
-                        name="password"
-                        placeholder="Password"
-                        value={form.password}
-                        onChange={handleChange}
-                        className="bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                      />
-                      <input
-                        type="text"
-                        name="dutyStation"
-                        placeholder="Duty Station"
-                        value={form.dutyStation}
-                        onChange={handleChange}
-                        className="bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                      />
-                      <input
-                        type="text"
-                        name="address"
-                        placeholder="Address"
-                        value={form.address}
-                        onChange={handleChange}
-                        className="bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                      />
-                      <input
-                        type="text"
-                        name="phoneNumber"
-                        placeholder="Phone Number"
-                        value={form.phoneNumber}
-                        onChange={handleChange}
-                        className="bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                      />
-                      <select
-                        name="shift"
-                        value={form.shift}
-                        onChange={handleChange}
-                        className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select Shift</option>
-                        <option value="Day Shift">Day Shift</option>
-                        <option value="Night Shift">Night Shift</option>
-                      </select>
+                      {/* Left Column */}
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          name="fullName"
+                          placeholder="Full Name"
+                          value={form.fullName}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        />
+
+                        <input
+                          type="text"
+                          name="guardId"
+                          placeholder="Guard ID"
+                          value={form.guardId}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        />
+
+                        <input
+                          type="email"
+                          name="email"
+                          placeholder="Email"
+                          value={form.email}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        />
+
+                        <input
+                          type="password"
+                          name="password"
+                          placeholder="Password"
+                          value={form.password}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        />
+
+                        <input
+                          type="text"
+                          name="position"
+                          placeholder="Position"
+                          value={form.position}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        />
+
+                        <select
+                          name="shift"
+                          value={form.shift}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Select Shift</option>
+                          <option value="Day Shift">Day Shift</option>
+                          <option value="Night Shift">Night Shift</option>
+                        </select>
+
+                        <input
+                          type="text"
+                          name="dutyStation"
+                          placeholder="Duty Station"
+                          value={form.dutyStation}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      {/* Right Column */}
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          name="address"
+                          placeholder="Address"
+                          value={form.address}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        />
+
+                        <input
+                          type="text"
+                          name="phoneNumber"
+                          placeholder="Phone Number"
+                          value={form.phoneNumber}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        />
+
+                        <input
+                          type="text"
+                          name="SSSID"
+                          placeholder="SSS ID"
+                          value={form.SSSID}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        />
+
+                        <input
+                          type="text"
+                          name="PhilHealthID"
+                          placeholder="PhilHealth ID"
+                          value={form.PhilHealthID}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        />
+
+                        <input
+                          type="text"
+                          name="PagibigID"
+                          placeholder="Pag-IBIG ID"
+                          value={form.PagibigID}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        />
+
+                        <input
+                          type="text"
+                          name="EmergencyPerson"
+                          placeholder="Emergency Contact Person"
+                          value={form.EmergencyPerson}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        />
+
+                        <input
+                          type="phoneNumber"
+                          name="EmergencyContact"
+                          placeholder="Emergency Contact Number"
+                          value={form.EmergencyContact}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
                     </div>
 
-                    <div className="mt-6 flex justify-end gap-3">
+                    {/* Footer */}
+                    <div className="mt-8 flex justify-end gap-4">
                       <button
                         onClick={() => setIsOpen(false)}
-                        className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-white"
+                        className="bg-gray-600 hover:bg-gray-500 px-6 py-2 rounded-lg text-white w-1/4"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={handleAddGuard}
                         disabled={loading}
-                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-6 py-2 rounded-lg shadow text-white font-medium disabled:opacity-50"
+                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-8 py-2 rounded-lg shadow text-white font-medium w-1/4 disabled:opacity-50"
                       >
                         {loading ? "Saving..." : "Save Guard"}
                       </button>
@@ -456,6 +576,7 @@ export default function GuardTable() {
             </div>
           </Dialog>
         </Transition>
+
         {/*  Edit Guard Modal */}
         <Transition appear show={editIsOpen} as={Fragment}>
           <Dialog as="div" className="relative z-50" onClose={() => setEditIsOpen(false)}>

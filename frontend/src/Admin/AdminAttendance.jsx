@@ -93,7 +93,7 @@ export default function GuardAttendancePage() {
         {/* ===== Table ===== */}
         <div className="overflow-x-auto bg-[#1e293b]/60 backdrop-blur-md rounded-xl border border-gray-700 shadow-lg">
           <table className="w-full min-w-[800px] border-collapse">
-            <thead className="bg-[#234C6A] text-gray-100 text-sm  uppercase tracking-wider">
+            <thead className="bg-[#234C6A] text-gray-100 text-sm uppercase tracking-wider">
               <tr className="text-center">
                 <th className="px-4 py-3 ">Guard Name</th>
                 <th className="px-4 py-3 ">Place</th>
