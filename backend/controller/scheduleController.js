@@ -1,16 +1,24 @@
 import Schedule from "../models/schedule.model.js";
 
-// Create new schedule
+// POST /api/schedules/create-schedule
 export const createSchedule = async (req, res) => {
   try {
+    const { schedules } = req.body;
+
+    if (Array.isArray(schedules)) {
+      const created = await Schedule.insertMany(schedules);
+      return res.status(201).json(created);
+    }
+
+    // fallback for single
     const schedule = new Schedule(req.body);
     await schedule.save();
-    res.status(201).json({ message: "Schedule created successfully", schedule });
-  } catch (error) {
-    console.error("Schedule creation error:", error); // <— ADD THIS
-    res.status(400).json({ message: "Error creating schedule", error: error.message });
+    res.status(201).json(schedule);
+  } catch (err) {
+    res.status(500).json({ message: "Error creating schedule", error: err.message });
   }
 };
+
 
 // Get all schedules
 export const getSchedules = async (req, res) => {
@@ -30,6 +38,23 @@ export const getScheduleById = async (req, res) => {
     res.status(200).json(schedule);
   } catch (error) {
     res.status(500).json({ message: "Error fetching schedule", error: error.message });
+  }
+};
+
+// Get schedules by guard ID
+export const getSchedulesByGuard = async (req, res) => {
+  try {
+    const { guardId } = req.params;
+    const schedules = await Schedule.find({ "guard._id": guardId })
+      .populate("guard") // if your schema has a reference
+      .sort({ timeIn: 1 }); // sort by upcoming schedule
+
+    if (!schedules || schedules.length === 0)
+      return res.status(404).json({ message: "No schedules found for this guard" });
+
+    res.status(200).json(schedules);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching schedules", error: error.message });
   }
 };
 

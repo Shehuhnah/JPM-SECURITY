@@ -1,109 +1,140 @@
-import { MapPin, Building2, Clock, Phone, Users, ShieldCheck } from "lucide-react";
+import { CalendarDays, Clock, Users, MapPin } from "lucide-react";
 
-export default function GuardDetachment() {
-  // Mock detachment data — you can later fetch this from backend via guardId
-  const detachment = {
-    name: "SM City Bacoor",
-    client: "SM Supermalls",
-    location: "Bacoor, Cavite",
-    dutyShift: "Day Shift (07:00 - 19:00)",
-    supervisor: "SPO1 Ramon Santos (Ret.)",
-    contact: "+63 917 456 7890",
-    guards: [
-      "Mark Dela Cruz",
-      "Jayson Villanueva",
-      "Leo Tan",
-      "Arvin Reyes",
-      "Kyle Bautista",
-    ],
-    notes:
-      "Guards are expected to report 30 minutes before shift change for proper turnover and inspection.",
+export default function GuardUpcomingSchedule() {
+  const schedules = [
+    {
+      client: "Jollibee - Paradahan 1",
+      deploymentLocation: "Paradahan 1, Tanza, Cavite",
+      guardId: {
+        email: "shehannamarie@gmail.com",
+        fullName: "Shehanna Marie Aquino",
+        position: "Reliever",
+      },
+      shiftType: "Day Shift",
+      timeIn: "2025-11-10T16:00:00.000Z",
+      timeOut: "2025-11-10T04:00:00.000Z",
+    },
+    {
+      client: "Jollibee - Paradahan 1",
+      deploymentLocation: "Paradahan 1, Tanza, Cavite",
+      guardId: {
+        email: "johnmarknavajas14@gmail.com",
+        fullName: "John Mark Navajas",
+        position: "Reliever",
+      },
+      shiftType: "Day Shift",
+      timeIn: "2025-11-03T22:00:00.000Z",
+      timeOut: "2025-11-04T10:00:00.000Z",
+    },
+  ];
+
+  const shiftColors = {
+    "Day Shift": "bg-yellow-400 text-black",
+    "Night Shift": "bg-red-500 text-white",
   };
 
+  // Group schedules by date
+  const groupedByDate = schedules.reduce((acc, s) => {
+    const dateKey = new Date(s.timeIn).toISOString().split("T")[0];
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(s);
+    return acc;
+  }, {});
+
+  const sortedDates = Object.keys(groupedByDate).sort(
+    (a, b) => new Date(a) - new Date(b)
+  );
+
   return (
-    <section className="min-h-screen bg-[#0f172a] text-gray-100 px-6 py-10">
+    <div className="min-h-screen bg-[#0f172a] text-white p-4 space-y-6">
       {/* Header */}
-      <div className="text-center mb-10">
-        <h1 className="text-3xl font-bold text-white tracking-wide flex items-center justify-center gap-2">
-          <ShieldCheck className="text-blue-500 w-7 h-7" />
-          Guard Detachment Details
-        </h1>
-        <p className="text-gray-400 text-sm mt-2">
-          Information about your current duty assignment and detachment.
-        </p>
+      <div className="flex items-center gap-2 mb-2">
+        <CalendarDays className="w-6 h-6 text-blue-400" />
+        <h1 className="text-2xl font-bold">Upcoming Schedule</h1>
       </div>
 
-      {/* Main Card */}
-      <div className="max-w-3xl mx-auto bg-[#1e293b]/90 border border-gray-700 rounded-2xl shadow-lg p-6 sm:p-8 backdrop-blur-sm">
-        {/* Detachment Info */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <Building2 className="text-blue-400 w-5 h-5" />
-            <h2 className="text-xl font-semibold text-white">
-              {detachment.client}
+      <p className="text-gray-400 text-sm">
+        Client: <span className="font-semibold text-white">Jollibee - Paradahan 1</span>
+      </p>
+
+      {/* Schedule Timeline */}
+      {sortedDates.map((date) => (
+        <div key={date} className="space-y-3">
+          {/* Date Header */}
+          <div className="flex items-center gap-2 mt-4">
+            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+            <h2 className="text-lg font-semibold">
+              {new Date(date).toLocaleDateString([], {
+                weekday: "long",
+                month: "short",
+                day: "numeric",
+              })}
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm sm:text-base">
-            <div className="flex items-center gap-3 bg-[#0f172a]/50 rounded-lg p-3">
-              <MapPin className="text-blue-400 w-5 h-5" />
-              <div>
-                <p className="text-gray-400 text-xs uppercase">Location</p>
-                <p className="font-medium text-white">{detachment.location}</p>
+          {/* Shifts for that day */}
+          {groupedByDate[date].map((s, i) => (
+            <div
+              key={i}
+              className="bg-[#1e293b]/90 border border-gray-700 rounded-2xl p-4 shadow-md space-y-2"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center font-semibold text-white">
+                    {s.guardId.fullName.split(" ").map((n) => n[0]).join("")}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-base">{s.guardId.fullName}</p>
+                    <p className="text-gray-400 text-xs">{s.guardId.position}</p>
+                  </div>
+                </div>
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-medium ${shiftColors[s.shiftType]}`}
+                >
+                  {s.shiftType}
+                </span>
               </div>
-            </div>
 
-            <div className="flex items-center gap-3 bg-[#0f172a]/50 rounded-lg p-3">
-              <Clock className="text-blue-400 w-5 h-5" />
-              <div>
-                <p className="text-gray-400 text-xs uppercase">Duty Shift</p>
-                <p className="font-medium text-white">{detachment.dutyShift}</p>
+              <div className="flex items-center gap-2 text-gray-300 text-sm">
+                <Clock className="w-4 h-4 text-blue-400" />
+                <span>
+                  {new Date(s.timeIn).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}{" "}
+                  -{" "}
+                  {new Date(s.timeOut).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
               </div>
-            </div>
 
-            <div className="flex items-center gap-3 bg-[#0f172a]/50 rounded-lg p-3">
-              <Users className="text-blue-400 w-5 h-5" />
-              <div>
-                <p className="text-gray-400 text-xs uppercase">Supervisor</p>
-                <p className="font-medium text-white">{detachment.supervisor}</p>
+              <div className="flex items-center gap-2 text-gray-300 text-sm">
+                <MapPin className="w-4 h-4 text-blue-400" />
+                <span>{s.deploymentLocation}</span>
               </div>
-            </div>
 
-            <div className="flex items-center gap-3 bg-[#0f172a]/50 rounded-lg p-3">
-              <Phone className="text-blue-400 w-5 h-5" />
-              <div>
-                <p className="text-gray-400 text-xs uppercase">Contact</p>
-                <p className="font-medium text-white">{detachment.contact}</p>
+              {/* Other Guards working same time & client */}
+              <div className="flex items-center gap-2 text-gray-300 text-sm">
+                <Users className="w-4 h-4 text-blue-400" />
+                <span>
+                  With:{" "}
+                  {groupedByDate[date]
+                    .filter(
+                      (g) =>
+                        g.client === s.client &&
+                        g.timeIn === s.timeIn &&
+                        g.guardId.fullName !== s.guardId.fullName
+                    )
+                    .map((g) => g.guardId.fullName)
+                    .join(", ") || "None"}
+                </span>
               </div>
             </div>
-          </div>
+          ))}
         </div>
-
-        {/* Assigned Guards */}
-        <div className="mt-8">
-          <h3 className="text-lg font-semibold mb-3 text-white flex items-center gap-2">
-            <Users className="text-blue-400 w-5 h-5" /> Assigned Guards
-          </h3>
-          <ul className="space-y-2">
-            {detachment.guards.map((guard, index) => (
-              <li
-                key={index}
-                className="bg-[#0f172a]/40 border border-gray-700 rounded-lg px-4 py-2 text-gray-200 hover:bg-[#243046] transition"
-              >
-                {guard}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Notes */}
-        <div className="mt-8 bg-[#0f172a]/50 border border-gray-700 rounded-xl p-4">
-          <h3 className="text-lg font-semibold mb-2 text-white">Notes</h3>
-          <p className="text-gray-400 text-sm leading-relaxed">
-            {detachment.notes}
-          </p>
-        </div>
-      </div>
-    </section>
+      ))}
+    </div>
   );
 }

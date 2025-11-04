@@ -3,6 +3,8 @@ import { Shield, Clock, Search, CalendarCheck2  } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, useLocation  } from "react-router-dom";
 import { parseISO, format } from "date-fns";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/dist/style.css";
 
 export default function AdminAddSchedule() {
     const { token } = useAuth();
@@ -15,6 +17,7 @@ export default function AdminAddSchedule() {
     const [clients, setclients] = useState([]);
     const [selectedGuard, setSelectedGuard] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
+    const [selectedDays, setSelectedDays] = useState([]);
     const [form, setForm] = useState({
         deploymentLocation: "",
         client: "",
@@ -66,35 +69,58 @@ export default function AdminAddSchedule() {
     // Handle submit
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!selectedGuard) {
-            alert("Please select a guard first!");
-            return;
-        }
+        if (!selectedGuard) return alert("Please select a guard first!");
+        if (selectedDays.length === 0) return alert("Please select at least one date!");
 
-        const scheduleData = {
-            guardId: selectedGuard._id,
-            guardName: selectedGuard.fullName,
-            ...form,
-        };
+        // Define shift time range
+        const shiftTimes =
+            form.shiftType === "Night Shift"
+            ? { timeIn: "19:00", timeOut: "07:00" }
+            : { timeIn: "07:00", timeOut: "19:00" };
 
-        console.log("sending data: ", scheduleData)
+        // Create an array of schedules for each selected day
+        const schedules = selectedDays.map((day) => {
+            const dateStr = format(day, "yyyy-MM-dd");
+            const timeInFull = `${dateStr}T${shiftTimes.timeIn}`;
+            let timeOutFull = `${dateStr}T${shiftTimes.timeOut}`;
+            
+            // If Night Shift, add +1 day for timeOut
+            if (form.shiftType === "Night Shift") {
+                const nextDay = new Date(day);
+                nextDay.setDate(nextDay.getDate() + 1);
+                timeOutFull = `${format(nextDay, "yyyy-MM-dd")}T${shiftTimes.timeOut}`;
+            }
+
+            return {
+                guardId: selectedGuard._id,
+                guardName: selectedGuard.fullName,
+                deploymentLocation: form.deploymentLocation,
+                client: form.client,
+                position: form.position,
+                shiftType: form.shiftType,
+                timeIn: timeInFull,
+                timeOut: timeOutFull,
+            };
+        });
+
+        console.log("Generated schedules:", schedules);
 
         try {
             setLoading(true);
             const res = await fetch("http://localhost:5000/api/schedules/create-schedule", {
-                method: "POST",
-                headers: 
-                    { 
-                        "Content-Type": "application/json", 
-                        Authorization: `Bearer ${token}` 
-                    },
-                body: JSON.stringify(scheduleData),
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+                body: JSON.stringify({ schedules }), // send multiple
             });
 
             const data = await res.json();
-            if (!res.ok) throw new Error(data.message || "Error adding schedule");
+            if (!res.ok) throw new Error(data.message || "Error adding schedules");
 
-            setMessage("✅ Schedule added successfully!");
+            setMessage("✅ Schedules added successfully!");
+            setSelectedDays([]);
             setForm({
                 deploymentLocation: "",
                 client: "",
@@ -287,41 +313,28 @@ export default function AdminAddSchedule() {
                             <option value="Night Shift">Night Shift</option>
                         </select>
                     </div>
-
-                    {/* Time In / Time Out */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label
-                                htmlFor="timeIn"
-                                className="block text-sm font-medium text-gray-300 mb-1">
-                                Time In
-                            </label>
-                            <input
-                                id="timeIn"
-                                type="datetime-local"
-                                name="timeIn"
-                                value={form.timeIn || formattedDate}
-                                onChange={handleChange}
-                                className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required/>
-                        </div>
-
-                        <div>
-                            <label
-                                htmlFor="timeOut"
-                                className="block text-sm font-medium text-gray-300 mb-1">
-                                Time Out
-                            </label>
-                            <input
-                                id="timeOut"
-                                type="datetime-local"
-                                name="timeOut"
-                                value={form.timeOut}
-                                onChange={handleChange}
-                                className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required
+                    {/* Schedule Dates (Calendar) */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">
+                            Select Schedule Dates
+                        </label>
+                        <div className="bg-[#0f172a] border border-gray-700 rounded-lg p-4 flex items-center justify-center">
+                            <DayPicker
+                                mode="multiple"
+                                selected={selectedDays}
+                                onSelect={setSelectedDays}
+                                classNames={{
+                                    caption: "text-gray-200",
+                                    day_selected: "bg-blue-500 text-white",
+                                    day_today: "text-blue-300",
+                                }}
                             />
                         </div>
+                        {selectedDays.length > 0 && (
+                            <p className="text-gray-400 text-sm mt-2">
+                            {selectedDays.length} day{selectedDays.length > 1 ? "s" : ""} selected
+                            </p>
+                        )}
                     </div>
 
                     {/* Feedback message */}

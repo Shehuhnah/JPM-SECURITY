@@ -4,23 +4,25 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { Dialog, Transition } from "@headlessui/react";
-import { Shield, Building2  } from "lucide-react";
+import {
+  CalendarDays,
+  Building2,
+  Filter,
+  PlusCircle,
+  ClipboardList,
+} from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
 export default function AdminDeployment() {
   const navigate = useNavigate();
   const { admin, token } = useAuth();
-
   const [schedules, setSchedules] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [selectedClient, setSelectedClient] = useState("");
+  const [showClientModal, setShowClientModal] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editEvent, setEditEvent] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [clients, setClients] = useState(["All Clients"]);
-  const [showClientModal, setShowClientModal] = useState(false);
-  const clientColors = [
-    "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#14b8a6"
-  ];
 
   useEffect(() => {
     document.title = "Deployment | JPM Security Agency";
@@ -48,7 +50,7 @@ export default function AdminDeployment() {
         ]);
 
         setSchedules(schedulesData);
-        setClients(clientsData.map((c) => c.clientName)); // store only client names
+        setClients(clientsData);
       } catch (error) {
         console.error("Error fetching data:", error);
       }
@@ -57,35 +59,51 @@ export default function AdminDeployment() {
     if (token) fetchData();
   }, [token]);
 
+  console.log(schedules)
+
+  const shiftColors = {
+    "Night Shift": "#ef4444", // red
+    "Day Shift": "#fde047", // yellow
+  };
 
   const events = schedules.map((s, idx) => ({
     id: String(idx),
     title: `${s.guardName} (${s.shiftType})`,
     start: s.timeIn,
     end: s.timeOut,
-    color: clientColors[s.client.charCodeAt(0) % clientColors.length],
+    backgroundColor: shiftColors[s.shiftType] || "#3b82f6",
+    borderColor: shiftColors[s.shiftType] || "#3b82f6",
+    textColor: s.shiftType === "Day Shift" ? "#000" : "#fff",
+    display: "block",
     extendedProps: {
       client: s.client,
       location: s.deploymentLocation,
     },
   }));
 
+  const filteredEvents =
+    !selectedClient || selectedClient === "All"
+      ? []
+      : events.filter(
+          (event) => event.extendedProps.client === selectedClient
+        );
 
   const handleAddClient = async (newClient) => {
     try {
-      const res = await fetch("http://localhost:5000/api/clients/create-client", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(newClient),
-      });
-
+      const res = await fetch(
+        "http://localhost:5000/api/clients/create-client",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(newClient),
+        }
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to add client");
 
-      console.log("✅ Client created:", data.client);
       setClients((prev) => [...prev, data.client]);
     } catch (err) {
       console.error("Error adding client:", err.message);
@@ -98,85 +116,100 @@ export default function AdminDeployment() {
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white p-8">
-      {/* Header */}
+      {/* ===== HEADER ===== */}
       <header className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-        <h1 className="text-3xl font-bold text-center sm:text-left">
-          🗓️ Deployment Schedule
-        </h1>
+        <div className="flex items-center gap-3">
+          <CalendarDays className="w-8 h-8 text-blue-400" />
+          <h1 className="text-3xl font-bold text-center sm:text-left">
+            Deployment Schedule
+          </h1>
+        </div>
 
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowClientModal(true)}
-            className="bg-green-600 px-4 py-2 rounded hover:bg-green-700 text-sm"
-          >
-            + Add Client
-          </button>
-          <button
-            onClick={() => navigate("/admin/deployment/add-schedule")}
-            className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700 text-sm"
-          >
-            + Add Schedule
-          </button>
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          {/* Client Filter */}
+          <div className="flex items-center gap-2 bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2">
+            <Filter className="text-gray-400 w-4 h-4" />
+            <select
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+              className="bg-[#1e293b] text-gray-200 text-sm focus:outline-none"
+            >
+              <option value="">Select Client</option>
+              {clients.map((client) => (
+                <option key={client._id} value={client.clientName}>
+                  {client.clientName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowClientModal(true)}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-medium"
+            >
+              <PlusCircle size={16} /> Add Client
+            </button>
+            <button
+              onClick={() => navigate("/admin/deployment/add-schedule")}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium"
+            >
+              <ClipboardList size={16} /> Add Schedule
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Calendar */}
-      <div className="bg-[#1e293b] p-4 rounded-xl shadow-lg">
-        <FullCalendar
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView="dayGridMonth"
-          height="85vh"
-          editable={true}
-          droppable={true}
-          eventDrop={(info) => {
-            const updated = schedules.map((s, i) =>
-              i === parseInt(info.event.id)
-                ? {
-                    ...s,
-                    timeIn: info.event.start.toISOString(),
-                    timeOut: info.event.end?.toISOString() || s.timeOut,
-                  }
-                : s
-            );
-            setSchedules(updated);
-          }}
-          eventResize={(info) => {
-            const updated = schedules.map((s, i) =>
-              i === parseInt(info.event.id)
-                ? { ...s, timeOut: info.event.end.toISOString() }
-                : s
-            );
-            setSchedules(updated);
-          }}
-          selectable={true}
-          select={(info) => {
-            navigate(`/admin/deployment/add-schedule?date=${info.startStr}`);
-          }}
-          eventClick={(info) => {
-            setEditEvent(info.event);
-            setShowForm(true);
-          }}
-          events={events}
-          eventContent={(eventInfo) => (
-            <div className="text-xs">
-              <b>{eventInfo.event.title}</b>
-              <p className="text-gray-300">
-                {eventInfo.event.extendedProps.client}
-              </p>
-            </div>
-          )}
-          headerToolbar={{
-            left: "prev,next today",
-            center: "title",
-            right: "dayGridMonth,timeGridWeek,timeGridDay",
-          }}
-        />
+      {/* ===== LEGEND ===== */}
+      <div className="flex items-center gap-4 mb-4 text-sm text-gray-400">
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 bg-[#fde047] rounded-sm"></span> Day Shift
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 bg-[#ef4444] rounded-sm"></span> Night Shift
+        </div>
       </div>
 
-      {/* Add/Edit Schedule Modal ) */}
-      <Transition appear show={showForm} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setShowForm(false)}>
-          {/* Backdrop */}
+      {/* ===== CALENDAR ===== */}
+      <div className="bg-[#1e293b] p-6 rounded-2xl shadow-lg border border-gray-700">
+        {selectedClient ? (
+          <FullCalendar
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            height="80vh"
+            events={filteredEvents}
+            eventContent={(eventInfo) => (
+              <div className="text-xs">
+                <b>{eventInfo.event.title}</b>
+                <p className="text-gray-200">
+                  {eventInfo.event.extendedProps.location}
+                </p>
+              </div>
+            )}
+            headerToolbar={{
+              left: "prev,next today",
+              center: "title",
+              right: "dayGridMonth,timeGridWeek,timeGridDay",
+            }}
+          />
+        ) : (
+          <div className="text-center py-20 text-gray-500">
+            <p className="text-lg">
+              <Filter className="inline-block w-5 h-5 mr-2" />
+              Please select a client to view deployment schedules.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* ===== ADD CLIENT MODAL ===== */}
+      <Transition appear show={showClientModal} as={Fragment}>
+        <Dialog
+          as="div"
+          className="relative z-50"
+          onClose={() => setShowClientModal(false)}
+        >
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
@@ -189,208 +222,40 @@ export default function AdminDeployment() {
             <div className="fixed inset-0 bg-black/50" />
           </Transition.Child>
 
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4 text-center">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-8 text-left align-middle shadow-xl border border-gray-700">
-                  {/* Header */}
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-14 h-14 bg-[#0f172a] rounded-full flex items-center justify-center border-2 border-gray-600">
-                      <Shield className="text-blue-400 w-7 h-7" />
-                    </div>
-                    <div>
-                      <Dialog.Title className="text-2xl font-bold text-white">
-                        {editEvent ? "Edit Schedule" : "Add New Schedule"}
-                      </Dialog.Title>
-                      <p className="text-gray-400 text-sm">
-                        Manage deployment schedules and assignments.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Form */}
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const form = e.target;
-                      const newSchedule = {
-                        guardName: form.guardName.value,
-                        deploymentLocation: form.location.value,
-                        client: form.client.value,
-                        shiftType: form.shiftType.value,
-                        timeIn: form.timeIn.value,
-                        timeOut: form.timeOut.value,
-                      };
-                      handleAddSchedule(newSchedule);
-                    }}
-                    className="space-y-6"
-                  >
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-gray-300 text-sm mb-1">
-                            Guard Name
-                          </label>
-                          <input
-                            name="guardName"
-                            placeholder="Enter Guard Name"
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                            defaultValue={editEvent?.title?.split("(")[0]?.trim() || ""}
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-gray-300 text-sm mb-1">
-                            Deployment Location
-                          </label>
-                          <input
-                            name="location"
-                            placeholder="Enter Location"
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-gray-300 text-sm mb-1">
-                            Client
-                          </label>
-                          <select
-                            name="client"
-                            className="w-full bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                            required
-                          >
-                            {clients.map((client, i) => (
-                              <option key={i} value={client}>
-                                {client}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-gray-300 text-sm mb-1">
-                            Shift Type
-                          </label>
-                          <select
-                            name="shiftType"
-                            className="w-full bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                            required
-                          >
-                            <option value="Day Shift">Day Shift</option>
-                            <option value="Night Shift">Night Shift</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-gray-300 text-sm mb-1">
-                            Time In
-                          </label>
-                          <input
-                            type="datetime-local"
-                            name="timeIn"
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-gray-300 text-sm mb-1">
-                            Time Out
-                          </label>
-                          <input
-                            type="datetime-local"
-                            name="timeOut"
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="mt-8 flex justify-end gap-4 border-t border-gray-700 pt-4">
-                      {editEvent && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleDeleteSchedule(editEvent.id);
-                            setShowForm(false);
-                          }}
-                          className="bg-red-600 hover:bg-red-500 px-6 py-2 rounded-lg text-white"
-                        >
-                          Delete
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowForm(false);
-                          setEditEvent(null);
-                        }}
-                        className="bg-gray-600 hover:bg-gray-500 px-6 py-2 rounded-lg text-white"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-8 py-2 rounded-lg shadow text-white font-medium"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </form>
-                </Dialog.Panel>
-              </Transition.Child>
-            </div>
-          </div>
-        </Dialog>
-      </Transition>
-
-      {/* 🟩 Add Client Modal  */}
-      <Transition appear show={showClientModal} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setShowClientModal(false)}>
-          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
-            <div className="fixed inset-0 bg-black/50" />
-          </Transition.Child>
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
               <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-8 text-left align-middle shadow-xl border border-gray-700">
                 <Dialog.Title className="text-2xl font-bold text-white mb-6 flex items-center gap-x-3">
-                  <Building2 className="text-blue-400" size={32}/> Add New Client
+                  <Building2 className="text-blue-400" size={32} /> Add New Client
                 </Dialog.Title>
 
                 <form
-                 onSubmit={(e) => {
-                  e.preventDefault();
-                  const newClient = {
-                    clientName: e.target.clientName.value,
-                    clientContact: e.target.clientContact.value,
-                    clientTypeOfEstablishment: e.target.clientTypeOfEstablishment.value,
-                    clientAddress: e.target.clientAddress.value,
-                    clientContactPerson: e.target.clientContactPerson.value,
-                  };
-                  handleAddClient(newClient);
-                  e.target.reset();
-                  setShowClientModal(false);
-                }}
-
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const newClient = {
+                      clientName: e.target.clientName.value,
+                      clientContact: e.target.clientContact.value,
+                      clientTypeOfEstablishment:
+                        e.target.clientTypeOfEstablishment.value,
+                      clientAddress: e.target.clientAddress.value,
+                      clientContactPerson: e.target.clientContactPerson.value,
+                    };
+                    handleAddClient(newClient);
+                    e.target.reset();
+                    setShowClientModal(false);
+                  }}
                   className="space-y-6"
                 >
-                  {/* Grid Layout */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Left Column */}
+                    {/* Left */}
                     <div className="space-y-4">
                       <div>
                         <label className="block text-gray-300 text-sm mb-1">
@@ -398,24 +263,22 @@ export default function AdminDeployment() {
                         </label>
                         <input
                           name="clientName"
-                          placeholder="Enter Client Name"
+                          placeholder="e.g. Jollibee - Cavite"
                           className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
                           required
                         />
                       </div>
-
                       <div>
                         <label className="block text-gray-300 text-sm mb-1">
                           Contact Number
                         </label>
                         <input
                           name="clientContact"
-                          placeholder="e.g. 09171234567"
+                          placeholder="09171234567"
                           className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
                           required
                         />
                       </div>
-
                       <div>
                         <label className="block text-gray-300 text-sm mb-1">
                           Type of Establishment
@@ -429,7 +292,7 @@ export default function AdminDeployment() {
                       </div>
                     </div>
 
-                    {/* Right Column */}
+                    {/* Right */}
                     <div className="space-y-4">
                       <div>
                         <label className="block text-gray-300 text-sm mb-1">
@@ -442,7 +305,6 @@ export default function AdminDeployment() {
                           required
                         />
                       </div>
-
                       <div>
                         <label className="block text-gray-300 text-sm mb-1">
                           Contact Person
@@ -457,7 +319,6 @@ export default function AdminDeployment() {
                     </div>
                   </div>
 
-                  {/* Buttons */}
                   <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
                     <button
                       type="button"
