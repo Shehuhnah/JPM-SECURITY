@@ -14,7 +14,7 @@ const router = express.Router();
 router.post("/create-schedule", protect, authorizeRoles("Admin", "Subadmin"), createSchedule);
 router.get("/get-schedules", protect, getSchedules);
 router.get("/:id", protect, getScheduleById);
-router.get("/guard/:guardId", protect, getSchedulesByGuard);
+router.get("/guard/:id", protect, getSchedulesByGuard);
 router.put("/:id", protect, authorizeRoles("Admin", "Subadmin"), updateSchedule);
 router.delete("/:id", protect, authorizeRoles("Admin", "Subadmin"), deleteSchedule);
 
