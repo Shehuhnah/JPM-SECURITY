@@ -1,13 +1,16 @@
-import React, { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { UserPlus, Search, ShieldAlert, Trash2, Edit3, Users, User, RefreshCw   } from "lucide-react";
 import Loader from "../components/Loading.jsx";
 import DeleteUserModal from "../components/DeleteUserModal";
 import { ToastContainer, toast, Bounce } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
+import { useAuth } from "../hooks/useAuth.js"
+import { useNavigate } from "react-router-dom";
 
 export default function UserAccounts() {
+  const { admin, token } = useAuth();
+  console.log(admin.role, admin.accessLevel)
   const [users, setUsers] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -25,7 +28,7 @@ export default function UserAccounts() {
     position: "",
     contactNumber: "",
   });
-
+  const navigate = useNavigate();
 
   const [form, setForm] = useState({
     name: "",
@@ -37,10 +40,14 @@ export default function UserAccounts() {
     contactNumber: "",
   });
 
-
   //  Fetch users
   useEffect(() => {
     document.title = "Users List | JPM Security Agency";
+
+    if(!admin && !token){
+      navigate("/admin/login")
+    };
+
     fetch("http://localhost:5000/api/auth/users")
       .then((res) => res.json())
       .then((data) => setUsers(data))
@@ -72,8 +79,6 @@ export default function UserAccounts() {
 
       const newUser = await res.json();
 
-      // ✅ Replace current users state with the newly added one
-      // setUsers([newUser]);
       handleRefresh();
 
       setForm({
@@ -235,13 +240,15 @@ export default function UserAccounts() {
                 />
               </div>
             </div>
-            <button
-              onClick={() => setIsOpen(true)}
-              className="mt-4 sm:mt-0 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-4 py-2.5 rounded-lg shadow-md transition-transform transform hover:-translate-y-0.5"
-            >
-              <UserPlus size={18} />
-              Add Staff
-            </button>
+            {admin.role === "Admin" && admin.accessLevel === 1 && (
+              <button
+                onClick={() => setIsOpen(true)}
+                className="mt-4 sm:mt-0 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-4 py-2.5 rounded-lg shadow-md transition-transform transform hover:-translate-y-0.5"
+              >
+                <UserPlus size={18} />
+                Add Staff
+              </button>
+            )}
           </div>
         </div>
 
@@ -249,15 +256,17 @@ export default function UserAccounts() {
         <div className="overflow-x-auto bg-[#1e293b]/80 backdrop-blur-md border border-gray-700 rounded-xl shadow-lg">
           <table className="w-full text-left">
             <thead className="bg-[#234C6A] text-white">
-              <tr>
+              <tr className="">
                 <th className="py-3 px-4 text-sm font-semibold">Name</th>
                 <th className="py-3 px-4 text-sm font-semibold">Position</th>
                 <th className="py-3 px-4 text-sm font-semibold">Phone</th>
                 <th className="py-3 px-4 text-sm font-semibold">Email</th>
                 <th className="py-3 px-4 text-sm font-semibold">Role</th>
-                <th className="py-3 px-4 text-sm font-semibold text-center">
-                  Actions
-                </th>
+                {admin.role === "Admin" && admin.accessLevel === 1 && (
+                  <th className="py-3 px-4 text-sm font-semibold text-center">
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -281,21 +290,24 @@ export default function UserAccounts() {
                     <td className="px-4 py-3">{u.contactNumber}</td>
                     <td className="px-4 py-3">{u.email}</td>
                     <td className="px-4 py-3">{u.role || "N/A"}</td>
-                    <td className="px-4 py-3 flex justify-center gap-2">
-                      <button
-                        onClick={() => handleEditClick(u)}
-                        className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-md flex items-center gap-1 text-sm"
-                      >
-                        <Edit3 size={14} /> Edit
-                      </button>
+                    {admin.role === "Admin" && admin.accessLevel === 1 && (
+                      <td className="px-4 py-3 flex justify-center gap-2">
+                        <button
+                          onClick={() => handleEditClick(u)}
+                          className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-md flex items-center gap-1 text-sm"
+                        >
+                          <Edit3 size={14} /> Edit
+                        </button>
 
-                      <button
-                        onClick={() => setSelectedUser(u)}
-                        className="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-md flex items-center gap-1 text-sm"
-                      >
-                        <Trash2 size={14} /> Delete
-                      </button>
-                    </td>
+                        <button
+                          onClick={() => setSelectedUser(u)}
+                          className="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-md flex items-center gap-1 text-sm"
+                        >
+                          <Trash2 size={14} /> Delete
+                        </button>
+                      </td>
+                    )}
+                    
                   </tr>
                 ))
               )}
@@ -391,8 +403,8 @@ export default function UserAccounts() {
                       className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select Access Level</option>
-                      <option value="2">Admin (1)</option>
-                      <option value="1">Subadmin (2)</option>
+                      <option value="1">Admin (1)</option>
+                      <option value="2">Subadmin (2)</option>
                     </select>
                     <input
                       type="password"

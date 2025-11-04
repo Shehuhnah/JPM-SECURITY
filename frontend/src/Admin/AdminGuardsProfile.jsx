@@ -20,7 +20,7 @@ import DeleteUserModal from "../components/DeleteUserModal";
 import { useAuth } from "../hooks/useAuth.js"
 
 export default function GuardTable() {
-  const { adminData, token } = useAuth();
+  const { admin, token } = useAuth();
 
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
@@ -47,7 +47,6 @@ export default function GuardTable() {
       EmergencyPerson: "",
       EmergencyContact: ""
   });
-
   //  Fetch users
   useEffect(() => {
     document.title = "Guards Profile | JPM Security Agency";
@@ -299,13 +298,15 @@ export default function GuardTable() {
               />
             </div>
 
-            <button
-              onClick={() => setIsOpen(true)}
-              className="mt-4 sm:mt-0 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-4 py-2.5 rounded-lg shadow-md transition-transform transform hover:-translate-y-0.5"
-            >
-              <UserPlus size={18} />
-              Add Guard
-            </button>
+            {admin.role === "Admin" && admin.accessLevel === 1 && (
+              <button
+                onClick={() => setIsOpen(true)}
+                className="mt-4 sm:mt-0 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-4 py-2.5 rounded-lg shadow-md transition-transform transform hover:-translate-y-0.5"
+              >
+                <UserPlus size={18} />
+                Add Guard
+              </button>
+            )}
           </div>
         </header>
 
@@ -321,7 +322,9 @@ export default function GuardTable() {
                 <th className="p-3">Contact</th>
                 <th className="p-3">Email</th>
                 <th className="p-3">Shift</th>
-                <th className="p-3">Action</th>
+                {admin.role === "Admin" && admin.accessLevel === 1 && (
+                  <th className="p-3">Action</th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -341,16 +344,18 @@ export default function GuardTable() {
                       <Clock className="w-4 h-4 text-blue-500" />
                       {g.shift}
                     </td>
-                    <td className="p-3 space-x-5">
-                      <button onClick={() => handleEdit(g)}>
-                        <Pencil className="w-5 h-5 text-gray-300 hover:text-blue-400" />
-                      </button>
-                      <button
-                        onClick={() => setSelectedUser(g)}
-                      >
-                        <Trash className="w-5 h-5 text-gray-300 hover:text-red-500 ml-3" />
-                      </button>
-                    </td>
+                    {admin.role === "Admin" && admin.accessLevel === 1 && (
+                      <td className="p-3 space-x-5">
+                        <button onClick={() => handleEdit(g)}>
+                          <Pencil className="w-5 h-5 text-gray-300 hover:text-blue-400" />
+                        </button>
+                        <button
+                          onClick={() => setSelectedUser(g)}
+                        >
+                          <Trash className="w-5 h-5 text-gray-300 hover:text-red-500 ml-3" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))
               ) : (

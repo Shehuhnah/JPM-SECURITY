@@ -43,6 +43,7 @@ export default function AdminLayout() {
   const navItems = [
     { to:"/Admin", label: "Dashboard", icon: <LayoutDashboard size={18}/>},
     { to: "/Admin/deployment", label: "Deployment", icon: <Calendar size={18} /> },
+    { to: "/Admin/view-list-schedule", label: "View Schedules", icon: <Calendar size={18} /> },
     { to: "/Admin/AdminGuardUpdates", label: "Updates", icon: <Shield size={18} /> },
     { to: "/Admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
     { to: "/Admin/UserAccounts", label: "Staff", icon: <Users size={18} /> },
@@ -51,6 +52,7 @@ export default function AdminLayout() {
     { to: "/Admin/AdminAttendance", label: "Attendance", icon: <Clock size={18} /> },
     { to: "/Admin/Request-ID", label: "Request ID", icon: <IdCardLanyard size={18}/>},
     { to: "/Admin/AdminCOE", label: "COE ", icon: <FileText size={18} /> },
+    { to: "request-coe", label: "Request COE", icon: <FileText size={18} /> },
   ];
 
   const postItems = [
@@ -93,23 +95,38 @@ export default function AdminLayout() {
         {/* Navigation */}
         <nav className="flex-1 px-4 py-6 space-y-2 text-gray-200 overflow-y-auto">
           {/* Regular links */}
-          {navItems.map((item, idx) => (
-            <NavLink
-              key={idx}
-              to={item.to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 p-2 rounded transition-colors ${
-                  isActive
-                    ? "bg-[#142235] text-white font-semibold shadow"
-                    : "hover:bg-[#0b2433]"
-                }`
+          {navItems
+            .filter(item => {
+              if (admin.role === "Subadmin") {
+                return ![
+                  "/Admin/AdminCOE",
+                  "/Admin/view-list-schedule"
+                ].includes(item.to);
               }
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
-
+              if (admin.role === "Admin") {
+                return ![
+                  "request-coe",
+                  "/Admin/deployment",
+                ].includes(item.to);
+              }
+              return true; // Admin sees all
+            }).map((item, idx) => (
+              <NavLink
+                key={idx}
+                to={item.to}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 p-2 rounded transition-colors ${
+                    isActive
+                      ? "bg-[#142235] text-white font-semibold shadow"
+                      : "hover:bg-[#0b2433]"
+                  }`
+                }
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </NavLink>
+            ))
+          }
           {/* Posts Dropdown */}
           <div>
             <button

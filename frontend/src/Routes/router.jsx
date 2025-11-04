@@ -28,7 +28,7 @@ import AdminGuardUpdates2 from "../Admin/AdminGuardUpdates2.jsx";
 import AdminMessage from "../Admin/AdminMessage.jsx";
 import ApplicantList from "../Admin/ApplicantList.jsx";
 import AdminRequestID from "../Admin/AdminRequestID.jsx";
-
+import AdminAddSchedule from "../Admin/AdminAddSchedule.jsx";
 
 // Guard pages
 import GuardLogin from "../Guard/GuardLogin.jsx";
@@ -40,6 +40,7 @@ import GuardAttendanceTimeIn from "../Guard/GuardAttendanceTimeIn.jsx";
 import GuardAttendanceTimeOut from "../Guard/GuardAttendanceTimeOut.jsx";
 import GuardProfile from "../Guard/GuardProfile.jsx";
 import GuardReqID from "../Guard/GuardReqID.jsx";
+import AdminSchedApproval from "../Admin/AdminSchedApproval.jsx";
 
 // Applicants pages
 import ApplicantsHiringDetails from "../Applicants/ApplicantsHiringDetails.jsx";
@@ -104,7 +105,11 @@ const Router = () => {
                 { path: "AdminGuardUpdates2/:id", element: <AdminGuardUpdates2 /> },
                 { path: "AdminMessages", element: <AdminMessage /> },
                 { path: "ApplicantList", element: <ApplicantList />},
-                { path: "Request-ID", element: <AdminRequestID/>}
+                { path: "Request-ID", element: <AdminRequestID/>},
+                { path: "request-coe", element: <GuardReqCOE /> },
+                { path: "view-list-schedule", element: <AdminSchedApproval /> },
+                { path: "deployment/add-schedule", element: <AdminAddSchedule /> },
+                
               ],
             },
           ],
@@ -148,14 +153,7 @@ const Router = () => {
             {
               element: <SubAdminLayout />,
               children: [
-                { path: "announcements", element: <SubAnnouncement /> },
-                { path: "applicant-resume", element: <SubApplicantResume /> },
-                { path: "company-details", element: <SubCompanyDetails /> },
-                { path: "guard-attendance", element: <SubGuardAttendance /> },
-                { path: "guard-messages", element: <SubGuardMessages /> },
-                { path: "guard-schedule", element: <SubGuardSchedule /> },
-                { path: "guard-updates", element: <SubGuardUpdates /> },
-                { path: "hiring", element: <SubHiring /> },
+                
               ],
             },
           ],

@@ -253,13 +253,26 @@ const handleConfirmApprove = async () => {
                     <td className="flex items-center justify-center p-3 space-x-2">
                       <button
                         onClick={() => handleApproveID(req._id)}
-                        className="bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded-md flex items-center gap-1 text-sm"
+                        disabled={req.status !== "Pending"}
+                        className={`px-3 py-1.5 rounded-md flex items-center gap-1 text-sm transition
+                          ${
+                            req.status === "Approved" || req.status === "Declined"
+                              ? "bg-green-900/40 text-gray-400 cursor-not-allowed"
+                              : "bg-green-600 hover:bg-green-500 text-white"
+                          }`}
                       >
                         <CheckCircle size={14} /> Approve
                       </button>
+
                       <button
                         onClick={() => handleDeclineID(req._id)}
-                        className="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-md flex items-center gap-1 text-sm"
+                        disabled={req.status !== "Pending"}
+                        className={`px-3 py-1.5 rounded-md flex items-center gap-1 text-sm transition
+                          ${
+                            req.status === "Approved" || req.status === "Declined"
+                              ? "bg-red-900/40 text-gray-400 cursor-not-allowed"
+                              : "bg-red-600 hover:bg-red-500 text-white"
+                          }`}
                       >
                         <XCircle size={14} /> Decline
                       </button>
