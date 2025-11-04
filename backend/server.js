@@ -16,6 +16,7 @@ import logbookRoutes from "./routes/logbookRoutes.js";
 import coeRoutes from "./routes/coeRoutes.js";
 import idrequestRoutes from "./routes/IDrequestRoutes.js"
 import clientRoutes from "./routes/clientsRoutes.js"
+import scheduleRoutes from "./routes/scheduleRoutes.js"
 
 dotenv.config();
 
@@ -29,7 +30,6 @@ app.use(
 
 app.use(express.json());
 
-// Serve uploaded files (PDFs)
 app.use('/uploads', express.static(path.join(process.cwd(), 'backend', 'uploads')));
 
 app.use("/api/auth", authRoutes);
@@ -42,7 +42,7 @@ app.use("/api/logbook", logbookRoutes);
 app.use("/api/coe", coeRoutes);
 app.use("/api/idrequests", idrequestRoutes);
 app.use("/api/clients", clientRoutes);
-
+app.use("/api/schedules", scheduleRoutes);
 
 app.get("/", (req, res) => res.send("API is running"));
 

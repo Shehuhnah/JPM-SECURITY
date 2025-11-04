@@ -2,15 +2,17 @@ import { useState, useEffect } from "react";
 import { Shield, Clock, Search, CalendarCheck2  } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, useLocation  } from "react-router-dom";
-import { parseISO, formatISO } from "date-fns";
+import { parseISO, format } from "date-fns";
 
 export default function AdminAddSchedule() {
     const { token } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const queryParams = new URLSearchParams(location.search);
     const selectedDate = queryParams.get("date");
-
+    const formattedDate = selectedDate ? format(parseISO(selectedDate), "yyyy-MM-dd'T'HH:mm"): "";
     const [guards, setGuards] = useState([]);
+    const [clients, setclients] = useState([]);
     const [selectedGuard, setSelectedGuard] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [form, setForm] = useState({
@@ -18,27 +20,44 @@ export default function AdminAddSchedule() {
         client: "",
         position: "",
         shiftType: "",
-        timeIn: "",
+        timeIn: formattedDate || format(new Date(), "yyyy-MM-dd'T'HH:mm"),
         timeOut: "",
     });
+
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
 
-    // Fetch guards
     useEffect(() => {
-        const fetchGuards = async () => {
-        try {
-            const res = await fetch("http://localhost:5000/api/guards", {
-            headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) throw new Error("Failed to fetch guards");
-            const data = await res.json();
-            setGuards(data);
-        } catch (err) {
-            console.error(err);
-        }
+        const fetchData = async () => {
+            try {
+            const [guardsRes, clientsRes] = await Promise.all([
+                fetch("http://localhost:5000/api/guards", {
+                headers: { Authorization: `Bearer ${token}` },
+                }),
+                fetch("http://localhost:5000/api/clients/get-clients", {
+                headers: { Authorization: `Bearer ${token}` },
+                }),
+            ]);
+
+            if (!guardsRes.ok || !clientsRes.ok) {
+                throw new Error("Failed to fetch guards or clients");
+            }
+
+            const [guardsData, clientsData] = await Promise.all([
+                guardsRes.json(),
+                clientsRes.json(),
+            ]);
+
+            setGuards(guardsData);
+            setclients(clientsData);
+
+          
+            } catch (error) {
+                console.error("Error fetching data:", error);
+            }
         };
-        fetchGuards();
+
+        if (token) fetchData();
     }, [token]);
 
     // Handle input
@@ -58,11 +77,17 @@ export default function AdminAddSchedule() {
             ...form,
         };
 
+        console.log("sending data: ", scheduleData)
+
         try {
             setLoading(true);
-            const res = await fetch("http://localhost:5000/api/schedules", {
+            const res = await fetch("http://localhost:5000/api/schedules/create-schedule", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: 
+                    { 
+                        "Content-Type": "application/json", 
+                        Authorization: `Bearer ${token}` 
+                    },
                 body: JSON.stringify(scheduleData),
             });
 
@@ -198,18 +223,30 @@ export default function AdminAddSchedule() {
                     <div>
                         <label
                             htmlFor="client"
-                            className="block text-sm font-medium text-gray-300 mb-1">
+                            className="block text-sm font-medium text-gray-300 mb-1"
+                        >
                             Client
                         </label>
-                        <input
+
+                        <select
                             id="client"
                             name="client"
-                            placeholder="Enter client name"
                             value={form.client}
                             onChange={handleChange}
                             className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             required
-                        />
+                        >
+                            <option value="">Select Client</option>
+                            {clients.length > 0 ? (
+                            clients.map((client) => (
+                                <option key={client._id} value={client.clientName}>
+                                {client.clientName}
+                                </option>
+                            ))
+                            ) : (
+                            <option disabled>Loading clients...</option>
+                            )}
+                        </select>
                     </div>
 
                     {/* Position */}
@@ -263,7 +300,7 @@ export default function AdminAddSchedule() {
                                 id="timeIn"
                                 type="datetime-local"
                                 name="timeIn"
-                                value={form.timeIn}
+                                value={form.timeIn || formattedDate}
                                 onChange={handleChange}
                                 className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 required/>

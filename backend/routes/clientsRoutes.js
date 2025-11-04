@@ -12,7 +12,7 @@ import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 const router = express.Router();
 
 router.post("/create-client", protect, authorizeRoles("Admin", "Subadmin"), createClient);
-router.get("/", protect, authorizeRoles("Admin", "Subadmin"), getClients);
+router.get("/get-clients", protect, authorizeRoles("Admin", "Subadmin"), getClients);
 router.get("/:id", protect, authorizeRoles("Admin", "Subadmin"), getClientById);
 router.put("/:id", protect, authorizeRoles("Admin", "Subadmin"), updateClient);
 router.delete("/:id", protect, authorizeRoles("Admin", "Subadmin"), deleteClient);

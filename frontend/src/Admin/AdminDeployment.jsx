@@ -18,27 +18,61 @@ export default function AdminDeployment() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [clients, setClients] = useState(["All Clients"]);
   const [showClientModal, setShowClientModal] = useState(false);
+  const clientColors = [
+    "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#14b8a6"
+  ];
 
   useEffect(() => {
     document.title = "Deployment | JPM Security Agency";
     if (!admin || !token) navigate("/admin/login", { replace: true });
   }, [admin, token, navigate]);
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [schedulesRes, clientsRes] = await Promise.all([
+          fetch("http://localhost:5000/api/schedules/get-schedules", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch("http://localhost:5000/api/clients/get-clients", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        if (!schedulesRes.ok || !clientsRes.ok)
+          throw new Error("Failed to fetch schedules or clients");
+
+        const [schedulesData, clientsData] = await Promise.all([
+          schedulesRes.json(),
+          clientsRes.json(),
+        ]);
+
+        setSchedules(schedulesData);
+        setClients(clientsData.map((c) => c.clientName)); // store only client names
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    if (token) fetchData();
+  }, [token]);
+
+
   const events = schedules.map((s, idx) => ({
     id: String(idx),
     title: `${s.guardName} (${s.shiftType})`,
     start: s.timeIn,
     end: s.timeOut,
-    color: s.shiftType === "Night Shift" ? "#1e3a8a" : "#3b82f6",
+    color: clientColors[s.client.charCodeAt(0) % clientColors.length],
     extendedProps: {
       client: s.client,
       location: s.deploymentLocation,
     },
   }));
 
+
   const handleAddClient = async (newClient) => {
     try {
-      console.log("📤 Sending client:", newClient);
       const res = await fetch("http://localhost:5000/api/clients/create-client", {
         method: "POST",
         headers: {
