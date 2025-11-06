@@ -13,6 +13,8 @@ export default function GuardAnnouncement() {
 
   // Fetch announcements from backend
   useEffect(() => {
+    document.title = "Announcement | JPM Agency Security";
+
     const fetchAnnouncements = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/posts");

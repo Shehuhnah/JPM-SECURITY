@@ -20,6 +20,8 @@ export default function GuardReqID() {
 
   // Fetch requests of current guard
   useEffect(() => {
+    document.title = "Request COE | JPM Agency Security";
+    
     const fetchRequests = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/idrequests/myrequests", {

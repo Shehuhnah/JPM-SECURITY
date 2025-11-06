@@ -22,6 +22,7 @@ export default function GuardLogBook() {
   console.log(form)
 
   useEffect(() => {
+    document.title = "Announcement | JPM Agency Security";
     fetchLogs();
   }, []);
 

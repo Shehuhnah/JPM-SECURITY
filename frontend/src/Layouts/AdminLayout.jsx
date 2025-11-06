@@ -43,7 +43,7 @@ export default function AdminLayout() {
   const navItems = [
     { to:"/Admin", label: "Dashboard", icon: <LayoutDashboard size={18}/>},
     { to: "/Admin/deployment", label: "Deployment", icon: <Calendar size={18} /> },
-    { to: "/Admin/view-list-schedule", label: "View Schedules", icon: <Calendar size={18} /> },
+    { to: "/Admin/view-list-schedule", label: "Schedules Approval", icon: <Calendar size={18} /> },
     { to: "/Admin/AdminGuardUpdates", label: "Updates", icon: <Shield size={18} /> },
     { to: "/Admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
     { to: "/Admin/UserAccounts", label: "Staff", icon: <Users size={18} /> },

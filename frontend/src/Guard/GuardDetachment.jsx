@@ -10,6 +10,8 @@ export default function GuardUpcomingSchedule() {
 
   // Fetch schedules from backend
   useEffect(() => {
+    document.title = "Detachment | JPM Agency Security";
+    
     const fetchSchedulesByGuard = async () => {
       try {
         const res = await fetch(`http://localhost:5000/api/schedules/guard/${guard._id}`, {

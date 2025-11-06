@@ -130,6 +130,7 @@ export default function AdminAddSchedule() {
                 timeOut: "",
             });
             setSelectedGuard(null);
+            navigate('/admin/deployment')
         } catch (err) {
             setMessage("❌ " + err.message);
         } finally {
@@ -227,119 +228,119 @@ export default function AdminAddSchedule() {
                     )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Deployment Location */}
-                    <div>
-                        <label
-                            htmlFor="deploymentLocation"
-                            className="block text-sm font-medium text-gray-300 mb-1">
-                            Deployment Location
-                        </label>
-                        <input
-                            id="deploymentLocation"
-                            name="deploymentLocation"
-                            placeholder="Enter deployment location"
-                            value={form.deploymentLocation}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        />
-                    </div>
-
-                    {/* Client */}
-                    <div>
-                        <label
-                            htmlFor="client"
-                            className="block text-sm font-medium text-gray-300 mb-1"
-                        >
-                            Client
-                        </label>
-
-                        <select
-                            id="client"
-                            name="client"
-                            value={form.client}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        >
-                            <option value="">Select Client</option>
-                            {clients.length > 0 ? (
-                            clients.map((client) => (
-                                <option key={client._id} value={client.clientName}>
-                                {client.clientName}
-                                </option>
-                            ))
-                            ) : (
-                            <option disabled>Loading clients...</option>
-                            )}
-                        </select>
-                    </div>
-
-                    {/* Position */}
-                    <div>
-                        <label
-                            htmlFor="position"
-                            className="block text-sm font-medium text-gray-300 mb-1">
-                            Position
-                        </label>
-                        <input
-                            id="position"
-                            name="position"
-                            placeholder="Enter assigned position"
-                            value={form.position}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        />
-                    </div>
-
-                    {/* Shift Type */}
-                    <div>
-                        <label
-                            htmlFor="shiftType"
-                            className="block text-sm font-medium text-gray-300 mb-1">
-                            Shift Type
-                        </label>
-                        <select
-                            id="shiftType"
-                            name="shiftType"
-                            value={form.shiftType}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        >
-                            <option value="">Select Shift</option>
-                            <option value="Day Shift">Day Shift</option>
-                            <option value="Night Shift">Night Shift</option>
-                        </select>
-                    </div>
-                    {/* Schedule Dates (Calendar) */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">
-                            Select Schedule Dates
-                        </label>
-                        <div className="bg-[#0f172a] border border-gray-700 rounded-lg p-4 flex items-center justify-center">
-                            <DayPicker
-                                mode="multiple"
-                                selected={selectedDays}
-                                onSelect={setSelectedDays}
-                                classNames={{
-                                    caption: "text-gray-200",
-                                    day_selected: "bg-blue-500 text-white",
-                                    day_today: "text-blue-300",
-                                }}
-                            />
+                    <div className="flex flex-col w-full gap-y-2">
+                        <div className="flex w-full gap-x-2">
+                            <div className="w-full">
+                                <label
+                                    htmlFor="deploymentLocation"
+                                    className="block text-sm font-medium text-gray-300 mb-1">
+                                    Deployment Location
+                                </label>
+                                <input
+                                    id="deploymentLocation"
+                                    name="deploymentLocation"
+                                    placeholder="Enter deployment location"
+                                    value={form.deploymentLocation}
+                                    onChange={handleChange}
+                                    className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                />
+                            </div>
+                            {/* Client */}
+                            <div className="w-full">
+                                <label
+                                    htmlFor="client"
+                                    className="block text-sm font-medium text-gray-300 mb-1"
+                                >
+                                    Client
+                                </label>
+                                <select
+                                    id="client"
+                                    name="client"
+                                    value={form.client}
+                                    onChange={handleChange}
+                                    className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                >
+                                    <option value="">Select Client</option>
+                                    {clients.length > 0 ? (
+                                    clients.map((client) => (
+                                        <option key={client._id} value={client.clientName}>
+                                        {client.clientName}
+                                        </option>
+                                    ))
+                                    ) : (
+                                    <option disabled>Loading clients...</option>
+                                    )}
+                                </select>
+                            </div>
                         </div>
-                        {selectedDays.length > 0 && (
-                            <p className="text-gray-400 text-sm mt-2">
-                            {selectedDays.length} day{selectedDays.length > 1 ? "s" : ""} selected
-                            </p>
-                        )}
+                        <div className="flex w-full gap-x-2">
+                            <div className="w-full">
+                                <label
+                                    htmlFor="position"
+                                    className="block text-sm font-medium text-gray-300 mb-1">
+                                    Position
+                                </label>
+                                <input
+                                    id="position"
+                                    name="position"
+                                    placeholder="Enter assigned position"
+                                    value={form.position}
+                                    onChange={handleChange}
+                                    className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                />
+                            </div>
+                            {/* Shift Type */}
+                            <div className="w-full">
+                                <label
+                                    htmlFor="shiftType"
+                                    className="block text-sm font-medium text-gray-300 mb-1">
+                                    Shift Type
+                                </label>
+                                <select
+                                    id="shiftType"
+                                    name="shiftType"
+                                    value={form.shiftType}
+                                    onChange={handleChange}
+                                    className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                >
+                                    <option value="">Select Shift</option>
+                                    <option value="Day Shift">Day Shift</option>
+                                    <option value="Night Shift">Night Shift</option>
+                                </select>
+                            </div>
+                        </div>
+                        {/* Schedule Dates (Calendar) */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">
+                                Select Schedule Dates
+                            </label>
+                            <div className="bg-[#0f172a] border border-gray-700 rounded-lg p-4 flex items-center justify-center">
+                                <DayPicker
+                                    mode="multiple"
+                                    selected={selectedDays}
+                                    onSelect={setSelectedDays}
+                                    classNames={{
+                                        caption: "text-gray-200",
+                                        day_selected: "bg-blue-500 text-white",
+                                        day_today: "text-blue-300",
+                                    }}
+                                />
+                            </div>
+                            {selectedDays.length > 0 && (
+                                <p className="text-gray-400 text-sm mt-2">
+                                {selectedDays.length} day{selectedDays.length > 1 ? "s" : ""} selected
+                                </p>
+                            )}
+                        </div>
                     </div>
 
                     {/* Feedback message */}
                     {message && (
-                        <div className="text-sm text-center py-2 text-gray-300">{message}</div>
+                        <div className="text-sm text-center py-2 text-red-400">{message}</div>
                     )}
 
                     {/* Submit button */}

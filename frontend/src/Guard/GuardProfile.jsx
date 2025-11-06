@@ -39,6 +39,8 @@ export default function GuardProfile() {
   });
 
   useEffect(() => {
+    document.title = "Manage Profile | JPM Agency Security";
+
     const fetchProfile = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/guards/me", {

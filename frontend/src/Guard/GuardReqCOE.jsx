@@ -26,6 +26,8 @@ export default function GuardReqCOE() {
   const { guard, token } = guardAuth();
 
   useEffect(() => {
+    document.title = "Request COE | JPM Agency Security";
+
     const fetchRequests = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/coe/me", {
