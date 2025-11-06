@@ -18,7 +18,7 @@ export default function AdminSchedApproval() {
 
   const [schedules, setSchedules] = useState([]);
   const [clients, setClients] = useState([]);
-  const [selectedClient, setSelectedClient] = useState("");
+  const [selectedClient, setSelectedClient] = useState("All Clients");
   const [loading, setLoading] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
@@ -146,7 +146,7 @@ export default function AdminSchedApproval() {
               onChange={(e) => setSelectedClient(e.target.value)}
               className="bg-[#1e293b] text-gray-200 text-sm focus:outline-none"
             >
-              <option value="">All Clients</option>
+              <option value="All Clients">All Clients</option>
               {clients.map((client) => (
                 <option key={client._id} value={client.clientName}>
                   {client.clientName}
@@ -169,20 +169,27 @@ export default function AdminSchedApproval() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2">
-          <button
-            onClick={handleApprove}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-medium"
-          >
-            <ThumbsUp size={16} /> Approve Schedule
-          </button>
-          <button
-            onClick={handleDecline}
-            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm font-medium"
-          >
-            <ThumbsDown size={16} /> Decline Schedule
-          </button>
-        </div>
+        {selectedClient !== "All Clients" ? (
+            <div className="flex gap-2">
+                <button
+                    onClick={handleApprove}
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-medium"
+                >
+                    <ThumbsUp size={16} /> Approve Schedule
+                </button>
+                <button
+                    onClick={handleDecline}
+                    className="flex items-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm font-medium"
+                >
+                    <ThumbsDown size={16} /> Decline Schedule
+                </button>
+            </div>)
+        :
+            <div className="">
+
+            </div>
+        }
+        
       </div>
 
       {/* ===== CALENDAR ===== */}
@@ -209,9 +216,7 @@ export default function AdminSchedApproval() {
                   className={`rounded-md px-1 py-0.5 text-xs font-semibold ${bgColor}`}
                 >
                   {eventInfo.event.title} ({shift})
-                  <p className="text-gray-800 text-[10px] font-normal">
-                    {eventInfo.event.extendedProps.deploymentLocation}
-                  </p>
+                  
                 </div>
               );
             }}

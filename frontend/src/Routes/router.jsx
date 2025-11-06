@@ -107,7 +107,7 @@ const Router = () => {
                 { path: "ApplicantList", element: <ApplicantList />},
                 { path: "Request-ID", element: <AdminRequestID/>},
                 { path: "request-coe", element: <GuardReqCOE /> },
-                { path: "view-list-schedule", element: <AdminSchedApproval /> },
+                { path: "schedule-approval", element: <AdminSchedApproval /> },
                 { path: "deployment/add-schedule", element: <AdminAddSchedule /> },
                 
               ],

@@ -270,9 +270,6 @@ export default function AdminDeployment() {
               eventContent={(eventInfo) => (
                 <div className="text-xs">
                   <b>{eventInfo.event.title}</b>
-                  <p className="text-gray-200">
-                    {eventInfo.event.extendedProps.location}
-                  </p>
                 </div>
               )}
               headerToolbar={{
