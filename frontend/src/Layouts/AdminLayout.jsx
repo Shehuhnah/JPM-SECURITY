@@ -100,7 +100,7 @@ export default function AdminLayout() {
               if (admin.role === "Subadmin") {
                 return ![
                   "/Admin/AdminCOE",
-                  "/Admin/view-list-schedule"
+                  "/Admin/schedule-approval"
                 ].includes(item.to);
               }
               if (admin.role === "Admin") {

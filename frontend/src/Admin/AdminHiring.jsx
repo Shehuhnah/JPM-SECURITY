@@ -10,10 +10,8 @@ export default function AdminHiring() {
   const [posts, setPosts] = useState([]);
   const [expandedPosts, setExpandedPosts] = useState([]);
 
-  // 🆕 Track editing state
   const [editingId, setEditingId] = useState(null);
 
-  // ✅ Load all hiring posts from backend
   const fetchPosts = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/hirings");
@@ -29,7 +27,7 @@ export default function AdminHiring() {
     fetchPosts();
   }, []);
 
-  // ✅ Create or Update hiring post
+  // Create or Update hiring post
   const handlePost = async () => {
     if (!title.trim() || !position.trim() || !description.trim()) {
       alert("Please fill in Title, Position, and Description!");

@@ -7,7 +7,6 @@ export default function CompanyDetails() {
   const [audience, setAudience] = useState("all");
   const [image, setImage] = useState(null);
 
-  // ✅ Load posts from localStorage when component mounts
   // load saved posts on mount
   useEffect(() => {
     const savedPosts = localStorage.getItem("companyPosts");
@@ -20,7 +19,7 @@ export default function CompanyDetails() {
     }
   }, []);
 
-  // save posts whenever posts change
+  // save posts 
   useEffect(() => {
     if (posts.length > 0) {
       localStorage.setItem("companyPosts", JSON.stringify(posts));

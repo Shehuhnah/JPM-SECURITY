@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Shield } from "lucide-react";
+import { Shield, Eye, EyeOff  } from "lucide-react";
 import bg from "../home/assets/home-bg.jpg";
 
 export default function LoginForm() {
 
   const navigate = useNavigate()
-
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({ email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false) 
+  
 
   useEffect(() => {
     document.title = "Guard Login | JPM Security Agency";
@@ -116,18 +117,26 @@ export default function LoginForm() {
           </div>
 
           {/* Password */}
-          <div>
+          <div className="relative"> {/* ✅ make parent relative for absolute positioning */}
             <label className="block mb-1 text-sm font-medium text-gray-300">
               Password
             </label>
+
             <input
-              type="password"
+              type={showPassword ? "text" : "password"} // ✅ toggle input type
               name="password"
               value={formData.password}
               onChange={handleChange}
-              className="w-full px-4 py-2 bg-[#0f172a] border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm sm:text-base"
+              className="w-full px-4 py-2 pr-10 bg-[#0f172a] border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm sm:text-base"
               placeholder="••••••••"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute inset-y-0 right-3 top-6 flex items-center text-gray-400 hover:text-gray-200"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
 
           {/* Remember Me */}

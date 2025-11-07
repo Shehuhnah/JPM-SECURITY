@@ -67,7 +67,20 @@ export default function AdminDeployment() {
     "Day Shift": "#fde047", // yellow
   };
 
-  const events = schedules.map((s, idx) => ({
+  // ✅ FILTER LOGIC
+  const filteredSchedules = schedules.filter((s) => {
+    const matchesClient =
+      !selectedClient || selectedClient === "All" || s.client === selectedClient;
+
+    // ✅ Compare actual string value (Approved/Pending/Declined)
+    const matchesStatus =
+      !statusFilter || statusFilter === "All" || s.isApproved === statusFilter;
+
+    return matchesClient && matchesStatus;
+  });
+
+  // Generate events only from filtered schedules
+  const filteredEvents = filteredSchedules.map((s, idx) => ({
     id: String(idx),
     title: `${s.guardName} (${s.shiftType})`,
     start: s.timeIn,
@@ -79,33 +92,9 @@ export default function AdminDeployment() {
     extendedProps: {
       client: s.client,
       location: s.deploymentLocation,
-      status: s.isApproved, // ✅ assuming schedule has "status"
+      status: s.isApproved, // optional — you can use this later for badges or tooltips
     },
   }));
-
-  const filteredEvents =
-    !selectedClient || selectedClient === "All"
-      ? []
-      : events.filter(
-          (event) => event.extendedProps.client === selectedClient
-        );
-
-  const filteredSchedules = schedules.filter((s) => {
-    const matchesClient =
-      !selectedClient || selectedClient === "All" || s.client === selectedClient;
-
-    // Convert s.isApproved (boolean or number) to readable string
-    const statusValue =
-      s.isApproved === true
-        ? "Approved"
-        : s.isApproved === false
-        ? "Declined"
-        : "Pending";
-
-    const matchesStatus = statusFilter === "All" || statusValue === statusFilter;
-
-    return matchesClient && matchesStatus;
-  });
 
   const handleAddClient = async (newClient) => {
     try {
@@ -290,13 +279,13 @@ export default function AdminDeployment() {
           // ===== TABLE VIEW =====
           <div className="space-y-10">
             {Object.entries(
-              filteredSchedules.reduce((acc, schedule) => {
-                const client = schedule.client || "Unknown Client";
-                if (!acc[client]) acc[client] = [];
-                acc[client].push(schedule);
-                return acc;
-              }, {})
-            ).map(([clientName, schedules]) => (
+  filteredSchedules.reduce((acc, schedule) => {
+    const client = schedule.client || "Unknown Client";
+    if (!acc[client]) acc[client] = [];
+    acc[client].push(schedule);
+    return acc;
+  }, {})
+            ).map(([clientName, clientSchedules]) => (
               <div key={clientName}>
                 {/* Client Header */}
                 <div className="flex justify-between items-center">
@@ -322,7 +311,7 @@ export default function AdminDeployment() {
                   </div>
                 </div>
 
-                {/* Table for this client */}
+                {/* ✅ Use clientSchedules, not schedules */}
                 <div className="overflow-x-auto rounded-lg shadow-lg">
                   <table className="min-w-full text-sm text-gray-300 border border-gray-700 rounded-lg overflow-hidden">
                     <thead className="bg-[#0f172a] text-gray-400">
@@ -335,7 +324,7 @@ export default function AdminDeployment() {
                       </tr>
                     </thead>
                     <tbody>
-                      {schedules.map((s, i) => (
+                      {clientSchedules.map((s, i) => (
                         <tr
                           key={i}
                           className={`${
@@ -366,7 +355,6 @@ export default function AdminDeployment() {
                 </div>
               </div>
             ))}
-
             {/* If no schedules at all */}
             {filteredSchedules.length === 0 && (
               <p className="text-center text-gray-500 italic py-10">

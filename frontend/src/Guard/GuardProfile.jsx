@@ -113,7 +113,7 @@ export default function GuardProfile() {
     }
   };
 
-  // ✅ Handle Input Change
+  //Handle Input Change
   const handleChange = (e) => {
     setGuard({ ...guard, [e.target.name]: e.target.value });
   };
@@ -233,7 +233,7 @@ export default function GuardProfile() {
   );
 }
 
-/* ---------- REUSABLE FIELD COMPONENT ---------- */
+/* REUSABLE FIELD COMPONENT*/
 function ProfileField({ icon, label, name, value, editable, onChange }) {
   return (
     <div className="flex items-center gap-3 bg-[#0f172a]/50 rounded-lg p-3 border border-gray-700">
@@ -256,7 +256,7 @@ function ProfileField({ icon, label, name, value, editable, onChange }) {
   );
 }
 
-/* ---------- PASSWORD FIELD COMPONENT ---------- */
+/*PASSWORD FIELD COMPONENT*/
 function PasswordField({ label, name, value, onChange, show, setShow }) {
   return (
     <div className="relative bg-[#0f172a]/50 rounded-lg p-3 border border-gray-700 flex flex-col">

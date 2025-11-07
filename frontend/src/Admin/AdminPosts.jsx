@@ -88,7 +88,7 @@ export default function AdminPosts() {
     }
   };
 
-  // ✅ Edit existing post
+  // Edit existing post
   const handleEdit = (post) => {
     setEditingPost(post);
     setTitle(post.title);
@@ -96,7 +96,7 @@ export default function AdminPosts() {
     setBody(post.body);
   };
 
-  // ✅ Delete post
+  // Delete post
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this post?")) return;
 
@@ -113,7 +113,7 @@ export default function AdminPosts() {
     }
   };
 
-  // ✅ Expand / Collapse long posts
+  // Expand / Collapse long posts
   const toggleExpand = (id) => {
     setExpandedPosts((prev) =>
       prev.includes(id) ? prev.filter((pid) => pid !== id) : [...prev, id]

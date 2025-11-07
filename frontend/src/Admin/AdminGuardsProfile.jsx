@@ -74,7 +74,9 @@ export default function GuardTable() {
   const handleRefresh = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/guards");
+      const res = await fetch("http://localhost:5000/api/guards", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
       const data = await res.json();
       setGuards(data);
       setForm(
@@ -137,7 +139,10 @@ export default function GuardTable() {
       setLoading(true);
       const res = await fetch("http://localhost:5000/api/guards", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(form),
       });
 
@@ -164,7 +169,6 @@ export default function GuardTable() {
           EmergencyContact: ""
       });
 
-      handleRefresh();
       toast.success("Guard added successfully!", {
         position: "top-right",
         autoClose: 3000,
@@ -173,6 +177,7 @@ export default function GuardTable() {
         theme: "dark",
         transition: Bounce,
       });
+      handleRefresh();
     } catch (err) {
       console.error(err);
       setErrorMsg("❌ Failed to connect to server.");
@@ -186,6 +191,9 @@ export default function GuardTable() {
     try {
       const res = await fetch(`http://localhost:5000/api/guards/${id}`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
       });
       if (!res.ok) throw new Error("Failed to delete Guard");
 

@@ -24,7 +24,6 @@ export default function RequestedIDs() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Modal States
   const [approveModal, setApproveModal] = useState(false);
   const [declineModal, setDeclineModal] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
@@ -33,7 +32,7 @@ export default function RequestedIDs() {
   const [submitting, setSubmitting] = useState(false);
   const [approveNotes, setApproveNotes] = useState("");
 
-  // ✅ Fetch Requests
+  // Fetch Requests
   const fetchRequests = async () => {
     try {
       if (!token && !admin) {
@@ -70,7 +69,7 @@ export default function RequestedIDs() {
     fetchRequests();
   }, [token]);
 
-  // ✅ Filter & Search Logic
+  // Filter & Search
   useEffect(() => {
     let filtered = [...requests];
     if (filter !== "All") filtered = filtered.filter((r) => r.status === filter);
@@ -84,21 +83,21 @@ export default function RequestedIDs() {
     setFilteredRequests(filtered);
   }, [filter, search, requests]);
 
-  // ✅ Handle Approve Click
+  // Handle Approve
   const handleApproveID = (id) => {
     setSelectedId(id);
     setPickupDate("");
     setApproveModal(true);
   };
 
-  // ✅ Handle Decline Click
+  // Handle Decline
   const handleDeclineID = (id) => {
     setSelectedId(id);
     setDeclineReason("");
     setDeclineModal(true);
   };
 
-  // ✅ Confirm Approve
+  // Confirm Approve
 const handleConfirmApprove = async () => {
   if (!pickupDate) return alert("Please select a pickup date.");
     try {
@@ -112,7 +111,7 @@ const handleConfirmApprove = async () => {
         body: JSON.stringify({
           status: "Approved",
           pickupDate,
-          adminRemarks: approveNotes, // ✅ include notes here
+          adminRemarks: approveNotes, 
         }),
       });
 
@@ -136,7 +135,7 @@ const handleConfirmApprove = async () => {
   };
 
 
-  // ✅ Confirm Decline
+  // Confirm Decline
   const handleConfirmDecline = async () => {
     if (!declineReason.trim()) return alert("Please provide a reason for declining.");
     try {

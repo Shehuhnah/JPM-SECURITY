@@ -87,7 +87,6 @@ export const createSchedule = async (req, res) => {
   }
 };
 
-
 // Get all schedules (optionally filtered by status)
 export const getSchedules = async (req, res) => {
   try {
@@ -103,7 +102,6 @@ export const getSchedules = async (req, res) => {
   }
 };
 
-
 // Get single schedule by ID
 export const getScheduleById = async (req, res) => {
   try {
@@ -116,7 +114,6 @@ export const getScheduleById = async (req, res) => {
 };
 
 // Get schedules by guard ID
-// ✅ Correct controller
 export const getSchedulesByGuard = async (req, res) => {
   try {
     const { id } = req.params;
@@ -135,29 +132,72 @@ export const getSchedulesByGuard = async (req, res) => {
   }
 };
 
+// ===== Approve all pending schedules for a client =====
+export const approveClientSchedules = async (req, res) => {
+  const { client } = req.body;
+  if (!client)
+    return res.status(400).json({ message: "Client name is required" });
 
-
-// Update schedule
-export const updateSchedule = async (req, res) => {
   try {
-    const updated = await Schedule.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
+    const result = await Schedule.updateMany(
+      { client, isApproved: "Pending" },
+      { $set: { isApproved: "Approved" } }
+    );
+
+    if (result.matchedCount === 0)
+      return res
+        .status(404)
+        .json({ message: "No pending schedules found for this client" });
+
+    res.status(200).json({
+      message: `Approved ${result.modifiedCount} schedule(s) for ${client}`,
     });
-    if (!updated) return res.status(404).json({ message: "Schedule not found" });
-    res.status(200).json({ message: "Schedule updated", schedule: updated });
   } catch (error) {
-    res.status(400).json({ message: "Error updating schedule", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error approving schedules", error: error.message });
   }
 };
 
-// Delete schedule
+// ===== Decline all pending schedules for a client =====
+export const declineClientSchedules = async (req, res) => {
+
+  const { client, remarks } = req.body;
+
+  if (!client)
+    return res.status(400).json({ message: "Client name is required" });
+
+  try {
+    const result = await Schedule.updateMany(
+    { client, isApproved: "Pending" },
+    { isApproved: "Declined", remarks: remarks });
+
+    if (result.matchedCount === 0)
+      return res
+        .status(404)
+        .json({ message: "No pending schedules found for this client" });
+
+    res.status(200).json({
+      message: `Declined ${result.modifiedCount} schedule(s) for ${client}`,
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error declining schedules", error: error.message });
+  }
+};
+
+// ===== Delete single schedule =====
 export const deleteSchedule = async (req, res) => {
   try {
     const deleted = await Schedule.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: "Schedule not found" });
+    if (!deleted)
+      return res.status(404).json({ message: "Schedule not found" });
+
     res.status(200).json({ message: "Schedule deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Error deleting schedule", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error deleting schedule", error: error.message });
   }
 };

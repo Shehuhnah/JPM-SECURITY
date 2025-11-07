@@ -113,8 +113,7 @@ export const updateGuardProfile = async (req, res) => {
           message: "Incorrect current password.",
         });
 
-      const salt = await bcrypt.genSalt(10);
-      guard.password = await bcrypt.hash(newPassword, salt);
+      guard.password = newPassword; // ⚠️ Do NOT hash it manually
     }
 
     await guard.save();

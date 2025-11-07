@@ -111,8 +111,9 @@ export const loginGuard = async (req, res) => {
 
     const token = generateToken(guard._id, guard.role);
 
-    // ✅ Updated field names
     res.json({
+      success: true,
+      message: "Login successful",
       token,
       guard: {
         _id: guard._id,
@@ -125,8 +126,15 @@ export const loginGuard = async (req, res) => {
         dutyStation: guard.dutyStation,
         shift: guard.shift,
         phoneNumber: guard.phoneNumber,
+        SSSID: guard.SSSID,
+        PhilHealthID: guard.PhilHealthID,
+        PagibigID: guard.PagibigID,
+        EmergencyPerson: guard.EmergencyPerson,
+        EmergencyContact: guard.EmergencyContact,
         status: guard.status,
         lastLogin: guard.lastLogin,
+        createdAt: guard.createdAt,
+        updatedAt: guard.updatedAt,
       },
     });
 
@@ -134,6 +142,6 @@ export const loginGuard = async (req, res) => {
     await guard.save();
   } catch (err) {
     console.error("Guard login error:", err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: "Server error logging in guard." });
   }
 };

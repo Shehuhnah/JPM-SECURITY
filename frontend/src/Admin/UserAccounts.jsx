@@ -173,7 +173,7 @@ export default function UserAccounts() {
     }
   };
 
-  // ✅ Filtered users
+  // Filtered users
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
       u.name.toLowerCase().includes(search.toLowerCase()) ||

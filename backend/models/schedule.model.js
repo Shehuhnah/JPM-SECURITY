@@ -49,6 +49,10 @@ const scheduleSchema = new mongoose.Schema(
       enum: ["Pending", "Approved", "Declined"],
       default: "Pending",
       required: [true, "Approval by Admin is required."],
+    },
+    remarks: {
+      type: String,
+      default: null,
     }
   },
   { timestamps: true }
