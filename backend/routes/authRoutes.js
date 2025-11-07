@@ -1,8 +1,10 @@
 import express from "express";
+import { protect } from "../middleware/authMiddleware.js";
 import { 
     registerUser, 
     loginUser, 
-    loginGuard 
+    loginGuard,
+    getSubadmins 
 } from "../controller/authController.js";
 
 import { 
@@ -24,4 +26,6 @@ router.delete("/delete-user/:id", deleteUser); //delete user
 
 router.post("/login-guard", loginGuard); // Login guard
 
+
+router.get("/subadmins", protect, getSubadmins);
 export default router;

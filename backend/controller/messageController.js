@@ -1,54 +1,80 @@
-import Message from "../models/Message.model.js";
+import Conversation from "../models/conversation.model.js";
+import Message from "../models/message.model.js";
 
-// ✅ GET all messages (admin/subadmin)
-export const getMessages = async (req, res) => {
-  try {
-    const messages = await Message.find()
-      .populate("sender", "name role")
-      .populate("receiver", "name role");
-    res.json(messages);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// ✅ GET messages between two users
-export const getConversation = async (req, res) => {
-  try {
-    const { user1, user2 } = req.params;
-    const conversation = await Message.find({
-      $or: [
-        { sender: user1, receiver: user2 },
-        { sender: user2, receiver: user1 },
-      ],
-    }).sort({ createdAt: 1 });
-
-    res.json(conversation);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// ✅ POST send a message
+// 🔹 Create or continue a conversation
 export const sendMessage = async (req, res) => {
   try {
-    const { receiver, message } = req.body;
-    const sender = req.user._id;
+    const { receiverId, receiverRole, text, type } = req.body;
+    const senderId = req.user._id;
+    const senderRole = req.user.role;
 
-    const newMessage = await Message.create({ sender, receiver, message });
-    res.status(201).json(newMessage);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
+    // 🔹 Find or create conversation
+    let conversation = await Conversation.findOne({
+      type,
+      "participants.userId": { $all: [senderId, receiverId] },
+    });
+
+    if (!conversation) {
+      conversation = await Conversation.create({
+        type,
+        participants: [
+          { userId: senderId, role: senderRole },
+          { userId: receiverId, role: receiverRole },
+        ],
+      });
+    }
+
+    // 🔹 Create message
+    const message = await Message.create({
+      conversationId: conversation._id,
+      senderId,
+      senderRole,
+      receiverId,
+      receiverRole,
+      text,
+    });
+
+    conversation.lastMessage = text;
+    await conversation.save();
+
+    res.status(201).json(message);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
-// ✅ DELETE message
-export const deleteMessage = async (req, res) => {
+// 🔹 Get messages by conversation
+export const getMessages = async (req, res) => {
   try {
-    const message = await Message.findByIdAndDelete(req.params.id);
-    if (!message) return res.status(404).json({ message: "Message not found" });
-    res.json({ message: "Message deleted" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    const { conversationId } = req.params;
+
+    const messages = await Message.find({ conversationId })
+      .sort({ createdAt: 1 })
+      .populate("senderId", "fullName role")
+      .populate("receiverId", "fullName role");
+
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
+
+
+export const getConversations = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { type } = req.query; // e.g. ?type=admin-subadmin
+
+    const filter = { "participants.userId": userId };
+    if (type) filter.type = type;
+
+    const conversations = await Conversation.find(filter)
+      .populate("participants.userId", "fullName email role")
+      .sort({ updatedAt: -1 });
+
+    res.json(conversations);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+

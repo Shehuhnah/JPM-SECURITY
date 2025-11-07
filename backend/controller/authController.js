@@ -145,3 +145,14 @@ export const loginGuard = async (req, res) => {
     res.status(500).json({ message: "Server error logging in guard." });
   }
 };
+
+export const getSubadmins = async (req, res) => {
+  try {
+    const subadmins = await User.find({ role: "Subadmin" }).select(
+      "_id fullName email role"
+    );
+    res.json(subadmins);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
