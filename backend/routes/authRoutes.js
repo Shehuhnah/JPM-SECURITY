@@ -4,9 +4,9 @@ import {
     registerUser, 
     loginUser, 
     loginGuard,
-    getSubadmins 
+    getSubadmins,
+    getAdmins
 } from "../controller/authController.js";
-
 import { 
     getUsers,
     createUser,
@@ -28,4 +28,5 @@ router.post("/login-guard", loginGuard); // Login guard
 
 
 router.get("/subadmins", protect, getSubadmins);
+router.get("/admins", protect, getAdmins);
 export default router;

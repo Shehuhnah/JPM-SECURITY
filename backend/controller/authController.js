@@ -146,12 +146,25 @@ export const loginGuard = async (req, res) => {
   }
 };
 
+// 🔹 Get all Subadmins (for Admin)
 export const getSubadmins = async (req, res) => {
   try {
     const subadmins = await User.find({ role: "Subadmin" }).select(
-      "_id fullName email role"
+      "name email role"
     );
     res.json(subadmins);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// 🔹 Get all Admins (for Subadmin)
+export const getAdmins = async (req, res) => {
+  try {
+    const admins = await User.find({ role: "Admin" }).select(
+      "name email role"
+    );
+    res.json(admins);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

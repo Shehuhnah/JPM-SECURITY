@@ -17,16 +17,15 @@ const messageSchema = new mongoose.Schema(
       ref: "User", 
       required: true 
     },
-    senderRole: { 
-      type: String, 
-      enum: ["Admin", "Subadmin", "Applicant"], 
-      required: true 
+    sender: {
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
+      role: { type: String, enum: ["Admin", "Subadmin"], required: true },
     },
-    receiverRole: { 
-      type: String, 
-      enum: ["Admin", "Subadmin", "Applicant"], 
-      required: true 
+    receiver: {
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
+      role: { type: String, enum: ["Admin", "Subadmin"], required: true },
     },
+
     text: { type: String, required: true },
     read: { type: Boolean, default: false },
   },

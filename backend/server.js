@@ -5,6 +5,7 @@ import cors from "cors";
 import path from "path";
 import { createServer } from "http";
 import { Server } from "socket.io";
+const onlineUsersMap = {}; // key: userId, value: socket.id
 
 // ROUTES
 import attendanceRoutes from "./routes/attendanceRoutes.js";
@@ -67,32 +68,67 @@ mongoose
 io.on("connection", (socket) => {
   console.log("🟢 New user connected:", socket.id);
 
+  // User comes online
+  socket.on("userOnline", (userId) => {
+    onlineUsersMap[userId] = socket.id;
+    console.log("🟢 User online:", userId);
+
+    // Broadcast online users to everyone
+    io.emit("onlineUsers", Object.keys(onlineUsersMap));
+  });
+
+  // Join a conversation room
   socket.on("joinConversation", (conversationId) => {
     socket.join(conversationId);
     console.log(`User joined conversation ${conversationId}`);
   });
 
+  // Send message
   socket.on("sendMessage", async (msg) => {
     console.log("💬 Message received:", msg);
 
-    // Broadcast to all users in the same conversation
-    io.to(msg.conversationId).emit("receiveMessage", msg);
-
-    // Save message to DB
     try {
-      const Message = (await import("./models/messageModel.js")).default;
+      const Message = (await import("./models/message.model.js")).default;
+
       const newMsg = new Message({
-        sender: msg.senderId || "unknown",  // later link this with user auth
-        text: msg.text,
         conversationId: msg.conversationId,
+        text: msg.text,
+        senderId: msg.senderId,
+        receiverId: msg.receiverId,
+        sender: { userId: msg.senderId, role: msg.senderRole },
+        receiver: { userId: msg.receiverId, role: msg.receiverRole },
       });
       await newMsg.save();
+
+      console.log("✅ Message saved!");
+
+      socket.to(msg.conversationId).emit("receiveMessage", {
+        ...msg,
+        _id: newMsg._id,
+        createdAt: newMsg.createdAt,
+      });
+
     } catch (error) {
       console.error("❌ Error saving message:", error);
     }
   });
 
+  // Disconnect
   socket.on("disconnect", () => {
-    console.log("🔴 User disconnected:", socket.id);
+    // Remove user from onlineUsersMap
+    const userId = Object.keys(onlineUsersMap).find(
+      (key) => onlineUsersMap[key] === socket.id
+    );
+    if (userId) {
+      delete onlineUsersMap[userId];
+      console.log("🔴 User disconnected:", userId);
+
+      // Broadcast updated online users
+      io.emit("onlineUsers", Object.keys(onlineUsersMap));
+    } else {
+      console.log("🔴 Socket disconnected (unknown user):", socket.id);
+    }
   });
 });
+
+

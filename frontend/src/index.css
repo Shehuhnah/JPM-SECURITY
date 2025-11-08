@@ -10,3 +10,28 @@
   --breakpoint-2xl: 96rem;  /* 1536px - large screens */
   --breakpoint-3xl: 120rem; /* 1920px - full HD / widescreen */
 }
+
+/* Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 8px; /* width of the scrollbar */
+}
+
+::-webkit-scrollbar-track {
+  background: #1e293b; /* track color */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3b82f6; /* thumb color */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #60a5fa; /* hover color */
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3b82f6 #1e293b; /* thumb color track color */
+}

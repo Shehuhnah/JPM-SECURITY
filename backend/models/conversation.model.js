@@ -2,22 +2,29 @@ import mongoose from "mongoose";
 
 const conversationSchema = new mongoose.Schema(
   {
-    type: {
-      type: String,
-      enum: ["admin-subadmin", "applicant-subadmin"],
-      required: true,
-    },
     participants: [
       {
-        userId: { type: mongoose.Schema.Types.ObjectId, required: true, refPath: "participants.role" },
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          required: true,
+          ref: "Admin", 
+        },
         role: {
           type: String,
-          enum: ["Admin", "Subadmin", "Applicant"],
+          enum: ["Admin", "Subadmin"],
           required: true,
         },
       },
     ],
-    lastMessage: { type: String },
+    type: {
+      type: String,
+      enum: ["admin-subadmin","subadmin-admin", "subadmin-applicant"],
+      required: true,
+    },
+    lastMessage: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

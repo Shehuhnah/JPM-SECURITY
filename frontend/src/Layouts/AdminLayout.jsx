@@ -13,8 +13,10 @@ import {
   LogOut,
   Megaphone,
   Briefcase,
-  LayoutDashboard, 
-  IdCardLanyard 
+  LayoutDashboard,
+  IdCardLanyard,
+  Menu,
+  X
 } from "lucide-react";
 
 import avatar from "../assets/gerard.jpg";
@@ -22,7 +24,6 @@ import logo from "../assets/jpmlogo.png";
 
 export default function AdminLayout() {
   const [openDropdown, setOpenDropdown] = useState(false);
-  const [openCOE, setOpenCOE] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { admin, token } = useAuth();
@@ -61,13 +62,20 @@ export default function AdminLayout() {
   ];
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
+
+      {/* Mobile Hamburger */}
+      <div className="md:hidden fixed top-4 left-4 z-50">
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 bg-[#1B3C53] rounded-md focus:outline-none">
+          {sidebarOpen ? <X size={24}/> : <Menu size={24}/>}
+        </button>
+      </div>
+
       {/* Sidebar */}
       <aside
         className={`fixed top-0 left-0 h-screen w-64 bg-[#0f172a] text-gray-100 shadow-md flex flex-col
-        transition-transform duration-300
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-        md:translate-x-0`}
+        transition-transform duration-300 z-40
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
         {/* Logo */}
         <div className="flex items-center justify-center py-6 border-b border-gray-800 px-4 gap-2">
@@ -94,23 +102,17 @@ export default function AdminLayout() {
 
         {/* Navigation */}
         <nav className="flex-1 px-4 py-6 space-y-2 text-gray-200 overflow-y-auto">
-          {/* Regular links */}
           {navItems
             .filter(item => {
               if (admin.role === "Subadmin") {
-                return ![
-                  "/Admin/AdminCOE",
-                  "/Admin/schedule-approval"
-                ].includes(item.to);
+                return !["/Admin/AdminCOE", "/Admin/schedule-approval"].includes(item.to);
               }
               if (admin.role === "Admin") {
-                return ![
-                  "request-coe",
-                  "/Admin/deployment",
-                ].includes(item.to);
+                return !["request-coe", "/Admin/deployment"].includes(item.to);
               }
-              return true; // Admin sees all
-            }).map((item, idx) => (
+              return true;
+            })
+            .map((item, idx) => (
               <NavLink
                 key={idx}
                 to={item.to}
@@ -121,12 +123,14 @@ export default function AdminLayout() {
                       : "hover:bg-[#0b2433]"
                   }`
                 }
+                onClick={() => setSidebarOpen(false)} // close sidebar on mobile
               >
                 {item.icon}
                 <span>{item.label}</span>
               </NavLink>
             ))
           }
+
           {/* Posts Dropdown */}
           <div>
             <button
@@ -156,6 +160,7 @@ export default function AdminLayout() {
                             : "hover:bg-[#0b2433]"
                         }`
                       }
+                      onClick={() => setSidebarOpen(false)}
                     >
                       {item.icon}
                       {item.label}
@@ -166,11 +171,10 @@ export default function AdminLayout() {
             )}
           </div>
 
-
           {/* Logout */}
           <button
-            onClick={() => handleLogout()}
-            className="flex items-center gap-3 p-2 rounded hover:bg-[#0b2433] text-red-400 font-medium mt-4"
+            onClick={handleLogout}
+            className="flex items-center gap-3 p-2 rounded hover:bg-[#0b2433] text-red-400 font-medium mt-4 w-full"
           >
             <LogOut size={18} />
             <span>Logout</span>
@@ -178,8 +182,11 @@ export default function AdminLayout() {
         </nav>
       </aside>
 
+      {/* Overlay for mobile */}
+      {sidebarOpen && <div className="fixed inset-0 bg-black opacity-40 z-30 md:hidden" onClick={() => setSidebarOpen(false)}></div>}
+
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto ml-64">
+      <main className="flex-1 md:ml-64 overflow-y-auto">
         <Outlet />
       </main>
     </div>

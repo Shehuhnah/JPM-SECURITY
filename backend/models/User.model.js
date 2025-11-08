@@ -13,7 +13,7 @@ const adminSchema = new mongoose.Schema(
     },
     accessLevel: {
       type: Number,
-      enum: [1, 2], // 1 = Subadmin, 2 = Admin
+      enum: [1, 2],
       required: true,
     },
     position: { type: String },
