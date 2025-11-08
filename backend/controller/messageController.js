@@ -8,40 +8,23 @@ export const sendMessage = async (req, res) => {
     const senderId = req.user._id;
     const senderRole = req.user.role;
 
-    const receiverObjectId = new mongoose.Types.ObjectId(receiverId);
-
-    // Find or create conversation
+    // ✅ Find or create conversation
     let conversation = await Conversation.findOne({
       type,
       "participants.userId": { $all: [senderId, receiverId] },
     });
 
     if (!conversation) {
-      if (!receiverRole) {
-        throw new Error("receiverRole is required to create conversation");
-      }
-
       conversation = await Conversation.create({
         type,
         participants: [
           { userId: senderId, role: senderRole },
-          { userId: receiverId, role: receiverRole }, // must be string: "Admin" or "Subadmin"
+          { userId: receiverId, role: receiverRole },
         ],
       });
     }
 
-
-    if (!conversation) {
-      conversation = await Conversation.create({
-        type,
-        participants: [
-          { userId: senderId, role: senderRole },
-          { userId: receiverObjectId, role: receiverRole },
-        ],
-      });
-    }
-
-    // ✅ Create message with nested sender/receiver
+    // ✅ Create message
     const message = await Message.create({
       conversationId: conversation._id,
       senderId,
@@ -51,15 +34,30 @@ export const sendMessage = async (req, res) => {
       receiver: { userId: receiverId, role: receiverRole },
     });
 
-    conversation.lastMessage = text;
+    // ✅ Update last message in conversation
+    conversation.lastMessage = {
+      text,
+      senderId,
+      createdAt: new Date(),
+      seen: false,
+    };
     await conversation.save();
 
-    res.status(201).json(message);
+    // ✅ Populate the conversation with user data before responding
+    const populatedConversation = await Conversation.findById(conversation._id)
+      .populate("participants.userId", "name email role")
+      .lean();
+
+    res.status(201).json({
+      message,
+      conversation: populatedConversation,
+    });
   } catch (err) {
     console.error("Convo error:", err.message);
     res.status(500).json({ message: err.message });
   }
 };
+
 
 export const getMessages = async (req, res) => {
   try {
@@ -77,19 +75,57 @@ export const getMessages = async (req, res) => {
   }
 };
 
-// ✅ Get Conversations
+// ✅ Get Conversations sorted by last message
 export const getConversations = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const conversations = await Conversation.find({
-      "participants.userId": userId
+    // Fetch conversations for this user
+    let conversations = await Conversation.find({
+      "participants.userId": userId,
     })
-      .populate("participants.userId", "name email role") // Now works for both Admin and Subadmin
-      .sort({ updatedAt: -1 });
+      .populate("participants.userId", "name email role") // populate participants
+      .lean(); // convert to plain JS objects for easier sorting
 
-    res.json(conversations); // Always returns array
+    // Sort by lastMessage.createdAt descending
+    conversations.sort((a, b) => {
+      const timeA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+      const timeB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+      return timeB - timeA; // newest first
+    });
+
+    res.json(conversations);
   } catch (err) {
+    console.error("Error fetching conversations:", err);
     res.status(500).json({ message: err.message });
+  }
+};
+
+// Mark all messages as seen
+export const markMessagesAsSeen = async (req, res) => {
+  const { conversationId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const result = await Message.updateMany(
+      { conversationId, senderId: { $ne: userId }, seen: false },
+      { $set: { seen: true } }
+    );
+
+    // Mark conversation’s last message as seen too
+    await Conversation.findByIdAndUpdate(conversationId, {
+      "lastMessage.seen": true,
+    });
+
+    // Notify other users via socket
+    req.io?.to(conversationId).emit("messages_seen", {
+      conversationId,
+      seenBy: userId,
+    });
+
+    res.status(200).json({ success: true, updated: result.modifiedCount });
+  } catch (error) {
+    console.error("Error marking as seen:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };

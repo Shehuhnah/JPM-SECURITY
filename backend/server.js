@@ -7,6 +7,9 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 const onlineUsersMap = {}; // key: userId, value: socket.id
 
+import Conversation from "./models/conversation.model.js";
+import Message from "./models/message.model.js";
+
 // ROUTES
 import attendanceRoutes from "./routes/attendanceRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
@@ -32,6 +35,11 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"],
     credentials: true,
   },
+});
+
+app.use((req, res, next) => {
+  req.io = io;
+  next();
 });
 
 app.use(cors({
@@ -60,36 +68,33 @@ app.get("/", (req, res) => res.send("API is running"));
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    httpServer.listen(5000, () => console.log("✅ Server running on port 5000"));
+    httpServer.listen(5000, () => console.log("Server running on port 5000"));
   })
   .catch((err) => console.log(err));
 
-// 🔥 SOCKET.IO HANDLER 🔥
 io.on("connection", (socket) => {
-  console.log("🟢 New user connected:", socket.id);
+  console.log(" New user connected:", socket.id);
 
-  // User comes online
   socket.on("userOnline", (userId) => {
     onlineUsersMap[userId] = socket.id;
-    console.log("🟢 User online:", userId);
+    console.log(" User online:", userId);
 
-    // Broadcast online users to everyone
     io.emit("onlineUsers", Object.keys(onlineUsersMap));
   });
 
-  // Join a conversation room
   socket.on("joinConversation", (conversationId) => {
     socket.join(conversationId);
     console.log(`User joined conversation ${conversationId}`);
   });
 
-  // Send message
+  socket.on("mark_seen", ({ conversationId, userId }) => {
+    io.to(conversationId).emit("messages_seen", { conversationId, seenBy: userId });
+  });
+
   socket.on("sendMessage", async (msg) => {
     console.log("💬 Message received:", msg);
 
     try {
-      const Message = (await import("./models/message.model.js")).default;
-
       const newMsg = new Message({
         conversationId: msg.conversationId,
         text: msg.text,
@@ -100,7 +105,24 @@ io.on("connection", (socket) => {
       });
       await newMsg.save();
 
-      console.log("✅ Message saved!");
+      const conversation = await Conversation.findById(msg.conversationId);
+      if (conversation) {
+        conversation.lastMessage = {
+          text: msg.text,
+          senderId: msg.senderId,
+          createdAt: new Date(),
+          seen: false,
+        };
+        await conversation.save();
+
+        conversation.participants.forEach((p) => {
+          const targetSocket = onlineUsersMap[p.userId.toString()];
+          if (targetSocket) {
+            io.to(targetSocket).emit("conversationUpdated", conversation);
+          }
+        });
+
+      }
 
       socket.to(msg.conversationId).emit("receiveMessage", {
         ...msg,
@@ -108,25 +130,28 @@ io.on("connection", (socket) => {
         createdAt: newMsg.createdAt,
       });
 
+      socket.emit("receiveMessage", {
+        ...msg,
+        _id: newMsg._id,
+        createdAt: newMsg.createdAt,
+      });
+
+      console.log("✅ Message saved and conversation updated!");
     } catch (error) {
-      console.error("❌ Error saving message:", error);
+      console.error(" Error sending message:", error);
     }
   });
 
-  // Disconnect
   socket.on("disconnect", () => {
-    // Remove user from onlineUsersMap
     const userId = Object.keys(onlineUsersMap).find(
       (key) => onlineUsersMap[key] === socket.id
     );
     if (userId) {
       delete onlineUsersMap[userId];
-      console.log("🔴 User disconnected:", userId);
-
-      // Broadcast updated online users
+      console.log(" User disconnected:", userId);
       io.emit("onlineUsers", Object.keys(onlineUsersMap));
     } else {
-      console.log("🔴 Socket disconnected (unknown user):", socket.id);
+      console.log(" Socket disconnected (unknown user):", socket.id);
     }
   });
 });

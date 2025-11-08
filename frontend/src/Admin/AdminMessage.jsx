@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 import { useEffect, useState, useRef } from "react";
-import { Paperclip, Send, Search, CircleUserRound  } from "lucide-react";
+import { Paperclip, Send, Search, CircleUserRound } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 const socket = io("http://localhost:5000");
@@ -9,6 +9,7 @@ export default function MessagesPage() {
   const { admin: user, token } = useAuth();
   const messagesEndRef = useRef(null);
   const hasNotifiedOnline = useRef(false);
+
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [availableUsers, setAvailableUsers] = useState([]);
@@ -17,16 +18,13 @@ export default function MessagesPage() {
   const [newMessage, setNewMessage] = useState("");
   const [search, setSearch] = useState("");
 
-  // Check if user is online
-  const isUserOnline = (userId) => onlineUsers.includes(userId);
-
-  // Scroll to bottom when messages update
+  // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Format date/time
   const formatDateTime = (timestamp) => {
+    if (!timestamp) return "";
     const date = new Date(timestamp);
     return date.toLocaleString([], {
       year: "numeric",
@@ -38,17 +36,48 @@ export default function MessagesPage() {
     });
   };
 
-  // Online users handling
+  const isUserOnline = (userId) => onlineUsers.includes(userId);
+
+  // Normalize participant names
+  const getParticipantName = (p) => {
+    if (!p) return "Unknown";
+    if (typeof p.userId === "object" && p.userId?.name) return p.userId.name;
+
+    // Check availableUsers
+    const match = availableUsers.find(
+      (u) => u._id === (typeof p.userId === "string" ? p.userId : p.userId?._id)
+    );
+    if (match) return match.name;
+
+    // Check logged-in user
+    if (p.userId === user._id) return user.name || "Me";
+
+    return "Unknown";
+  };
+
+  // Notify online
   useEffect(() => {
     if (user && !hasNotifiedOnline.current) {
       socket.emit("userOnline", user._id);
       hasNotifiedOnline.current = true;
     }
-
     socket.on("onlineUsers", (users) => setOnlineUsers(users));
-
     return () => socket.off("onlineUsers");
   }, [user]);
+
+  // Listen for seen messages
+  useEffect(() => {
+    socket.on("messages_seen", ({ conversationId }) => {
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv._id === conversationId
+            ? { ...conv, lastMessage: { ...conv.lastMessage, seen: true } }
+            : conv
+        )
+      );
+    });
+    return () => socket.off("messages_seen");
+  }, []);
 
   // Fetch conversations
   useEffect(() => {
@@ -58,7 +87,7 @@ export default function MessagesPage() {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        setConversations(Array.isArray(data) ? data : data.data ? [data.data] : []);
+        setConversations(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Error fetching conversations:", err);
       }
@@ -75,7 +104,6 @@ export default function MessagesPage() {
           user.role === "Admin"
             ? "http://localhost:5000/api/auth/subadmins"
             : "http://localhost:5000/api/auth/admins";
-
         const res = await fetch(endpoint, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -88,11 +116,12 @@ export default function MessagesPage() {
     fetchUsers();
   }, [user, token]);
 
-  // Load messages & listen for new messages
+  // Load messages & listen
   useEffect(() => {
     if (!selectedConversation) return;
 
     socket.emit("joinConversation", selectedConversation._id);
+    socket.emit("mark_seen", { conversationId: selectedConversation._id, userId: user._id });
 
     const fetchMessages = async () => {
       try {
@@ -108,51 +137,60 @@ export default function MessagesPage() {
     fetchMessages();
 
     const handleReceiveMessage = (msg) => {
-      if (msg.conversationId === selectedConversation._id && msg.senderId !== user._id) {
-        setMessages((prev) => [...prev, msg]);
-      }
+      setMessages((prev) => [...prev.filter((m) => m._tempId !== msg._tempId), msg]);
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv._id === msg.conversationId
+            ? { ...conv, lastMessage: { text: msg.text, senderId: msg.senderId, createdAt: msg.createdAt } }
+            : conv
+        )
+      );
     };
 
     socket.on("receiveMessage", handleReceiveMessage);
     return () => socket.off("receiveMessage", handleReceiveMessage);
   }, [selectedConversation, token, user._id]);
 
-  // Send message
   const handleSend = () => {
     if (!newMessage.trim() || !selectedConversation) return;
 
-    const receiver = selectedConversation.participants.find(
-      (p) => (typeof p.userId === "string" ? p.userId : p.userId._id) !== user._id
+    const receiver = (selectedConversation.participants ?? []).find(
+      (p) => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id
     );
 
-    const conversationType =
-      selectedConversation.type || `${user.role.toLowerCase()}-${receiver.role.toLowerCase()}`;
+    const tempId = Date.now();
 
     const msg = {
       text: newMessage,
       conversationId: selectedConversation._id,
-      type: conversationType,
       senderId: user._id,
       senderRole: user.role,
-      receiverId: typeof receiver.userId === "string" ? receiver.userId : receiver.userId._id,
-      receiverRole: receiver.role,
+      receiverId: typeof receiver?.userId === "string" ? receiver.userId : receiver?.userId?._id,
+      receiverRole: receiver?.role,
+      _tempId: tempId,
+      createdAt: new Date(),
     };
 
-    // Show locally
-    setMessages((prev) => [...prev, { ...msg, _id: Date.now(), createdAt: new Date() }]);
+    setMessages((prev) => [...prev, msg]);
     setNewMessage("");
 
-    // Emit to server
+    setConversations((prev) =>
+      prev.map((conv) =>
+        conv._id === selectedConversation._id
+          ? { ...conv, lastMessage: { text: msg.text, senderId: msg.senderId, createdAt: msg.createdAt } }
+          : conv
+      )
+    );
+
     socket.emit("sendMessage", msg);
   };
 
-  // Start new chat
   const handleStartChat = async (targetUser) => {
-    if (!targetUser.role) return;
+    if (!targetUser?.role) return;
 
     const existing = conversations.find((conv) =>
-      conv.participants.some((p) => {
-        const pid = typeof p.userId === "string" ? p.userId : p.userId._id;
+      (conv.participants ?? []).some((p) => {
+        const pid = typeof p.userId === "string" ? p.userId : p.userId?._id;
         return pid === targetUser._id;
       })
     );
@@ -170,12 +208,16 @@ export default function MessagesPage() {
 
     const body = {
       participants: [
-        { userId: user._id, role: user.role },
-        { userId: targetUser._id, role: targetUser.role },
+        { userId: user._id, role: user.role, name: user.name },
+        { userId: targetUser._id, role: targetUser.role, name: targetUser.name },
       ],
       type,
       text: "👋 Hello!",
-      lastMessage: "👋 Hello!",
+      lastMessage: {
+        text: "👋 Hello!",
+        senderId: user._id,
+        createdAt: new Date(),
+      },
       receiverId: targetUser._id,
       receiverRole: targetUser.role,
     };
@@ -191,31 +233,28 @@ export default function MessagesPage() {
       });
 
       if (!res.ok) {
-        const errData = await res.json();
-        console.error("Failed to create conversation:", errData);
+        console.error("Failed to create conversation:", await res.json());
         return;
       }
 
-      const newConvo = await res.json();
-      const convoRes = await fetch("http://localhost:5000/api/messages/conversations", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setConversations(await convoRes.json());
-      setSelectedConversation(newConvo);
+      const data = await res.json();
+
+      // ✅ use populated conversation from backend
+      setConversations((prev) => [...prev, data.conversation]);
+      setSelectedConversation(data.conversation);
     } catch (err) {
       console.error("Error starting chat:", err);
     }
   };
 
-  // Merge conversations and available users
   const shownUsers = [
     ...conversations.map((c) => ({ type: "conversation", id: c._id, data: c })),
     ...availableUsers
       .filter(
         (u) =>
           !conversations.some((c) =>
-            c.participants.some((p) => {
-              const pid = typeof p.userId === "string" ? p.userId : p.userId._id;
+            (c.participants ?? []).some((p) => {
+              const pid = typeof p.userId === "string" ? p.userId : p.userId?._id;
               return pid === u._id;
             })
           )
@@ -226,69 +265,83 @@ export default function MessagesPage() {
   const filteredUsers = shownUsers.filter((item) => {
     const name =
       item.type === "conversation"
-        ? item.data.participants.find(
-            (p) => (typeof p.userId === "string" ? p.userId : p.userId._id) !== user._id
-          )?.userId?.name ?? ""
-        : item.data.name ?? "";
+        ? getParticipantName(
+            (item.data.participants ?? []).find(
+              (p) => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id
+            )
+          )
+        : item.data?.name ?? "Unknown";
     return name.toLowerCase().includes(search.toLowerCase());
   });
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-[#0f172a] text-gray-100">
       {/* Sidebar */}
-      <aside className="w-full md:w-72 bg-[#1e293b] border-r border-gray-700 flex flex-col">
-        <h2 className="p-4 text-lg font-bold text-white bg-gradient-to-r from-[#1B3C53] to-[#456882]">
+      <aside className="w-full md:w-72 bg-[#0b1220] border-r border-gray-800 flex flex-col">
+        <h2 className="p-4 text-lg font-bold text-gray-100 bg-gradient-to-r from-[#1e293b] to-[#243447] shadow-md tracking-wide">
           Messages
         </h2>
         <div className="p-3">
-          <div className="flex items-center bg-[#0f172a] border border-gray-600 rounded-lg px-3 py-2 focus-within:ring-2 ring-blue-500">
+          <div className="flex items-center bg-[#111827] border border-gray-700 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500 transition-all">
             <Search size={16} className="text-gray-400" />
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Search conversations..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="bg-transparent flex-1 ml-2 outline-none text-sm text-gray-200 placeholder-gray-500"
             />
           </div>
         </div>
-       <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto px-2 pb-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-[#0b1220]">
           {filteredUsers.length > 0 ? (
             filteredUsers.map((item) => {
               if (item.type === "conversation") {
-                const other = item.data.participants.find(
-                  (p) =>
-                    (typeof p.userId === "string" ? p.userId : p.userId._id) !== user._id
+                const other = (item.data.participants ?? []).find(
+                  (p) => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id
                 );
-
-                // Extract ID and name safely
-                const otherId =
-                  typeof other.userId === "string" ? other.userId : other.userId._id;
-                const otherName =
-                  typeof other.userId === "object" ? other.userId.name : other.name || "Unknown";
+                const otherId = typeof other?.userId === "string" ? other.userId : other?.userId?._id;
+                const otherName = getParticipantName(other);
+                const lastMsgText = item.data.lastMessage?.text || "No messages yet";
+                const lastMsgTime = item.data.lastMessage?.createdAt
+                  ? formatDateTime(item.data.lastMessage.createdAt)
+                  : "";
 
                 return (
                   <div
                     key={item.id}
                     onClick={() => setSelectedConversation(item.data)}
-                    className={`p-3 cursor-pointer transition-all rounded-lg ${
+                    className={`p-3 mb-2 cursor-pointer transition-all rounded-xl border border-transparent ${
                       selectedConversation?._id === item.data._id
-                        ? "bg-[#1B3C53]"
-                        : "hover:bg-[#243447]"
+                        ? "bg-[#1e293b] border-blue-500 shadow-md"
+                        : "hover:bg-[#162236] hover:border-[#1e3a5f]"
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-200 font-medium">{otherName}</span>
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          isUserOnline(otherId) ? "bg-green-500" : "bg-gray-500"
-                        }`}
-                        title={isUserOnline(otherId) ? "Online" : "Offline"}
-                      ></span>
+                    <div className="flex items-center gap-x-3 w-full">
+                      <div className="relative">
+                        <CircleUserRound strokeWidth={1.5} size={36} className="text-gray-300" />
+                        <span
+                          className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-[#0b1220] ${
+                            isUserOnline(otherId) ? "bg-green-500" : "bg-gray-500"
+                          }`}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-100 font-medium truncate">{otherName}</span>
+                          <span className="text-[10px] text-gray-500 whitespace-nowrap ml-2">{lastMsgTime}</span>
+                        </div>
+                        <p
+                          className={`text-sm mt-1 truncate ${
+                            !item.data.lastMessage?.seen && item.data.lastMessage?.senderId !== user._id
+                              ? "text-gray-100 font-semibold"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          {lastMsgText}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-400 truncate mt-1">
-                      Click to Message
-                    </p>
                   </div>
                 );
               } else {
@@ -297,24 +350,23 @@ export default function MessagesPage() {
                   <div
                     key={u._id}
                     onClick={() => handleStartChat(u)}
-                    className="p-3 cursor-pointer hover:bg-[#243447] rounded-lg"
+                    className="p-3 mb-1 cursor-pointer hover:bg-[#162236] transition rounded-xl border border-transparent hover:border-[#1e3a5f]"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-200 font-medium">{u.name}</span>
+                      <span className="text-sm text-gray-100 font-medium truncate">{u.name}</span>
                       <span
-                        className={`w-2 h-2 rounded-full ${
+                        className={`w-2.5 h-2.5 rounded-full ${
                           isUserOnline(u._id) ? "bg-green-500" : "bg-gray-500"
                         }`}
-                        title={isUserOnline(u._id) ? "Online" : "Offline"}
-                      ></span>
+                      />
                     </div>
-                    <p className="text-sm text-gray-400 mt-1">{u.role}</p>
+                    <p className="text-xs text-gray-400 mt-1 truncate">{u.role}</p>
                   </div>
                 );
               }
             })
           ) : (
-            <p className="text-center text-gray-500 mt-4 text-sm">No users found</p>
+            <p className="text-center text-gray-500 mt-6 text-sm italic">No users found</p>
           )}
         </div>
       </aside>
@@ -327,48 +379,44 @@ export default function MessagesPage() {
           </div>
         ) : (
           <>
-            <div className="p-4 border-b border-gray-700 bg-gradient-to-r from-[#1B3C53] to-[#456882]">
-              <h3 className="font-semibold text-white">
-                {selectedConversation.participants.find(
+            <div className="p-4 border-b border-gray-700 bg-[#0f172a]">
+              {(() => {
+                const otherParticipant = (selectedConversation.participants ?? []).find(
                   (p) => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id
-                )?.userId?.name || "Unknown"}
-              </h3>
-            </div>
-            <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-3 bg-[#0f172a]">
-              {messages.map((msg) => {
-                const isSender = msg.senderId === user._id;
-
-                // Find sender info for messages from the receiver
-                const sender =
-                  !isSender &&
-                  selectedConversation.participants.find(
-                    (p) => (typeof p.userId === "string" ? p.userId : p.userId?._id) === msg.senderId
-                  );
+                );
+                const otherId = typeof otherParticipant?.userId === "string" ? otherParticipant.userId : otherParticipant?.userId?._id;
+                const otherName = getParticipantName(otherParticipant);
+                const online = isUserOnline(otherId);
 
                 return (
-                  <div
-                    key={msg._id}
-                    className={`flex ${isSender ? "justify-end" : "justify-start"} items-end gap-2`}
-                  >
-                    {/* Show CircleUserRound only for receiver */}
-                    {!isSender && <CircleUserRound user={sender?.userId} strokeWidth={1} size={32} className="text-blue-400 font-light"/>}
-                    
-                    <div
-                      className={`px-4 py-2 rounded-2xl max-w-xs break-words relative ${
-                        isSender ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-200"
-                      }`}
-                    >
-                      {msg.text}
-                      <div className="text-[10px] text-gray-300 mt-1 text-right">
-                        {formatDateTime(msg.createdAt)}
+                  <div className="flex items-center gap-3">
+                    <CircleUserRound size={38} />
+                    <div>
+                      <h3 className="font-semibold text-white mb-1">{otherName}</h3>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full inline-block ${online ? "bg-green-400" : "bg-gray-400"}`} />
+                        <span className={`text-xs ${online ? "text-green-400" : "text-gray-400"}`}>{online ? "Online" : "Offline"}</span>
                       </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-3 bg-[#0b1220]">
+              {messages.map((msg) => {
+                const isSender = msg.senderId === user._id;
+                return (
+                  <div key={msg._id || msg._tempId} className={`flex ${isSender ? "justify-end" : "justify-start"} items-end gap-2`}>
+                    <div className={`px-4 py-2 rounded-2xl max-w-xs break-words relative ${isSender ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-200"}`}>
+                      {msg.text}
+                      <div className="text-[10px] text-gray-300 mt-1 text-right">{formatDateTime(msg.createdAt)}</div>
                     </div>
                   </div>
                 );
               })}
               <div ref={messagesEndRef} />
             </div>
-
 
             <div className="p-4 border-t border-gray-700 flex items-center gap-3 bg-[#1e293b]">
               <Paperclip size={20} className="text-gray-400 cursor-pointer hover:text-blue-400" />
@@ -380,10 +428,7 @@ export default function MessagesPage() {
                 className="flex-1 bg-[#0f172a] border border-gray-700 rounded-full px-4 py-2 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
               />
-              <button
-                onClick={handleSend}
-                className="bg-gradient-to-r from-[#1B3C53] to-[#456882] p-2 rounded-full hover:brightness-110 transition"
-              >
+              <button onClick={handleSend} className="bg-gradient-to-r from-[#1B3C53] to-[#456882] p-2 rounded-full hover:brightness-110 transition">
                 <Send size={18} />
               </button>
             </div>

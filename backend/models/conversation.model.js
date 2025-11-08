@@ -7,7 +7,7 @@ const conversationSchema = new mongoose.Schema(
         userId: {
           type: mongoose.Schema.Types.ObjectId,
           required: true,
-          ref: "Admin", 
+          ref: "Admin", // You can also change to a dynamic ref if needed
         },
         role: {
           type: String,
@@ -16,14 +16,19 @@ const conversationSchema = new mongoose.Schema(
         },
       },
     ],
+
     type: {
       type: String,
-      enum: ["admin-subadmin","subadmin-admin", "subadmin-applicant"],
+      enum: ["admin-subadmin", "subadmin-admin", "subadmin-applicant"],
       required: true,
     },
+
+    // ✅ Updated lastMessage to store an object
     lastMessage: {
-      type: String,
-      default: "",
+      text: { type: String, default: "" },
+      senderId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", default: null },
+      createdAt: { type: Date, default: null },
+      seen: { type: Boolean, default: false },
     },
   },
   { timestamps: true }
