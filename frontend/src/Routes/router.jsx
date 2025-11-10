@@ -29,6 +29,8 @@ import AdminMessage from "../Admin/AdminMessage.jsx";
 import ApplicantList from "../Admin/ApplicantList.jsx";
 import AdminRequestID from "../Admin/AdminRequestID.jsx";
 import AdminAddSchedule from "../Admin/AdminAddSchedule.jsx";
+import SubAdminMessage from "../SubAdmin/SubAdminMessage.jsx";
+
 
 // Guard pages
 import GuardLogin from "../Guard/GuardLogin.jsx";
@@ -45,17 +47,6 @@ import AdminSchedApproval from "../Admin/AdminSchedApproval.jsx";
 // Applicants pages
 import ApplicantsHiringDetails from "../Applicants/ApplicantsHiringDetails.jsx";
 import ApplicantsMessages from "../Applicants/ApplicantsMessages.jsx";
-
-// SubAdmin pages
-import SubAnnouncement from "../SubAdmin/SubAnnouncement.jsx";
-import SubApplicantResume from "../SubAdmin/SubApplicantResume.jsx";
-import SubCompanyDetails from "../SubAdmin/SubCompanyDetails.jsx";
-import SubGuardAttendance from "../SubAdmin/SubGuardAttendance.jsx";
-import SubGuardMessages from "../SubAdmin/SubGuardMessages.jsx";
-import SubGuardSchedule from "../SubAdmin/SubGuardSchedule.jsx";
-import SubGuardUpdates from "../SubAdmin/SubGuardUpdates.jsx";
-import SubHiring from "../SubAdmin/SubHiring.jsx";
-import SubLogin from "../SubAdmin/SubLogin.jsx";
 
 // Public pages
 import HomePage from "../Home/homePage.jsx";
@@ -109,6 +100,7 @@ const Router = () => {
                 { path: "request-coe", element: <GuardReqCOE /> },
                 { path: "schedule-approval", element: <AdminSchedApproval /> },
                 { path: "deployment/add-schedule", element: <AdminAddSchedule /> },
+                { path: "subadmin-message", element: <SubAdminMessage/>}
               ],
             },
           ],
@@ -144,22 +136,7 @@ const Router = () => {
           ],
         },
 
-        // ✅ SubAdmin Section
-        {
-          path: "subadmin",
-          children: [
-            { path: "login", element: <SubLogin /> },
-            {
-              element: <SubAdminLayout />,
-              children: [
-                
-              ],
-            },
-          ],
-        },
-
         // Misc
-        { path: "navbar", element: <Navbar /> },
         { path: "*", element: <ErrorPage /> },
       ],
     },

@@ -112,23 +112,82 @@ export default function AdminLayout() {
               }
               return true;
             })
-            .map((item, idx) => (
-              <NavLink
-                key={idx}
-                to={item.to}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 p-2 rounded transition-colors ${
-                    isActive
-                      ? "bg-[#142235] text-white font-semibold shadow"
-                      : "hover:bg-[#0b2433]"
-                  }`
-                }
-                onClick={() => setSidebarOpen(false)} // close sidebar on mobile
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </NavLink>
-            ))
+            .map((item, idx) => {
+              // For Subadmin Messages dropdown
+              if (admin.role === "Subadmin" && item.label === "Messages") {
+                return (
+                  <div key={idx}>
+                    <button
+                      onClick={() => setOpenDropdown(!openDropdown)}
+                      className="flex items-center justify-between w-full p-2 rounded hover:bg-[#0b2433]"
+                    >
+                      <div className="flex items-center gap-3">
+                        {item.icon}
+                        <span>{item.label}</span>
+                      </div>
+                      <ChevronDown
+                        size={16}
+                        className={`transition-transform ${openDropdown ? "rotate-180" : ""}`}
+                      />
+                    </button>
+
+                    {openDropdown && (
+                      <ul className="ml-8 mt-1 space-y-1 text-sm">
+                        <li>
+                          <NavLink
+                            to="/Admin/AdminMessages"
+                            className={({ isActive }) =>
+                              `flex items-center gap-2 p-2 rounded transition-colors ${
+                                isActive
+                                  ? "bg-[#142235] text-white font-semibold shadow"
+                                  : "hover:bg-[#0b2433]"
+                              }`
+                            }
+                            onClick={() => setSidebarOpen(false)}
+                          >
+                            {item.icon} Staff
+                          </NavLink>
+                        </li>
+                        <li>
+                          <NavLink
+                            to="/Admin/subadmin-message"
+                            className={({ isActive }) =>
+                              `flex items-center gap-2 p-2 rounded transition-colors ${
+                                isActive
+                                  ? "bg-[#142235] text-white font-semibold shadow"
+                                  : "hover:bg-[#0b2433]"
+                              }`
+                            }
+                            onClick={() => setSidebarOpen(false)}
+                          >
+                            {item.icon} Applicants
+                          </NavLink>
+                        </li>
+                      </ul>
+                    )}
+                  </div>
+                );
+              }
+
+              // Regular nav item
+              return (
+                <NavLink
+                  key={idx}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 p-2 rounded transition-colors ${
+                      isActive
+                        ? "bg-[#142235] text-white font-semibold shadow"
+                        : "hover:bg-[#0b2433]"
+                    }`
+                  }
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })
           }
 
           {/* Posts Dropdown */}
@@ -170,15 +229,6 @@ export default function AdminLayout() {
               </ul>
             )}
           </div>
-
-          {/* Logout */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 p-2 rounded hover:bg-[#0b2433] text-red-400 font-medium mt-4 w-full"
-          >
-            <LogOut size={18} />
-            <span>Logout</span>
-          </button>
         </nav>
       </aside>
 

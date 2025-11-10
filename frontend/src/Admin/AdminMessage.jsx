@@ -190,7 +190,6 @@ export default function MessagesPage() {
     return () => socket.off("conversationUpdated", handleConversationUpdated);
   }, [selectedConversation, token]);
 
-  // Send a message
   const handleSend = async () => {
     if (!newMessage.trim() && !file) return;
     if (!selectedConversation) return;
@@ -201,6 +200,7 @@ export default function MessagesPage() {
     if (!receiver) return;
 
     const tempId = Date.now();
+
     const formData = new FormData();
     formData.append("text", newMessage);
     formData.append("type", selectedConversation.type || "subadmin-applicant");
@@ -223,25 +223,39 @@ export default function MessagesPage() {
         return;
       }
 
-      const { message, conversation } = await res.json();
+      const { message, conversation: realConversation } = await res.json();
 
-      // Optimistically update UI
+      // 1️⃣ Replace temp conversation with real one if exists
+      setConversations((prev) => {
+        if (selectedConversation.isTemp) {
+          return prev.map((conv) =>
+            conv._id === selectedConversation._id ? realConversation : conv
+          );
+        } else {
+          return prev.map((conv) =>
+            conv._id === realConversation._id ? realConversation : conv
+          );
+        }
+      });
+
+      // 2️⃣ Optimistically add message to UI
       setMessages((prev) => [...prev, { ...message, _tempId: tempId }]);
-      setConversations((prev) =>
-        prev.map((conv) => (conv._id === conversation._id ? conversation : conv))
-      );
 
+      // 3️⃣ Replace temp selectedConversation with real one
+      setSelectedConversation(realConversation);
+
+      // 4️⃣ Reset input & file
       setNewMessage("");
       setFile(null);
-
     } catch (err) {
       console.error("Error sending message:", err);
     }
   };
 
-  const handleStartChat = async (targetUser) => {
+  const handleStartChat = (targetUser) => {
     if (!targetUser?.role) return;
 
+    // Check if conversation already exists
     const existing = conversations.find((conv) =>
       (conv.participants ?? []).some((p) => {
         const pid = typeof p.userId === "string" ? p.userId : p.userId?._id;
@@ -254,55 +268,33 @@ export default function MessagesPage() {
       return;
     }
 
+    // Determine conversation type
     let type = "";
     if (user.role === "Admin" && targetUser.role === "Subadmin") type = "admin-subadmin";
     else if (user.role === "Subadmin" && targetUser.role === "Admin") type = "subadmin-admin";
     else if (targetUser.role === "Applicant") type = "subadmin-applicant";
     else return;
 
-    const body = {
+    // Create a temporary conversation locally
+    const tempConversation = {
+      _id: `temp-${Date.now()}`, // temporary ID
       participants: [
         { userId: user._id, role: user.role, name: user.name },
         { userId: targetUser._id, role: targetUser.role, name: targetUser.name },
       ],
       type,
-      text: "👋 Hello!",
-      lastMessage: {
-        text: "👋 Hello!",
-        senderId: user._id,
-        createdAt: new Date(),
-      },
-      receiverId: targetUser._id,
-      receiverRole: targetUser.role,
+      lastMessage: null, // no message yet
+      isTemp: true,      // mark as temporary
     };
 
-    try {
-      const res = await fetch("http://localhost:5000/api/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        console.error("Failed to create conversation:", await res.json());
-        return;
-      }
-
-      const data = await res.json();
-
-      // ✅ use populated conversation from backend
-      setConversations((prev) => [...prev, data.conversation]);
-      setSelectedConversation(data.conversation);
-    } catch (err) {
-      console.error("Error starting chat:", err);
-    }
+    setSelectedConversation(tempConversation);
   };
 
   const shownUsers = [
+    // Include all real conversations first
     ...conversations.map((c) => ({ type: "conversation", id: c._id, data: c })),
+
+    // Include available users that are not in conversations
     ...availableUsers
       .filter(
         (u) =>
@@ -313,7 +305,7 @@ export default function MessagesPage() {
             })
           )
       )
-      .map((u) => ({ type: "user", id: u._id, data: u })),
+      .map((u) => ({ type: "user", id: u._id, data: u }))
   ];
 
   const filteredUsers = shownUsers.filter((item) => {
@@ -356,7 +348,7 @@ export default function MessagesPage() {
                 );
                 const otherId = typeof other?.userId === "string" ? other.userId : other?.userId?._id;
                 const otherName = getParticipantName(other);
-                const lastMsgText = item.data.lastMessage?.text || "No messages yet";
+                const lastMsgText = item.data.lastMessage?.text || (item.data.isTemp ? "Start conversation" : "No messages yet");
                 const lastMsgTime = item.data.lastMessage?.createdAt
                   ? formatDateTime(item.data.lastMessage.createdAt)
                   : "";
