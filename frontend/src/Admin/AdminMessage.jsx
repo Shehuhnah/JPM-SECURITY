@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 import { useEffect, useState, useRef } from "react";
-import { Paperclip, Send, Search, CircleUserRound } from "lucide-react";
+import { Paperclip, Send, Search, CircleUserRound, ArrowLeft  } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 const socket = io("http://localhost:5000");
@@ -9,7 +9,6 @@ export default function MessagesPage() {
   const { admin: user, token } = useAuth();
   const messagesEndRef = useRef(null);
   const hasNotifiedOnline = useRef(false);
-
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [availableUsers, setAvailableUsers] = useState([]);
@@ -17,6 +16,9 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [search, setSearch] = useState("");
+  const [previewImage, setPreviewImage] = useState(null);
+  const [file, setFile] = useState(null);
+  const fileInputRef = useRef();
 
   // Scroll to bottom
   useEffect(() => {
@@ -137,7 +139,12 @@ export default function MessagesPage() {
     fetchMessages();
 
     const handleReceiveMessage = (msg) => {
-      setMessages((prev) => [...prev.filter((m) => m._tempId !== msg._tempId), msg]);
+      setMessages((prev) => {
+        // Skip if this message already exists (by _id or _tempId)
+        if (prev.some((m) => m._id === msg._id || m._tempId === msg._tempId)) return prev;
+        return [...prev, msg];
+      });
+
       setConversations((prev) =>
         prev.map((conv) =>
           conv._id === msg.conversationId
@@ -151,38 +158,85 @@ export default function MessagesPage() {
     return () => socket.off("receiveMessage", handleReceiveMessage);
   }, [selectedConversation, token, user._id]);
 
-  const handleSend = () => {
-    if (!newMessage.trim() || !selectedConversation) return;
+  // 🔁 Listen for new messages in *other* conversations (sidebar + receiver updates)
+  useEffect(() => {
+    const handleConversationUpdated = async (updatedConv) => {
+      setConversations((prev) => {
+        const exists = prev.some((c) => c._id === updatedConv._id);
+        if (exists) {
+          // Update existing conversation
+          return prev.map((c) => (c._id === updatedConv._id ? updatedConv : c));
+        }
+        // Add new conversation to top if it's new
+        return [updatedConv, ...prev];
+      });
 
-    const receiver = (selectedConversation.participants ?? []).find(
-      (p) => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id
-    );
-
-    const tempId = Date.now();
-
-    const msg = {
-      text: newMessage,
-      conversationId: selectedConversation._id,
-      senderId: user._id,
-      senderRole: user.role,
-      receiverId: typeof receiver?.userId === "string" ? receiver.userId : receiver?.userId?._id,
-      receiverRole: receiver?.role,
-      _tempId: tempId,
-      createdAt: new Date(),
+      // 🔥 If the receiver is currently viewing this conversation, refresh messages immediately
+      if (selectedConversation?._id === updatedConv._id) {
+        try {
+          const res = await fetch(
+            `http://localhost:5000/api/messages/${updatedConv._id}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const data = await res.json();
+          setMessages(Array.isArray(data) ? data : []);
+        } catch (err) {
+          console.error("Error refreshing active conversation:", err);
+        }
+      }
     };
 
-    setMessages((prev) => [...prev, msg]);
-    setNewMessage("");
+    socket.on("conversationUpdated", handleConversationUpdated);
+    return () => socket.off("conversationUpdated", handleConversationUpdated);
+  }, [selectedConversation, token]);
 
-    setConversations((prev) =>
-      prev.map((conv) =>
-        conv._id === selectedConversation._id
-          ? { ...conv, lastMessage: { text: msg.text, senderId: msg.senderId, createdAt: msg.createdAt } }
-          : conv
-      )
+  // Send a message
+  const handleSend = async () => {
+    if (!newMessage.trim() && !file) return;
+    if (!selectedConversation) return;
+
+    const receiver = selectedConversation.participants.find(
+      (p) => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id
     );
+    if (!receiver) return;
 
-    socket.emit("sendMessage", msg);
+    const tempId = Date.now();
+    const formData = new FormData();
+    formData.append("text", newMessage);
+    formData.append("type", selectedConversation.type || "subadmin-applicant");
+    formData.append(
+      "receiverId",
+      typeof receiver.userId === "string" ? receiver.userId : receiver.userId?._id
+    );
+    formData.append("receiverRole", receiver.role);
+    if (file) formData.append("file", file);
+
+    try {
+      const res = await fetch("http://localhost:5000/api/messages", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        console.error("Failed to send message:", await res.text());
+        return;
+      }
+
+      const { message, conversation } = await res.json();
+
+      // Optimistically update UI
+      setMessages((prev) => [...prev, { ...message, _tempId: tempId }]);
+      setConversations((prev) =>
+        prev.map((conv) => (conv._id === conversation._id ? conversation : conv))
+      );
+
+      setNewMessage("");
+      setFile(null);
+
+    } catch (err) {
+      console.error("Error sending message:", err);
+    }
   };
 
   const handleStartChat = async (targetUser) => {
@@ -402,35 +456,121 @@ export default function MessagesPage() {
                 );
               })()}
             </div>
-
+              
             <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-3 bg-[#0b1220]">
               {messages.map((msg) => {
                 const isSender = msg.senderId === user._id;
-                return (
-                  <div key={msg._id || msg._tempId} className={`flex ${isSender ? "justify-end" : "justify-start"} items-end gap-2`}>
-                    <div className={`px-4 py-2 rounded-2xl max-w-xs break-words relative ${isSender ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-200"}`}>
+               return (
+                  <div
+                    key={msg._id || msg._tempId}
+                    className={`flex ${isSender ? "justify-end" : "justify-start"} items-end gap-2`}
+                  >
+                    <div
+                      className={`px-4 py-2 rounded-2xl max-w-xs break-words relative ${
+                        isSender ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-200"
+                      }`}
+                    >
                       {msg.text}
-                      <div className="text-[10px] text-gray-300 mt-1 text-right">{formatDateTime(msg.createdAt)}</div>
+
+                      {msg.file && (
+                        msg.file.match(/\.(png|jpg|jpeg|gif)$/i) ? (
+                          <img
+                            src={`http://localhost:5000${msg.file}`}
+                            alt={msg.fileName || "attachment"}
+                            className="mt-1 rounded border max-w-full max-h-60 object-contain cursor-pointer"
+                            onClick={() => setPreviewImage(`http://localhost:5000${msg.file}`)}
+                          />
+                        ) : (
+                          <a
+                            href={`http://localhost:5000${msg.file}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline text-blue-400 block mt-1"
+                          >
+                            📎 {msg.fileName || "View attachment"}
+                          </a>
+                        )
+                      )}
+
+                      <div className="text-[10px] text-gray-300 mt-1 text-right">
+                        {formatDateTime(msg.createdAt)}
+                      </div>
                     </div>
                   </div>
                 );
               })}
               <div ref={messagesEndRef} />
             </div>
+            {/* Modal for Image Preview */}
+            {previewImage && (
+              <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+                <button
+                  onClick={() => setPreviewImage(null)}
+                  className="absolute top-4 right-4 text-white text-2xl"
+                >
+                  <ArrowLeft size={24} />
+                </button>
+                <img
+                  src={previewImage}
+                  alt="Preview"
+                  className="max-h-full max-w-full object-contain rounded shadow-lg"
+                />
+              </div>
+            )}
+            <div className="p-4 border-t border-gray-700 bg-[#1e293b] flex flex-col gap-2">
+              {/* Attachment Preview */}
+              {file && (
+                <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-2 max-w-xs">
+                  {file.type.startsWith("image/") ? (
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt={file.name}
+                      className="w-16 h-16 object-contain rounded"
+                    />
+                  ) : (
+                    <div className="flex-1 text-gray-200 truncate">{file.name}</div>
+                  )}
+                  <button
+                    onClick={() => setFile(null)}
+                    className="text-gray-400 hover:text-red-500"
+                    title="Remove attachment"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
 
-            <div className="p-4 border-t border-gray-700 flex items-center gap-3 bg-[#1e293b]">
-              <Paperclip size={20} className="text-gray-400 cursor-pointer hover:text-blue-400" />
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type a message..."
-                className="flex-1 bg-[#0f172a] border border-gray-700 rounded-full px-4 py-2 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              />
-              <button onClick={handleSend} className="bg-gradient-to-r from-[#1B3C53] to-[#456882] p-2 rounded-full hover:brightness-110 transition">
-                <Send size={18} />
-              </button>
+              <div className="flex items-center gap-3">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={(e) => setFile(e.target.files[0])}
+                />
+                <label>
+                  <Paperclip
+                    size={20}
+                    onClick={() => fileInputRef.current.click()}
+                    className="text-gray-400 cursor-pointer hover:text-blue-400"
+                  />
+                </label>
+
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type a message..."
+                  className="flex-1 bg-[#0f172a] border border-gray-700 rounded-full px-4 py-2 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                />
+
+                <button
+                  onClick={handleSend}
+                  className="bg-gradient-to-r from-[#1B3C53] to-[#456882] p-2 rounded-full hover:brightness-110 transition"
+                >
+                  <Send size={18} />
+                </button>
+              </div>
             </div>
           </>
         )}

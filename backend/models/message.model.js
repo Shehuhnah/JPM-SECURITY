@@ -7,16 +7,9 @@ const messageSchema = new mongoose.Schema(
       ref: "Conversation",
       required: true,
     },
-    senderId: { 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: "User", // or "Admin"/"Subadmin"/"Applicant" depending on your structure
-      required: true 
-    },
-    receiverId: { 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: "User", 
-      required: true 
-    },
+    senderId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    receiverId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+
     sender: {
       userId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
       role: { type: String, enum: ["Admin", "Subadmin"], required: true },
@@ -26,7 +19,11 @@ const messageSchema = new mongoose.Schema(
       role: { type: String, enum: ["Admin", "Subadmin"], required: true },
     },
 
-    text: { type: String, required: true },
+    text: { type: String },
+    image: { type: String }, // e.g. "/uploads/messages/1731001-photo.png"
+    file: { type: String },  // e.g. "/uploads/messages/1731002-document.pdf"
+    fileName: { type: String }, // optional, for display in frontend
+
     read: { type: Boolean, default: false },
   },
   { timestamps: true }
