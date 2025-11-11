@@ -13,13 +13,13 @@ import {
   ChevronDown,
   ChevronRight,
   Camera,
-  IdCardLanyard 
+  IdCardLanyard,
+  Bell,
+  MessageCircle
 } from "lucide-react";
 
 import { guardAuth } from "../hooks/guardAuth";
-
-import logo from "../assets/jpmlogo.png"; 
-
+import logo from "../assets/jpmlogo.png";
 
 export default function GuardsLayout() {
   const [openAttendance, setOpenAttendance] = useState(false);
@@ -28,7 +28,7 @@ export default function GuardsLayout() {
   const { guard, token } = guardAuth();
   const navigate = useNavigate();
   const location = useLocation();
- 
+
   function handleLogout() {
     localStorage.removeItem("guardToken");
     localStorage.removeItem("guardData");
@@ -37,6 +37,7 @@ export default function GuardsLayout() {
 
   const navItems = [
     { to: "/guard/detachment", label: "Detachment / Deployment", icon: <Shield size={18} /> },
+    { to: "/guard/messages", label: "Messages", icon: <MessageCircle size={18} /> },
     { to: "/guard/announcements", label: "Announcement", icon: <Megaphone size={18} /> },
     { to: "/guard/logbook", label: "Log Book", icon: <BookOpen size={18} /> },
     { to: "/guard/request-coe", label: "Request COE", icon: <FileText size={18} /> },
@@ -55,7 +56,7 @@ export default function GuardsLayout() {
 
   return (
     <>
-      <div className="flex min-h-screen bg-[#0f172a]">
+      <div className="flex h-screen bg-[#0f172a]">
         {/* ===== Sidebar ===== */}
         <aside
           className={`fixed top-0 left-0 h-screen w-72 bg-[#1e293b] border-r border-gray-700 flex flex-col transition-transform duration-300 z-50
@@ -72,7 +73,6 @@ export default function GuardsLayout() {
               </div>
             </Link>
 
-            {/* Close button (mobile only) */}
             <button className="lg:hidden text-gray-400 hover:text-white transition" onClick={() => setSidebarOpen(false)}>
               <X size={24} />
             </button>
@@ -92,6 +92,7 @@ export default function GuardsLayout() {
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-2 text-gray-300 overflow-y-auto">
+
             {/* Attendance Dropdown */}
             <div>
               <button
@@ -159,30 +160,63 @@ export default function GuardsLayout() {
             </div>
           </nav>
         </aside>
-
-        {/* Overlay for mobile sidebar */}
+        {/* Overlay (mobile) */}
         {sidebarOpen && (
           <div
             onClick={() => setSidebarOpen(false)}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
           ></div>
         )}
-
         {/* ===== Main Content ===== */}
         <main className="flex-1 flex flex-col lg:ml-72">
-          {/* Topbar (mobile only) */}
+
+          {/* ✅ Topbar (large screen) */}
+          <div className="hidden lg:flex items-center justify-between bg-[#1e293b] border-b border-gray-700 px-6 py-4 sticky top-0 z-30">
+
+            {/* ✅ LEFT SIDE — Logo + Message icon */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <img src={logo} alt="logo" className="w-10 h-10" />
+                <span className="font-bold text-white text-lg">JPM SECURITY</span>
+              </div>
+            </div>
+
+            {/* ✅ RIGHT SIDE — Notification icon (Desktop only, stays at top right) */}
+            <Link
+              to="/guard/notifications"
+              className="text-gray-300 hover:text-white transition"
+            >
+              <Bell size={24} />
+            </Link>
+          </div>
+
+          {/* ✅ Topbar (mobile only) */}
           <div className="lg:hidden flex items-center justify-between bg-[#1e293b] border-b border-gray-700 shadow-lg px-4 py-4 sticky top-0 z-30">
+
+            {/* Sidebar Toggle */}
             <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white transition">
               <Menu size={28} />
             </button>
+
+            {/* Logo */}
             <div className="flex items-center gap-2">
               <img src={logo} alt="logo" className="w-8 h-8" />
               <span className="font-bold text-white">JPM SECURITY</span>
             </div>
-            <div className="w-8"></div> {/* Spacer for centering */}
+
+            {/* Mobile Message + Notification Icons */}
+            <div className="flex items-center gap-4">
+              <Link to="/guard/notifications" className="text-gray-400 hover:text-white transition">
+                <Bell size={22} />
+              </Link>
+
+              <Link to="/guard/messages" className="text-gray-400 hover:text-white transition">
+                <MessageCircle size={22} />
+              </Link>
+            </div>
           </div>
 
-          {/* Content Area */}
+        {/* Content */}
           <div className="flex-1 overflow-auto bg-[#0f172a]">
             <Outlet />
           </div>

@@ -174,7 +174,7 @@ const handleConfirmApprove = async () => {
         <header className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div className="py-3">
             <h2 className="text-3xl font-bold text-white flex items-center gap-2">
-              <IdCard className="text-blue-500" /> Requested IDs
+              <IdCard className="text-blue-500" size={30}/> Requested IDs
             </h2>
           </div>
 

@@ -204,7 +204,7 @@ export default function UserAccounts() {
         {/* Header */}
         <div className="flex flex-row justify-between mb-4 py-2">
           <h2 className="text-3xl font-bold text-white flex items-center gap-2">
-            <Users className="text-blue-500" />
+            <Users className="text-blue-500" size={30}/>
             <p>Staff Management</p>
           </h2>
           {/* Filters & Search */}

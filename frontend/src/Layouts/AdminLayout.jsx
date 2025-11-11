@@ -5,6 +5,8 @@ import {
   Calendar,
   FileText,
   Shield,
+  ShieldUser,
+  Contact ,
   Mail,
   User,
   ChevronDown,
@@ -16,7 +18,8 @@ import {
   LayoutDashboard,
   IdCardLanyard,
   Menu,
-  X
+  X,
+  FileUser 
 } from "lucide-react";
 
 import avatar from "../assets/gerard.jpg";
@@ -145,7 +148,7 @@ export default function AdminLayout() {
                             }
                             onClick={() => setSidebarOpen(false)}
                           >
-                            {item.icon} Staff
+                            <Contact /> Staff Message
                           </NavLink>
                         </li>
                         <li>
@@ -160,7 +163,22 @@ export default function AdminLayout() {
                             }
                             onClick={() => setSidebarOpen(false)}
                           >
-                            {item.icon} Applicants
+                            <ShieldUser/> Guards Message
+                          </NavLink>
+                        </li>
+                        <li>
+                          <NavLink
+                            to="/Admin/applicant-message"
+                            className={({ isActive }) =>
+                              `flex items-center gap-2 p-2 rounded transition-colors ${
+                                isActive
+                                  ? "bg-[#142235] text-white font-semibold shadow"
+                                  : "hover:bg-[#0b2433]"
+                              }`
+                            }
+                            onClick={() => setSidebarOpen(false)}
+                          >
+                            <FileUser/> Applicants Message
                           </NavLink>
                         </li>
                       </ul>
@@ -229,6 +247,14 @@ export default function AdminLayout() {
               </ul>
             )}
           </div>
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 p-2 rounded hover:bg-[#0b2433] text-red-400 font-medium mt-4 w-full"
+          >
+            <LogOut size={18} />
+            <span>Logout</span>
+          </button>
         </nav>
       </aside>
 

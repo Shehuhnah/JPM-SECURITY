@@ -58,8 +58,8 @@ export default function AdminGuardUpdates() {
       <main className="flex-1 px-4 sm:px-8 py-6">
         {/* ===== Header ===== */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
-          <h1 className="text-2xl font-bold text-white tracking-wide flex items-center gap-2">
-            <Shield className="w-6 h-6 text-blue-400" />
+          <h1 className="text-3xl font-bold text-white tracking-wide flex items-center gap-2">
+            <Shield className=" text-blue-400" size={30}/>
             Guards Updates
           </h1>
 

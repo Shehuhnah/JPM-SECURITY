@@ -160,7 +160,7 @@ export default function AdminHiring() {
               <option>Full-time</option>
               <option>Part-time</option>
               <option>Contractual</option>
-              <option>Internship</option>
+              <option>OJT</option>
             </select>
           </div>
 

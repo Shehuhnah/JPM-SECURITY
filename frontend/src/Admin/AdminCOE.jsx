@@ -196,7 +196,7 @@ export default function AdminCOE() {
       <main className="flex-1 p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
           <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-            <IdCardLanyard className="text-blue-500"/>
+            <IdCardLanyard className="text-blue-500" size={30}/>
             Certificate of Employment Requests
           </h1>
 

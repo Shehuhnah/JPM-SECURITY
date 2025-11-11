@@ -1,37 +1,45 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { MapPin, Briefcase, Clock, FileText, CalendarDays, Info } from "lucide-react";
+
+
 export default function ApplicantsHiringDetails() {
-  const hirings = [
-    {
-      id: 1,
-      title: "WE’RE HIRING! – JPM SECURITY AGENCY",
-      position: "Security Guard",
-      location: "Various client sites across Cavite",
-      employment: "Full-Time / Reliever / Night Shift / Day Shift",
-      qualifications: [
-        "Male or Female, 21 – 45 years old",
-        "At least High School Graduate",
-        "With valid Security License (License/ID)",
-        "Physically and mentally fit",
-        "With good moral character and no criminal record",
-        "Willing to undergo training if required",
-        "Previous experience is an advantage but not required",
-      ],
-      requirements: [
-        "Updated Resume / Bio-data",
-        "Valid Security License / Certificate of Training",
-        "Barangay Clearance",
-        "Police or NBI Clearance",
-        "Medical Certificate",
-        "2x2 ID Picture (2 copies)",
-        "Any valid government-issued ID",
-      ],
-      contact: {
-        number: "09368835488 / 09923728671",
-        email: "jpmsecagency@gmail.com",
-      },
-    },
-    // Add more openings as needed
-  ];
+  const [hirings, setHirings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchHirings = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/hirings");
+        if (!res.ok) throw new Error("Failed to fetch hiring posts");
+        const data = await res.json();
+        setHirings(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHirings();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center text-gray-300">
+        Loading job listings...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center text-red-400">
+        Error: {error}
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#0f172a] min-h-screen text-gray-100">
@@ -51,86 +59,73 @@ export default function ApplicantsHiringDetails() {
 
       {/* Job Listings */}
       <main className="max-w-7xl mx-auto px-6 py-14 grid lg:grid-cols-2 gap-10">
-        {hirings.map((job) => (
-          <div
-            key={job.id}
-            className="relative bg-[#1e293b]/90 backdrop-blur-lg border border-gray-700 rounded-2xl shadow-lg hover:shadow-blue-900/40 transition-all duration-300 p-8 flex flex-col group overflow-hidden"
-          >
-            {/* Subtle Accent Border on Hover */}
-            <div className="absolute inset-0 border-2 border-transparent group-hover:border-blue-600/40 rounded-2xl transition duration-500 pointer-events-none"></div>
+        {hirings.length === 0 ? (
+          <p className="text-center col-span-2 text-gray-400">
+            No active job postings at the moment.
+          </p>
+        ) : (
+          hirings.map((job) => (
+            <div
+              key={job._id}
+              className="relative bg-[#1e293b]/90 backdrop-blur-lg border border-gray-700 rounded-2xl shadow-lg hover:shadow-blue-900/40 transition-all duration-300 p-8 flex flex-col group overflow-hidden"
+            >
+              <div className="absolute inset-0 border-2 border-transparent group-hover:border-blue-600/40 rounded-2xl transition duration-500 pointer-events-none"></div>
 
-            {/* Job Header */}
-            <div className="border-b border-gray-600 pb-4 mb-4">
-              <h2 className="text-2xl font-bold text-white mb-2 tracking-wide">
-                {job.title}
-              </h2>
-              <div className="space-y-1 text-sm text-gray-300">
-                <p>
-                  <span className="font-medium text-blue-400">Position:</span>{" "}
-                  {job.position}
-                </p>
-                <p>
-                  <span className="font-medium text-blue-400">Location:</span>{" "}
-                  {job.location}
-                </p>
-                <p>
-                  <span className="font-medium text-blue-400">Employment:</span>{" "}
-                  {job.employment}
+              <div className="border-b border-gray-600 pb-4 mb-4">
+                <h2 className="text-2xl font-bold text-white mb-4 tracking-wide flex items-center gap-2">
+                  <Info className="w-6 h-6 text-blue-400" />
+                  {job.title}
+                </h2>
+
+                <div className="space-y-2 text-sm text-gray-300">
+                  <p className="flex items-center gap-2">
+                    <Briefcase className="w-4 h-4 text-blue-400" />
+                    <span className="font-medium text-blue-400">Position:</span> {job.position}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-blue-400" />
+                    <span className="font-medium text-blue-400">Location:</span> {job.location}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-blue-400" />
+                    <span className="font-medium text-blue-400">Employment:</span> {job.employmentType}
+                  </p>
+                </div>
+              </div>
+
+              {/* Job Description */}
+              {job.description && (
+                <div className="mb-6">
+                  <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-blue-400" />
+                    Description
+                  </h3>
+                  <p className="text-gray-300 whitespace-pre-line leading-relaxed">
+                    {job.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="mt-auto pt-6 border-t border-gray-700 text-center">
+                <Link to={`/job-application-process/applicants/messages?hiringId=${encodeURIComponent(job._id)}&title=${encodeURIComponent(job.title || "")}&position=${encodeURIComponent(job.position || "")}&location=${encodeURIComponent(job.location || "")}`}>
+                  <button className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold px-6 py-2 rounded-md transition-transform transform hover:-translate-y-0.5 shadow-md mb-2">
+                    Apply Now
+                  </button>
+                </Link>
+                <p className="text-xs text-gray-400 flex items-center justify-center gap-1">
+                  <CalendarDays className="w-4 h-4 text-blue-400" />
+                  Posted on{" "}
+                  {new Date(job.createdAt).toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
                 </p>
               </div>
             </div>
-
-            {/* Qualifications */}
-            <div className="mb-6">
-              <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
-                <span className="block w-1.5 h-5 bg-blue-500 rounded"></span>
-                Qualifications
-              </h3>
-              <ul className="list-disc list-inside text-sm text-gray-300 space-y-1 leading-relaxed">
-                {job.qualifications.map((q, i) => (
-                  <li key={i}>{q}</li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Requirements */}
-            <div className="mb-6">
-              <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
-                <span className="block w-1.5 h-5 bg-blue-500 rounded"></span>
-                Requirements
-              </h3>
-              <ul className="list-disc list-inside text-sm text-gray-300 space-y-1 leading-relaxed">
-                {job.requirements.map((r, i) => (
-                  <li key={i}>{r}</li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Contact & Apply */}
-            <div className="mt-auto pt-6 border-t border-gray-700 text-center">
-              <Link to="/job-application-process/applicants/messages">
-                <button className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold px-6 py-2 rounded-md transition-transform transform hover:-translate-y-0.5 shadow-md mb-2">
-                  Apply Now
-                </button>
-              </Link>
-              
-              <p className="text-xs text-gray-400">or reach us directly:</p>
-              <p className="text-sm mt-1 text-gray-300">
-                <span className="text-blue-400 font-medium">📞</span>{" "}
-                {job.contact.number}
-              </p>
-              <p className="text-sm text-gray-300">
-                <span className="text-blue-400 font-medium">✉️</span>{" "}
-                <a
-                  href={`mailto:${job.contact.email}`}
-                  className="hover:text-blue-400 underline transition"
-                >
-                  {job.contact.email}
-                </a>
-              </p>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </main>
 
       {/* Footer */}

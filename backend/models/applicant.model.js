@@ -2,14 +2,26 @@ import mongoose from "mongoose";
 
 const applicantSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true },
-    position: { type: String, required: true },
+    name: { 
+      type: String, 
+      required: [true, "Name is Required"]
+    },
+    email: {
+      type: String
+    },
+    position: { 
+      type: String, 
+      required: [true, "Position is Required"]
+    },
     phone: String,
-    resumeUrl: String,
+    resume: {
+      file: { type: String },
+      fileName: { type: String },
+    },
     status: {
       type: String,
-      enum: ["Pending", "Reviewed", "Accepted", "Rejected"],
-      default: "Pending",
+      enum: ["Review", "Interview", "Hired", "Declined"],
+      default: "Review",
     },
   },
   { timestamps: true }

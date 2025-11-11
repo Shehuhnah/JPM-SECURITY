@@ -6,12 +6,10 @@ import RootLayout from "../Layouts/RootLayout.jsx";
 import AdminLayout from "../Layouts/AdminLayout.jsx";
 import GuardsLayout from "../Layouts/GuardsLayout.jsx";
 import ApplicantsLayout from "../Layouts/ApplicantsLayout.jsx";
-import SubAdminLayout from "../Layouts/SubAdminLayout.jsx";
 import HomeLayout from "../Layouts/HomeLayout.jsx";
 
 // Components
 import ErrorPage from "../components/error/ErrorPage.jsx";
-import Navbar from "../components/navbar.jsx";
 import Login from "../Admin/Login.jsx";
 
 // Admin pages
@@ -30,7 +28,7 @@ import ApplicantList from "../Admin/ApplicantList.jsx";
 import AdminRequestID from "../Admin/AdminRequestID.jsx";
 import AdminAddSchedule from "../Admin/AdminAddSchedule.jsx";
 import SubAdminMessage from "../SubAdmin/SubAdminMessage.jsx";
-
+import SubadminApplicantMessage from "../SubAdmin/SubadminApplicantMessage.jsx";
 
 // Guard pages
 import GuardLogin from "../Guard/GuardLogin.jsx";
@@ -43,6 +41,7 @@ import GuardAttendanceTimeOut from "../Guard/GuardAttendanceTimeOut.jsx";
 import GuardProfile from "../Guard/GuardProfile.jsx";
 import GuardReqID from "../Guard/GuardReqID.jsx";
 import AdminSchedApproval from "../Admin/AdminSchedApproval.jsx";
+import GuardMessage from "../Guard/GuardMessage.jsx";
 
 // Applicants pages
 import ApplicantsHiringDetails from "../Applicants/ApplicantsHiringDetails.jsx";
@@ -100,7 +99,8 @@ const Router = () => {
                 { path: "request-coe", element: <GuardReqCOE /> },
                 { path: "schedule-approval", element: <AdminSchedApproval /> },
                 { path: "deployment/add-schedule", element: <AdminAddSchedule /> },
-                { path: "subadmin-message", element: <SubAdminMessage/>}
+                { path: "subadmin-message", element: <SubAdminMessage/>},
+                { path: "applicant-message", element: <SubadminApplicantMessage/>}
               ],
             },
           ],
@@ -119,7 +119,8 @@ const Router = () => {
                 { path: "logbook", element: <GuardLogBook /> },
                 { path: "request-coe", element: <GuardReqCOE /> },
                 { path: "manage-profile", element: <GuardProfile/>},
-                { path: "request-id", element: <GuardReqID/>}
+                { path: "request-id", element: <GuardReqID/>},
+                { path: "messages", element: <GuardMessage/>}
               ],
             },
           ],

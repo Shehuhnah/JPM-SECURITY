@@ -7,23 +7,22 @@ const messageSchema = new mongoose.Schema(
       ref: "Conversation",
       required: true,
     },
-    senderId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    receiverId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    senderId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    receiverId: { type: mongoose.Schema.Types.ObjectId, required: true },
 
     sender: {
-      userId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
-      role: { type: String, enum: ["Admin", "Subadmin", "Guard"], required: true },
+      userId: { type: mongoose.Schema.Types.ObjectId, required: true, refPath: "sender.role" },
+      role: { type: String, enum: ["Admin", "Subadmin", "Guard", "Applicant"], required: true },
     },
     receiver: {
-      userId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
-      role: { type: String, enum: ["Admin", "Subadmin", "Guard"], required: true },
+      userId: { type: mongoose.Schema.Types.ObjectId, required: true, refPath: "receiver.role" },
+      role: { type: String, enum: ["Admin", "Subadmin", "Guard", "Applicant"], required: true },
     },
 
     text: { type: String },
-    image: { type: String }, // e.g. "/uploads/messages/1731001-photo.png"
-    file: { type: String },  // e.g. "/uploads/messages/1731002-document.pdf"
-    fileName: { type: String }, // optional, for display in frontend
-
+    image: { type: String },
+    file: { type: String },
+    fileName: { type: String },
     read: { type: Boolean, default: false },
   },
   { timestamps: true }

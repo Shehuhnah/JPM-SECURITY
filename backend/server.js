@@ -21,6 +21,8 @@ import idrequestRoutes from "./routes/IDrequestRoutes.js";
 import clientRoutes from "./routes/clientsRoutes.js";
 import scheduleRoutes from "./routes/scheduleRoutes.js";
 import userRoutes from "./routes/authRoutes.js";
+import applicantMessageRoutes from "./routes/applicantMessageRoutes.js";
+import applicantRoutes from "./routes/applicantRoutes.js"
 
 const app = express();
 const httpServer = createServer(app);
@@ -69,6 +71,8 @@ app.use("/api/idrequests", idrequestRoutes);
 app.use("/api/clients", clientRoutes);
 app.use("/api/schedules", scheduleRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/applicant-messages", applicantMessageRoutes);
+app.use("/api/applicants", applicantRoutes)
 
 app.get("/", (req, res) => res.send("API is running"));
 

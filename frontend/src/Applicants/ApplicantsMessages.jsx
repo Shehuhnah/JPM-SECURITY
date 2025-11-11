@@ -1,150 +1,579 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { Fragment } from "react";
-import { Send, FileSymlink } from "lucide-react";
+import { io } from "socket.io-client";
+import {
+  Paperclip,
+  Send,
+  FileText,
+  X,
+  ArrowLeft,
+  Loader2,
+} from "lucide-react";
+
+const socket = io("http://localhost:5000");
+const STORAGE_KEY = "jpm-applicant-chat";
+
+const formatDateTime = (timestamp) =>
+  timestamp
+    ? new Date(timestamp).toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+
+const normalizeId = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value.toString) return value.toString();
+  return String(value);
+};
 
 export default function ApplicantsMessages() {
-  const [messages, setMessages] = useState([
-    { sender: "admin", text: "Good day! How can we assist you with your job application today?" },
-  ]);
+  const [session, setSession] = useState(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      console.error("Failed to parse applicant session:", err);
+      return null;
+    }
+  });
+  const [conversation, setConversation] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const [applicantName, setApplicantName] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [file, setFile] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [isPromptOpen, setIsPromptOpen] = useState(!session);
+  const [nameInput, setNameInput] = useState(session?.name ?? "");
+  const [emailInput, setEmailInput] = useState(session?.email ?? "");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+
   const messagesEndRef = useRef(null);
+  const bootstrappedRef = useRef(false);
+  const subjectSentRef = useRef(false); // legacy, no longer auto-sending
+  const [hiringContext, setHiringContext] = useState(null);
+  const [hiringDetails, setHiringDetails] = useState(null);
 
   useEffect(() => {
-    document.title = "Messages | JPM Security Agency";
+    // Capture hiring context from URL params
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const hiringId = params.get("hiringId");
+      const title = params.get("title");
+      const position = params.get("position");
+      const location = params.get("location");
+      if (hiringId || title || position || location) {
+        setHiringContext({ hiringId, title, position, location });
+      }
+    } catch (_) {}
+
+    document.title = "Connect with HR | JPM Security Agency";
   }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = (e) => {
-    e.preventDefault();
+  const persistSession = (data) => {
+    setSession(data);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  };
 
-    // If no name yet, show modal
-    if (!applicantName.trim()) {
-      setIsModalOpen(true);
+  const fetchMessages = async (conversationId, applicantId) => {
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/applicant-messages/${conversationId}?applicantId=${applicantId}`
+      );
+      if (!res.ok) throw new Error("Failed to load messages");
+      const data = await res.json();
+      setMessages(data);
+    } catch (err) {
+      console.error(err);
+      setError("Unable to load conversation history right now.");
+    }
+  };
+
+  useEffect(() => {
+    if (!session || bootstrappedRef.current) return;
+    if (!session.name) {
+      setIsPromptOpen(true);
       return;
     }
 
-    if (!newMessage.trim()) return;
+    bootstrappedRef.current = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const res = await fetch("http://localhost:5000/api/applicant-messages/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: session.name, email: session.email, phone: phoneInput || undefined }),
+        });
 
-    const message = { sender: applicantName, text: newMessage };
-    setMessages((prev) => [...prev, message]);
-    setNewMessage("");
+        if (!res.ok) {
+          throw new Error(await res.text());
+        }
 
-    // Simulate admin reply (demo only)
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        { sender: "admin", text: "Thank you for reaching out. We’ll get back to you shortly." },
-      ]);
-    }, 1500);
+        const data = await res.json();
+        const updatedSession = {
+          name: data.applicant.name,
+          email: data.applicant.email ?? session.email ?? "",
+          applicantId: data.applicant._id,
+          conversationId: data.conversation._id,
+        };
+        persistSession(updatedSession);
+        setConversation(data.conversation);
+
+        socket.emit("userOnline", data.applicant._id);
+        socket.emit("joinConversation", data.conversation._id);
+        await fetchMessages(data.conversation._id, data.applicant._id);
+      } catch (err) {
+        console.error(err);
+        setError("We couldn't start the conversation. Please try again.");
+        setIsPromptOpen(true);
+        bootstrappedRef.current = false;
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [session]);
+
+  // Fetch full hiring details if hiringId is present
+  useEffect(() => {
+    const loadHiring = async () => {
+      if (!hiringContext?.hiringId) return;
+      try {
+        const res = await fetch(`http://localhost:5000/api/hirings/${hiringContext.hiringId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setHiringDetails(data);
+        } else {
+          setHiringDetails(null);
+        }
+      } catch {
+        setHiringDetails(null);
+      }
+    };
+    loadHiring();
+  }, [hiringContext?.hiringId]);
+
+  useEffect(() => {
+    if (!session?.conversationId || !session?.applicantId) return;
+
+    const handleReceiveMessage = (msg) => {
+      if (normalizeId(msg.conversationId) !== normalizeId(session.conversationId)) return;
+      setMessages((prev) =>
+        prev.some((m) => m._id === msg._id) ? prev : [...prev, msg]
+      );
+    };
+
+    const handleConversationUpdated = (conv) => {
+      if (normalizeId(conv._id) !== normalizeId(session.conversationId)) return;
+      setConversation(conv);
+    };
+
+    socket.on("receiveMessage", handleReceiveMessage);
+    socket.on("conversationUpdated", handleConversationUpdated);
+
+    return () => {
+      socket.off("receiveMessage", handleReceiveMessage);
+      socket.off("conversationUpdated", handleConversationUpdated);
+    };
+  }, [session?.conversationId, session?.applicantId]);
+
+  const handleSubmitIdentity = async (e) => {
+    e.preventDefault();
+    if (!nameInput.trim()) {
+      setError("Please provide your name so we can personalize the chat.");
+      return;
+    }
+    if (!phoneInput.trim()) {
+      setError("Please provide your phone number so we can contact you.");
+      return;
+    }
+    setError("");
+    persistSession({ name: nameInput.trim(), email: emailInput.trim() });
+    setIsPromptOpen(false);
   };
 
-  const handleNameSubmit = (e) => {
+  const handleFileChange = (event) => {
+    const selected = event.target.files?.[0];
+    if (!selected) return;
+    setFile(selected);
+  };
+
+  const resetComposer = () => {
+    setNewMessage("");
+    setFile(null);
+  };
+
+  const handleSend = async (e) => {
     e.preventDefault();
-    if (applicantName.trim()) {
-      setIsModalOpen(false);
+    if (!session?.conversationId || !session?.applicantId) {
+      console.error("❌ [ApplicantsMessages] Missing session data:", {
+        hasConversationId: !!session?.conversationId,
+        hasApplicantId: !!session?.applicantId,
+        conversationId: session?.conversationId,
+        applicantId: session?.applicantId
+      });
+      setIsPromptOpen(true);
+      return;
+    }
+    if (!newMessage.trim() && !file && !hiringContext) return;
+
+    try {
+      setSending(true);
+      console.log("📤 [ApplicantsMessages] Sending message:", {
+        conversationId: session.conversationId,
+        applicantId: session.applicantId,
+        hasText: !!newMessage.trim(),
+        hasFile: !!file
+      });
+
+      // Prepare message text with forwarded post context if present
+      let composedText = newMessage || "";
+      if (hiringContext) {
+        const job = hiringDetails || {};
+        const title = job.title || hiringContext.title || "";
+        const position = job.position || hiringContext.position || "";
+        const location = job.location || hiringContext.location || "";
+        const employmentType = job.employmentType || job.employment || "";
+        const createdAt = job.createdAt ? new Date(job.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "";
+        const description = job.description || "";
+        const header = `[Forwarded Job Post]\n`;
+        const block = [
+          title ? `Title: ${title}` : "",
+          position ? `Position: ${position}` : "",
+          location ? `Location: ${location}` : "",
+          employmentType ? `Employment: ${employmentType}` : "",
+          createdAt ? `Posted: ${createdAt}` : "",
+        ].filter(Boolean).join("\n");
+        const descBlock = description ? `\n\nDescription:\n${description}` : "";
+        const ref = hiringContext.hiringId ? `\nRef: ${hiringContext.hiringId}` : "";
+        const forwarded = `${header}${block}${descBlock}${ref}`;
+        composedText = composedText ? `${forwarded}\n\n${composedText}` : forwarded;
+      }
+
+      const formData = new FormData();
+      formData.append("text", composedText);
+      formData.append("applicantId", session.applicantId);
+      if (hiringContext?.position) {
+        formData.append("jobPosition", hiringContext.position);
+      }
+      if (file) formData.append("file", file);
+
+      const url = `http://localhost:5000/api/applicant-messages/${session.conversationId}/messages`;
+      console.log("🌐 [ApplicantsMessages] Request URL:", url);
+
+      const res = await fetch(url, {
+        method: "POST",
+        body: formData,
+      });
+
+      console.log("📡 [ApplicantsMessages] Response status:", res.status, res.statusText);
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("❌ [ApplicantsMessages] Error response:", errorText);
+        
+        // If conversation not found, try to re-initialize
+        if (res.status === 404 && errorText.includes("Conversation not found")) {
+          console.log("🔄 [ApplicantsMessages] Conversation not found, re-initializing...");
+          // Clear session and re-initialize
+          const reinitRes = await fetch("http://localhost:5000/api/applicant-messages/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: session.name, email: session.email }),
+          });
+          
+          if (reinitRes.ok) {
+            const reinitData = await reinitRes.json();
+            const updatedSession = {
+              name: reinitData.applicant.name,
+              email: reinitData.applicant.email ?? session.email ?? "",
+              applicantId: reinitData.applicant._id,
+              conversationId: reinitData.conversation._id,
+            };
+            persistSession(updatedSession);
+            setConversation(reinitData.conversation);
+            
+            // Retry sending the message with the new conversationId
+            const retryFormData = new FormData();
+            retryFormData.append("text", newMessage);
+            retryFormData.append("applicantId", updatedSession.applicantId);
+            if (file) retryFormData.append("file", file);
+            
+            const retryRes = await fetch(
+              `http://localhost:5000/api/applicant-messages/${updatedSession.conversationId}/messages`,
+              {
+                method: "POST",
+                body: retryFormData,
+              }
+            );
+            
+            if (!retryRes.ok) {
+              throw new Error(await retryRes.text());
+            }
+            
+            const retryData = await retryRes.json();
+            setMessages((prev) => [...prev, retryData.message]);
+            setConversation(retryData.conversation);
+            resetComposer();
+            return;
+          }
+        }
+        
+        throw new Error(errorText);
+      }
+
+      const data = await res.json();
+      setMessages((prev) =>
+        prev.some((m) => (m?._id || "").toString() === (data?.message?._id || "").toString())
+          ? prev
+          : [...prev, data.message]
+      );
+      setConversation(data.conversation);
+      resetComposer();
+      // Clear hiring context after first send to avoid duplication
+      setHiringContext(null);
+      setHiringDetails(null);
+      try {
+        const url = new URL(window.location.href);
+        url.search = "";
+        window.history.replaceState({}, "", url.toString());
+      } catch (_) {}
+    } catch (err) {
+      console.error("❌ [ApplicantsMessages] Error:", err);
+      setError("Your message couldn't be sent. Please retry.");
+    } finally {
+      setSending(false);
     }
   };
 
+  const headerSubtitle = useMemo(() => {
+    if (!conversation?.lastMessage?.createdAt) {
+      return "We're online Monday to Saturday, 8AM – 5PM.";
+    }
+    return `Last response • ${formatDateTime(conversation.lastMessage.createdAt)}`;
+  }, [conversation?.lastMessage?.createdAt]);
+
+  const renderMessageAttachment = (msg) => {
+    if (!msg.file) return null;
+    const isImage = /\.(png|jpe?g|gif|webp)$/i.test(msg.file);
+
+    if (isImage) {
+      return (
+        <img
+          src={`http://localhost:5000${msg.file}`}
+          alt={msg.fileName || "attachment"}
+          className="mt-3 rounded-lg border border-white/10 max-w-full max-h-64 object-cover cursor-pointer"
+          onClick={() => setPreviewImage(`http://localhost:5000${msg.file}`)}
+        />
+      );
+    }
+
+    return (
+      <a
+        href={`http://localhost:5000${msg.file}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-3 inline-flex items-center gap-2 text-sm text-blue-200 underline hover:text-blue-100"
+      >
+        <FileText className="w-4 h-4" />
+        {msg.fileName || "View attachment"}
+      </a>
+    );
+  };
+
+  const isSender = (msg) =>
+    normalizeId(msg.senderId) === normalizeId(session?.applicantId);
+
   return (
-    <div className="bg-[#0f172a] min-h-screen flex flex-col text-gray-100">
-      {/* Header */}
-      <header className="bg-[#10263a] py-4 px-4 text-center border-b border-blue-500/40 shadow-md sticky top-0 z-10">
-        <h1 className="text-xl sm:text-2xl font-bold text-white">Messages</h1>
-        <p className="text-xs sm:text-sm text-gray-400">
-          Chat with our recruitment team directly
-        </p>
-      </header>
-
-      {/* Chat Container */}
-      <main className="flex-grow flex justify-center px-2 sm:px-4 py-6 sm:py-10">
-        <div className="w-full max-w-3xl bg-[#1e293b]/90 backdrop-blur-md rounded-2xl shadow-lg border border-gray-700 flex flex-col overflow-hidden">
-          {/* Chat Messages */}
-          <div className="flex-1 p-3 sm:p-6 space-y-3 sm:space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-700 scrollbar-track-transparent">
-            {messages.map((msg, index) => (
-              <div
-                key={index}
-                className={`flex ${
-                  msg.sender === "admin" ? "justify-start" : "justify-end"
-                }`}
-              >
-                <div
-                  className={`max-w-[80%] sm:max-w-md p-3 sm:p-4 rounded-xl shadow-sm text-sm sm:text-base leading-relaxed
-                    ${
-                      msg.sender === "admin"
-                        ? "bg-gray-700 text-gray-100 rounded-bl-none"
-                        : "bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-br-none"
-                    }`}
-                >
-                  {msg.text}
-                </div>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
+    <div className="fixed inset-0 flex flex-col bg-gradient-to-b from-[#0b1220] via-[#102137] to-[#0b1220] text-gray-100">
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#0f172a]/80 backdrop-blur">
+        <div className="max-w-4xl mx-auto px-4 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold text-white">Talk with JPM Recruitment</h1>
+            <p className="text-sm text-gray-400">{headerSubtitle}</p>
           </div>
-
-          {/* Message Input */}
-          <form
-            onSubmit={handleSend}
-            className="flex items-center gap-2 sm:gap-3 p-2 sm:p-4 border-t border-gray-700 bg-[#111827]"
-          >
-            {/* File Upload */}
-            <label
-              htmlFor="file-upload"
-              className="cursor-pointer bg-[#0f172a] border border-gray-700 rounded-lg p-2 sm:p-2.5 hover:bg-blue-600/20 transition relative group flex-shrink-0"
-            >
-              <FileSymlink className="w-5 h-5 text-gray-300 group-hover:text-blue-400 transition" />
-              <input
-                id="file-upload"
-                type="file"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if (file) {
-                    alert(`📎 Attached: ${file.name}`);
-                    // TODO: handle file upload logic
-                  }
-                }}
-              />
-            </label>
-
-            {/* Text Input */}
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type your message..."
-              className="flex-1 bg-[#0f172a] border border-gray-700 rounded-lg px-3 sm:px-4 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-
-            {/* Send Button */}
-            <button
-              type="submit"
-              className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 p-2 sm:p-2.5 rounded-lg transition-transform transform hover:-translate-y-0.5 shadow-md flex-shrink-0"
-            >
-              <Send className="w-5 h-5 text-white" />
-            </button>
-          </form>
+          {session?.name && (
+            <div className="text-xs text-gray-400">
+              Chatting as{" "}
+              <span className="text-blue-300 font-semibold">{session.name}</span>
+            </div>
+          )}
+        </div>
+      </header>
+  
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <div className="max-w-4xl mx-auto h-full flex flex-col px-4 py-6">
+          <div className="flex-1 flex flex-col rounded-3xl border border-white/10 bg-white/5 backdrop-blur overflow-hidden">
+            {/* Sub-header */}
+            <div className="px-6 py-5 border-b border-white/5 bg-white/5 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="rounded-full bg-blue-500/20 text-blue-200 px-3 py-1 text-xs uppercase tracking-wide">
+                  Applicant Support
+                </div>
+                {loading && (
+                  <div className="flex items-center gap-2 text-xs text-gray-300">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Connecting to HR...
+                  </div>
+                )}
+              </div>
+              <p className="text-sm text-gray-300 mt-2">
+                Ask us anything about your application. We’ll keep this conversation active so
+                you can return anytime.
+              </p>
+            </div>
+  
+            {/* Messages area (scrollable) */}
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-4 scrollbar-thin scrollbar-thumb-blue-600/60 scrollbar-track-transparent">
+              {messages.map((msg) => {
+                const mine = isSender(msg);
+                return (
+                  <div key={msg._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-[85%] sm:max-w-md rounded-2xl px-4 py-3 shadow-lg ring-1 ring-white/5 ${
+                        mine
+                          ? "bg-gradient-to-br from-blue-600 to-blue-500 text-white"
+                          : "bg-white/10 text-gray-100"
+                      }`}
+                    >
+                      {msg.text && <p className="whitespace-pre-wrap break-words">{msg.text}</p>}
+                      {renderMessageAttachment(msg)}
+                      <div
+                        className={`text-[10px] mt-3 ${
+                          mine ? "text-blue-100/70" : "text-gray-300/70"
+                        } text-right`}
+                      >
+                        {formatDateTime(msg.createdAt)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {!messages.length && !loading && (
+                <div className="text-center text-sm text-gray-400 mt-8">
+                  Start the conversation and our HR team will respond shortly.
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+  
+            {/* Composer */}
+            <div className="px-3 sm:px-6 py-4 sm:py-5 border-t border-white/10 bg-[#101d32]/70 flex-shrink-0 pb-[env(safe-area-inset-bottom)]">
+              {error && (
+                <div className="mb-3 text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+                  {error}
+                </div>
+              )}
+              {hiringContext && (
+                <div className="mb-3 flex items-start gap-3 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                  <div className="flex-1 text-sm text-gray-100">
+                    <div className="text-blue-200 font-semibold mb-1">Forwarding Job Post</div>
+                    <div className="text-gray-200">
+                      {(hiringDetails?.title || hiringContext.title) && (
+                        <div><span className="text-blue-300">Title:</span> {hiringDetails?.title || hiringContext.title}</div>
+                      )}
+                      {(hiringDetails?.position || hiringContext.position) && (
+                        <div><span className="text-blue-300">Position:</span> {hiringDetails?.position || hiringContext.position}</div>
+                      )}
+                      {(hiringDetails?.location || hiringContext.location) && (
+                        <div><span className="text-blue-300">Location:</span> {hiringDetails?.location || hiringContext.location}</div>
+                      )}
+                      {(hiringDetails?.employmentType || hiringDetails?.employment) && (
+                        <div><span className="text-blue-300">Employment:</span> {hiringDetails?.employmentType || hiringDetails?.employment}</div>
+                      )}
+                      {hiringDetails?.createdAt && (
+                        <div><span className="text-blue-300">Posted:</span> {new Date(hiringDetails.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</div>
+                      )}
+                      {hiringDetails?.description && (
+                        <div className="mt-2 text-gray-300 whitespace-pre-line">
+                          {hiringDetails.description}
+                        </div>
+                      )}
+                      {hiringContext?.hiringId && (
+                        <div className="mt-1 text-xs text-gray-400">Ref: {hiringContext.hiringId}</div>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setHiringContext(null); setHiringDetails(null); }}
+                    className="text-gray-400 hover:text-white transition mt-1"
+                    aria-label="Remove forwarded post"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              {file && (
+                <div className="mb-3 flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                  {file.type?.startsWith("image/") ? (
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt={file.name}
+                      className="w-12 h-12 object-cover rounded-lg border border-white/10"
+                    />
+                  ) : (
+                    <FileText className="w-6 h-6 text-blue-200" />
+                  )}
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-200 truncate">{file.name}</p>
+                    <p className="text-[11px] text-gray-400">
+                      {(file.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFile(null)}
+                    className="text-gray-400 hover:text-white transition"
+                    aria-label="Remove attachment"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+  
+              <form onSubmit={handleSend} className="flex items-center gap-2 sm:gap-3">
+                <label className="flex-shrink-0">
+                  <div className="rounded-full bg-white/5 border border-white/10 p-2.5 sm:p-3 hover:bg-white/10 transition cursor-pointer">
+                    <Paperclip className="w-5 h-5 text-gray-300" />
+                  </div>
+                  <input type="file" className="hidden" onChange={handleFileChange} />
+                </label>
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type your message..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-full px-4 sm:px-5 py-2.5 sm:py-3 text-sm text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/70"
+                />
+                <button
+                  type="submit"
+                  disabled={sending}
+                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-2.5 sm:py-3 text-white font-medium shadow-lg hover:shadow-xl transition disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                </button>
+              </form>
+            </div>
+          </div>
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="bg-[#10263a] py-3 text-center border-t border-gray-800 text-gray-500 text-[10px] sm:text-xs">
-        © {new Date().getFullYear()} JPM Security Agency — Professional Recruitment Portal
+  
+      <footer className="border-t border-white/10 bg-[#0f172a]/80 text-center text-xs text-gray-500 py-4">
+        © {new Date().getFullYear()} JPM Security Agency • Talent & Recruitment Desk
       </footer>
-
-      {/* ===== Name Prompt Modal ===== */}
-      <Transition appear show={isModalOpen} as={Fragment}>
-        <Dialog
-          as="div"
-          className="relative z-50"
-          onClose={() => setIsModalOpen(false)} // ✅ Enables Esc & outside click close
-        >
+  
+      <Transition appear show={isPromptOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-40" onClose={() => setIsPromptOpen(false)}>
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
@@ -154,11 +583,9 @@ export default function ApplicantsMessages() {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            {/* Background overlay */}
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
           </Transition.Child>
-
-          {/* Centered modal content */}
+  
           <div className="fixed inset-0 flex items-center justify-center p-4">
             <Transition.Child
               as={Fragment}
@@ -169,27 +596,58 @@ export default function ApplicantsMessages() {
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md bg-[#1e293b] rounded-2xl p-6 text-center shadow-lg border border-blue-800/40">
-                <Dialog.Title className="text-lg font-bold text-white mb-2">
-                  Welcome Applicant
+              <Dialog.Panel className="w-full max-w-md rounded-3xl border border-white/10 bg-[#0f172a] p-6 shadow-2xl">
+                <Dialog.Title className="text-lg font-semibold text-white">
+                  Let's introduce ourselves
                 </Dialog.Title>
-                <p className="text-sm text-gray-400 mb-4">
-                  Please enter your full name before starting the chat.
+                <p className="text-sm text-gray-400 mt-2">
+                  Share your name so our recruitment team knows who they're speaking with.
                 </p>
-
-                <form onSubmit={handleNameSubmit} className="space-y-4">
-                  <input
-                    type="text"
-                    value={applicantName}
-                    onChange={(e) => setApplicantName(e.target.value)}
-                    placeholder="Enter your name"
-                    className="w-full px-4 py-2 rounded-md bg-[#0f172a] text-gray-200 border border-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  />
+  
+                <form onSubmit={handleSubmitIdentity} className="mt-6 space-y-4">
+                  <div>
+                    <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
+                      Full name
+                    </label>
+                    <input
+                      type="text"
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
+                      placeholder="Juan Dela Cruz"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
+                      Phone number
+                    </label>
+                    <input
+                      type="tel"
+                      value={phoneInput}
+                      onChange={(e) => setPhoneInput(e.target.value)}
+                      className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
+                      placeholder="09XXXXXXXXX"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
+                      Email (optional)
+                    </label>
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
+                      placeholder="you@email.com"
+                    />
+                  </div>
                   <button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold py-2 rounded-md transition"
+                    className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition"
                   >
-                    Continue
+                    Start chatting
                   </button>
                 </form>
               </Dialog.Panel>
@@ -197,6 +655,24 @@ export default function ApplicantsMessages() {
           </div>
         </Dialog>
       </Transition>
+  
+      {previewImage && (
+        <div className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <button
+            onClick={() => setPreviewImage(null)}
+            className="absolute top-6 left-6 text-white flex items-center gap-2 text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to chat
+          </button>
+          <img
+            src={previewImage}
+            alt="Attachment preview"
+            className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl border border-white/10"
+          />
+        </div>
+      )}
     </div>
   );
+  
 }

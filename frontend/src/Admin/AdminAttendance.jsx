@@ -59,7 +59,7 @@ export default function GuardAttendancePage() {
       <main className="flex-1 flex flex-col p-4 md:p-6">
         {/* ===== Header ===== */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-3">
-          <h2 className="text-2xl font-bold tracking-wide text-white flex items-center gap-2">
+          <h2 className="text-3xl font-bold tracking-wide text-white flex items-center gap-2">
             <Clock className="w-6 h-6 text-blue-400" />
             Guards Attendance
           </h2>

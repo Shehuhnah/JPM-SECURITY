@@ -58,20 +58,44 @@ export default function AdminDashboard() {
 
     const fetchDashboardData = async () => {
       try {
-        const [guardsRes, annRes, logsRes, applicantsRes] = await Promise.all([
-          fetch("http://localhost:5000/api/guards"),
-          fetch("http://localhost:5000/api/posts"),
-          fetch("http://localhost:5000/api/logbook"),
+        const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
+        const [guardsRes, postsRes, logsRes] = await Promise.all([
+          fetch("http://localhost:5000/api/guards", { headers: authHeaders }),
+          fetch("http://localhost:5000/api/posts", { headers: authHeaders }),
+          fetch("http://localhost:5000/api/logbook", { headers: authHeaders }),
         ]);
 
-        const guards = await guardsRes.json();
-        const announcements = await annRes.json();
-        const logs = await logsRes.json();
+        const [guards, announcements, logs] = await Promise.all([
+          guardsRes.ok ? guardsRes.json() : Promise.resolve([]),
+          postsRes.ok ? postsRes.json() : Promise.resolve([]),
+          logsRes.ok ? logsRes.json() : Promise.resolve([]),
+        ]);
+
+        // Try to fetch applicants count from common endpoints; fall back gracefully
+        let applicantsCount = 0;
+        try {
+          const hiringsRes = await fetch("http://localhost:5000/api/hirings", { headers: authHeaders });
+          if (hiringsRes.ok) {
+            const hirings = await hiringsRes.json();
+            applicantsCount = Array.isArray(hirings) ? hirings.length : 0;
+          } else {
+            // Secondary fallback: a potential applicants endpoint if present
+            const applicantsRes = await fetch("http://localhost:5000/api/applicants", { headers: authHeaders });
+            if (applicantsRes.ok) {
+              const applicants = await applicantsRes.json();
+              applicantsCount = Array.isArray(applicants) ? applicants.length : 0;
+            }
+          }
+        } catch (_) {
+          // Ignore and keep applicantsCount at 0 if endpoint is unavailable
+        }
 
         setStats({
-          totalGuards: guards.length,
-          announcements: announcements.length,
-          logs: logs.length,
+          totalGuards: Array.isArray(guards) ? guards.length : 0,
+          applicants: applicantsCount,
+          announcements: Array.isArray(announcements) ? announcements.length : 0,
+          logs: Array.isArray(logs) ? logs.length : 0,
         });
       } catch (err) {
         console.error("Dashboard fetch error:", err);

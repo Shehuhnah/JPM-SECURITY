@@ -146,7 +146,7 @@ export const loginGuard = async (req, res) => {
   }
 };
 
-// 🔹 Get all Subadmins (for Admin)
+// 🔹 Get all Subadmins (for Admin) FOR CONVERSATION
 export const getSubadmins = async (req, res) => {
   try {
     const subadmins = await User.find({ role: "Subadmin" }).select(
@@ -158,7 +158,7 @@ export const getSubadmins = async (req, res) => {
   }
 };
 
-// 🔹 Get all Admins (for Subadmin)
+// 🔹 Get all Admins (for Subadmin) FOR CONVERSATION
 export const getAdmins = async (req, res) => {
   try {
     const admins = await User.find({ role: "Admin" }).select(
@@ -167,5 +167,18 @@ export const getAdmins = async (req, res) => {
     res.json(admins);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// 🔹 Get all Guards (for Subadmin) FOR CONVERSATION
+export const getGuards = async (req, res) => {
+  try {
+    const guards = await Guard.find({ role: "Guard" }).select(
+      "fullName email role guardId dutyStation shift status"
+    );
+    res.json(guards);
+  } catch (err) {
+    console.error("Error fetching guards:", err.message);
+    res.status(500).json({ message: "Server error fetching guards" });
   }
 };

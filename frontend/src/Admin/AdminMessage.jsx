@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 import { useEffect, useState, useRef } from "react";
-import { Paperclip, Send, Search, CircleUserRound, ArrowLeft  } from "lucide-react";
+import { Paperclip, Send, Search, CircleUserRound, ArrowLeft, MessageSquare  } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 const socket = io("http://localhost:5000");
@@ -9,6 +9,8 @@ export default function MessagesPage() {
   const { admin: user, token } = useAuth();
   const messagesEndRef = useRef(null);
   const hasNotifiedOnline = useRef(false);
+  const fileInputRef = useRef();
+  const [previewImage, setPreviewImage] = useState(null)
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [availableUsers, setAvailableUsers] = useState([]);
@@ -16,48 +18,38 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [search, setSearch] = useState("");
-  const [previewImage, setPreviewImage] = useState(null);
   const [file, setFile] = useState(null);
-  const fileInputRef = useRef();
 
-  // Scroll to bottom
+  // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    document.title = "Message | JPM Security Agency"
+  })
+
+  // Format timestamp
   const formatDateTime = (timestamp) => {
     if (!timestamp) return "";
     const date = new Date(timestamp);
-    return date.toLocaleString([], {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
+    return date.toLocaleString([], { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true });
   };
 
   const isUserOnline = (userId) => onlineUsers.includes(userId);
 
-  // Normalize participant names
   const getParticipantName = (p) => {
     if (!p) return "Unknown";
     if (typeof p.userId === "object" && p.userId?.name) return p.userId.name;
 
-    // Check availableUsers
-    const match = availableUsers.find(
-      (u) => u._id === (typeof p.userId === "string" ? p.userId : p.userId?._id)
-    );
+    const match = availableUsers.find(u => u._id === (typeof p.userId === "string" ? p.userId : p.userId?._id));
     if (match) return match.name;
-
-    // Check logged-in user
     if (p.userId === user._id) return user.name || "Me";
 
     return "Unknown";
   };
 
-  // Notify online
+  // Notify backend that user is online
   useEffect(() => {
     if (user && !hasNotifiedOnline.current) {
       socket.emit("userOnline", user._id);
@@ -70,18 +62,19 @@ export default function MessagesPage() {
   // Listen for seen messages
   useEffect(() => {
     socket.on("messages_seen", ({ conversationId }) => {
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv._id === conversationId
-            ? { ...conv, lastMessage: { ...conv.lastMessage, seen: true } }
-            : conv
+      setConversations(prev =>
+        prev.map(conv =>
+          conv._id === conversationId ? { ...conv, lastMessage: { ...conv.lastMessage, seen: true } } : conv
         )
       );
     });
     return () => socket.off("messages_seen");
   }, []);
 
-  // Fetch conversations
+  const isAdminConversation = (conversation) =>
+    conversation?.type === "admin-subadmin" || conversation?.type === "subadmin-admin";
+
+  // Fetch conversations (only Admin ↔ Subadmin)
   useEffect(() => {
     const fetchConversations = async () => {
       try {
@@ -89,7 +82,10 @@ export default function MessagesPage() {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        setConversations(Array.isArray(data) ? data : []);
+        const filtered = (Array.isArray(data) ? data : []).filter(conv =>
+          conv.type === "admin-subadmin" || conv.type === "subadmin-admin"
+        );
+        setConversations(filtered);
       } catch (err) {
         console.error("Error fetching conversations:", err);
       }
@@ -97,18 +93,15 @@ export default function MessagesPage() {
     fetchConversations();
   }, [token]);
 
-  // Fetch available users
+  // Fetch users for starting new chats
   useEffect(() => {
     if (!user) return;
     const fetchUsers = async () => {
       try {
-        const endpoint =
-          user.role === "Admin"
-            ? "http://localhost:5000/api/auth/subadmins"
-            : "http://localhost:5000/api/auth/admins";
-        const res = await fetch(endpoint, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const endpoint = user.role === "Admin"
+          ? "http://localhost:5000/api/auth/subadmins"
+          : "http://localhost:5000/api/auth/admins";
+        const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
         const data = await res.json();
         setAvailableUsers(Array.isArray(data) ? data : []);
       } catch (err) {
@@ -118,9 +111,9 @@ export default function MessagesPage() {
     fetchUsers();
   }, [user, token]);
 
-  // Load messages & listen
+  // Load messages for selected conversation & listen for updates
   useEffect(() => {
-    if (!selectedConversation) return;
+    if (!selectedConversation || selectedConversation.isTemp || !isAdminConversation(selectedConversation)) return;
 
     socket.emit("joinConversation", selectedConversation._id);
     socket.emit("mark_seen", { conversationId: selectedConversation._id, userId: user._id });
@@ -139,45 +132,54 @@ export default function MessagesPage() {
     fetchMessages();
 
     const handleReceiveMessage = (msg) => {
-      setMessages((prev) => {
-        // Skip if this message already exists (by _id or _tempId)
-        if (prev.some((m) => m._id === msg._id || m._tempId === msg._tempId)) return prev;
-        return [...prev, msg];
-      });
-
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv._id === msg.conversationId
-            ? { ...conv, lastMessage: { text: msg.text, senderId: msg.senderId, createdAt: msg.createdAt } }
-            : conv
-        )
+      setConversations(prev =>
+        prev.some(conv => conv._id === msg.conversationId && isAdminConversation(conv))
+          ? prev.map(conv =>
+              conv._id === msg.conversationId
+                ? {
+                    ...conv,
+                    lastMessage: {
+                      text: msg.text,
+                      senderId: msg.senderId,
+                      createdAt: msg.createdAt,
+                      seen: msg.seen ?? false,
+                    },
+                  }
+                : conv
+            )
+          : prev
       );
+
+      setMessages(prev => {
+        if (
+          !selectedConversation ||
+          !isAdminConversation(selectedConversation) ||
+          selectedConversation._id !== msg.conversationId
+        ) {
+          return prev;
+        }
+        return prev.some(m => m._id === msg._id || m._tempId === msg._tempId) ? prev : [...prev, msg];
+      });
     };
 
     socket.on("receiveMessage", handleReceiveMessage);
     return () => socket.off("receiveMessage", handleReceiveMessage);
-  }, [selectedConversation, token, user._id]);
+  }, [selectedConversation?._id, token, user._id]);
 
-  // 🔁 Listen for new messages in *other* conversations (sidebar + receiver updates)
+  // Listen for conversation updates (other conversations)
   useEffect(() => {
     const handleConversationUpdated = async (updatedConv) => {
-      setConversations((prev) => {
-        const exists = prev.some((c) => c._id === updatedConv._id);
-        if (exists) {
-          // Update existing conversation
-          return prev.map((c) => (c._id === updatedConv._id ? updatedConv : c));
-        }
-        // Add new conversation to top if it's new
+      if (!isAdminConversation(updatedConv)) return;
+
+      setConversations(prev => {
+        const exists = prev.some(c => c._id === updatedConv._id);
+        if (exists) return prev.map(c => c._id === updatedConv._id ? updatedConv : c);
         return [updatedConv, ...prev];
       });
 
-      // 🔥 If the receiver is currently viewing this conversation, refresh messages immediately
       if (selectedConversation?._id === updatedConv._id) {
         try {
-          const res = await fetch(
-            `http://localhost:5000/api/messages/${updatedConv._id}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          const res = await fetch(`http://localhost:5000/api/messages/${updatedConv._id}`, { headers: { Authorization: `Bearer ${token}` } });
           const data = await res.json();
           setMessages(Array.isArray(data) ? data : []);
         } catch (err) {
@@ -185,66 +187,52 @@ export default function MessagesPage() {
         }
       }
     };
-
     socket.on("conversationUpdated", handleConversationUpdated);
     return () => socket.off("conversationUpdated", handleConversationUpdated);
   }, [selectedConversation, token]);
 
+  // Send message
   const handleSend = async () => {
     if (!newMessage.trim() && !file) return;
     if (!selectedConversation) return;
 
-    const receiver = selectedConversation.participants.find(
-      (p) => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id
-    );
+    if (!isAdminConversation(selectedConversation)) return;
+
+    const receiver = selectedConversation.participants.find(p => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id);
     if (!receiver) return;
 
     const tempId = Date.now();
 
     const formData = new FormData();
     formData.append("text", newMessage);
-    formData.append("type", selectedConversation.type || "subadmin-applicant");
-    formData.append(
-      "receiverId",
-      typeof receiver.userId === "string" ? receiver.userId : receiver.userId?._id
-    );
+    formData.append("type", selectedConversation.type || "admin-subadmin");
+    formData.append("receiverId", typeof receiver.userId === "string" ? receiver.userId : receiver.userId?._id);
     formData.append("receiverRole", receiver.role);
     if (file) formData.append("file", file);
 
     try {
-      const res = await fetch("http://localhost:5000/api/messages", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-
-      if (!res.ok) {
-        console.error("Failed to send message:", await res.text());
-        return;
-      }
+      const res = await fetch("http://localhost:5000/api/messages", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData });
+      if (!res.ok) return console.error("Failed to send message:", await res.text());
 
       const { message, conversation: realConversation } = await res.json();
 
-      // 1️⃣ Replace temp conversation with real one if exists
-      setConversations((prev) => {
-        if (selectedConversation.isTemp) {
-          return prev.map((conv) =>
-            conv._id === selectedConversation._id ? realConversation : conv
-          );
-        } else {
-          return prev.map((conv) =>
-            conv._id === realConversation._id ? realConversation : conv
-          );
+      setConversations(prev => {
+        if (selectedConversation?.isTemp) {
+          const exists = prev.some(conv => conv._id === realConversation._id);
+          const withoutTemp = prev.filter(conv => !conv.isTemp);
+          return exists
+            ? withoutTemp.map(conv => conv._id === realConversation._id ? realConversation : conv)
+            : [realConversation, ...withoutTemp];
         }
+        const exists = prev.some(conv => conv._id === realConversation._id);
+        return exists
+          ? prev.map(conv => conv._id === realConversation._id ? realConversation : conv)
+          : [realConversation, ...prev];
       });
 
-      // 2️⃣ Optimistically add message to UI
-      setMessages((prev) => [...prev, { ...message, _tempId: tempId }]);
-
-      // 3️⃣ Replace temp selectedConversation with real one
-      setSelectedConversation(realConversation);
-
-      // 4️⃣ Reset input & file
+      setSelectedConversation(prev =>
+        prev && prev._id === realConversation._id ? prev : realConversation
+      );
       setNewMessage("");
       setFile(null);
     } catch (err) {
@@ -252,71 +240,44 @@ export default function MessagesPage() {
     }
   };
 
+  // Start new chat
   const handleStartChat = (targetUser) => {
     if (!targetUser?.role) return;
 
-    // Check if conversation already exists
-    const existing = conversations.find((conv) =>
-      (conv.participants ?? []).some((p) => {
-        const pid = typeof p.userId === "string" ? p.userId : p.userId?._id;
-        return pid === targetUser._id;
-      })
+    const existing = conversations.find(conv =>
+      (conv.participants ?? []).some(p => (typeof p.userId === "string" ? p.userId : p.userId?._id) === targetUser._id)
     );
+    if (existing) return setSelectedConversation(existing);
 
-    if (existing) {
-      setSelectedConversation(existing);
-      return;
-    }
-
-    // Determine conversation type
     let type = "";
     if (user.role === "Admin" && targetUser.role === "Subadmin") type = "admin-subadmin";
     else if (user.role === "Subadmin" && targetUser.role === "Admin") type = "subadmin-admin";
-    else if (targetUser.role === "Applicant") type = "subadmin-applicant";
-    else return;
+    else return; // ignore other roles
 
-    // Create a temporary conversation locally
     const tempConversation = {
-      _id: `temp-${Date.now()}`, // temporary ID
+      _id: `temp-${Date.now()}`,
       participants: [
         { userId: user._id, role: user.role, name: user.name },
         { userId: targetUser._id, role: targetUser.role, name: targetUser.name },
       ],
       type,
-      lastMessage: null, // no message yet
-      isTemp: true,      // mark as temporary
+      lastMessage: null,
+      isTemp: true,
     };
-
     setSelectedConversation(tempConversation);
   };
 
+  // Merge conversations + available users for sidebar
   const shownUsers = [
-    // Include all real conversations first
-    ...conversations.map((c) => ({ type: "conversation", id: c._id, data: c })),
-
-    // Include available users that are not in conversations
-    ...availableUsers
-      .filter(
-        (u) =>
-          !conversations.some((c) =>
-            (c.participants ?? []).some((p) => {
-              const pid = typeof p.userId === "string" ? p.userId : p.userId?._id;
-              return pid === u._id;
-            })
-          )
-      )
-      .map((u) => ({ type: "user", id: u._id, data: u }))
+    ...conversations.map(c => ({ type: "conversation", id: c._id, data: c })),
+    ...availableUsers.filter(u => !conversations.some(c => (c.participants ?? []).some(p => (typeof p.userId === "string" ? p.userId : p.userId?._id) === u._id)))
+      .map(u => ({ type: "user", id: u._id, data: u }))
   ];
 
-  const filteredUsers = shownUsers.filter((item) => {
-    const name =
-      item.type === "conversation"
-        ? getParticipantName(
-            (item.data.participants ?? []).find(
-              (p) => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id
-            )
-          )
-        : item.data?.name ?? "Unknown";
+  const filteredUsers = shownUsers.filter(item => {
+    const name = item.type === "conversation"
+      ? getParticipantName((item.data.participants ?? []).find(p => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id))
+      : item.data?.name ?? "Unknown";
     return name.toLowerCase().includes(search.toLowerCase());
   });
 
@@ -325,7 +286,7 @@ export default function MessagesPage() {
       {/* Sidebar */}
       <aside className="w-full md:w-72 bg-[#0b1220] border-r border-gray-800 flex flex-col">
         <h2 className="p-4 text-lg font-bold text-gray-100 bg-gradient-to-r from-[#1e293b] to-[#243447] shadow-md tracking-wide">
-          Messages
+          <p className="flex gap-2"><MessageSquare/> Staff Messages</p>
         </h2>
         <div className="p-3">
           <div className="flex items-center bg-[#111827] border border-gray-700 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500 transition-all">
