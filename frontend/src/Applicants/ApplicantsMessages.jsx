@@ -48,7 +48,7 @@ export default function ApplicantsMessages() {
   const [isPromptOpen, setIsPromptOpen] = useState(!session);
   const [nameInput, setNameInput] = useState(session?.name ?? "");
   const [emailInput, setEmailInput] = useState(session?.email ?? "");
-  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneInput, setPhoneInput] = useState(session?.phone ?? "");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -81,6 +81,8 @@ export default function ApplicantsMessages() {
 
   const persistSession = (data) => {
     setSession(data);
+    if (data.phone !== undefined) setPhoneInput(data.phone ?? "");
+    if (data.email !== undefined) setEmailInput(data.email ?? "");
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   };
 
@@ -99,6 +101,12 @@ export default function ApplicantsMessages() {
   };
 
   useEffect(() => {
+    if (!session?.email || !session?.phone) {
+      setIsPromptOpen(true);
+    }
+  }, [session?.email, session?.phone]);
+
+  useEffect(() => {
     if (!session || bootstrappedRef.current) return;
     if (!session.name) {
       setIsPromptOpen(true);
@@ -109,10 +117,16 @@ export default function ApplicantsMessages() {
     (async () => {
       try {
         setLoading(true);
+        const phonePayload = session.phone ?? phoneInput;
         const res = await fetch("http://localhost:5000/api/applicant-messages/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: session.name, email: session.email, phone: phoneInput || undefined }),
+          body: JSON.stringify({
+            name: session.name,
+            email: session.email,
+            phone: phonePayload,
+            position: hiringContext?.position,
+          }),
         });
 
         if (!res.ok) {
@@ -125,8 +139,11 @@ export default function ApplicantsMessages() {
           email: data.applicant.email ?? session.email ?? "",
           applicantId: data.applicant._id,
           conversationId: data.conversation._id,
+          phone: data.applicant.phone ?? phoneInput,
         };
         persistSession(updatedSession);
+        setPhoneInput(data.applicant.phone ?? phoneInput ?? "");
+        setEmailInput(data.applicant.email ?? session.email ?? "");
         setConversation(data.conversation);
 
         socket.emit("userOnline", data.applicant._id);
@@ -192,12 +209,20 @@ export default function ApplicantsMessages() {
       setError("Please provide your name so we can personalize the chat.");
       return;
     }
-    if (!phoneInput.trim()) {
+    const emailTrim = emailInput.trim();
+    const phoneTrim = phoneInput.trim();
+    if (!phoneTrim) {
       setError("Please provide your phone number so we can contact you.");
       return;
     }
+    if (!emailTrim || !/^[\w-.]+@([\w-]+\.)+[\w-]{2,}$/.test(emailTrim)) {
+      setError("Please provide a valid email address.");
+      return;
+    }
     setError("");
-    persistSession({ name: nameInput.trim(), email: emailInput.trim() });
+    persistSession({ name: nameInput.trim(), email: emailTrim, phone: phoneTrim });
+    setEmailInput(emailTrim);
+    setPhoneInput(phoneTrim);
     setIsPromptOpen(false);
   };
 
@@ -285,14 +310,14 @@ export default function ApplicantsMessages() {
         if (res.status === 404 && errorText.includes("Conversation not found")) {
           console.log("🔄 [ApplicantsMessages] Conversation not found, re-initializing...");
           // Clear session and re-initialize
-          const reinitRes = await fetch("http://localhost:5000/api/applicant-messages/session", {
+          const res = await fetch("http://localhost:5000/api/applicant-messages/session", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: session.name, email: session.email }),
+            body: JSON.stringify({ name: session.name, email: session.email, phone: phoneInput, position: hiringContext?.position }),
           });
           
-          if (reinitRes.ok) {
-            const reinitData = await reinitRes.json();
+          if (res.ok) {
+            const reinitData = await res.json();
             const updatedSession = {
               name: reinitData.applicant.name,
               email: reinitData.applicant.email ?? session.email ?? "",
@@ -633,7 +658,7 @@ export default function ApplicantsMessages() {
                   </div>
                   <div>
                     <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
-                      Email (optional)
+                      Email
                     </label>
                     <input
                       type="email"
@@ -641,6 +666,7 @@ export default function ApplicantsMessages() {
                       onChange={(e) => setEmailInput(e.target.value)}
                       className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
                       placeholder="you@email.com"
+                      required
                     />
                   </div>
                   <button

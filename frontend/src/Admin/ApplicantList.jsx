@@ -18,6 +18,9 @@ export default function ApplicantsList() {
   const [interviewTime, setInterviewTime] = useState("");
   const [interviewMessage, setInterviewMessage] = useState("");
   const [sendingInvite, setSendingInvite] = useState(false);
+  const [hireModal, setHireModal] = useState({ open: false, applicant: null });
+  const [hireMessage, setHireMessage] = useState("");
+  const [sendingHire, setSendingHire] = useState(false);
   const { admin, token } = useAuth();
   const role = admin?.role;
   const isSubadmin = role === "Subadmin";
@@ -92,6 +95,69 @@ export default function ApplicantsList() {
     setInterviewModal({ open: false, applicant: null });
   };
 
+  const openHireModal = (applicant) => {
+    setHireModal({ open: true, applicant });
+    setHireMessage("");
+  };
+  
+  const closeHireModal = () => {
+    setHireModal({ open: false, applicant: null });
+    setHireMessage("");
+  };
+  
+  const sendHireNotification = async () => {
+    if (!hireModal.applicant) return;
+    const applicant = hireModal.applicant;
+  
+    try {
+      setSendingHire(true);
+  
+      // 1) Update status to Hired
+      await updateStatus(applicant._id, "Hired");
+  
+      // 2) Send message to applicant conversation
+      const messageText = `🎉 Congratulations! You've been hired for the position of ${applicant.position || "Security Personnel"}!${
+        hireMessage?.trim() ? `\n\n${hireMessage.trim()}` : ""
+      }\n\nWelcome to JPM Security Agency! We will be in touch soon with onboarding details.`;
+  
+      const formData = new FormData();
+      formData.append("text", messageText);
+      formData.append("receiverId", applicant._id);
+      formData.append("receiverRole", "Applicant");
+      formData.append("type", "applicant-subadmin");
+  
+      const msgRes = await fetch("http://localhost:5000/api/messages", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!msgRes.ok) throw new Error(await msgRes.text());
+  
+      // 3) Send hire email
+      try {
+        await fetch(`http://localhost:5000/api/applicants/${applicant._id}/hire-email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            message: hireMessage,
+          }),
+        });
+      } catch (emailErr) {
+        console.error("Failed to send hire email:", emailErr);
+      }
+  
+      closeHireModal();
+    } catch (err) {
+      console.error("Failed to send hire notification:", err);
+      alert("❌ Failed to send hire notification.");
+    } finally {
+      setSendingHire(false);
+    }
+  };
+
   const formatDate = (val) => {
     if (!val) return "";
     try {
@@ -130,6 +196,27 @@ export default function ApplicantsList() {
         body: formData,
       });
       if (!res.ok) throw new Error(await res.text());
+
+      try {
+        await fetch(`http://localhost:5000/api/applicants/${applicant._id}/interview-email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            type: interviewType,
+            date: interviewDate || null,
+            startDate: interviewStart || null,
+            endDate: interviewEnd || null,
+            time: interviewTime || null,
+            message: interviewMessage,
+          }),
+        });
+      } catch (emailErr) {
+        console.error("Failed to send interview email:", emailErr);
+      }
+
       closeInterviewModal();
     } catch (err) {
       console.error("Failed to send interview invite:", err);
@@ -276,7 +363,7 @@ export default function ApplicantsList() {
                             <UserCheck size={14} /> Interview
                           </button>
                           <button
-                            onClick={() => openConfirmModal(a, "Hired")}
+                            onClick={() => openHireModal(a)}
                             className="bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded-md flex items-center gap-1 text-sm"
                           >
                             <CheckCircle size={14} /> Hire
@@ -422,6 +509,85 @@ export default function ApplicantsList() {
                     <button onClick={closeInterviewModal} className="px-4 py-2 rounded-lg border border-gray-600 text-gray-200 hover:bg-white/5">Cancel</button>
                     <button onClick={sendInterviewInvite} disabled={sendingInvite || (interviewType === "single" ? !interviewDate : !(interviewStart && interviewEnd))} className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-60">
                       {sendingInvite ? "Sending..." : "Send"}
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Hire Modal */}
+      <Transition appear show={hireModal.open} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={closeHireModal}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-200"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-150"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/60" />
+          </Transition.Child>
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-200"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-150"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md rounded-2xl bg-[#0f172a] border border-white/10 p-6 shadow-xl text-gray-100">
+                  <Dialog.Title className="text-lg font-semibold mb-2 flex items-center gap-2">
+                    <CheckCircle className="text-green-400" size={24} />
+                    Hire Applicant
+                  </Dialog.Title>
+                  <div className="text-sm text-gray-300 mb-4">
+                    Send a congratulatory email to {hireModal.applicant?.name}.
+                  </div>
+
+                  <div className="bg-[#1a2338] border border-white/10 rounded-lg p-3 text-sm mb-4">
+                    <div className="font-semibold text-white">{hireModal.applicant?.name}</div>
+                    <div className="text-gray-300 text-xs mt-1">
+                      {hireModal.applicant?.email || "No email provided"}
+                    </div>
+                    <div className="text-gray-300 text-xs">
+                      Position: {hireModal.applicant?.position || "N/A"}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
+                      Additional Message (optional)
+                    </label>
+                    <textarea
+                      value={hireMessage}
+                      onChange={(e) => setHireMessage(e.target.value)}
+                      rows={4}
+                      className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/70"
+                      placeholder="Add onboarding details, start date, or any additional information..."
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-3 mt-6">
+                    <button
+                      onClick={closeHireModal}
+                      className="px-4 py-2 rounded-lg border border-gray-600 text-gray-200 hover:bg-white/5"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={sendHireNotification}
+                      disabled={sendingHire}
+                      className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white disabled:opacity-60 flex items-center gap-2"
+                    >
+                      {sendingHire ? "Sending..." : "🎉 Hire & Notify"}
                     </button>
                   </div>
                 </Dialog.Panel>

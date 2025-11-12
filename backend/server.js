@@ -57,6 +57,8 @@ app.use(
 
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads/messages")));
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
+
 
 // ✅ Register routes
 app.use("/api/auth", authRoutes);

@@ -33,12 +33,15 @@ export const initApplicantConversation = async (req, res) => {
     if (!name?.trim()) {
       return res.status(400).json({ message: "Applicant name is required." });
     }
+    if (!email?.trim()) {
+      return res.status(400).json({ message: "Applicant email is required." });
+    }
 
     let applicant = await Applicant.findOne({ name: name.trim(), email: email?.trim() });
     if (!applicant) {
       applicant = await Applicant.create({
         name: name.trim(),
-        email: email?.trim(),
+        email: email.trim(),
         phone: phone?.trim() || "",
         position: position?.trim() || "Unknown",
         status: "Review",

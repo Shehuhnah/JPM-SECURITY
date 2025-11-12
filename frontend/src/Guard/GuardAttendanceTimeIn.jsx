@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Clock, Camera, User, Calendar, CheckCircle, ArrowRight, MapPin, RotateCcw } from "lucide-react";
+import { guardAuth } from "../hooks/guardAuth";
 
 function GuardAttendanceTimeIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -10,12 +11,24 @@ function GuardAttendanceTimeIn() {
   const [capturedImage, setCapturedImage] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
+  
+  // Use guardAuth as the single source of truth for guard data
+  const { guard } = guardAuth();
+  const user = {
+    fullName: guard?.fullName ?? "Unknown",
+    guardId: guard?.guardId ?? guard?._id ?? guard?.id ?? "Unknown",
+    dutyStation: guard?.dutyStation ?? "",
+    position: guard?.position ?? "",
+    shift: guard?.shift ?? "",
+    email: guard?.email ?? "",
+    phoneNumber: guard?.phoneNumber ?? "",
+    address: guard?.address ?? "",
+  };
   
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
-  
-  const user = JSON.parse(localStorage.getItem("loggedInUser"));
 
   // Update time every second
   useEffect(() => {
@@ -51,22 +64,59 @@ function GuardAttendanceTimeIn() {
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
+      // Show overlay immediately with loading state
+      setShowCamera(true);
+      setCameraLoading(true);
+
+      const constraintsPrimary = {
+        video: {
           facingMode: 'user',
           width: { ideal: 1280 },
           height: { ideal: 720 }
-        } 
-      });
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-        setShowCamera(true);
+        }
+      };
+      const constraintsFallback = { video: true };
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Camera not supported in this browser.');
       }
+
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraintsPrimary);
+      } catch (e1) {
+        console.warn('Primary constraints failed, trying fallback:', e1);
+        stream = await navigator.mediaDevices.getUserMedia(constraintsFallback);
+      }
+
+      // Bind stream and aggressively try to play
+      requestAnimationFrame(() => {
+        const video = videoRef.current;
+        if (!video) return;
+        video.srcObject = stream;
+        streamRef.current = stream;
+
+        const tryPlay = () => video.play().catch(() => {});
+        tryPlay();
+        video.onloadedmetadata = tryPlay;
+        video.oncanplay = () => {
+          tryPlay();
+          setCameraLoading(false);
+        };
+
+        // Fallback: if dimensions are 0, retry shortly and stop loading when ready
+        setTimeout(() => {
+          if (video.videoWidth === 0 || video.videoHeight === 0) {
+            tryPlay();
+          } else {
+            setCameraLoading(false);
+          }
+        }, 150);
+      });
     } catch (error) {
-      console.error("Error accessing camera:", error);
-      alert("Unable to access camera. Please check permissions.");
+      console.error('Error accessing camera:', error);
+      setCameraLoading(false);
+      alert('Unable to access camera. Please check permissions and that you are on HTTPS or localhost.');
     }
   };
 
@@ -94,22 +144,32 @@ function GuardAttendanceTimeIn() {
     // Draw video frame to canvas
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Add overlay with time and location
+    // Add overlay with time and location and guard info
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(0, 0, canvas.width, 120);
+    ctx.fillRect(0, 0, canvas.width, 170);
 
     // Add text overlay
     ctx.fillStyle = 'white';
     ctx.font = 'bold 24px Arial';
     ctx.textAlign = 'left';
-    
+
+    const guardName = user?.fullName || 'Unknown';
+    const guardCode = user?.guardId || user?._id || user?.id || 'Unknown';
+    const dutyStation = user?.dutyStation || 'Unknown';
+    const position = user?.position || 'Unknown';
+    const shift = user?.shift || 'Unknown';
+    const siteAddress = currentLocation?.address || dutyStation || 'Unknown';
     const timeText = `Time: ${currentTime.toLocaleString()}`;
-    const locationText = `Location: ${currentLocation?.address || 'Unknown'}`;
-    const guardText = `Guard: ${user?.fullName || 'Unknown'}`;
+    const roleText = `Role: ${position} | Shift: ${shift} | Station: ${dutyStation}`;
+    const siteText = `Site: ${siteAddress}`;
+    const coordsText = currentLocation ? `Coords: ${Number(currentLocation.latitude).toFixed(5)}, ${Number(currentLocation.longitude).toFixed(5)}` : 'Coords: Unknown';
+    const guardText = `Guard: ${guardName} (ID: ${guardCode})`;
 
     ctx.fillText(guardText, 20, 35);
-    ctx.fillText(timeText, 20, 65);
-    ctx.fillText(locationText, 20, 95);
+    ctx.fillText(roleText, 20, 65);
+    ctx.fillText(timeText, 20, 95);
+    ctx.fillText(siteText, 20, 125);
+    ctx.fillText(coordsText, 20, 155);
 
     // Convert canvas to image
     const imageData = canvas.toDataURL('image/jpeg', 0.8);
@@ -135,10 +195,16 @@ function GuardAttendanceTimeIn() {
     const timeInData = {
       id: Date.now(),
       guardName: user?.fullName || "Guard Name",
-      guardId: user?.id || "12345",
+      guardId: user?.guardId || user?._id || user?.id || "Unknown",
+      position: user?.position || "",
+      shift: user?.shift || "",
+      dutyStation: user?.dutyStation || "",
+      email: user?.email || "",
+      phoneNumber: user?.phoneNumber || "",
       date: currentTime.toLocaleDateString(),
       timeIn: currentTime.toLocaleTimeString(),
       location: currentLocation,
+      siteAddress: currentLocation?.address || user?.dutyStation || "",
       photo: capturedImage,
       status: "On Duty",
       submittedAt: currentTime.toLocaleString()
@@ -188,8 +254,17 @@ function GuardAttendanceTimeIn() {
               ref={videoRef}
               autoPlay
               playsInline
+              muted
               className="w-full h-full object-cover"
             />
+
+            {cameraLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                <div className="text-white text-sm font-medium px-4 py-2 bg-black/60 rounded-lg border border-white/10">
+                  Initializing camera...
+                </div>
+              </div>
+            )}
             
             {/* Camera Overlay */}
             <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
@@ -251,7 +326,7 @@ function GuardAttendanceTimeIn() {
             <h2 className="text-xl font-semibold text-white mb-2">
               {user?.fullName?.toUpperCase() || "GUARD NAME"}
             </h2>
-            <p className="text-gray-400 text-sm">ID: {user?.id || "12345"}</p>
+            <p className="text-gray-400 text-sm">ID: {user?.guardId || user?._id || user?.id || "Unknown"}</p>
           </div>
 
           {/* Real-time Clock */}
