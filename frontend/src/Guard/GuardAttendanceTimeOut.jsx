@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Clock, MapPin, User, Calendar, CheckCircle, ArrowLeft, Timer } from "lucide-react";
+import { guardAuth } from "../hooks/guardAuth";
 
 function GuardAttendanceTimeOut() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -8,8 +9,14 @@ function GuardAttendanceTimeOut() {
   const [attendanceData, setAttendanceData] = useState(null);
   const [timeInData, setTimeInData] = useState(null);
   const [workingHours, setWorkingHours] = useState("0h 0m");
-  
-  const user = JSON.parse(localStorage.getItem("loggedInUser"));
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const { guard, token } = guardAuth();
+  const user = {
+    fullName: guard?.fullName ?? "Unknown",
+    guardId: guard?.guardId ?? guard?._id ?? guard?.id ?? "Unknown",
+  };
 
   // Update time every second
   useEffect(() => {
@@ -20,51 +27,69 @@ function GuardAttendanceTimeOut() {
     return () => clearInterval(timer);
   }, []);
 
-  // Load the most recent time-in data
+  // Load today's time-in data from backend
   useEffect(() => {
-    const attendanceHistory = JSON.parse(localStorage.getItem("guardAttendance")) || [];
-    const todayAttendance = attendanceHistory.filter(record => 
-      record.date === currentTime.toLocaleDateString() && 
-      record.status === "On Duty"
-    );
-    
-    if (todayAttendance.length > 0) {
-      const latestTimeIn = todayAttendance[todayAttendance.length - 1];
-      setTimeInData(latestTimeIn);
-      
-      // Calculate working hours
-      const timeIn = new Date(`${latestTimeIn.date} ${latestTimeIn.timeIn}`);
-      const timeOut = currentTime;
-      const diffMs = timeOut - timeIn;
-      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-      const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-      setWorkingHours(`${diffHours}h ${diffMinutes}m`);
-    }
-  }, [currentTime]);
+    const run = async () => {
+      if (!guard?._id || !token) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`http://localhost:5000/api/attendance/${guard._id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json().catch(() => []);
+        if (!res.ok) throw new Error(data?.message || "Failed to fetch attendance");
+        const today = new Date().toLocaleDateString();
+        const todays = Array.isArray(data) ? data.find(r => r.date === today) : null;
+        if (todays) {
+          setTimeInData(todays);
+        }
+      } catch (e) {
+        setError(e.message || 'Failed to load attendance');
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+  }, [guard?._id, token]);
 
-  const handleTimeOut = () => {
+  // Recompute working hours periodically
+  useEffect(() => {
+    if (!timeInData) return;
+    const timeIn = new Date(`${timeInData.date} ${timeInData.timeIn}`);
+    const timeOut = currentTime;
+    const diffMs = timeOut - timeIn;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    setWorkingHours(`${diffHours}h ${diffMinutes}m`);
+  }, [currentTime, timeInData]);
+
+  const handleTimeOut = async () => {
     if (!timeInData) {
       alert("No time-in record found for today. Please time in first.");
       return;
     }
-
-    const timeOutData = {
-      ...timeInData,
-      timeOut: currentTime.toLocaleTimeString(),
-      workingHours: workingHours,
-      status: "Completed",
-      completedAt: currentTime.toLocaleString()
-    };
-
-    // Update localStorage
-    const existingAttendance = JSON.parse(localStorage.getItem("guardAttendance")) || [];
-    const updatedAttendance = existingAttendance.map(record => 
-      record.id === timeInData.id ? timeOutData : record
-    );
-    localStorage.setItem("guardAttendance", JSON.stringify(updatedAttendance));
-
-    setAttendanceData(timeOutData);
-    setIsSubmitted(true);
+    try {
+      const payload = {
+        timeOut: currentTime.toLocaleTimeString(),
+        status: "Off Duty",
+      };
+      const res = await fetch(`http://localhost:5000/api/attendance/attendance-time-out/${timeInData._id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+      const updated = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(updated?.message || `Failed to time out (${res.status})`);
+      setAttendanceData(updated);
+      setIsSubmitted(true);
+    } catch (e) {
+      console.error('Time out failed:', e);
+      alert(e.message || 'Failed to submit time out');
+    }
   };
 
   const formatTime = (date) => {
@@ -105,7 +130,7 @@ function GuardAttendanceTimeOut() {
             <h2 className="text-xl font-semibold text-white mb-2">
               {user?.fullName?.toUpperCase() || "GUARD NAME"}
             </h2>
-            <p className="text-gray-400 text-sm">ID: {user?.id || "12345"}</p>
+            <p className="text-gray-400 text-sm">ID: {user?.guardId || "Unknown"}</p>
           </div>
 
           {/* Real-time Clock */}
@@ -122,6 +147,12 @@ function GuardAttendanceTimeOut() {
             </div>
           </div>
 
+          {loading && (
+            <div className="mb-4 text-sm text-blue-300">Loading today’s attendance...</div>
+          )}
+          {error && (
+            <div className="mb-4 text-sm text-red-300">{error}</div>
+          )}
           {/* Time In Summary */}
           {timeInData && (
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
@@ -140,7 +171,7 @@ function GuardAttendanceTimeOut() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Location:</span>
-                  <span className="text-gray-200">{timeInData.location}</span>
+                  <span className="text-gray-200">{timeInData.location?.address || '-'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Working Hours:</span>

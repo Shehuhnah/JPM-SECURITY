@@ -50,46 +50,53 @@ export default function AdminDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [chartData, setChartData] = useState({
+    guardStatus: [0, 0, 0], // On Duty, Off Duty, Absent
+    attendance7d: { labels: [], data: [] },
+    applicantsByStatus: { labels: [], data: [] },
+  });
+  const [recentActivities, setRecentActivities] = useState([]);
 
   useEffect(() => {
-    if (!admin && !token) {
+    if (!admin || !token) {
       navigate("/admin/login");
+      return;
     }
+  }, [admin, token, navigate]);
 
+  useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+        setLoading(true);
+        setError(null);
+        const headers = { Authorization: `Bearer ${token}` };
 
-        const [guardsRes, postsRes, logsRes] = await Promise.all([
-          fetch("http://localhost:5000/api/guards", { headers: authHeaders }),
-          fetch("http://localhost:5000/api/posts", { headers: authHeaders }),
-          fetch("http://localhost:5000/api/logbook", { headers: authHeaders }),
+        const [guardsRes, postsRes, logsRes, attendanceRes, hiringsRes, applicantsRes] = await Promise.all([
+          fetch("http://localhost:5000/api/guards", { headers }),
+          fetch("http://localhost:5000/api/posts", { headers }),
+          fetch("http://localhost:5000/api/logbook", { headers }),
+          fetch("http://localhost:5000/api/attendance", { headers }),
+          fetch("http://localhost:5000/api/hirings", { headers }).catch(() => null),
+          fetch("http://localhost:5000/api/applicants", { headers }).catch(() => null),
         ]);
 
-        const [guards, announcements, logs] = await Promise.all([
-          guardsRes.ok ? guardsRes.json() : Promise.resolve([]),
-          postsRes.ok ? postsRes.json() : Promise.resolve([]),
-          logsRes.ok ? logsRes.json() : Promise.resolve([]),
-        ]);
 
-        // Try to fetch applicants count from common endpoints; fall back gracefully
-        let applicantsCount = 0;
-        try {
-          const hiringsRes = await fetch("http://localhost:5000/api/hirings", { headers: authHeaders });
-          if (hiringsRes.ok) {
-            const hirings = await hiringsRes.json();
-            applicantsCount = Array.isArray(hirings) ? hirings.length : 0;
-          } else {
-            // Secondary fallback: a potential applicants endpoint if present
-            const applicantsRes = await fetch("http://localhost:5000/api/applicants", { headers: authHeaders });
-            if (applicantsRes.ok) {
-              const applicants = await applicantsRes.json();
-              applicantsCount = Array.isArray(applicants) ? applicants.length : 0;
-            }
-          }
-        } catch (_) {
-          // Ignore and keep applicantsCount at 0 if endpoint is unavailable
-        }
+
+        const guards = guardsRes?.ok ? await guardsRes.json() : [];
+        const announcements = postsRes?.ok ? await postsRes.json() : [];
+        const logs = logsRes?.ok ? await logsRes.json() : [];
+        const attendance = attendanceRes?.ok ? await attendanceRes.json() : [];
+
+        console.log(logs)
+
+
+        // Parse optional resources exactly once
+        const hirings = hiringsRes && hiringsRes.ok ? await hiringsRes.json() : [];
+        const applicants = applicantsRes && applicantsRes.ok ? await applicantsRes.json() : [];
+
+        const applicantsCount = (Array.isArray(hirings) && hirings.length)
+          ? hirings.length
+          : (Array.isArray(applicants) ? applicants.length : 0);
 
         setStats({
           totalGuards: Array.isArray(guards) ? guards.length : 0,
@@ -97,6 +104,82 @@ export default function AdminDashboard() {
           announcements: Array.isArray(announcements) ? announcements.length : 0,
           logs: Array.isArray(logs) ? logs.length : 0,
         });
+
+        // Build charts
+        // Guard Status Overview
+        const statusCounts = { 'On Duty': 0, 'Off Duty': 0, 'Absent': 0 };
+        if (Array.isArray(attendance)) {
+          attendance.forEach((a) => {
+            const key = a.status || 'Off Duty';
+            if (statusCounts[key] === undefined) statusCounts[key] = 0;
+            statusCounts[key]++;
+          });
+        }
+        const guardStatus = [statusCounts['On Duty'] || 0, statusCounts['Off Duty'] || 0, statusCounts['Absent'] || 0];
+
+        // Weekly Attendance Trend (last 7 days by createdAt)
+        const days = [...Array(7)].map((_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() - (6 - i));
+          return d;
+        });
+        const labels = days.map((d) => d.toLocaleDateString(undefined, { weekday: 'short' }));
+        const dayKeys = days.map((d) => d.toLocaleDateString());
+        const counts7d = dayKeys.map((k) => 0);
+        if (Array.isArray(attendance)) {
+          attendance.forEach((a) => {
+            const created = a.createdAt ? new Date(a.createdAt).toLocaleDateString() : a.date;
+            const idx = dayKeys.indexOf(created);
+            if (idx >= 0) counts7d[idx] += 1;
+          });
+        }
+
+        // Applicants by Status (try to aggregate if status exists)
+        let applicantsLabels = [];
+        let applicantsData = [];
+        if (Array.isArray(hirings) && hirings.length) {
+          const agg = {};
+          hirings.forEach((h) => {
+            const s = (h.status || 'Unknown').toString();
+            agg[s] = (agg[s] || 0) + 1;
+          });
+          applicantsLabels = Object.keys(agg);
+          applicantsData = Object.values(agg);
+        }
+        if (!applicantsLabels.length && Array.isArray(applicants) && applicants.length) {
+          const agg = {};
+          applicants.forEach((a) => {
+            const s = (a.status || 'Unknown').toString();
+            agg[s] = (agg[s] || 0) + 1;
+          });
+          applicantsLabels = Object.keys(agg);
+          applicantsData = Object.values(agg);
+        }
+        if (!applicantsLabels.length) {
+          applicantsLabels = ['Applicants'];
+          applicantsData = [applicantsCount];
+        }
+
+        setChartData({
+          guardStatus,
+          attendance7d: { labels, data: counts7d },
+          applicantsByStatus: { labels: applicantsLabels, data: applicantsData },
+        });
+
+        // Build recent activities from logs
+        const logsSorted = Array.isArray(logs)
+          ? [...logs].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+          : [];
+          const activities = logsSorted.slice(0, 12).map((l, idx) => ({
+            id: l._id || l.id || idx,
+            type: l.type || "Log",
+            remarks: l.remarks || "",
+            time: l.createdAt
+              ? new Date(l.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              : "-",
+            guard: l.guard || {},
+          }));
+        setRecentActivities(activities);
       } catch (err) {
         console.error("Dashboard fetch error:", err);
         setError("Failed to load dashboard data.");
@@ -106,14 +189,16 @@ export default function AdminDashboard() {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [token])
+
+  console.log()
 
   // 📊 Chart Data
   const guardStatusData = {
-    labels: ["On Duty", "Off Duty", "Leave"],
+    labels: ["On Duty", "Off Duty", "Absent"],
     datasets: [
       {
-        data: [28, 16, 4],
+        data: chartData.guardStatus,
         backgroundColor: ["#3b82f6", "#64748b", "#f97316"],
         borderWidth: 1,
       },
@@ -121,22 +206,22 @@ export default function AdminDashboard() {
   };
 
   const applicantData = {
-    labels: ["Pending", "Interview", "Hired", "Rejected"],
+    labels: chartData.applicantsByStatus.labels,
     datasets: [
       {
         label: "Applicants",
-        data: [8, 4, 3, 1],
-        backgroundColor: ["#eab308", "#3b82f6", "#22c55e", "#ef4444"],
+        data: chartData.applicantsByStatus.data,
+        backgroundColor: ["#eab308", "#3b82f6", "#22c55e", "#ef4444", "#f97316", "#14b8a6"],
       },
     ],
   };
 
   const attendanceTrendData = {
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    labels: chartData.attendance7d.labels,
     datasets: [
       {
         label: "Attendance Count",
-        data: [35, 37, 34, 39, 42, 41, 40],
+        data: chartData.attendance7d.data,
         fill: true,
         backgroundColor: "rgba(59,130,246,0.2)",
         borderColor: "#3b82f6",
@@ -221,39 +306,32 @@ export default function AdminDashboard() {
 
             <div className="lg:col-span-2 bg-[#1e293b] rounded-xl shadow-lg p-6">
                 <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                    <UserCheck className="text-blue-400" /> Recent Guard Activities
+                    <UserCheck className="text-blue-400" /> Recent Guard Logs
                 </h2>
 
                 {/* Scrollable List */}
                 <ul className="divide-y divide-gray-700 text-gray-300 overflow-y-auto max-h-64 pr-2">
-                    <li className="py-2 flex justify-between">
-                    <span>Guard Mark Dela Cruz logged duty at Post A</span>
-                    <span className="text-gray-500 text-sm">10:32 AM</span>
-                    </li>
-                    <li className="py-2 flex justify-between">
-                    <span>Guard Ana Santos submitted incident report</span>
-                    <span className="text-gray-500 text-sm">09:18 AM</span>
-                    </li>
-                    <li className="py-2 flex justify-between">
-                    <span>Guard Tony Reyes marked off-duty</span>
-                    <span className="text-gray-500 text-sm">08:45 AM</span>
-                    </li>
-                    <li className="py-2 flex justify-between">
-                    <span>Guard Carlo Lopez resumed shift</span>
-                    <span className="text-gray-500 text-sm">08:20 AM</span>
-                    </li>
-                    <li className="py-2 flex justify-between">
-                    <span>Guard Ricky Perez submitted attendance</span>
-                    <span className="text-gray-500 text-sm">07:55 AM</span>
-                    </li>
-                    <li className="py-2 flex justify-between">
-                    <span>Guard Maria Cruz reported incident</span>
-                    <span className="text-gray-500 text-sm">07:40 AM</span>
-                    </li>
-                    <li className="py-2 flex justify-between">
-                    <span>Guard Leo Santos checked in at Post C</span>
-                    <span className="text-gray-500 text-sm">07:30 AM</span>
-                    </li>
+                  {recentActivities.length ? (
+                    recentActivities.map((a) => (
+                      <li key={a.id} className="py-3 flex flex-col">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium text-blue-400">{a.type || "Log"}</span>
+                          <span className="text-gray-500 text-sm">{a.time}</span>
+                        </div>
+                        {a.remarks && (
+                          <p className="text-gray-300 text-sm mt-1">{a.remarks}</p>
+                        )}
+                        {a.guard && (
+                          <p className="text-gray-500 text-xs mt-1">
+                            {a.guard.fullName || "Unknown Guard"}{" "}
+                            {a.guard.dutyStation ? `• ${a.guard.dutyStation}` : ""}
+                          </p>
+                        )}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="py-2 text-gray-500 italic">No recent activities</li>
+                  )}
                 </ul>
             </div>
           </section>

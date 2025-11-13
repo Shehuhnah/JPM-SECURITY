@@ -298,7 +298,7 @@ export default function ApplicantsList() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-transparent text-sm text-gray-200 focus:outline-none"
+                className="bg-[#1e293b] text-sm text-gray-200 focus:outline-none"
               >
                 <option value="All">All Status</option>
                 <option value="Review">Review</option>

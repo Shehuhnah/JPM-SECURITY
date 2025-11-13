@@ -7,15 +7,16 @@ import {
     deleteLogbook,
     getLogsByGuard,
 } from "../controller/logbookController.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 // CRUD routes
-router.post("/", createLogbook);
-router.get("/", getLogbooks);
-router.get("/:id", getLogbookById);
-router.put("/:id", updateLogbook);
-router.delete("/:id", deleteLogbook);
-router.get("/guard/:guardId", getLogsByGuard);
+router.post("/", protect, createLogbook);
+router.get("/", protect, getLogbooks);
+router.get("/:id", protect, getLogbookById);
+router.put("/:id", protect, updateLogbook);
+router.delete("/:id", protect, deleteLogbook);
+router.get("/guard/:guardId", protect, getLogsByGuard);
 
 export default router;

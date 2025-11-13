@@ -12,9 +12,11 @@ function GuardAttendanceTimeIn() {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [cameraLoading, setCameraLoading] = useState(false);
+  const [alreadyTimedIn, setAlreadyTimedIn] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [checkError, setCheckError] = useState(null);
   
-  // Use guardAuth as the single source of truth for guard data
-  const { guard } = guardAuth();
+  const { guard, token } = guardAuth();
   const user = {
     fullName: guard?.fullName ?? "Unknown",
     guardId: guard?.guardId ?? guard?._id ?? guard?.id ?? "Unknown",
@@ -30,7 +32,6 @@ function GuardAttendanceTimeIn() {
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
 
-  // Update time every second
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -39,27 +40,82 @@ function GuardAttendanceTimeIn() {
     return () => clearInterval(timer);
   }, []);
 
-  // Get current location
+  // Check if already timed-in today for this guard
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCurrentLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            address: "Location detected" // In a real app, you'd reverse geocode this
-          });
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-          setCurrentLocation({
-            latitude: 0,
-            longitude: 0,
-            address: "Location unavailable"
-          });
+    const run = async () => {
+      if (!guard?._id || !token) {
+        setChecking(false);
+        return;
+      }
+      setChecking(true);
+      setCheckError(null);
+      try {
+        const res = await fetch(`http://localhost:5000/api/attendance/${guard._id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await res.json().catch(() => []);
+        if (!res.ok) {
+          // 404 means no records found — that's fine
+          setChecking(false);
+          return;
         }
-      );
+        const today = new Date().toLocaleDateString();
+        const todays = Array.isArray(data) ? data.find((r) => r.date === today) : null;
+        if (todays) {
+          setAlreadyTimedIn(true);
+          setAttendanceData(todays);
+          setIsSubmitted(true);
+        }
+      } catch (e) {
+        setCheckError(e.message || 'Failed to check attendance');
+      } finally {
+        setChecking(false);
+      }
+    };
+    run();
+  }, [guard?._id, token]);
+
+  // Reverse geocoding via OpenStreetMap Nominatim
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`;
+      const res = await fetch(url, {
+        headers: {
+          Accept: 'application/json',
+          // Per Nominatim policy, supply a valid user-agent/contact
+          'User-Agent': 'JPM-Security-Attendance/1.0 (contact: support@jpm-security.local)'
+        }
+      });
+      if (!res.ok) throw new Error(`Reverse geocode failed (${res.status})`);
+      const data = await res.json();
+      return data.display_name || data.address?.road || 'Location detected';
+    } catch (e) {
+      console.warn('Reverse geocoding failed:', e);
+      return 'Location detected';
     }
+  };
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const address = await reverseGeocode(lat, lng);
+        setCurrentLocation({ latitude: lat, longitude: lng, address });
+      },
+      (error) => {
+        console.error("Error getting location:", error);
+        setCurrentLocation({
+          latitude: 0,
+          longitude: 0,
+          address: "Location unavailable"
+        });
+      }
+    );
   }, []);
 
   const startCamera = async () => {
@@ -186,14 +242,13 @@ function GuardAttendanceTimeIn() {
     startCamera();
   };
 
-  const handleTimeIn = () => {
+  const handleTimeIn = async () => {
     if (!capturedImage) {
       alert("Please take a photo before submitting.");
       return;
     }
 
     const timeInData = {
-      id: Date.now(),
       guardName: user?.fullName || "Guard Name",
       guardId: user?.guardId || user?._id || user?.id || "Unknown",
       position: user?.position || "",
@@ -210,13 +265,38 @@ function GuardAttendanceTimeIn() {
       submittedAt: currentTime.toLocaleString()
     };
 
-    // Save to localStorage
-    const existingAttendance = JSON.parse(localStorage.getItem("guardAttendance")) || [];
-    existingAttendance.push(timeInData);
-    localStorage.setItem("guardAttendance", JSON.stringify(existingAttendance));
+    // Try to persist to backend first
+    try {
+      const res = await fetch("http://localhost:5000/api/attendance/attendance-time-in", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(timeInData),
+      });
 
-    setAttendanceData(timeInData);
-    setIsSubmitted(true);
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload?.message || `Failed to submit attendance (${res.status})`;
+        throw new Error(msg);
+      }
+
+      // Success: use server-saved attendance
+      setAttendanceData(payload);
+      setIsSubmitted(true);
+    } catch (err) {
+      console.error("Failed to submit attendance to server:", err);
+      // Fallback: cache locally so the user can proceed
+      const existingAttendance = JSON.parse(localStorage.getItem("guardAttendance")) || [];
+      const cached = { id: Date.now(), ...timeInData };
+      existingAttendance.push(cached);
+      localStorage.setItem("guardAttendance", JSON.stringify(existingAttendance));
+
+      alert(err.message || "Unable to sync with server. Saved locally.");
+      setAttendanceData(cached);
+      setIsSubmitted(true);
+    }
   };
 
   const formatTime = (date) => {
@@ -318,6 +398,17 @@ function GuardAttendanceTimeIn() {
       {/* Main Card */}
       <div className="max-w-md mx-auto">
         <div className="bg-[#1e293b] border border-gray-700 rounded-2xl shadow-xl p-6">
+          {checking && (
+            <div className="mb-4 text-sm text-blue-300">Checking today’s attendance...</div>
+          )}
+          {alreadyTimedIn && (
+            <div className="mb-4 text-sm text-yellow-300 bg-yellow-500/10 border border-yellow-500/30 rounded p-3">
+              You have already timed in today. Proceed to Time Out.
+            </div>
+          )}
+          {checkError && (
+            <div className="mb-4 text-sm text-red-300">{checkError}</div>
+          )}
           {/* User Profile Section */}
           <div className="text-center mb-6">
             <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-blue-500 to-blue-600 flex items-center justify-center shadow-lg mb-4 mx-auto">
@@ -418,7 +509,7 @@ function GuardAttendanceTimeIn() {
 
           {/* Action Buttons */}
           <div className="space-y-3">
-            {!isSubmitted ? (
+            {!isSubmitted && !alreadyTimedIn ? (
               <button
                 onClick={capturedImage ? handleTimeIn : startCamera}
                 className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold py-3 rounded-lg shadow-md transition flex items-center justify-center gap-2"

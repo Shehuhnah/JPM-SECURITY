@@ -6,7 +6,7 @@ import {
   updateGuard,
   deleteGuard,
   getGuardInfo,
-  updateGuardProfile
+  updateGuardProfile,
 } from "../controller/guardController.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
