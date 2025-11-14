@@ -27,31 +27,41 @@ function GuardAttendanceTimeOut() {
     return () => clearInterval(timer);
   }, []);
 
-  // Load today's time-in data from backend
+  // Load guard's active duty record
   useEffect(() => {
     const run = async () => {
       if (!guard?._id || !token) return;
+
       setLoading(true);
       setError(null);
+
       try {
         const res = await fetch(`http://localhost:5000/api/attendance/${guard._id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+
         const data = await res.json().catch(() => []);
         if (!res.ok) throw new Error(data?.message || "Failed to fetch attendance");
-        const today = new Date().toLocaleDateString();
-        const todays = Array.isArray(data) ? data.find(r => r.date === today) : null;
-        if (todays) {
-          setTimeInData(todays);
+
+        // Find active duty (ignore date)
+        const activeDuty = Array.isArray(data)
+          ? data.find(r => r.status === "On Duty" && !r.timeOut)
+          : null;
+
+        if (activeDuty) {
+          setTimeInData(activeDuty);
         }
+
       } catch (e) {
-        setError(e.message || 'Failed to load attendance');
+        setError(e.message || "Failed to load attendance");
       } finally {
         setLoading(false);
       }
     };
+
     run();
   }, [guard?._id, token]);
+
 
   // Recompute working hours periodically
   useEffect(() => {
@@ -222,7 +232,7 @@ function GuardAttendanceTimeOut() {
                   ✅ Attendance completed successfully!
                 </div>
                 <Link
-                  to="/Guard/GuardAttendanceTimeIn"
+                  to="/guard/guard-attendance/time-in"
                   className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold py-3 rounded-lg shadow-md transition flex items-center justify-center gap-2"
                 >
                   <ArrowLeft size={18} />

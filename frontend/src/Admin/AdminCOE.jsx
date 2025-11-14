@@ -3,7 +3,7 @@ import { Filter, RefreshCw, CheckCircle, XCircle, Clock, IdCardLanyard, Eye, Dow
 import { generateAndDownloadCOE } from "../utils/pdfGenerator";
 import { useAuth } from "../hooks/useAuth";
 import header from "../assets/headerpdf/header.png"
-
+import signature from "../assets/headerpdf/signature.png"
 export default function AdminCOE() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -22,7 +22,7 @@ export default function AdminCOE() {
   // Load COE requests from localStorage on component mount
   const fetchRequests = async () => {
     try {
-      const res = await fetch('/api/coe', {
+      const res = await fetch('http://localhost:5000/api/coe', {
         headers: { Authorization: token ? `Bearer ${token}` : '' }
       });
       if (!res.ok) throw new Error('Failed to load requests');
@@ -50,8 +50,9 @@ export default function AdminCOE() {
 
   useEffect(() => {
     fetchRequests();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  console.log(requests)
 
   // Toast helper
   const showToast = (message, type) => {
@@ -129,14 +130,14 @@ export default function AdminCOE() {
     try {
       generateAndDownloadCOE(
         {
-          name: request.name,
+          name: request.name.toUpperCase(),
           guardId: request.guardId,
           purpose: request.purpose,
           id: request.id,
         },
         {
-          headerImage: header, // ✅ pulls the image at top-left/right
-          position: request.raw?.position || "Security Officer",
+          headerImage: header, 
+          position: request.raw?.position || "Security Officer".toUpperCase(),
           employmentStart: "November 2023",
           employmentEnd: "current date",
           salary: "Twenty-Four Thousand Pesos (P24,000)",
@@ -161,6 +162,7 @@ export default function AdminCOE() {
     }
   };
 
+  console.log(requests)
   // Filtering
   const filtered = requests.filter(
     (r) =>

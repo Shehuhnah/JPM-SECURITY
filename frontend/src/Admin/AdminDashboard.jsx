@@ -23,7 +23,7 @@ import {
   LayoutDashboard,
   LayoutDashboardIcon
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
 ChartJS.register(
@@ -274,10 +274,18 @@ export default function AdminDashboard() {
           [...Array(4)].map((_, i) => <SkeletonCard key={i} />)
         ) : (
           <>
-            <KpiCard icon={<Shield className="text-blue-400" />} title="Total Guards" value={stats.totalGuards} />
-            <KpiCard icon={<Users className="text-yellow-400" />} title="Applicants" value={stats.applicants} />
-            <KpiCard icon={<FileText className="text-green-400" />} title="Announcements" value={stats.announcements} />
-            <KpiCard icon={<Clock className="text-orange-400" />} title="Total Logs" value={stats.logs} />
+            <Link to="/Admin/AdminGuardsProfile">
+              <KpiCard icon={<Shield className="text-blue-400" />} title="Total Guards" value={stats.totalGuards} />
+            </Link>
+            <Link to="/Admin/ApplicantList">
+              <KpiCard icon={<Users className="text-yellow-400" />} title="Applicants" value={stats.applicants} />
+            </Link>
+            <Link to="/Admin/AdminPosts">
+              <KpiCard icon={<FileText className="text-green-400" />} title="Announcements" value={stats.announcements} />
+            </Link>
+            <Link to="/Admin/AdminGuardUpdates">
+              <KpiCard icon={<Clock className="text-orange-400" />} title="Total Logs" value={stats.logs} />
+            </Link>
           </>
         )}
       </section>
@@ -313,21 +321,23 @@ export default function AdminDashboard() {
                 <ul className="divide-y divide-gray-700 text-gray-300 overflow-y-auto max-h-64 pr-2">
                   {recentActivities.length ? (
                     recentActivities.map((a) => (
-                      <li key={a.id} className="py-3 flex flex-col">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium text-blue-400">{a.type || "Log"}</span>
-                          <span className="text-gray-500 text-sm">{a.time}</span>
-                        </div>
-                        {a.remarks && (
-                          <p className="text-gray-300 text-sm mt-1">{a.remarks}</p>
-                        )}
-                        {a.guard && (
-                          <p className="text-gray-500 text-xs mt-1">
-                            {a.guard.fullName || "Unknown Guard"}{" "}
-                            {a.guard.dutyStation ? `• ${a.guard.dutyStation}` : ""}
-                          </p>
-                        )}
-                      </li>
+                        <li key={a.id} className="py-3 flex flex-col">
+                          <Link to={`/admin/AdminGuardUpdates2/${a.guard._id}`}>
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-blue-400">{a.type || "Log"}</span>
+                              <span className="text-gray-500 text-sm">{a.time}</span>
+                            </div>
+                            {a.remarks && (
+                              <p className="text-gray-300 text-sm mt-1">{a.remarks}</p>
+                            )}
+                            {a.guard && (
+                              <p className="text-gray-500 text-xs mt-1">
+                                {a.guard.fullName || "Unknown Guard"}{" "}
+                                {a.guard.dutyStation ? `• ${a.guard.dutyStation}` : ""}
+                              </p>
+                            )}
+                          </Link>
+                        </li>
                     ))
                   ) : (
                     <li className="py-2 text-gray-500 italic">No recent activities</li>

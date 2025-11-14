@@ -9,9 +9,9 @@ router.post("/", protect, coeController.createRequest);
 router.get("/me", protect, coeController.getMyRequests);
 
 // Admin routes
-router.get("/", protect, authorizeRoles("Admin", "Subadmin"), coeController.listRequests);
-router.get("/:id", protect, authorizeRoles("Admin", "Subadmin"), coeController.getRequest);
-router.patch("/:id/status", protect, authorizeRoles("Admin", "Subadmin"), coeController.updateStatus);
+router.get("/", protect,  coeController.listRequests);
+router.get("/:id", protect,  coeController.getRequest);
+router.patch("/:id/status", protect,  coeController.updateStatus);
 router.get("/:id/download", protect, coeController.downloadCOE);
 
 export default router;

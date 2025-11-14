@@ -84,7 +84,7 @@ export default function GuardAttendancePage() {
             >
               <option value="All">All</option>
               <option value="On Duty">On Duty</option>
-              <option value="Inactive">Inactive</option>
+              <option value="Off Duty">Off Duty</option>
             </select>
 
             {/* Search Bar */}

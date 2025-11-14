@@ -27,12 +27,14 @@ function GuardAttendanceTimeIn() {
     phoneNumber: guard?.phoneNumber ?? "",
     address: guard?.address ?? "",
   };
+
   
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
 
   useEffect(() => {
+    document.title = "Time in | JPM Security Agency"
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
@@ -56,16 +58,19 @@ function GuardAttendanceTimeIn() {
           },
         });
         const data = await res.json().catch(() => []);
+
         if (!res.ok) {
-          // 404 means no records found — that's fine
           setChecking(false);
           return;
         }
-        const today = new Date().toLocaleDateString();
-        const todays = Array.isArray(data) ? data.find((r) => r.date === today) : null;
-        if (todays) {
+        
+        const activeDuty = Array.isArray(data)
+        ? data.find((r) => r.status === "On Duty" && !r.timeOut)
+        : null;
+
+        if (activeDuty) {
           setAlreadyTimedIn(true);
-          setAttendanceData(todays);
+          setAttendanceData(activeDuty);
           setIsSubmitted(true);
         }
       } catch (e) {
@@ -75,16 +80,16 @@ function GuardAttendanceTimeIn() {
       }
     };
     run();
+
   }, [guard?._id, token]);
 
-  // Reverse geocoding via OpenStreetMap Nominatim
+
   const reverseGeocode = async (lat, lng) => {
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`;
       const res = await fetch(url, {
         headers: {
           Accept: 'application/json',
-          // Per Nominatim policy, supply a valid user-agent/contact
           'User-Agent': 'JPM-Security-Attendance/1.0 (contact: support@jpm-security.local)'
         }
       });
@@ -119,6 +124,11 @@ function GuardAttendanceTimeIn() {
   }, []);
 
   const startCamera = async () => {
+    if (alreadyTimedIn) {
+      alert("You are already time-in for today. Please proceed to Time Out.");
+      return;
+    }
+
     try {
       // Show overlay immediately with loading state
       setShowCamera(true);
@@ -248,6 +258,42 @@ function GuardAttendanceTimeIn() {
       return;
     }
 
+    // Prevent duplicate Time In if already On Duty for today
+    try {
+      if (guard?._id && token) {
+        const res = await fetch(`http://localhost:5000/api/attendance/${guard._id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json().catch(() => []);
+        const today = new Date().toLocaleDateString();
+        const todays = Array.isArray(data) ? data.find((r) => r.date === today && (r.status === 'On Duty' || r.timeIn)) : null;
+        if (todays && (todays.status === 'On Duty' || todays.timeIn)) {
+          setAlreadyTimedIn(true);
+          setAttendanceData(todays);
+          setIsSubmitted(true);
+          alert('You are already On Duty for today. Please proceed to Time Out.');
+          return;
+        }
+      } else {
+        // Fallback to local cache check when offline/unauthorized
+        const cache = JSON.parse(localStorage.getItem('guardAttendance')) || [];
+        const today = new Date().toLocaleDateString();
+        const localTodays = cache.find(
+          (r) => r.guardId === (user?.guardId || user?._id || user?.id) && r.date === today && (r.status === 'On Duty' || r.timeIn)
+        );
+        if (localTodays) {
+          setAlreadyTimedIn(true);
+          setAttendanceData(localTodays);
+          setIsSubmitted(true);
+          alert('You are already On Duty for today. Please proceed to Time Out.');
+          return;
+        }
+      }
+    } catch (e) {
+      // If the validation fails due to network, continue to submission flow below
+      console.warn('Pre-check for duplicate time-in failed:', e);
+    }
+
     const timeInData = {
       guardName: user?.fullName || "Guard Name",
       guardId: user?.guardId || user?._id || user?.id || "Unknown",
@@ -287,8 +333,22 @@ function GuardAttendanceTimeIn() {
       setIsSubmitted(true);
     } catch (err) {
       console.error("Failed to submit attendance to server:", err);
-      // Fallback: cache locally so the user can proceed
+
+      // Before caching locally, double-check local cache to avoid duplicates
       const existingAttendance = JSON.parse(localStorage.getItem("guardAttendance")) || [];
+      const today = new Date().toLocaleDateString();
+      const dup = existingAttendance.find(
+        (r) => r.guardId === (user?.guardId || user?._id || user?.id) && r.date === today && (r.status === 'On Duty' || r.timeIn)
+      );
+      if (dup) {
+        setAlreadyTimedIn(true);
+        setAttendanceData(dup);
+        setIsSubmitted(true);
+        alert('You are already On Duty for today. Please proceed to Time Out.');
+        return;
+      }
+
+      // Fallback: cache locally so the user can proceed
       const cached = { id: Date.now(), ...timeInData };
       existingAttendance.push(cached);
       localStorage.setItem("guardAttendance", JSON.stringify(existingAttendance));
@@ -519,7 +579,7 @@ function GuardAttendanceTimeIn() {
               </button>
             ) : (
               <Link
-                to="/Guard/GuardAttendanceTimeOut"
+                to="/guard/guard-attendance/time-out"
                 className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-semibold py-3 rounded-lg shadow-md transition flex items-center justify-center gap-2"
               >
                 <ArrowRight size={18} />

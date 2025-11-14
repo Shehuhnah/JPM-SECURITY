@@ -419,7 +419,7 @@ export default function ApplicantsMessages() {
     normalizeId(msg.senderId) === normalizeId(session?.applicantId);
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-gradient-to-b from-[#0b1220] via-[#102137] to-[#0b1220] text-gray-100">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#0b1220] via-[#102137] to-[#0b1220] text-gray-100">
       <header className="sticky top-0 z-20 border-b border-white/10 bg-[#0f172a]/80 backdrop-blur">
         <div className="max-w-4xl mx-auto px-4 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -539,7 +539,7 @@ export default function ApplicantsMessages() {
                 </div>
               )}
               {file && (
-                <div className="mb-3 flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                <div className="mb-3 flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-3 py-3">
                   {file.type?.startsWith("image/") ? (
                     <img
                       src={URL.createObjectURL(file)}
@@ -566,7 +566,7 @@ export default function ApplicantsMessages() {
                 </div>
               )}
   
-              <form onSubmit={handleSend} className="flex items-center gap-2 sm:gap-3">
+              <form onSubmit={handleSend} className="flex items-center gap-2 sm:gap-3 mb-2">
                 <label className="flex-shrink-0">
                   <div className="rounded-full bg-white/5 border border-white/10 p-2.5 sm:p-3 hover:bg-white/10 transition cursor-pointer">
                     <Paperclip className="w-5 h-5 text-gray-300" />
@@ -654,6 +654,8 @@ export default function ApplicantsMessages() {
                       className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
                       placeholder="09XXXXXXXXX"
                       required
+                      pattern="^(09\d{9}|\+639\d{9})$"
+                      title="Enter a valid PH mobile number (09XXXXXXXXX or +639XXXXXXXXX)"
                     />
                   </div>
                   <div>

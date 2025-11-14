@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-
+import signature from '../assets/headerpdf/signature.png'
 /**
  * Generates a Certificate of Employment PDF
  * @param {Object} request - The COE request object
@@ -26,16 +26,17 @@ export const generateCOEPDF = (request, options = {}) => {
   const pageWidth = doc.internal.pageSize.getWidth();
 
   // --- HEADER IMAGE ---
-  const headerImage = options.headerImage || null; // Base64 or imported image
+  const headerImage = options.headerImage || null;
   if (headerImage) {
-    // Place the header across the top
-    // Adjust width/height depending on your image’s ratio
-    doc.addImage(headerImage, "PNG", 15, 10, pageWidth - 30, 30);
+    const imgWidth = pageWidth - 50; // narrower than full width
+    const imgX = (pageWidth - imgWidth) / 2; // center the image
+    doc.addImage(headerImage, "PNG", imgX, 25, imgWidth, 30);
   }
 
+
   // --- COE CONTENT DATA ---
-  const employeeName = request.name || "_____________________";
-  const position = options.position || "Security Guard";
+  const employeeName = request.name || "_____________________".toUpperCase();;
+  const position = options.position || "Security Guard".toUpperCase();
   const employmentStart = options.employmentStart || "__________";
   const employmentEnd = options.employmentEnd || "current date";
   const salary = options.salary || "_____________________";
@@ -51,65 +52,96 @@ export const generateCOEPDF = (request, options = {}) => {
   const companyShort = options.companyShort || "JPMSA Corp.";
 
   // --- TITLE ---
-  doc.setFont("helvetica", "bold");
+  doc.setFont("arial", "bold");
   doc.setFontSize(18);
-  doc.text("CERTIFICATE OF EMPLOYMENT", pageWidth / 2, 60, { align: "center" });
+  doc.text("CERTIFICATE OF EMPLOYMENT", pageWidth / 2, 70, { align: "center" });
 
-  // --- BODY CONTENT ---
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(12);
-
-  const lines = [
-    "This is to certify that",
-    "",
-    employeeName,
-    "",
-    "has been employed in",
-    "",
-    "JPM SECURITY AGENCY CORP",
-    "",
-    "as",
-    "",
-    position,
-    "",
-    `from ${employmentStart} to ${employmentEnd},`,
-    "",
-    `with compensation of ${salary} per month.`,
-    "",
-    `This certification is issued upon the request of the aforementioned name for ${purpose} purpose.`,
-    "",
-    `Given this ${issuedDate} at ${location}.`,
+  // --- BODY CONTENT (per-line customization) ---
+  const bodyLines = [
+    { text: "This is to certify that", font: "arial", style: "italic", size: 12 },
+    { text: employeeName, font: "arial", style: "bold", size: 16 },
+    { text: "has been employed in", font: "arial", style: "italic", size: 12 },
+    { text: "JPM SECURITY AGENCY CORP", font: "arial", style: "bold", size: 18 },
+    { text: "as", font: "arial", style: "italic", size: 12 },
+    { text: position, font: "arial", style: "bold", size: 16 },
+    { text: `from ${employmentStart} to ${employmentEnd},`, font: "arial", style: "italic", size: 10 },
+    { text: `with compensation of ${salary} per month.`, font: "arial", style: "bolditalic", size: 12 },
+    { text: `This certification is issued upon the request of the aforementioned name for ${purpose} purpose.`, font: "arial", style: "italic", size: 12 },
+    { text: `Given this ${issuedDate} at ${location}.`, font: "arial", style: "normal", size: 12 },
   ];
-
+  
   let y = 85;
-  lines.forEach((line) => {
-    doc.text(line, pageWidth / 2, y, { align: "center" });
-    y += 8;
+  bodyLines.forEach((line) => {
+    doc.setFont(line.font, line.style);
+    doc.setFontSize(line.size);
+    doc.text(line.text, pageWidth / 2, y, { align: "center" });
+  
+    // Underline employee name
+    if (line.text === employeeName) {
+      const textWidth = doc.getTextWidth(employeeName);
+      doc.setLineWidth(0.5);
+      doc.line(pageWidth / 2 - textWidth / 2, y + 1, pageWidth / 2 + textWidth / 2, y + 1);
+    }
+  
+    // Underline salary amount only
+    if (line.text.includes(salary)) {
+      const startX = pageWidth / 2 - doc.getTextWidth(line.text) / 2;
+      const beforeSalary = `with compensation of `;
+      const offsetX = doc.getTextWidth(beforeSalary);
+      const salaryWidth = doc.getTextWidth(salary);
+      doc.setLineWidth(0.5);
+      doc.line(startX + offsetX, y + 1, startX + offsetX + salaryWidth, y + 1);
+    }
+  
+    // Underline issue date
+    if (line.text.includes(issuedDate)) {
+      const startX = pageWidth / 2 - doc.getTextWidth(line.text) / 2;
+      const offsetX = line.text.indexOf(issuedDate) * (doc.getTextWidth(line.text) / line.text.length);
+      const dateWidth = doc.getTextWidth(issuedDate);
+      doc.setLineWidth(0.5);
+      doc.line(startX + offsetX, y + 1, startX + offsetX + dateWidth, y + 1);
+    }
+  
+    // Underline signatory name
+    if (line.text === signatory) {
+      const textWidth = doc.getTextWidth(signatory);
+      doc.setLineWidth(0.5);
+      doc.line(pageWidth / 2 - textWidth / 2, y + 1, pageWidth / 2 + textWidth / 2, y + 1);
+    }
+  
+    // Adjust spacing after company name
+    if (line.text === "JPM SECURITY AGENCY CORP") {
+      y += 10;
+    } else {
+      y += line.size + 1;
+    }
   });
-
+  
   // --- SIGNATORY ---
-  y += 25;
-  doc.setFont("helvetica", "bold");
+  y += 5;
+  if (signature) {
+    const sigWidth = 30;
+    const sigHeight = 40;
+    doc.addImage(signature, "PNG", pageWidth / 2 - sigWidth / 2, y, sigWidth, sigHeight);
+    y += sigHeight - 12;
+  }
+
+  // Signatory name (underlined)
+  doc.setFont("arial", "normal");
   doc.text(signatory, pageWidth / 2, y, { align: "center" });
+  const signWidth = doc.getTextWidth(signatory);
+  doc.line(pageWidth / 2 - signWidth / 2, y + 1.5, pageWidth / 2 + signWidth / 2, y + 1.5);
+
   y += 6;
-  doc.setFont("helvetica", "normal");
+  doc.setFont("arial", "normal");
   doc.text(signatoryTitle, pageWidth / 2, y, { align: "center" });
   y += 6;
   doc.text(companyShort, pageWidth / 2, y, { align: "center" });
 
-  // --- FOOTER NOTE ---
-  y = 285;
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "italic");
-  doc.text(
-    "This document is computer-generated and does not require a signature.",
-    pageWidth / 2,
-    y,
-    { align: "center" }
-  );
 
   return doc;
 };
+
 
 /**
  * Generates and downloads a COE PDF

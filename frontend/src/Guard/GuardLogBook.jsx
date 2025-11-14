@@ -30,7 +30,10 @@ export default function GuardLogBook() {
     try {
       setLoading(true);
       const response = await fetch(`http://localhost:5000/api/logbook?guardId=${guard._id}`, {
-        
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+          "Content-Type": "application/json",
+        }
       });
       
       if (response.ok) {

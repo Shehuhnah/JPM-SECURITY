@@ -14,6 +14,7 @@ import {
 import { generateAndDownloadCOE } from "../utils/pdfGenerator";
 import header from "../assets/headerpdf/header.png";
 import { guardAuth } from "../hooks/guardAuth";
+import { useAuth } from "../hooks/useAuth";
 
 export default function GuardReqCOE() {
   const [purpose, setPurpose] = useState("");
@@ -23,7 +24,21 @@ export default function GuardReqCOE() {
   const [showCOEModal, setShowCOEModal] = useState(false);
   const [selectedCOE, setSelectedCOE] = useState(null);
 
-  const { guard, token } = guardAuth();
+  const { guard, token: guardToken } = guardAuth();
+  const { admin, token: adminToken } = useAuth();
+
+  let user = null;
+  let token = null;
+
+  if (guard && guardToken) {
+    user = guard;
+    token = guardToken;
+  } else if (admin && adminToken) {
+    user = admin;
+    token = adminToken;
+  } else {
+    console.log("No user logged in");
+  }
 
   useEffect(() => {
     document.title = "Request COE | JPM Agency Security";
@@ -32,7 +47,7 @@ export default function GuardReqCOE() {
       try {
         const res = await fetch("http://localhost:5000/api/coe/me", {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: token ? `Bearer ${token}` : "",
             "Content-Type": "application/json",
           },
         });
@@ -55,7 +70,7 @@ export default function GuardReqCOE() {
     try {
       setLoading(true);
       setMessage("");
-      const res = await fetch("/api/coe", {
+      const res = await fetch("http://localhost:5000/api/coe", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -518,6 +518,8 @@ export default function GuardTable() {
                           value={form.phoneNumber}
                           onChange={handleChange}
                           className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                          pattern="^(09\\d{9}|\\+639\\d{9})$"
+                          title="Enter a valid PH mobile number (09XXXXXXXXX or +639XXXXXXXXX)"
                         />
 
                         <input
