@@ -14,6 +14,7 @@ import {
   Filter,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 export default function ApplicantsList() {
   const [applicants, setApplicants] = useState([]);
@@ -42,16 +43,24 @@ export default function ApplicantsList() {
   });
   const [hireMessage, setHireMessage] = useState("");
   const [sendingHire, setSendingHire] = useState(false);
-  const { admin, token } = useAuth();
-  const role = admin?.role;
-  const isSubadmin = role === "Subadmin";
+  const { user, loading } = useAuth();
+  const role = user?.user;
+  const isSubadmin = role === "Subadmin"; 
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user && !loading) {
+      navigate("/admin/login");
+      return;
+    }
+  }, [user, loading, navigate]);
 
   useEffect(() => {
     document.title = "Applicants List | JPM Security Agency";
     const fetchApplicants = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/applicants", {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
         });
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
@@ -61,13 +70,14 @@ export default function ApplicantsList() {
         setApplicants([]);
       }
     };
-    if (token) fetchApplicants();
-  }, [token]);
+    if (user) fetchApplicants();
+  }, [user]);
 
   const updateStatus = async (id, status) => {
     try {
       const res = await fetch(`http://localhost:5000/api/applicants/${id}`, {
         method: "PUT",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -156,6 +166,7 @@ export default function ApplicantsList() {
 
       const msgRes = await fetch("http://localhost:5000/api/messages", {
         method: "POST",
+        credentials: "include",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
@@ -165,6 +176,7 @@ export default function ApplicantsList() {
       try {
         await fetch(
           `http://localhost:5000/api/applicants/${applicant._id}/hire-email`,
+          { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ applicantEmail: applicant.email }) },
           {
             method: "POST",
             headers: {
@@ -285,6 +297,7 @@ export default function ApplicantsList() {
 
       const res = await fetch("http://localhost:5000/api/messages", {
         method: "POST",
+        credentials: "include",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
@@ -294,6 +307,7 @@ export default function ApplicantsList() {
       try {
         await fetch(
           `http://localhost:5000/api/applicants/${applicant._id}/interview-email`,
+          { method: "POST", credentials: "include", body: JSON.stringify({ applicantEmail: applicant.email, schedule: applicant.schedule }) },
           {
             method: "POST",
             headers: {

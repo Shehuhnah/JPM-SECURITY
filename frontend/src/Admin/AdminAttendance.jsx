@@ -21,27 +21,27 @@ export default function GuardAttendancePage() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [attendance, setAttendance] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(false);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
   const navigate = useNavigate();
 
-  const { admin, token } = useAuth();
+  const { user:admin, loading } = useAuth();
 
   useEffect(() => {
-    if (!admin || !token) {
+    if (!admin && !loading) {
       navigate("/admin/Login");
       return;
     }
-  }, [admin, token, navigate]);
+  }, [admin, loading, navigate]);
 
   useEffect(() => {
     const fetchAttendance = async () => {
       try {
-        setLoading(true);
+        setLoadingPage(true);
         setError(null);
         const res = await fetch("http://localhost:5000/api/attendance", {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
         });
         const data = await res.json().catch(() => []);
         if (!res.ok) throw new Error(data?.message || "Failed to fetch attendance");
@@ -49,11 +49,11 @@ export default function GuardAttendancePage() {
       } catch (err) {
         setError(err.message || "Failed to fetch attendance");
       } finally {
-        setLoading(false);
+        setLoadingPage(false);
       }
     };
     fetchAttendance();
-  }, [token]);
+  }, [admin]);
 
   console.log(attendance)
 

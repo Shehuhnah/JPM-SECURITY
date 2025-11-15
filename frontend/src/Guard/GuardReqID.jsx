@@ -7,16 +7,17 @@ import {
   Send,
   Tag,
   Calendar,
-  X,
 } from "lucide-react";
-import { guardAuth } from "../hooks/guardAuth";
+import { useAuth } from "../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 export default function GuardReqID() {
-  const { token } = guardAuth();
+ const { user: guard, loading } = useAuth();
+  const navigate = useNavigate();
   const [form, setForm] = useState({ requestType: "", reason: "" });
   const [requests, setRequests] = useState([]);
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(false);
 
   // Fetch requests of current guard
   useEffect(() => {
@@ -25,8 +26,8 @@ export default function GuardReqID() {
     const fetchRequests = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/idrequests/myrequests", {
+          credentials: "include",
           headers: {
-            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         });
@@ -38,7 +39,7 @@ export default function GuardReqID() {
       }
     };
     fetchRequests();
-  }, [token]);
+  }, [guard]);
 
   // Submit new ID/Lanyard request
   const handleSubmit = async (e) => {
@@ -49,23 +50,29 @@ export default function GuardReqID() {
     }
 
     try {
-      setLoading(true);
+      setLoadingPage(true);
       setMessage("");
       const res = await fetch("http://localhost:5000/api/idrequests", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
         },
         body: JSON.stringify({
           requestType: form.requestType,
           requestReason: form.reason,
         }),
       });
+
       if (!res.ok) throw new Error("Failed to submit request");
+
       const res2 = await fetch("http://localhost:5000/api/idrequests/myrequests", {
-        headers: { Authorization: token ? `Bearer ${token}` : "" },
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
       });
+
       const data = await res2.json();
       setRequests(data.data || []);
       setForm({ requestType: "", reason: "" });
@@ -74,7 +81,7 @@ export default function GuardReqID() {
     } catch (error) {
       setMessage("❌ Error submitting request. Please try again.");
     } finally {
-      setLoading(false);
+      setLoadingPage(false);
     }
   };
 

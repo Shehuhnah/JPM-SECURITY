@@ -33,16 +33,7 @@ const guardSchema = new mongoose.Schema(
     },
     position: {
       type: String,
-      required: [true, "Please specify your Position"]
-    },
-    dutyStation: {
-      type: String,
-      required: [true, "Duty station is required"],
-    },
-    shift: {
-      type: String,
-      enum: ["Day Shift", "Night Shift", "Rotational"],
-      required: [true, "Shift is required"],
+      required: [true, "Position is required"],
     },
     phoneNumber: {
       type: String,
@@ -80,6 +71,10 @@ const guardSchema = new mongoose.Schema(
     },
     lastLogin: {
       type: Date,
+    },
+    isFirstLogin: {
+      type: Boolean,
+      default: true,
     },
   },
   { timestamps: true }

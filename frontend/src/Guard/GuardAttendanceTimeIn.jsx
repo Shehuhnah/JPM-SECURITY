@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Clock, Camera, User, Calendar, CheckCircle, ArrowRight, MapPin, RotateCcw } from "lucide-react";
-import { guardAuth } from "../hooks/guardAuth";
+import { useAuth } from "../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 function GuardAttendanceTimeIn() {
+  const { user: guard, loading } = useAuth();
+  const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [attendanceData, setAttendanceData] = useState(null);
@@ -15,8 +18,14 @@ function GuardAttendanceTimeIn() {
   const [alreadyTimedIn, setAlreadyTimedIn] = useState(false);
   const [checking, setChecking] = useState(true);
   const [checkError, setCheckError] = useState(null);
+
+  useEffect(() => {
+    if (!guard && !loading) {
+      navigate("/guard/login");
+      return;
+    }
+  }, [guard, navigate]);
   
-  const { guard, token } = guardAuth();
   const user = {
     fullName: guard?.fullName ?? "Unknown",
     guardId: guard?.guardId ?? guard?._id ?? guard?.id ?? "Unknown",
@@ -28,7 +37,6 @@ function GuardAttendanceTimeIn() {
     address: guard?.address ?? "",
   };
 
-  
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -45,7 +53,7 @@ function GuardAttendanceTimeIn() {
   // Check if already timed-in today for this guard
   useEffect(() => {
     const run = async () => {
-      if (!guard?._id || !token) {
+      if (!guard?._id) {
         setChecking(false);
         return;
       }
@@ -53,9 +61,7 @@ function GuardAttendanceTimeIn() {
       setCheckError(null);
       try {
         const res = await fetch(`http://localhost:5000/api/attendance/${guard._id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          credentials: "include"
         });
         const data = await res.json().catch(() => []);
 
@@ -81,7 +87,7 @@ function GuardAttendanceTimeIn() {
     };
     run();
 
-  }, [guard?._id, token]);
+  }, [guard?._id]);
 
 
   const reverseGeocode = async (lat, lng) => {
@@ -262,7 +268,7 @@ function GuardAttendanceTimeIn() {
     try {
       if (guard?._id && token) {
         const res = await fetch(`http://localhost:5000/api/attendance/${guard._id}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include"
         });
         const data = await res.json().catch(() => []);
         const today = new Date().toLocaleDateString();
@@ -315,9 +321,9 @@ function GuardAttendanceTimeIn() {
     try {
       const res = await fetch("http://localhost:5000/api/attendance/attendance-time-in", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(timeInData),
       });

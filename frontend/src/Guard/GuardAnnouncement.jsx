@@ -6,10 +6,23 @@ import {
   FileText,
   Loader2,
 } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
+
 
 export default function GuardAnnouncement() {
+  const {user: guard, loading} = useAuth();
+  const navigate = useNavigate();
   const [announcements, setAnnouncements] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingPage, setLoadingPage] = useState(true);
+
+  useEffect(() => {
+    document.title = "Guard Announcement | JPM Security Agency";
+     if (!guard && !loading) {
+        navigate("/guard/Login");
+        return;
+      }
+  }, [guard, navigate]);
 
   // Fetch announcements from backend
   useEffect(() => {
@@ -17,7 +30,9 @@ export default function GuardAnnouncement() {
 
     const fetchAnnouncements = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/posts");
+        const res = await fetch("http://localhost:5000/api/posts" ,{
+          credentials: "include",
+        });
         if (!res.ok) throw new Error("Failed to fetch announcements");
         const data = await res.json();
         setAnnouncements(data);
@@ -127,6 +142,9 @@ export default function GuardAnnouncement() {
           )}
         </div>
       </main>
+
+      {/* MODAL HERE */}
+
     </div>
   );
 }

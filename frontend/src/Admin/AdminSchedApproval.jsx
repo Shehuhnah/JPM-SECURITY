@@ -4,17 +4,12 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { Dialog, Transition } from "@headlessui/react";
-import {
-  CalendarDays,
-  Filter,
-  ThumbsUp,
-  ThumbsDown,
-} from "lucide-react";
+import { CalendarDays, Filter, ThumbsUp, ThumbsDown } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
 export default function AdminSchedApproval() {
-  const { token } = useAuth();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [approveModal, setApproveModal] = useState(false);
   const [declineModal, setDeclineModal] = useState(false);
@@ -23,82 +18,78 @@ export default function AdminSchedApproval() {
   const [schedules, setSchedules] = useState([]);
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState("All Clients");
-  const [loading, setLoading] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+
+  useEffect(() => {
+    if (!user && !loading) {
+      navigate("/admin/login");
+      return;
+    }
+  }, [user, loading, navigate]);
 
   // ===== Fetch all schedules =====
   useEffect(() => {
-    document.title = "Manage Schedules"
+    document.title = "Manage Schedules";
     const fetchData = async () => {
       try {
-        setLoading(true);
-
-        // Run both fetches in parallel
         const [schedulesRes, clientsRes] = await Promise.all([
-          fetch("http://localhost:5000/api/schedules/get-schedules?status=Pending", {
-          headers: { Authorization: `Bearer ${token}` },
-          }),
+          fetch(
+            "http://localhost:5000/api/schedules/get-schedules?status=Pending",
+            {
+              credentials: "include",
+            }
+          ),
           fetch("http://localhost:5000/api/clients/get-clients", {
-          headers: { Authorization: `Bearer ${token}` },
+            credentials: "include",
           }),
         ]);
 
-        // Parse both JSON responses in parallel too
         const [schedulesData, clientsData] = await Promise.all([
           schedulesRes.json(),
           clientsRes.json(),
         ]);
 
-        // Handle errors if any
         if (!schedulesRes.ok) throw new Error(schedulesData.message);
         if (!clientsRes.ok) throw new Error(clientsData.message);
 
-        // Set states
         setSchedules(schedulesData);
         setClients(clientsData);
-        } catch (err) {
-          console.error("Failed to fetch data:", err);
-        } finally {
-          setLoading(false);
-        }
+      } catch (err) {
+        console.error("Failed to fetch data:", err);
+      }
     };
 
-    if (token) fetchData();
-  }, [token]);
+    fetchData();
+  }, []); // token not needed anymore
 
   const refresh = async () => {
     try {
-    setLoading(true);
+      const [schedulesRes, clientsRes] = await Promise.all([
+        fetch(
+          "http://localhost:5000/api/schedules/get-schedules?status=Pending",
+          {
+            credentials: "include",
+          }
+        ),
+        fetch("http://localhost:5000/api/clients/get-clients", {
+          credentials: "include",
+        }),
+      ]);
 
-    // Run both fetches in parallel
-    const [schedulesRes, clientsRes] = await Promise.all([
-      fetch("http://localhost:5000/api/schedules/get-schedules?status=Pending", {
-      headers: { Authorization: `Bearer ${token}` },
-      }),
-      fetch("http://localhost:5000/api/clients/get-clients", {
-      headers: { Authorization: `Bearer ${token}` },
-      }),
-    ]);
+      const [schedulesData, clientsData] = await Promise.all([
+        schedulesRes.json(),
+        clientsRes.json(),
+      ]);
 
-    // Parse both JSON responses in parallel too
-    const [schedulesData, clientsData] = await Promise.all([
-      schedulesRes.json(),
-      clientsRes.json(),
-    ]);
+      if (!schedulesRes.ok) throw new Error(schedulesData.message);
+      if (!clientsRes.ok) throw new Error(clientsData.message);
 
-    // Handle errors if any
-    if (!schedulesRes.ok) throw new Error(schedulesData.message);
-    if (!clientsRes.ok) throw new Error(clientsData.message);
-
-    // Set states
-    setSchedules(schedulesData);
-    setClients(clientsData);
+      setSchedules(schedulesData);
+      setClients(clientsData);
     } catch (err) {
       console.error("Failed to fetch data:", err);
-    } finally {
-      setLoading(false);
     }
-  }
+  };
 
   // ===== Filter schedules by selected client =====
   const filteredSchedules = selectedClient
@@ -117,7 +108,7 @@ export default function AdminSchedApproval() {
     extendedProps: sched,
   }));
 
- // ===== Approve all schedules for selected client =====
+  // ===== Approve all schedules for selected client =====
   const handleApprove = async () => {
     if (selectedClient === "All Clients")
       return alert("Please select a specific client first.");
@@ -129,7 +120,11 @@ export default function AdminSchedApproval() {
     if (clientSchedules.length === 0)
       return alert(`No pending schedules to approve for ${selectedClient}.`);
 
-    if (!window.confirm(`Approve ${clientSchedules.length} schedule(s) for ${selectedClient}?`))
+    if (
+      !window.confirm(
+        `Approve ${clientSchedules.length} schedule(s) for ${selectedClient}?`
+      )
+    )
       return;
 
     try {
@@ -137,10 +132,8 @@ export default function AdminSchedApproval() {
         `http://localhost:5000/api/schedules/approve-client-schedules`,
         {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ client: selectedClient }),
         }
       );
@@ -149,7 +142,6 @@ export default function AdminSchedApproval() {
 
       alert(`✅ All schedules for ${selectedClient} approved!`);
 
-      // Update local state
       setSchedules((prev) =>
         prev.map((s) =>
           s.client === selectedClient ? { ...s, isApproved: "Approved" } : s
@@ -181,13 +173,11 @@ export default function AdminSchedApproval() {
         `http://localhost:5000/api/schedules/decline-client-schedules`,
         {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             client: selectedClient,
-            remarks, 
+            remarks,
           }),
         }
       );
@@ -247,7 +237,8 @@ export default function AdminSchedApproval() {
             <span className="w-3 h-3 bg-[#fde047] rounded-sm"></span> Day Shift
           </div>
           <div className="flex items-center gap-2 text-gray-400">
-            <span className="w-3 h-3 bg-[#ef4444] rounded-sm"></span> Night Shift
+            <span className="w-3 h-3 bg-[#ef4444] rounded-sm"></span> Night
+            Shift
           </div>
         </div>
 
@@ -275,7 +266,9 @@ export default function AdminSchedApproval() {
       {/* ===== CALENDAR ===== */}
       <div className="bg-[#1e293b] p-6 rounded-2xl shadow-lg border border-gray-700">
         {loading ? (
-          <p className="text-center text-gray-400 py-20">Loading schedules...</p>
+          <p className="text-center text-gray-400 py-20">
+            Loading schedules...
+          </p>
         ) : (
           <FullCalendar
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -296,7 +289,6 @@ export default function AdminSchedApproval() {
                   className={`rounded-md px-1 py-0.5 text-xs font-semibold ${bgColor}`}
                 >
                   {eventInfo.event.title} ({shift})
-                  
                 </div>
               );
             }}
@@ -330,7 +322,11 @@ export default function AdminSchedApproval() {
 
       {/* ===== APPROVE MODAL ===== */}
       <Transition appear show={approveModal} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setApproveModal(false)}>
+        <Dialog
+          as="div"
+          className="relative z-50"
+          onClose={() => setApproveModal(false)}
+        >
           <div className="fixed inset-0 bg-black/50" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
             <Dialog.Panel className="bg-[#1e293b] border border-gray-700 rounded-2xl shadow-xl p-6 max-w-md w-full">
@@ -340,23 +336,34 @@ export default function AdminSchedApproval() {
               {/* Summary Info */}
               <div className="bg-[#0f172a] border border-gray-700 rounded-lg p-4 mb-4">
                 <p className="text-sm text-gray-300 mb-2">
-                  You are about to approve all pending schedules for the month of
+                  You are about to approve all pending schedules for the month
+                  of
                   <span className="text-green-400 font-medium ml-1">
-                    {new Date().toLocaleString("default", { month: "long", year: "numeric" })}
-                  </span>.
+                    {new Date().toLocaleString("default", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </span>
+                  .
                 </p>
 
                 <div className="text-gray-100 text-sm space-y-1">
                   <p>
                     <span className="text-gray-400">🏢 Client:</span>{" "}
-                    <span className="font-medium text-white">{selectedClient}</span>
+                    <span className="font-medium text-white">
+                      {selectedClient}
+                    </span>
                   </p>
                   <p>
-                    <span className="text-gray-400">🕒 Total Pending Work Days:</span>{" "}
+                    <span className="text-gray-400">
+                      🕒 Total Pending Work Days:
+                    </span>{" "}
                     <span className="font-semibold text-yellow-400">
                       {
                         schedules.filter(
-                          (s) => s.client === selectedClient && s.isApproved === "Pending"
+                          (s) =>
+                            s.client === selectedClient &&
+                            s.isApproved === "Pending"
                         ).length
                       }
                     </span>
@@ -370,7 +377,8 @@ export default function AdminSchedApproval() {
                             schedules
                               .filter(
                                 (s) =>
-                                  s.client === selectedClient && s.isApproved === "Pending"
+                                  s.client === selectedClient &&
+                                  s.isApproved === "Pending"
                               )
                               .map((s) => s.guardName)
                           ),
@@ -381,18 +389,22 @@ export default function AdminSchedApproval() {
                   <p>
                     <span className="text-gray-400">📅 Coverage Dates:</span>{" "}
                     <span className="text-gray-200">
-                      {
-                        (() => {
-                          const scheds = schedules.filter(
-                            (s) => s.client === selectedClient && s.isApproved === "Pending"
-                          );
-                          if (!scheds.length) return "N/A";
-                          const dates = scheds.map((s) => new Date(s.timeIn));
-                          const earliest = new Date(Math.min(...dates)).toLocaleDateString();
-                          const latest = new Date(Math.max(...dates)).toLocaleDateString();
-                          return `${earliest} - ${latest}`;
-                        })()
-                      }
+                      {(() => {
+                        const scheds = schedules.filter(
+                          (s) =>
+                            s.client === selectedClient &&
+                            s.isApproved === "Pending"
+                        );
+                        if (!scheds.length) return "N/A";
+                        const dates = scheds.map((s) => new Date(s.timeIn));
+                        const earliest = new Date(
+                          Math.min(...dates)
+                        ).toLocaleDateString();
+                        const latest = new Date(
+                          Math.max(...dates)
+                        ).toLocaleDateString();
+                        return `${earliest} - ${latest}`;
+                      })()}
                     </span>
                   </p>
                 </div>
@@ -400,7 +412,8 @@ export default function AdminSchedApproval() {
 
               {/* Warning */}
               <p className="text-gray-400 text-xs mb-6 italic">
-                ⚠️ Once approved, these schedules will be locked and visible to the assigned guards.
+                ⚠️ Once approved, these schedules will be locked and visible to
+                the assigned guards.
               </p>
 
               {/* Buttons */}
@@ -436,7 +449,11 @@ export default function AdminSchedApproval() {
 
       {/* ===== DECLINE MODAL ===== */}
       <Transition appear show={declineModal} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setDeclineModal(false)}>
+        <Dialog
+          as="div"
+          className="relative z-50"
+          onClose={() => setDeclineModal(false)}
+        >
           <div className="fixed inset-0 bg-black/50" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
             <Dialog.Panel className="bg-[#1e293b] border border-gray-700 rounded-2xl shadow-xl p-6 max-w-md w-full">
@@ -447,10 +464,18 @@ export default function AdminSchedApproval() {
               {/* Context Info */}
               <div className="bg-[#0f172a] border border-gray-700 rounded-lg p-4 mb-4">
                 <p className="text-sm text-gray-300 mb-3">
-                  You are about to decline all <span className="font-semibold text-white">{selectedClient}</span> schedules for{" "}
+                  You are about to decline all{" "}
+                  <span className="font-semibold text-white">
+                    {selectedClient}
+                  </span>{" "}
+                  schedules for{" "}
                   <span className="text-red-400 font-medium">
-                    {new Date().toLocaleString("default", { month: "long", year: "numeric" })}
-                  </span>.
+                    {new Date().toLocaleString("default", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </span>
+                  .
                 </p>
 
                 {/* Summary Details */}
@@ -460,23 +485,33 @@ export default function AdminSchedApproval() {
                     <span className="text-gray-100">
                       {(() => {
                         const scheds = schedules.filter(
-                          (s) => s.client === selectedClient && s.isApproved === "Pending"
+                          (s) =>
+                            s.client === selectedClient &&
+                            s.isApproved === "Pending"
                         );
                         if (!scheds.length) return "N/A";
                         const dates = scheds.map((s) => new Date(s.timeIn));
-                        const earliest = new Date(Math.min(...dates)).toLocaleDateString();
-                        const latest = new Date(Math.max(...dates)).toLocaleDateString();
+                        const earliest = new Date(
+                          Math.min(...dates)
+                        ).toLocaleDateString();
+                        const latest = new Date(
+                          Math.max(...dates)
+                        ).toLocaleDateString();
                         return `${earliest} - ${latest}`;
                       })()}
                     </span>
                   </p>
 
                   <p>
-                    <span className="text-gray-400">📦 Total Pending Schedules:</span>{" "}
+                    <span className="text-gray-400">
+                      📦 Total Pending Schedules:
+                    </span>{" "}
                     <span className="font-semibold text-yellow-400">
                       {
                         schedules.filter(
-                          (s) => s.client === selectedClient && s.isApproved === "Pending"
+                          (s) =>
+                            s.client === selectedClient &&
+                            s.isApproved === "Pending"
                         ).length
                       }
                     </span>
@@ -490,7 +525,9 @@ export default function AdminSchedApproval() {
                           ...new Set(
                             schedules
                               .filter(
-                                (s) => s.client === selectedClient && s.isApproved === "Pending"
+                                (s) =>
+                                  s.client === selectedClient &&
+                                  s.isApproved === "Pending"
                               )
                               .map((s) => s.guardName)
                           ),
@@ -507,7 +544,9 @@ export default function AdminSchedApproval() {
                           ...new Set(
                             schedules
                               .filter(
-                                (s) => s.client === selectedClient && s.isApproved === "Pending"
+                                (s) =>
+                                  s.client === selectedClient &&
+                                  s.isApproved === "Pending"
                               )
                               .map((s) => new Date(s.timeIn).toDateString())
                           ),
@@ -531,7 +570,9 @@ export default function AdminSchedApproval() {
               />
 
               <p className="text-xs text-gray-500 italic mb-4">
-                ⚠️ Declining will mark all pending schedules for this client as <span className="text-red-400">Declined</span>. This action cannot be undone.
+                ⚠️ Declining will mark all pending schedules for this client as{" "}
+                <span className="text-red-400">Declined</span>. This action
+                cannot be undone.
               </p>
 
               {/* Buttons */}
@@ -544,7 +585,8 @@ export default function AdminSchedApproval() {
                 </button>
                 <button
                   onClick={async () => {
-                    if (!remarks.trim()) return alert("Please provide a reason before declining.");
+                    if (!remarks.trim())
+                      return alert("Please provide a reason before declining.");
                     try {
                       setSubmitting(true);
                       await handleDecline(remarks);

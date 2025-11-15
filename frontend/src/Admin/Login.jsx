@@ -16,56 +16,42 @@ export default function Login() {
 
   const navigate = useNavigate();
 
-  console.log("admin data: ", localStorage.getItem("adminData")); 
-  console.log("admin token: ", localStorage.getItem("adminToken"));
-
   useEffect(() => { 
-    document.title = "Applicants List | JPM Security Agency";
-    if(localStorage.getItem("adminToken")) {
-      navigate("/admin/deployment"); 
-    }
-  }, []);
+    document.title = "Admin Login | JPM Security Agency";
+    const checkLogin = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/auth/me", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          console.log(data)
+          if (data) navigate("/admin/deployment");
+        }
+      } catch (err) {
+        console.error("Check login error:", err);
+      }
+    };
+    checkLogin();
+  }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-
+  
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", { //api
+      const res = await fetch("http://localhost:5000/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Invalid credentials");
-      }
-
-      localStorage.setItem("adminToken", data.token);
-      localStorage.setItem("adminData", JSON.stringify(data.admin));
-
-      console.log(localStorage.getItem("adminData"));
-      console.log(localStorage.getItem("adminToken"));
-
-      navigate("/admin/deployment"); 
-
+  
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Invalid credentials");
+      console.log(data)
+      navigate("/admin/deployment");
     } catch (err) {
-        console.error("Login failed:", err);
-        setError(err.message || "Something went wrong. Please try again.");
-        toast.error(err.message, {
-          position: "top-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "dark",
-          transition: Bounce,
-        });
+      setError(err.message);
     } finally {
       setLoading(false);
     }

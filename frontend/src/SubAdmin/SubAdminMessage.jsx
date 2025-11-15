@@ -2,11 +2,13 @@ import { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 import { Paperclip, Send, CircleUserRound, Search, ArrowLeft } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 const socket = io("http://localhost:5000");
 
 export default function SubAdminMessagePage() {
-  const { admin: user, token } = useAuth();
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [guards, setGuards] = useState([]);
   const [conversations, setConversations] = useState([]);
@@ -83,11 +85,14 @@ export default function SubAdminMessagePage() {
 
   // Fetch Guards only
   useEffect(() => {
-    if (!user) return;
+     if (!user && !loading) {
+      navigate("/admin/login");
+      return;
+    }
     const fetchGuards = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/guards", {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include"
         });
         const data = await res.json();
         setGuards(Array.isArray(data) ? data : []);
@@ -96,15 +101,16 @@ export default function SubAdminMessagePage() {
       }
     };
     fetchGuards();
-  }, [user, token]);
+  }, [user]);
 
   // Fetch conversations (Subadmin ↔ Guard)
   useEffect(() => {
     const fetchConversations = async () => {
       try {
         const res = await fetch(
-          "http://localhost:5000/api/messages/conversations",
-          { headers: { Authorization: `Bearer ${token}` } }
+          "http://localhost:5000/api/messages/conversations",{ 
+            credentials: "include"
+          }
         );
         const data = await res.json();
         const filtered = (Array.isArray(data) ? data : []).filter(
@@ -117,7 +123,7 @@ export default function SubAdminMessagePage() {
       }
     };
     fetchConversations();
-  }, [token]);
+  }, [user]);
 
   // Load messages for selected conversation
   useEffect(() => {
@@ -142,8 +148,9 @@ export default function SubAdminMessagePage() {
     const fetchMessages = async () => {
       try {
         const res = await fetch(
-          `http://localhost:5000/api/messages/${selectedConversation._id}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          `http://localhost:5000/api/messages/${selectedConversation._id}`,{
+            credentials: "include"
+          }
         );
         const data = await res.json();
         setMessages(Array.isArray(data) ? data : []);
@@ -199,7 +206,7 @@ export default function SubAdminMessagePage() {
       socket.off("receiveMessage", handleReceiveMessage);
       socket.off("conversationUpdated", handleConversationUpdated);
     };
-  }, [selectedConversation?._id, token, user._id]);
+  }, [selectedConversation?._id, user]);
 
   // Handle conversation updates (for sidebar list when not in selected conversation)
   useEffect(() => {
@@ -245,7 +252,7 @@ export default function SubAdminMessagePage() {
     try {
       const res = await fetch("http://localhost:5000/api/messages", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
         body: formData,
       });
       if (!res.ok) return console.error(await res.text());

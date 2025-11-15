@@ -6,7 +6,10 @@ import {
     loginGuard,
     getSubadmins,
     getAdmins,
-    getGuards
+    getGuards,
+    getMe,
+    logout,
+    guardChangePassword
 } from "../controller/authController.js";
 import { 
     getUsers,
@@ -26,7 +29,10 @@ router.put("/update-user/:id", updateUser); // Update user
 router.delete("/delete-user/:id", deleteUser); //delete user
 
 router.post("/login-guard", loginGuard); // Login guard
+router.post("/change-password-guard", protect, guardChangePassword); // Change password for guard
+router.post("/logout", protect, logout); // Logout user
 
+router.get("/me", protect, getMe); // get current logged in user
 
 //FETCHING FOR CONVERSATION
 router.get("/subadmins", protect, getSubadmins);

@@ -9,14 +9,13 @@ import { useAuth } from "../hooks/useAuth.js"
 import { useNavigate } from "react-router-dom";
 
 export default function UserAccounts() {
-  const { admin, token } = useAuth();
-  console.log(admin.role, admin.accessLevel)
+  const { user: admin, loading } = useAuth();
   const [users, setUsers] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
-  const [loading, setLoading] = useState(true);
+  const [loadingPage, setLoadingPage] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null); // For modal
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -44,15 +43,15 @@ export default function UserAccounts() {
   useEffect(() => {
     document.title = "Users List | JPM Security Agency";
 
-    if(!admin && !token){
+    if(!admin && !loading){
       navigate("/admin/login")
     };
 
-    fetch("http://localhost:5000/api/auth/users")
+    fetch("http://localhost:5000/api/auth/users", { credentials: "include", })
       .then((res) => res.json())
       .then((data) => setUsers(data))
       .catch((err) => console.error("Fetch users error:", err));
-      setLoading(false);
+      setLoadingPage(false);
   }, []);
 
   const handleChange = (e) => {
@@ -71,7 +70,7 @@ export default function UserAccounts() {
     try {
       const res = await fetch("http://localhost:5000/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(form),
       });
 
@@ -120,7 +119,7 @@ export default function UserAccounts() {
     try {
       const res = await fetch(`http://localhost:5000/api/auth/update-user/${editForm._id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(editForm),
       });
 
@@ -160,6 +159,7 @@ export default function UserAccounts() {
   const handleDelete = async (id) => {
     try {
       const res = await fetch(`http://localhost:5000/api/auth/delete-user/${id}`, {
+        credentials: "include",
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete user");
@@ -185,14 +185,14 @@ export default function UserAccounts() {
 
   const handleRefresh = async () => {
     try {
-      setLoading(true);
-      const res = await fetch("http://localhost:5000/api/auth/users");
+      setLoadingPage(true);
+      const res = await fetch("http://localhost:5000/api/auth/users", { credentials: "include" });
       const data = await res.json();
       setUsers(data);
     } catch (err) {
       console.error("Fetch users error:", err);
     } finally {
-      setLoading(false);
+      setLoadingPage(false);
     }
   };
 

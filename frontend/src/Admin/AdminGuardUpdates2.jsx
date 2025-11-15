@@ -1,15 +1,24 @@
-import React, { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+ import React, { useState, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { ArrowLeft, Clock, MapPin, User, Shield } from "lucide-react";
 
 function AdminGuardUpdates2() {
   const { id } = useParams();
-  const { token } = useAuth();
+  const { user, loading } = useAuth();
   const [guard, setGuard] = useState(null);
   const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingPage, setLoadingPage] = useState(true);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user && !loading) {
+      navigate("/admin/login");
+      return;
+    }
+  }, [user, loading, navigate]);
+  console.log ("User info:", user);
 
   useEffect(() => {
     if (id) {
@@ -19,14 +28,12 @@ function AdminGuardUpdates2() {
 
   const fetchGuardData = async () => {
     try {
-      setLoading(true);
+      setLoadingPage(true);
       setError("");
       
       // Fetch guard data
       const guardResponse = await fetch(`http://localhost:5000/api/guards/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
       });
 
       if (guardResponse.ok) {
@@ -42,16 +49,14 @@ function AdminGuardUpdates2() {
       console.error("Error fetching guard data:", error);
       setError("Error loading guard data");
     } finally {
-      setLoading(false);
+      setLoadingPage(false);
     }
   };
 
   const fetchGuardLogs = async (guardId) => {
     try {
       const response = await fetch(`http://localhost:5000/api/logbook?guardId=${guardId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
       });
       
       if (response.ok) {

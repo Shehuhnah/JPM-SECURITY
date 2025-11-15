@@ -9,6 +9,9 @@ import {
   ArrowLeft,
   Loader2,
 } from "lucide-react";
+import { useAuth } from "../hooks/useAuth.js"
+import { useNavigate } from "react-router-dom";
+
 
 const socket = io("http://localhost:5000");
 const STORAGE_KEY = "jpm-applicant-chat";
@@ -31,6 +34,8 @@ const normalizeId = (value) => {
 };
 
 export default function ApplicantsMessages() {
+  const { user: admin, loading } = useAuth();
+  const navigate = useNavigate();
   const [session, setSession] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -49,7 +54,7 @@ export default function ApplicantsMessages() {
   const [nameInput, setNameInput] = useState(session?.name ?? "");
   const [emailInput, setEmailInput] = useState(session?.email ?? "");
   const [phoneInput, setPhoneInput] = useState(session?.phone ?? "");
-  const [loading, setLoading] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
 
@@ -58,6 +63,13 @@ export default function ApplicantsMessages() {
   const subjectSentRef = useRef(false); // legacy, no longer auto-sending
   const [hiringContext, setHiringContext] = useState(null);
   const [hiringDetails, setHiringDetails] = useState(null);
+
+  useEffect(() => {
+    if (!admin && !loading) {
+      navigate("/admin/login");
+      return;
+    }
+  }, [admin, loading, navigate]);
 
   useEffect(() => {
     // Capture hiring context from URL params
@@ -89,7 +101,9 @@ export default function ApplicantsMessages() {
   const fetchMessages = async (conversationId, applicantId) => {
     try {
       const res = await fetch(
-        `http://localhost:5000/api/applicant-messages/${conversationId}?applicantId=${applicantId}`
+        `http://localhost:5000/api/applicant-messages/${conversationId}?applicantId=${applicantId}`, {
+          credentials: "include"
+        }
       );
       if (!res.ok) throw new Error("Failed to load messages");
       const data = await res.json();
@@ -116,9 +130,10 @@ export default function ApplicantsMessages() {
     bootstrappedRef.current = true;
     (async () => {
       try {
-        setLoading(true);
+        setLoadingPage(true);
         const phonePayload = session.phone ?? phoneInput;
         const res = await fetch("http://localhost:5000/api/applicant-messages/session", {
+          credentials: "include",
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -155,7 +170,7 @@ export default function ApplicantsMessages() {
         setIsPromptOpen(true);
         bootstrappedRef.current = false;
       } finally {
-        setLoading(false);
+        setLoadingPage(false);
       }
     })();
   }, [session]);
@@ -165,7 +180,9 @@ export default function ApplicantsMessages() {
     const loadHiring = async () => {
       if (!hiringContext?.hiringId) return;
       try {
-        const res = await fetch(`http://localhost:5000/api/hirings/${hiringContext.hiringId}`);
+        const res = await fetch(`http://localhost:5000/api/hirings/${hiringContext.hiringId}`,{
+          credentials: "include"
+        });
         if (res.ok) {
           const data = await res.json();
           setHiringDetails(data);

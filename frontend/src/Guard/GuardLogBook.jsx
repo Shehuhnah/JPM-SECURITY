@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { ClipboardList, Clock, MapPin, FileText, Trash2, Edit3, Save, X } from "lucide-react";
-import { guardAuth } from "../hooks/guardAuth";
+import { useAuth } from "../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 export default function GuardLogBook() {
+  const { user: guard, loading } = useAuth();
+  const navigate = useNavigate();
   const [logs, setLogs] = useState([]);
   const [form, setForm] = useState({
     post: "",
@@ -12,26 +15,28 @@ export default function GuardLogBook() {
   });
   const [editingId, setEditingId] = useState(null);
   const [editingData, setEditingData] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [loadingPage, setloadingPage] = useState(false);
   const [message, setMessage] = useState("");
 
   
-  const { guard, token } = guardAuth();
   console.log(guard);
   console.log(form);
   console.log(form)
 
   useEffect(() => {
-    document.title = "Announcement | JPM Agency Security";
-    fetchLogs();
-  }, []);
+    if (!guard && !loading) {
+      navigate("/guard/login");
+      return;
+    }
+    fetchLogs
+  }, [guard, loading, navigate]);
 
   const fetchLogs = async () => {
     try {
-      setLoading(true);
+      setloadingPage(true);
       const response = await fetch(`http://localhost:5000/api/logbook?guardId=${guard._id}`, {
+        credentials: "include",
         headers: {
-          Authorization: token ? `Bearer ${token}` : "",
           "Content-Type": "application/json",
         }
       });
@@ -46,7 +51,7 @@ export default function GuardLogBook() {
       console.error("Error fetching logs:", error);
       setMessage("❌ Error loading logs");
     } finally {
-      setLoading(false);
+      setloadingPage(false);
     }
   };
 
@@ -57,11 +62,12 @@ export default function GuardLogBook() {
     }
 
     try {
-      setLoading(true);
+      setloadingPage(true);
       setMessage("");
       
       const response = await fetch("http://localhost:5000/api/logbook", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -84,7 +90,7 @@ export default function GuardLogBook() {
       console.error("Error adding log:", error);
       setMessage("❌ Error adding log entry");
     } finally {
-      setLoading(false);
+      setloadingPage(false);
     }
   };
 

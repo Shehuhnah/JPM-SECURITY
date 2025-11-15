@@ -13,41 +13,28 @@ import {
 } from "lucide-react";
 import { generateAndDownloadCOE } from "../utils/pdfGenerator";
 import header from "../assets/headerpdf/header.png";
-import { guardAuth } from "../hooks/guardAuth";
 import { useAuth } from "../hooks/useAuth";
 
 export default function GuardReqCOE() {
   const [purpose, setPurpose] = useState("");
   const [requests, setRequests] = useState([]);
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(false);
   const [showCOEModal, setShowCOEModal] = useState(false);
   const [selectedCOE, setSelectedCOE] = useState(null);
 
-  const { guard, token: guardToken } = guardAuth();
-  const { admin, token: adminToken } = useAuth();
-
-  let user = null;
-  let token = null;
-
-  if (guard && guardToken) {
-    user = guard;
-    token = guardToken;
-  } else if (admin && adminToken) {
-    user = admin;
-    token = adminToken;
-  } else {
-    console.log("No user logged in");
-  }
+  const { user, loading  } = useAuth();
 
   useEffect(() => {
     document.title = "Request COE | JPM Agency Security";
 
+    if (!user || !loading) return;
+
     const fetchRequests = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/coe/me", {
+          credentials: "include",
           headers: {
-            Authorization: token ? `Bearer ${token}` : "",
             "Content-Type": "application/json",
           },
         });
@@ -59,7 +46,7 @@ export default function GuardReqCOE() {
       }
     };
     fetchRequests();
-  }, [token]);
+  }, [user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -68,13 +55,13 @@ export default function GuardReqCOE() {
       return;
     }
     try {
-      setLoading(true);
+      setLoadingPage(true);
       setMessage("");
       const res = await fetch("http://localhost:5000/api/coe", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
         },
         body: JSON.stringify({ purpose }),
       });
@@ -90,7 +77,7 @@ export default function GuardReqCOE() {
     } catch (error) {
       setMessage("❌ Error submitting request. Please try again.");
     } finally {
-      setLoading(false);
+      setLoadingPage(false);
     }
   };
 

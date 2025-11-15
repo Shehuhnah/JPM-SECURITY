@@ -19,7 +19,7 @@ import { useNavigate } from "react-router-dom";
 
 export default function AdminDeployment() {
   const navigate = useNavigate();
-  const { admin, token } = useAuth();
+  const { user, loading } = useAuth(); // <-- renamed
   const [schedules, setSchedules] = useState([]);
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState("");
@@ -28,19 +28,20 @@ export default function AdminDeployment() {
   const [statusFilter, setStatusFilter] = useState("All"); // ✅ New state
 
   useEffect(() => {
-    document.title = "Deployment | JPM Security Agency";
-    if (!admin || !token) navigate("/admin/login", { replace: true });
-  }, [admin, token, navigate]);
+    if (!loading && !user) {
+      navigate("/admin/login");
+    }
+  }, [user, loading, navigate]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [schedulesRes, clientsRes] = await Promise.all([
           fetch("http://localhost:5000/api/schedules/get-schedules", {
-            headers: { Authorization: `Bearer ${token}` },
+            credentials: "include",
           }),
           fetch("http://localhost:5000/api/clients/get-clients", {
-            headers: { Authorization: `Bearer ${token}` },
+            credentials: "include",
           }),
         ]);
 
@@ -59,8 +60,8 @@ export default function AdminDeployment() {
       }
     };
 
-    if (token) fetchData();
-  }, [token]);
+    if (user) fetchData();
+  }, [user]);
 
   const shiftColors = {
     "Night Shift": "#ef4444", // red

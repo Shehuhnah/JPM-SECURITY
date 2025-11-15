@@ -38,7 +38,7 @@ ChartJS.register(
 );
 
 export default function AdminDashboard() {
-  const { admin, token } = useAuth();
+  const { user, loading } = useAuth(); // <-- renamed
   const navigate = useNavigate();
 
   const [stats, setStats] = useState({
@@ -48,7 +48,6 @@ export default function AdminDashboard() {
     logs: 0,
   });
 
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [chartData, setChartData] = useState({
     guardStatus: [0, 0, 0], // On Duty, Off Duty, Absent
@@ -58,27 +57,27 @@ export default function AdminDashboard() {
   const [recentActivities, setRecentActivities] = useState([]);
 
   useEffect(() => {
-    if (!admin || !token) {
+    if (!user && !loading) {
       navigate("/admin/login");
       return;
     }
-  }, [admin, token, navigate]);
+  }, [user, loading, navigate]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        setLoading(true);
         setError(null);
-        const headers = { Authorization: `Bearer ${token}` };
+        const credentialsOption = { credentials: "include" };
 
-        const [guardsRes, postsRes, logsRes, attendanceRes, hiringsRes, applicantsRes] = await Promise.all([
-          fetch("http://localhost:5000/api/guards", { headers }),
-          fetch("http://localhost:5000/api/posts", { headers }),
-          fetch("http://localhost:5000/api/logbook", { headers }),
-          fetch("http://localhost:5000/api/attendance", { headers }),
-          fetch("http://localhost:5000/api/hirings", { headers }).catch(() => null),
-          fetch("http://localhost:5000/api/applicants", { headers }).catch(() => null),
-        ]);
+        const [guardsRes, postsRes, logsRes, attendanceRes, hiringsRes, applicantsRes] =
+          await Promise.all([
+            fetch("http://localhost:5000/api/guards", credentialsOption),
+            fetch("http://localhost:5000/api/posts", credentialsOption),
+            fetch("http://localhost:5000/api/logbook", credentialsOption),
+            fetch("http://localhost:5000/api/attendance", credentialsOption),
+            fetch("http://localhost:5000/api/hirings", credentialsOption).catch(() => null),
+            fetch("http://localhost:5000/api/applicants", credentialsOption).catch(() => null),
+          ]);
 
 
 
@@ -184,12 +183,11 @@ export default function AdminDashboard() {
         console.error("Dashboard fetch error:", err);
         setError("Failed to load dashboard data.");
       } finally {
-        setLoading(false);
       }
     };
 
     fetchDashboardData();
-  }, [token])
+  }, [user])
 
   console.log()
 

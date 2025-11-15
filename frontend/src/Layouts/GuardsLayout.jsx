@@ -18,22 +18,35 @@ import {
   MessageCircle
 } from "lucide-react";
 
-import { guardAuth } from "../hooks/guardAuth";
+import { useAuth } from "../hooks/useAuth";
 import logo from "../assets/jpmlogo.png";
 
 export default function GuardsLayout() {
+  const { user: guard, loading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [openAttendance, setOpenAttendance] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const { guard, token } = guardAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
+  useEffect(() => {
+    if (!guard && !loading) {
+      navigate("/guard/login");
+      return;
+    }
+  }, [guard, loading, navigate]);
 
-  function handleLogout() {
-    localStorage.removeItem("guardToken");
-    localStorage.removeItem("guardData");
-    navigate("/Guard/Login");
-  }
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:5000/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      navigate("/guard/login");
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  };
 
   const navItems = [
     { to: "/guard/detachment", label: "Detachment / Deployment", icon: <Shield size={18} /> },

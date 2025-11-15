@@ -1,12 +1,14 @@
 import { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 import { Paperclip, Send, CircleUserRound, ArrowLeft } from "lucide-react";
-import { guardAuth } from "../hooks/guardAuth";
+import { useAuth } from "../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 const socket = io("http://localhost:5000");
 
 export default function GuardMessage() {
-  const { guard: user, token } = guardAuth(); // Assuming guard object
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -41,7 +43,7 @@ export default function GuardMessage() {
     const fetchConversations = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/messages/conversations", {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include"
         });
         const data = await res.json();
         const filtered = (Array.isArray(data) ? data : []).filter(
@@ -70,7 +72,7 @@ export default function GuardMessage() {
       }
     };
     fetchConversations();
-  }, [user, token]);
+  }, [user]);
   
 
   // Load messages for selected conversation
@@ -84,7 +86,7 @@ export default function GuardMessage() {
       try {
         const res = await fetch(
           `http://localhost:5000/api/messages/${selectedConversation._id}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { credentials: "include" }
         );
         const data = await res.json();
         setMessages(Array.isArray(data) ? data : []);
@@ -116,7 +118,7 @@ export default function GuardMessage() {
       socket.off("receiveMessage", handleReceiveMessage);
       socket.off("conversationUpdated", handleConversationUpdated);
     };
-  }, [selectedConversation?._id, token, user?._id]);
+  }, [selectedConversation?._id, user]);
 
   // Listen for conversation updates to keep the list fresh
   useEffect(() => {
@@ -154,7 +156,7 @@ export default function GuardMessage() {
     if (!receiver && selectedConversation.isTemp) {
       try {
         const res = await fetch("http://localhost:5000/api/auth/subadmins", {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include"
         });
         const data = await res.json();
         const subadmins = Array.isArray(data) ? data : [];
@@ -190,7 +192,7 @@ export default function GuardMessage() {
     try {
       const res = await fetch("http://localhost:5000/api/messages", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
         body: formData,
       });
       if (!res.ok) return console.error(await res.text());

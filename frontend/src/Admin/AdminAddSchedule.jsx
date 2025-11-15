@@ -35,10 +35,10 @@ export default function AdminAddSchedule() {
             try {
             const [guardsRes, clientsRes] = await Promise.all([
                 fetch("http://localhost:5000/api/guards", {
-                headers: { Authorization: `Bearer ${token}` },
+                  credentials: "include",
                 }),
                 fetch("http://localhost:5000/api/clients/get-clients", {
-                headers: { Authorization: `Bearer ${token}` },
+                  credentials: "include",
                 }),
             ]);
 
@@ -109,6 +109,7 @@ export default function AdminAddSchedule() {
             setLoading(true);
             const res = await fetch("http://localhost:5000/api/schedules/create-schedule", {
             method: "POST",
+            credentials: "include",
             headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`,

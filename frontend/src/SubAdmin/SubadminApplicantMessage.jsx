@@ -2,11 +2,13 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { io } from "socket.io-client";
 import { Paperclip, Send, CircleUserRound, Search, ArrowLeft } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 const socket = io("http://localhost:5000");
 
 export default function SubadminApplicantMessage() {
-  const { admin: user, token } = useAuth();
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -21,8 +23,13 @@ export default function SubadminApplicantMessage() {
   const hasNotifiedOnline = useRef(false);
 
   useEffect(() => {
+    if (!user && !loading) {
+      navigate("/admin/login");
+      return;
+    }
     document.title = "Applicant Messages | JPM Security Agency";
-  }, []);
+    
+  }, [user, loading, navigate]);
 
   const sortConversations = (list) =>
     [...list].sort((a, b) => {
@@ -81,8 +88,9 @@ export default function SubadminApplicantMessage() {
       console.log("🔍 [SubadminApplicantMessage] Fetching conversations...");
       
       const res = await fetch(
-        "http://localhost:5000/api/messages/conversations",
-        { headers: { Authorization: `Bearer ${token}` } }
+        "http://localhost:5000/api/messages/conversations", {
+          credentials: "include"
+        }
       );
       
       if (!res.ok) {
@@ -105,7 +113,7 @@ export default function SubadminApplicantMessage() {
     } catch (err) {
       console.error("❌ [SubadminApplicantMessage] Error fetching conversations:", err);
     }
-  }, [token]);
+  }, [user]);
 
   useEffect(() => {
     fetchConversations();
@@ -135,8 +143,10 @@ export default function SubadminApplicantMessage() {
     const fetchMessages = async () => {
       try {
         const res = await fetch(
-          `http://localhost:5000/api/messages/${selectedConversation._id}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          `http://localhost:5000/api/messages/${selectedConversation._id}`,{
+            credentials: "include"
+          }
+          
         );
         const data = await res.json();
         setMessages(Array.isArray(data) ? data : []);
@@ -189,10 +199,8 @@ export default function SubadminApplicantMessage() {
       });
     };
 
-    // FIX 1: Listen for messages_seen event to update UI
     const handleMessageSeen = ({ conversationId }) => {
       if (normalizeId(conversationId) === normalizeId(selectedConversation?._id)) {
-        // Update header's selected conversation
         setSelectedConversation((prev) => prev ? { ...prev, lastMessage: { ...prev.lastMessage, seen: true } } : prev);
         setConversations((prev) =>
           prev.map((conv) =>
@@ -235,14 +243,14 @@ export default function SubadminApplicantMessage() {
 
     socket.on("receiveMessage", handleReceiveMessage);
     socket.on("conversationUpdated", handleConversationUpdated);
-    socket.on("messages_seen", handleMessageSeen); // FIX 1: Listen for seen status
+    socket.on("messages_seen", handleMessageSeen);
     
     return () => {
       socket.off("receiveMessage", handleReceiveMessage);
       socket.off("conversationUpdated", handleConversationUpdated);
       socket.off("messages_seen", handleMessageSeen);
     };
-  }, [selectedConversation?._id, token, user._id, fetchConversations]);
+  }, [selectedConversation?._id, user, fetchConversations]);
 
   useEffect(() => {
     const handleConversationUpdated = (updatedConv) => {
@@ -295,7 +303,7 @@ export default function SubadminApplicantMessage() {
     try {
       const res = await fetch("http://localhost:5000/api/messages", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
         body: formData,
       });
       if (!res.ok) return console.error(await res.text());

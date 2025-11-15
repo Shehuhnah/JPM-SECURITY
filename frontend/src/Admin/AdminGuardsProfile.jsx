@@ -18,28 +18,28 @@ import "react-toastify/dist/ReactToastify.css";
 import Loader from "../components/Loading.jsx";
 import DeleteUserModal from "../components/DeleteUserModal";
 import { useAuth } from "../hooks/useAuth.js"
+import { Eye, EyeOff } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function GuardTable() {
-  const { admin, token } = useAuth();
-
+  const { user: admin, loading } = useAuth();
+  const navigate = useNavigate();
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false); // For Add Guard Modal
   const [editIsOpen, setEditIsOpen] = useState(false); // For Edit Guard Modal
   const [guards, setGuards] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [selectedUser, setSelectedUser] = useState(null); // For modal
+  const [showPassword, setShowPassword] = useState(false);
   
   const [form, setForm] = useState({
       fullName: "",
       email: "",
       guardId: "",
-      password: "",
       address: "",
       position: "",
-      dutyStation: "",
-      shift: "",
       phoneNumber: "",
       SSSID: "",
       PhilHealthID: "",
@@ -47,14 +47,24 @@ export default function GuardTable() {
       EmergencyPerson: "",
       EmergencyContact: ""
   });
+
+  const generateGuardPassword = () => {
+    const randomLetter = String.fromCharCode(65 + Math.floor(Math.random() * 26)); // A-Z
+    const randomNumber = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+    return `JPM${randomLetter}${randomNumber}`;
+  };
+
   //  Fetch users
   useEffect(() => {
     document.title = "Guards Profile | JPM Security Agency";
-
+    if (!admin && !loading) {
+      navigate("/admin/login");
+      return;
+    }
     const fetchGuards = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/guards", {
-          headers: { Authorization: `Bearer ${token}` },
+         credentials: "include",
         });
         if (!res.ok) throw new Error("Failed to fetch guards");
 
@@ -63,19 +73,19 @@ export default function GuardTable() {
       } catch (err) {
         console.error("Fetch guards error:", err);
       } finally {
-        setLoading(false);
+        setLoadingPage(false);
       }
     };
 
     fetchGuards();
-  }, []);
+  }, [admin, loading, navigate]);
 
   // Refresh users
   const handleRefresh = async () => {
     try {
-      setLoading(true);
+      setLoadingPage(true);
       const res = await fetch("http://localhost:5000/api/guards", {
-          headers: { Authorization: `Bearer ${token}` },
+         credentials: "include",
         });
       const data = await res.json();
       setGuards(data);
@@ -100,49 +110,38 @@ export default function GuardTable() {
     } catch (err) {
       console.error("Fetch users error:", err);
     } finally {
-      setLoading(false);
+      setLoadingPage(false);
     }
   };
 
-  // handle input change
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    console.log(form);
+    const { name, value } = e.target;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: name === "email" ? value.toLowerCase() : value,
+    }));
   };
 
   // submit new guard
   const handleAddGuard = async () => {
     setErrorMsg("");
 
-    if (!form.fullName || !form.email || !form.password || !form.guardId ||!form.address || !form.dutyStation || !form.shift || !form.position || !form.phoneNumber || !form.SSSID || !form.PhilHealthID || !form.PagibigID || !form.EmergencyPerson || !form.EmergencyContact) {
+    if (!form.fullName || !form.email || !form.guardId ||!form.address  || !form.position || !form.phoneNumber || !form.SSSID || !form.PhilHealthID || !form.PagibigID || !form.EmergencyPerson || !form.EmergencyContact) {
       setErrorMsg("⚠️ Please fill in all required fields.");
       return;
     }
 
-    if (form.password.length < 8){
-      setErrorMsg("")
-      setErrorMsg("⚠️ Password Must be atleast 8 characters.", form.password.length)
-      return;
-    }
-
-    const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-
-    if (!strongPasswordRegex.test(form.password)) {
-      setErrorMsg("")
-      setErrorMsg(
-        "⚠️ Password must include uppercase, lowercase, number, and special character."
-      );
-      return;
-    }
+    console.log("🛠 Submitting new guard:", form);
 
     try {
-      setLoading(true);
+      setLoadingPage(true);
       const res = await fetch("http://localhost:5000/api/guards", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
+        credentials: "include",
         body: JSON.stringify(form),
       });
 
@@ -156,11 +155,8 @@ export default function GuardTable() {
           fullName: "",
           email: "",
           guardId: "",
-          password: "",
           address: "",
           position: "",
-          dutyStation: "",
-          shift: "",
           phoneNumber: "",
           SSSID: "",
           PhilHealthID: "",
@@ -182,8 +178,16 @@ export default function GuardTable() {
       console.error(err);
       setErrorMsg("❌ Failed to connect to server.");
     } finally {
-      setLoading(false);
+      setLoadingPage(false);
     }
+  };
+
+  const openAddGuardModal = () => {
+    setForm((prev) => ({
+      ...prev,
+      password: generateGuardPassword(),
+    }));
+    setIsOpen(true);
   };
 
   // delete guard
@@ -191,9 +195,7 @@ export default function GuardTable() {
     try {
       const res = await fetch(`http://localhost:5000/api/guards/${id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        }
+        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to delete Guard");
 
@@ -220,10 +222,11 @@ export default function GuardTable() {
     }
 
     try {
-      setLoading(true);
+      setLoadingPage(true);
       const res = await fetch(`http://localhost:5000/api/guards/${form._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(form),
       });
 
@@ -249,7 +252,7 @@ export default function GuardTable() {
         theme: "dark",
       });
     } finally {
-      setLoading(false);
+      setLoadingPage(false);
     }
   };
 
@@ -308,7 +311,7 @@ export default function GuardTable() {
 
             {admin.role === "Admin" && admin.accessLevel === 1 && (
               <button
-                onClick={() => setIsOpen(true)}
+                onClick={openAddGuardModal}
                 className="mt-4 sm:mt-0 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-4 py-2.5 rounded-lg shadow-md transition-transform transform hover:-translate-y-0.5"
               >
                 <UserPlus size={18} />
@@ -326,10 +329,9 @@ export default function GuardTable() {
                 <th className="p-3">Full Name</th>
                 <th className="p-3">Guard ID</th>
                 <th className="p-3">Position</th>
-                <th className="p-3">Duty Station</th>
                 <th className="p-3">Contact</th>
                 <th className="p-3">Email</th>
-                <th className="p-3">Shift</th>
+                <th className="p-3">Status</th>
                 {admin.role === "Admin" && admin.accessLevel === 1 && (
                   <th className="p-3">Action</th>
                 )}
@@ -344,14 +346,10 @@ export default function GuardTable() {
                       {g.fullName}
                     </td>
                     <td className="p-3">{g.guardId}</td>
-                    <td className="p-3 text-blue-400">{g.position}</td>
-                    <td className="p-3">{g.dutyStation}</td>
+                    <td className="p-3">{g.position}</td>
                     <td className="p-3">{g.phoneNumber}</td>
                     <td className="p-3 text-gray-300">{g.email}</td>
-                    <td className="p-3 flex items-center gap-1">
-                      <Clock className="w-4 h-4 text-blue-500" />
-                      {g.shift}
-                    </td>
+                    <td className="p-3 flex items-center">{g.status}</td>
                     {admin.role === "Admin" && admin.accessLevel === 1 && (
                       <td className="p-3 space-x-5">
                         <button onClick={() => handleEdit(g)}>
@@ -461,14 +459,23 @@ export default function GuardTable() {
                           className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
                         />
 
-                        <input
-                          type="password"
-                          name="password"
-                          placeholder="Password"
-                          value={form.password}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                        />
+                        <div className="relative w-full">
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            name="password"
+                            placeholder="Password"
+                            value={form.password}
+                            onChange={handleChange}
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
+                          >
+                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                          </button>
+                        </div>
 
                         <input
                           type="text"
@@ -478,30 +485,6 @@ export default function GuardTable() {
                           onChange={handleChange}
                           className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
                         />
-
-                        <select
-                          name="shift"
-                          value={form.shift}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Select Shift</option>
-                          <option value="Day Shift">Day Shift</option>
-                          <option value="Night Shift">Night Shift</option>
-                        </select>
-
-                        <input
-                          type="text"
-                          name="dutyStation"
-                          placeholder="Duty Station"
-                          value={form.dutyStation}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      {/* Right Column */}
-                      <div className="space-y-3">
                         <input
                           type="text"
                           name="address"
@@ -511,6 +494,11 @@ export default function GuardTable() {
                           className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
                         />
 
+                        
+                      </div>
+
+                      {/* Right Column */}
+                      <div className="space-y-3">
                         <input
                           type="text"
                           name="phoneNumber"
@@ -521,7 +509,6 @@ export default function GuardTable() {
                           pattern="^(09\\d{9}|\\+639\\d{9})$"
                           title="Enter a valid PH mobile number (09XXXXXXXXX or +639XXXXXXXXX)"
                         />
-
                         <input
                           type="text"
                           name="SSSID"

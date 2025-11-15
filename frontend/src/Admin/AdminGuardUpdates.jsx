@@ -7,10 +7,15 @@ export default function AdminGuardUpdates() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [guards, setGuards] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  
-  const { user, token } = useAuth();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!user && !loading) {
+      navigate("/admin/login");
+      return;
+    }
+  }, [user, loading, navigate]);
 
   // Load guards from backend
   useEffect(() => {
@@ -21,13 +26,10 @@ export default function AdminGuardUpdates() {
   // Fetch guards from backend
   const fetchGuards = async () => {
     try {
-      setLoading(true);
       setError("");
       
       const response = await fetch("http://localhost:5000/api/guards", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
       });
 
       if (response.ok) {
@@ -40,7 +42,6 @@ export default function AdminGuardUpdates() {
       console.error("Error fetching guards:", error);
       setError("Error loading guards");
     } finally {
-      setLoading(false);
     }
   };
 

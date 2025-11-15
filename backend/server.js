@@ -6,6 +6,7 @@ import path from "path";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { fileURLToPath } from "url";
+import cookieParser from "cookie-parser";
 
 dotenv.config();
 
@@ -54,7 +55,7 @@ app.use(
     credentials: true,
   })
 );
-
+app.use(cookieParser());
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads/messages")));
 app.use('/assets', express.static(path.join(__dirname, 'assets')));

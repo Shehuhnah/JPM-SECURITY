@@ -15,14 +15,14 @@ import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
 export default function RequestedIDs() {
-  const { admin, token } = useAuth();
+  const { user: admin, loading } = useAuth();
   const navigate = useNavigate();
 
   const [requests, setRequests] = useState([]);
   const [filteredRequests, setFilteredRequests] = useState([]);
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loadingPage, setLoadingPage] = useState(true);
 
   const [approveModal, setApproveModal] = useState(false);
   const [declineModal, setDeclineModal] = useState(false);
@@ -35,16 +35,16 @@ export default function RequestedIDs() {
   // Fetch Requests
   const fetchRequests = async () => {
     try {
-      if (!token && !admin) {
+      if (!loading && !admin) {
         navigate("/admin/login");
         return;
       }
 
-      setLoading(true);
+      setLoadingPage(true);
       const res = await fetch("http://localhost:5000/api/idrequests", {
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -61,13 +61,13 @@ export default function RequestedIDs() {
     } catch (err) {
       console.error("❌ Failed to load ID requests:", err);
     } finally {
-      setLoading(false);
+      setLoadingPage(false);
     }
   };
 
   useEffect(() => {
     fetchRequests();
-  }, [token]);
+  }, [admin]);
 
   // Filter & Search
   useEffect(() => {

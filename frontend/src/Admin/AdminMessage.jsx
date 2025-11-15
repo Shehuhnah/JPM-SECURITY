@@ -1,12 +1,14 @@
 import { io } from "socket.io-client";
 import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Paperclip, Send, Search, CircleUserRound, ArrowLeft, MessageSquare  } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 const socket = io("http://localhost:5000");
 
 export default function MessagesPage() {
-  const { admin: user, token } = useAuth();
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const messagesEndRef = useRef(null);
   const hasNotifiedOnline = useRef(false);
   const fileInputRef = useRef();
@@ -21,6 +23,16 @@ export default function MessagesPage() {
   const [file, setFile] = useState(null);
 
   // Scroll to bottom on new messages
+
+  useEffect(() => {
+    if (!user && !loading) {
+      navigate("/admin/login");
+      return;
+    }
+  }, [user, loading, navigate]);
+
+  console.log(user)
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -79,7 +91,7 @@ export default function MessagesPage() {
     const fetchConversations = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/messages/conversations", {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
         });
         const data = await res.json();
         const filtered = (Array.isArray(data) ? data : []).filter(conv =>
@@ -91,7 +103,7 @@ export default function MessagesPage() {
       }
     };
     fetchConversations();
-  }, [token]);
+  }, [user]);
 
   // Fetch users for starting new chats
   useEffect(() => {
@@ -101,7 +113,7 @@ export default function MessagesPage() {
         const endpoint = user.role === "Admin"
           ? "http://localhost:5000/api/auth/subadmins"
           : "http://localhost:5000/api/auth/admins";
-        const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await fetch(endpoint, { credentials: "include" });
         const data = await res.json();
         setAvailableUsers(Array.isArray(data) ? data : []);
       } catch (err) {
@@ -109,7 +121,7 @@ export default function MessagesPage() {
       }
     };
     fetchUsers();
-  }, [user, token]);
+  }, [user]);
 
   // Load messages for selected conversation & listen for updates
   useEffect(() => {
@@ -121,7 +133,7 @@ export default function MessagesPage() {
     const fetchMessages = async () => {
       try {
         const res = await fetch(`http://localhost:5000/api/messages/${selectedConversation._id}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
         });
         const data = await res.json();
         setMessages(Array.isArray(data) ? data : []);
@@ -164,7 +176,7 @@ export default function MessagesPage() {
 
     socket.on("receiveMessage", handleReceiveMessage);
     return () => socket.off("receiveMessage", handleReceiveMessage);
-  }, [selectedConversation?._id, token, user._id]);
+  }, [selectedConversation?._id, user]);
 
   // Listen for conversation updates (other conversations)
   useEffect(() => {
@@ -179,7 +191,7 @@ export default function MessagesPage() {
 
       if (selectedConversation?._id === updatedConv._id) {
         try {
-          const res = await fetch(`http://localhost:5000/api/messages/${updatedConv._id}`, { headers: { Authorization: `Bearer ${token}` } });
+          const res = await fetch(`http://localhost:5000/api/messages/${updatedConv._id}`, { credentials: "include" });
           const data = await res.json();
           setMessages(Array.isArray(data) ? data : []);
         } catch (err) {
@@ -189,7 +201,7 @@ export default function MessagesPage() {
     };
     socket.on("conversationUpdated", handleConversationUpdated);
     return () => socket.off("conversationUpdated", handleConversationUpdated);
-  }, [selectedConversation, token]);
+  }, [selectedConversation, user]);
 
   // Send message
   const handleSend = async () => {
@@ -211,7 +223,7 @@ export default function MessagesPage() {
     if (file) formData.append("file", file);
 
     try {
-      const res = await fetch("http://localhost:5000/api/messages", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData });
+      const res = await fetch("http://localhost:5000/api/messages", { method: "POST", credentials: "include", body: formData });
       if (!res.ok) return console.error("Failed to send message:", await res.text());
 
       const { message, conversation: realConversation } = await res.json();

@@ -11,12 +11,12 @@ import {
   EyeOff,
   Lock,
 } from "lucide-react";
-import { guardAuth } from "../hooks/guardAuth";
+import { useAuth } from "../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 export default function GuardProfile() {
-  const { guardData, token } = guardAuth();
-  console.log(token)
-
+  const { user: guardData, loading } = useAuth();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
 
   // Separate visibility states for each password field
@@ -44,7 +44,7 @@ export default function GuardProfile() {
     const fetchProfile = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/guards/me", {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
         });
         const result = await res.json();
         if (result.success) setGuard((prev) => ({ ...prev, ...result.data }));
@@ -53,10 +53,7 @@ export default function GuardProfile() {
       }
     };
     fetchProfile();
-  }, [token]);
-
-    console.log("guard", guard)
-
+  }, [guardData]);
 
   const handleSave = async () => {
 
@@ -81,9 +78,9 @@ export default function GuardProfile() {
     try {
       const res = await fetch("http://localhost:5000/api/guards/update-guard-profile", {
         method: "PUT",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           fullName: guard.fullName,

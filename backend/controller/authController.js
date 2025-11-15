@@ -2,10 +2,12 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.model.js";
 import Guard from "../models/guard.model.js";
 
+// Generate JWT token
 const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "15d" });
 };
 
+// REGISTER ADMIN/SUBADMIN
 export const registerUser = async (req, res) => {
   const {
     name,
@@ -18,13 +20,11 @@ export const registerUser = async (req, res) => {
   } = req.body;
 
   try {
-    // 🔍 Check if admin already exists
     const adminExists = await User.findOne({ email });
     if (adminExists) {
       return res.status(400).json({ message: "Admin already exists" });
     }
 
-    // ✅ Create new admin
     const admin = await User.create({
       name,
       email,
@@ -35,14 +35,21 @@ export const registerUser = async (req, res) => {
       contactNumber,
     });
 
-    // 🔐 Respond with token and essential details
+    // set httpOnly cookie
+    const token = generateToken(admin._id, admin.role);
+    res.cookie("accessToken", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 1000 * 60 * 60 * 24 * 15, // 15 days
+    });
+
     res.status(201).json({
       _id: admin._id,
       name: admin.name,
       email: admin.email,
       role: admin.role,
       accessLevel: admin.accessLevel,
-      token: generateToken(admin._id, admin.role),
     });
   } catch (err) {
     console.error("Error registering admin:", err.message);
@@ -50,103 +57,121 @@ export const registerUser = async (req, res) => {
   }
 };
 
+// LOGIN USER (ADMIN/SUBADMIN)
 export const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // 🔍 Check if admin exists
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: "Invalid email or password" });
-    }
+    if (!user) return res.status(400).json({ message: "Invalid email or password" });
 
-    // 🔐 Verify password
     const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid email or password" });
-    }
+    if (!isMatch) return res.status(400).json({ message: "Invalid email or password" });
 
-    // 🧠 Generate JWT token
-    const token = generateToken(user._id, user.role);
-
-    // ✅ Return clean response
-    res.json({
-      token,
-      admin: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        accessLevel: user.accessLevel,
-        position: user.position,
-        contactNumber: user.contactNumber,
-        status: user.status,
-        lastLogin: user.lastLogin,
-      },
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
+      expiresIn: "15d",
     });
 
-    // 🕓 Update last login timestamp
+    res.cookie("accessToken", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 1000 * 60 * 60 * 24, // 1 day
+    });
+
     user.lastLogin = new Date();
     await user.save();
-
+    res.json({ admin: user.toJSON() });
+    
   } catch (err) {
-    console.error("Login error:", err.message);
+    console.error("Admin login error:", err);
     res.status(500).json({ message: err.message });
   }
 };
 
+export const logout = (req, res) => {
+  res.clearCookie("accessToken", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  });
+
+  return res.json({ message: "Logged out successfully" });
+};
+
+export const guardChangePassword = async (req, res) => {
+  const { guardId, newPassword } = req.body;
+
+  try {
+    const guard = await Guard.findById(guardId);
+    if (!guard) {
+      return res.status(404).json({ message: "Guard not found" });
+    }
+    guard.password = newPassword;
+    guard.isFirstLogin = false;
+    await guard.save();
+    res.json({ message: "Password changed successfully" });
+  } catch (err) {
+    console.error("Error changing guard password:", err);
+    res.status(500).json({ message: "Server error changing password" });
+  }
+};
+
+// LOGIN GUARD
 export const loginGuard = async (req, res) => {
   const { email, password } = req.body;
 
   try {
     const guard = await Guard.findOne({ email, role: "Guard" });
-    if (!guard) {
-      return res.status(400).json({ message: "Invalid Email Address" });
-    }
+    if (!guard) return res.status(400).json({ message: "Invalid Email Address" });
 
     const isMatch = await guard.matchPassword(password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Incorrect password" });
-    }
+    if (!isMatch) return res.status(400).json({ message: "Incorrect password" });
 
     const token = generateToken(guard._id, guard.role);
-
-    res.json({
-      success: true,
-      message: "Login successful",
-      token,
-      guard: {
-        _id: guard._id,
-        fullName: guard.fullName,
-        email: guard.email,
-        role: guard.role,
-        guardId: guard.guardId,
-        address: guard.address,
-        position: guard.position,
-        dutyStation: guard.dutyStation,
-        shift: guard.shift,
-        phoneNumber: guard.phoneNumber,
-        SSSID: guard.SSSID,
-        PhilHealthID: guard.PhilHealthID,
-        PagibigID: guard.PagibigID,
-        EmergencyPerson: guard.EmergencyPerson,
-        EmergencyContact: guard.EmergencyContact,
-        status: guard.status,
-        lastLogin: guard.lastLogin,
-        createdAt: guard.createdAt,
-        updatedAt: guard.updatedAt,
-      },
+    res.cookie("accessToken", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 1000 * 60 * 60, // 1 hour
     });
 
+    // update last login
     guard.lastLogin = new Date();
     await guard.save();
+    res.json({ guard: guard.toJSON() });
+
   } catch (err) {
     console.error("Guard login error:", err.message);
     res.status(500).json({ message: "Server error logging in guard." });
   }
 };
 
-// 🔹 Get all Subadmins (for Admin) FOR CONVERSATION
+// GET CURRENT LOGGED-IN USER
+export const getMe = async (req, res) => {
+  try {
+    const token = req.cookies.accessToken;
+    if (!token) return res.status(401).json({ message: "Not authenticated" });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Try finding admin first
+    let user = await User.findById(decoded.id).select("-password");
+    // If not found, try guard
+    if (!user) {
+      user = await Guard.findById(decoded.id).select("-password");
+    }
+
+    if (!user) return res.status(401).json({ message: "User not found" });
+
+    res.json(user.toJSON());
+  } catch (err) {
+    console.error("Error in /me:", err);
+    res.status(401).json({ message: "Not authenticated" });
+  }
+};
+
+// CONVERSATION FETCHING
 export const getSubadmins = async (req, res) => {
   try {
     const subadmins = await User.find({ role: "Subadmin" }).select(
@@ -158,7 +183,6 @@ export const getSubadmins = async (req, res) => {
   }
 };
 
-// 🔹 Get all Admins (for Subadmin) FOR CONVERSATION
 export const getAdmins = async (req, res) => {
   try {
     const admins = await User.find({ role: "Admin" }).select(
@@ -170,7 +194,6 @@ export const getAdmins = async (req, res) => {
   }
 };
 
-// 🔹 Get all Guards (for Subadmin) FOR CONVERSATION
 export const getGuards = async (req, res) => {
   try {
     const guards = await Guard.find({ role: "Guard" }).select(

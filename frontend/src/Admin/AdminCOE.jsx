@@ -23,7 +23,7 @@ export default function AdminCOE() {
   const fetchRequests = async () => {
     try {
       const res = await fetch('http://localhost:5000/api/coe', {
-        headers: { Authorization: token ? `Bearer ${token}` : '' }
+        credentials: 'include'
       });
       if (!res.ok) throw new Error('Failed to load requests');
       const data = await res.json();
@@ -98,6 +98,7 @@ export default function AdminCOE() {
         const body = selectedAction === 'accept' ? { action: 'accept' } : { action: 'decline', declineReason };
         const res = await fetch(`/api/coe/${selectedRequest.id}/status`, {
           method: 'PATCH',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
           body: JSON.stringify(body),
         });
