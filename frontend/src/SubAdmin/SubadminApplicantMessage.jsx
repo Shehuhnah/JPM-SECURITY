@@ -59,11 +59,19 @@ export default function SubadminApplicantMessage() {
   const getApplicantId = (conversation) => normalizeId(getApplicantParticipant(conversation)?.userId);
 
   const getApplicantName = (conversation) => {
+    if (conversation?.applicantDisplayName) return conversation.applicantDisplayName;
     const applicant = getApplicantParticipant(conversation);
-    const populated = applicant?.user?.name || applicant?.name;
+    const populated =
+      applicant?.user?.name ||
+      applicant?.user?.fullName ||
+      (applicant?.user?.firstName && applicant?.user?.lastName
+        ? `${applicant.user.firstName} ${applicant.user.lastName}`
+        : null) ||
+      applicant?.name ||
+      (typeof applicant?.userId === "object" ? (applicant?.userId?.name || applicant?.userId?.fullName) : null);
     if (populated) return populated;
     const lm = conversation?.lastMessage;
-    const lmName = lm?.sender?.name || lm?.sender?.fullName;
+    const lmName = lm?.senderUser?.name || lm?.senderUser?.fullName || lm?.sender?.name || lm?.sender?.fullName;
     if (lmName) return lmName;
     return "Unknown Applicant";
   };
@@ -107,7 +115,10 @@ export default function SubadminApplicantMessage() {
       
       const unique = filtered.filter((conv, index, self) => 
         index === self.findIndex((c) => normalizeId(c._id) === normalizeId(conv._id))
-      );
+      ).map((conv) => ({
+        ...conv,
+        applicantDisplayName: getApplicantName(conv),
+      }));
       
       setConversations(sortApplicantConversations(unique));
     } catch (err) {
@@ -181,17 +192,20 @@ export default function SubadminApplicantMessage() {
         return sortApplicantConversations(
           prev.map((conv) => {
             if (normalizeId(conv._id) === msgConvId) {
-              // IMPORTANT: Keep the existing conversation's participants
-              // Only update the lastMessage
-              return {
+              const existingLM = conv.lastMessage || {};
+              const nextSender = msg.sender || msg.senderUser || existingLM.sender || existingLM.senderUser;
+              const merged = {
                 ...conv,
+                participants: conv.participants || existingConv.participants || [],
                 lastMessage: {
+                  ...existingLM,
                   ...msg,
-                  // ensure sender is present for name fallback (e.g., Applicant name)
-                  sender: msg.senderUser || conv.lastMessage?.sender,
+                  sender: nextSender || existingLM.sender,
+                  senderUser: msg.senderUser || existingLM.senderUser || nextSender,
                   seen: normalizeId(selectedConversation?._id) === msgConvId ? true : msg.seen,
                 },
               };
+              return { ...merged, applicantDisplayName: conv.applicantDisplayName || getApplicantName(merged) };
             }
             return conv;
           })
@@ -223,7 +237,16 @@ export default function SubadminApplicantMessage() {
       }
 
       if (normalizeId(selectedConversation?._id) === updatedConvId) {
-        setSelectedConversation(updatedConv);
+        // Merge into selected to preserve fields
+        setSelectedConversation((prev) => {
+          const mergedCore = { ...(prev || {}), ...(updatedConv || {}) };
+          const merged = {
+            ...mergedCore,
+            participants: (updatedConv?.participants && updatedConv.participants.length > 0) ? updatedConv.participants : prev?.participants,
+            lastMessage: { ...(prev?.lastMessage || {}), ...(updatedConv?.lastMessage || {}) },
+          };
+          return { ...merged, applicantDisplayName: prev?.applicantDisplayName || getApplicantName(merged) };
+        });
       }
       
       setConversations((prev) => {
@@ -234,10 +257,20 @@ export default function SubadminApplicantMessage() {
         const exists = unique.some((c) => normalizeId(c._id) === updatedConvId);
         if (exists) {
           return sortApplicantConversations(
-            unique.map((c) => (normalizeId(c._id) === updatedConvId ? updatedConv : c))
+            unique.map((c) => {
+              if (normalizeId(c._id) !== updatedConvId) return c;
+              const mergedCore = { ...c, ...updatedConv };
+              const merged = {
+                ...mergedCore,
+                participants: (updatedConv.participants && updatedConv.participants.length > 0) ? updatedConv.participants : c.participants,
+                lastMessage: { ...(c.lastMessage || {}), ...(updatedConv.lastMessage || {}) },
+              };
+              return { ...merged, applicantDisplayName: c.applicantDisplayName || getApplicantName(merged) };
+            })
           );
         }
-        return sortApplicantConversations([updatedConv, ...unique]);
+        const withName = { ...updatedConv, applicantDisplayName: getApplicantName(updatedConv) };
+        return sortApplicantConversations([withName, ...unique]);
       });
     };
 
@@ -310,26 +343,26 @@ export default function SubadminApplicantMessage() {
       const { message, conversation } = await res.json();
 
       setConversations((prev) => {
+        const convWithName = { ...conversation, applicantDisplayName: getApplicantName(conversation) };
         if (selectedConversation?.isTemp) {
           const exists = prev.some((c) => c._id === conversation._id);
           const withoutTemp = prev.filter((c) => !c.isTemp);
           const updated = exists
-            ? withoutTemp.map((c) =>
-                c._id === conversation._id ? conversation : c
-              )
-            : [conversation, ...withoutTemp];
+            ? withoutTemp.map((c) => (c._id === conversation._id ? { ...convWithName, applicantDisplayName: c.applicantDisplayName || convWithName.applicantDisplayName } : c))
+            : [convWithName, ...withoutTemp];
           return sortApplicantConversations(updated);
         }
         const exists = prev.some((c) => c._id === conversation._id);
         const updated = exists
-          ? prev.map((c) => (c._id === conversation._id ? conversation : c))
-          : [conversation, ...prev];
+          ? prev.map((c) => (c._id === conversation._id ? { ...convWithName, applicantDisplayName: c.applicantDisplayName || convWithName.applicantDisplayName } : c))
+          : [convWithName, ...prev];
         return sortApplicantConversations(updated);
       });
 
-      setSelectedConversation((prev) =>
-        prev && prev._id === conversation._id ? prev : conversation
-      );
+      setSelectedConversation((prev) => {
+        if (prev && prev._id === conversation._id) return { ...prev, applicantDisplayName: prev.applicantDisplayName || getApplicantName(prev) };
+        return { ...conversation, applicantDisplayName: getApplicantName(conversation) };
+      });
       setNewMessage("");
       setFile(null);
     } catch (err) {
@@ -453,7 +486,7 @@ export default function SubadminApplicantMessage() {
         <div className="flex-1 overflow-y-auto px-2 pb-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-[#0b1220]">
           {filteredConversations.length > 0 ? (
             filteredConversations.map((conv) => {
-              const applicantName = getApplicantName(conv);
+              const applicantName = conv.applicantDisplayName || getApplicantName(conv);
               const applicantId = getApplicantId(conv);
               const lastMessage = conv.lastMessage;
               const lastSenderId = normalizeId(lastMessage?.senderId);
@@ -522,7 +555,7 @@ export default function SubadminApplicantMessage() {
           <CircleUserRound size={38} />
           <div className="flex-1">
             <h3 className="font-semibold text-white mb-1">
-              {selectedConversation ? getApplicantName(selectedConversation) : "Select an applicant"}
+              {selectedConversation ? (selectedConversation.applicantDisplayName || getApplicantName(selectedConversation)) : "Select an applicant"}
             </h3>
             <span className={`text-xs ${selectedConversation && (() => {
                 const applicant = selectedConversation.participants?.find((p) => p.role === "Applicant");
