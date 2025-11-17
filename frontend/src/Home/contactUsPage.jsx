@@ -100,7 +100,7 @@ export default function ContactUsPage() {
           </div>
 
           {/* Contact Form Panel */}
-          <div className="relative bg-[#1e293b]/90 flex flex-col items-center backdrop-blur-md p-10 rounded-2xl shadow-2xl border border-gray-700 hover:scale-[1.01] transition-transform duration-300">
+          <div className="relative bg-[#1e293b]/90 flex flex-col items-center justify-center backdrop-blur-md p-10 rounded-2xl shadow-2xl border border-gray-700 hover:scale-[1.01] transition-transform duration-300">
             <h2 className="text-3xl font-extrabold text-white text-center tracking-wide drop-shadow-sm mb-16">
               Send Us a Message
             </h2>

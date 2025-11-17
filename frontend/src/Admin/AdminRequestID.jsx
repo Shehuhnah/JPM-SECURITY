@@ -104,9 +104,9 @@ const handleConfirmApprove = async () => {
       setSubmitting(true);
       const res = await fetch(`http://localhost:5000/api/idrequests/${selectedId}`, {
         method: "PUT",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           status: "Approved",
@@ -142,9 +142,9 @@ const handleConfirmApprove = async () => {
       setSubmitting(true);
       const res = await fetch(`http://localhost:5000/api/idrequests/${selectedId}`, {
         method: "PUT",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ status: "Declined", adminRemarks: declineReason }),
       });

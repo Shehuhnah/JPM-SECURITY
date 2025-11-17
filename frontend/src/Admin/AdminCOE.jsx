@@ -27,6 +27,7 @@ export default function AdminCOE() {
       });
       if (!res.ok) throw new Error('Failed to load requests');
       const data = await res.json();
+      console.log("datas:", data);
       const items = data.items || [];
       const mapped = items.map((req, index) => ({
         id: req._id,
@@ -34,6 +35,7 @@ export default function AdminCOE() {
         guardId: req.guardId,
         purpose: req.purpose,
         status: req.status,
+        requesterRole: req.requesterRole,
         requestedAt: new Date(req.requestedAt).toLocaleString(),
         phone: req.phone || `0912345678${index + 1}`,
         email: req.email || `${req.guardName ? req.guardName.toLowerCase().replace(/\s+/g, '.') : 'guard'}@jpmsecurity.com`,
@@ -51,8 +53,6 @@ export default function AdminCOE() {
   useEffect(() => {
     fetchRequests();
   }, []);
-
-  console.log(requests)
 
   // Toast helper
   const showToast = (message, type) => {
@@ -160,7 +160,6 @@ export default function AdminCOE() {
     }
   };
 
-  console.log(requests)
   // Filtering
   const filtered = requests.filter(
     (r) =>
@@ -263,7 +262,7 @@ export default function AdminCOE() {
                       />
                       <div>
                         <div className="font-medium text-white">{r.name}</div>
-                        <div className="text-xs text-gray-400">ID: {r.guardId}</div>
+                        <div className="text-xs text-gray-400">Role: {r.requesterRole}</div>
                         <div className="text-xs text-gray-400">{r.phone}</div>
                       </div>
                     </div>
