@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 import logo from "../assets/jpmlogo.png";
-import bg from "../Home/assets/contact-bg.jpg"; // Replace with your actual background image
+import bg from "../Home/assets/contact-bg.jpg";
+import { useNavigate } from "react-router-dom";
 
 export default function ContactUsPage() {
-
-    useEffect(() => {
-        document.title = "Contact Us | JPM Security Agency";
-    }, []);
+  const navigate = useNavigate();
+  useEffect(() => {
+    document.title = "Contact Us | JPM Security Agency";
+  }, []);
 
   return (
     <div
@@ -28,111 +29,102 @@ export default function ContactUsPage() {
             Get In Touch
           </h1>
           <p className="text-gray-300 max-w-2xl mx-auto">
-            We value every inquiry and are ready to provide reliable assistance for your security needs. 
-            Reach out today and we’ll respond promptly.
+            We value every inquiry and are ready to provide reliable assistance
+            for your security needs. Reach out today and we’ll respond promptly.
           </p>
         </div>
 
         {/* Contact Section */}
-            <div className="grid lg:grid-cols-2 gap-10 items-stretch">
-            {/* Contact Info Panel */}
-            <div className="relative bg-gradient-to-b from-[#1e293b]/90 to-[#0f172a]/90 p-10 rounded-2xl shadow-2xl border border-gray-700 hover:scale-[1.01] transition-transform duration-300">
-                <div className="flex flex-col items-center mb-10 text-center">
-                <img
-                    src={logo}
-                    alt="JPM Security Agency Logo"
-                    className="w-24 h-24 rounded-lg mb-4 shadow-md"
-                />
-                <h2 className="text-2xl font-bold text-white tracking-wide">
-                    JPM Security Agency
-                </h2>
-                <p className="text-gray-400 text-sm italic mt-1">
-                    “Your trusted partner in protection and peace of mind.”
+        <div className="grid lg:grid-cols-2 gap-10 items-stretch">
+          {/* Contact Info Panel */}
+          <div className="relative bg-gradient-to-b from-[#1e293b]/90 to-[#0f172a]/90 p-10 rounded-2xl shadow-2xl border border-gray-700 hover:scale-[1.01] transition-transform duration-300">
+            <div className="flex flex-col items-center mb-10 text-center">
+              <img
+                src={logo}
+                alt="JPM Security Agency Logo"
+                className="w-24 h-24 rounded-lg mb-4 shadow-md"
+              />
+              <h2 className="text-2xl font-bold text-white tracking-wide">
+                JPM Security Agency
+              </h2>
+              <p className="text-gray-400 text-sm italic mt-1">
+                “Your trusted partner in protection and peace of mind.”
+              </p>
+            </div>
+
+            {/* Info List */}
+            <div className="space-y-6 text-gray-300 text-sm">
+              <div className="flex items-start gap-3">
+                <span className="text-blue-400 text-lg">📍</span>
+                <p>
+                  <span className="block font-semibold text-white">
+                    Address
+                  </span>
+                  <strong>Main Office: </strong>Checkpoint, Purok 4, Brgy.
+                  Mataas na Lupa, Indang, Cavite 4122
+                  <br />
+                  <strong>Sattelite Office: </strong>RGDM Bldg., Brgy.Galicia2,
+                  Mendez-Nunez, Cavite 4121
                 </p>
-                </div>
+              </div>
 
-                {/* Info List */}
-                <div className="space-y-6 text-gray-300 text-sm">
-                <div className="flex items-start gap-3">
-                    <span className="text-blue-400 text-lg">📍</span>
-                    <p>
-                    <span className="block font-semibold text-white">Address</span>
-                      <strong>Main Office: </strong>Checkpoint, Purok 4, Brgy. Mataas na Lupa, Indang, Cavite 4122<br/>
-                      <strong>Sattelite Office: </strong>RGDM Bldg., Brgy.Galicia2, Mendez-Nunez, Cavite 4121
-                    </p>
-                </div>
+              <div className="flex items-start gap-3">
+                <span className="text-blue-400 text-lg">📞</span>
+                <p>
+                  <span className="block font-semibold text-white">Phone</span>
+                  09368835488 / 09923728671
+                </p>
+              </div>
 
-                <div className="flex items-start gap-3">
-                    <span className="text-blue-400 text-lg">📞</span>
-                    <p>
-                    <span className="block font-semibold text-white">Phone</span>
-                    09368835488 / 09923728671 
-                    </p>
-                </div>
+              <div className="flex items-start gap-3">
+                <span className="text-blue-400 text-lg">✉️</span>
+                <p>
+                  <span className="block font-semibold text-white">Email</span>
+                  jpmsecagency@gmail.com
+                </p>
+              </div>
 
-                <div className="flex items-start gap-3">
-                    <span className="text-blue-400 text-lg">✉️</span>
-                    <p>
-                    <span className="block font-semibold text-white">Email</span>
-                    jpmsecagency@gmail.com
-                    </p>
-                </div>
-
-                <div className="flex items-start gap-3">
-                    <span className="text-blue-400 text-lg">🕓</span>
-                    <p>
-                    <span className="block font-semibold text-white">Office Hours</span>
-                    Monday – Saturday, 8:00 AM – 5:00 PM
-                    </p>
-                </div>
-                </div>
-
-                {/* Decorative Line */}
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-[2px] bg-gradient-to-r from-transparent via-blue-500 to-transparent mt-10"></div>
+              <div className="flex items-start gap-3">
+                <span className="text-blue-400 text-lg">🕓</span>
+                <p>
+                  <span className="block font-semibold text-white">
+                    Office Hours
+                  </span>
+                  Monday – Saturday, 8:00 AM – 5:00 PM
+                </p>
+              </div>
             </div>
 
-            {/* Contact Form Panel */}
-            <div className="bg-[#1e293b]/90 backdrop-blur-md p-10 rounded-2xl shadow-2xl border border-gray-700 hover:scale-[1.01] transition-transform duration-300">
-                <h2 className="text-3xl font-bold text-white mb-6 text-center">Send Us a Message</h2>
-                <form className="space-y-5">
-                <div className="grid md:grid-cols-2 gap-4">
-                    <input
-                    type="text"
-                    placeholder="Full Name"
-                    className="w-full p-3 rounded-md bg-[#111827] border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    required
-                    />
-                    <input
-                    type="email"
-                    placeholder="Email Address"
-                    className="w-full p-3 rounded-md bg-[#111827] border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    required
-                    />
-                </div>
+            {/* Decorative Line */}
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-[2px] bg-gradient-to-r from-transparent via-blue-500 to-transparent mt-10"></div>
+          </div>
 
-                <input
-                    type="text"
-                    placeholder="Subject"
-                    className="w-full p-3 rounded-md bg-[#111827] border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
+          {/* Contact Form Panel */}
+          <div className="relative bg-[#1e293b]/90 flex flex-col items-center backdrop-blur-md p-10 rounded-2xl shadow-2xl border border-gray-700 hover:scale-[1.01] transition-transform duration-300">
+            <h2 className="text-3xl font-extrabold text-white text-center tracking-wide drop-shadow-sm mb-16">
+              Send Us a Message
+            </h2>
 
-                <textarea
-                    placeholder="Your Message"
-                    rows="5"
-                    className="w-full p-3 rounded-md bg-[#111827] border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    required
-                ></textarea>
+            <p className="text-gray-300 leading-relaxed mb-10 text-center max-w-md">
+              Need assistance or have a security-related concern? Our team is
+              ready to respond with precision and professionalism. From tailored
+              protection plans to urgent coordination, we’re committed to
+              safeguarding people, property, and peace of mind.
+            </p>
 
-                <button
-                    type="submit"
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md transition duration-200"
-                >
-                    Submit Message
-                </button>
-                </form>
-            </div>
-            </div>
+            <button
+              onClick={() =>
+                navigate("/job-application-process/applicants/messages")
+              }
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md hover:shadow-blue-700/40 transition-all duration-200"
+            >
+              Submit Message
+            </button>
 
+            {/* Subtle bottom accent */}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-3/4 h-[2px] bg-gradient-to-r from-transparent via-blue-500/70 to-transparent"></div>
+          </div>
+        </div>
 
         {/* Google Map */}
         <div className="mt-16 rounded-2xl overflow-hidden shadow-lg border border-gray-700">

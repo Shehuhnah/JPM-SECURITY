@@ -33,11 +33,11 @@ const hiringSchema = new mongoose.Schema(
     },
     date: {
       type: String, 
-      required: true,
+      required: false,
     },
     time: {
       type: String, 
-      required: true,
+      required: false,
     },
   },
   { timestamps: true } 

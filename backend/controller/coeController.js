@@ -2,23 +2,30 @@ import COERequest from "../models/COERequest.model.js";
 import mongoose from "mongoose";
 import { generateAndSaveCOE } from "../utils/pdfGenerator.js";
 
-// Create new COE request (guard)
+// Create new COE request (guard or subadmin)
 export const createRequest = async (req, res) => {
   try {
-    const { purpose } = req.body;
+    const { purpose, role } = req.body;
     if (!purpose || !purpose.trim()) return res.status(400).json({ message: "Purpose is required" });
 
-    const user = req.user; // protect middleware must populate
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized: user not authenticated" });
+    }
+
+    const requesterRole = ((role ?? user?.role) || "guard").toString().toLowerCase();
+
     const newReq = await COERequest.create({
-      guardId: user.guardId || user.id || user._id,
-      guardName: user.fullName || user.name || user.email,
+      guardId: user.guardId || user.id || user._id?.toString?.() || "",
+      guardName: user.fullName || user.name || user.email || "",
       purpose,
+      requesterRole,
     });
 
     res.status(201).json(newReq);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error('createRequest error:', err);
+    res.status(500).json({ message: err?.message || "Server error" });
   }
 };
 
@@ -47,7 +54,7 @@ export const listRequests = async (req, res) => {
   }
 };
 
-// Get requests for current user
+// Get requests for current user (support guard or subadmin accounts)
 export const getMyRequests = async (req, res) => {
   try {
     const user = req.user;
@@ -127,7 +134,7 @@ export const updateStatus = async (req, res) => {
 
     if (action === "decline") {
       reqObj.status = "Declined";
-      reqObj.declineReason = declineReason || "";
+      reqObj.declineReason = declineReason || "No reason provided";
       reqObj.processedAt = new Date();
       reqObj.processedBy = req.user?.name || req.user?.email || "Admin";
       await reqObj.save();

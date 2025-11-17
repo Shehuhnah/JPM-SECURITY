@@ -6,13 +6,14 @@ import {
   updateHiring,
   deleteHiring,
 } from "../controller/hiringcontroller.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/", createHiring);
+router.post("/", protect, createHiring);
 router.get("/", getHirings);
-router.get("/:id", getHiringById);
-router.put("/:id", updateHiring);
-router.delete("/:id", deleteHiring);
+router.get("/:id", protect, getHiringById);
+router.put("/:id", protect, updateHiring);
+router.delete("/:id", protect, deleteHiring);
 
 export default router;

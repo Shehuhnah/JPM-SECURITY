@@ -5,6 +5,9 @@ export const createHiring = async (req, res) => {
   try {
     const { author, title, position, location, employmentType, description, date, time } = req.body;
 
+    console.log("REQ.BODY:", req.body);
+
+
     const newHiring = new Hiring({
       author,
       title,

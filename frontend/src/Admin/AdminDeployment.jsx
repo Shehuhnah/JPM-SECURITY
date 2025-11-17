@@ -103,9 +103,9 @@ export default function AdminDeployment() {
         "http://localhost:5000/api/clients/create-client",
         {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(newClient),
         }

@@ -44,7 +44,7 @@ export default function ApplicantsList() {
   const [hireMessage, setHireMessage] = useState("");
   const [sendingHire, setSendingHire] = useState(false);
   const { user, loading } = useAuth();
-  const role = user?.user;
+  const role = user?.role;
   const isSubadmin = role === "Subadmin"; 
   const navigate = useNavigate();
 
@@ -80,7 +80,6 @@ export default function ApplicantsList() {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ status }),
       });
@@ -167,7 +166,6 @@ export default function ApplicantsList() {
       const msgRes = await fetch("http://localhost:5000/api/messages", {
         method: "POST",
         credentials: "include",
-        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
       if (!msgRes.ok) throw new Error(await msgRes.text());
@@ -181,7 +179,6 @@ export default function ApplicantsList() {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
               message: hireMessage,
@@ -298,7 +295,6 @@ export default function ApplicantsList() {
       const res = await fetch("http://localhost:5000/api/messages", {
         method: "POST",
         credentials: "include",
-        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
       if (!res.ok) throw new Error(await res.text());
@@ -312,7 +308,6 @@ export default function ApplicantsList() {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
               type: interviewType,

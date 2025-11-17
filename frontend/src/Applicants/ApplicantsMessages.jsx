@@ -478,6 +478,82 @@ export default function ApplicantsMessages() {
             <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-4 scrollbar-thin scrollbar-thumb-blue-600/60 scrollbar-track-transparent">
               {messages.map((msg) => {
                 const mine = isSender(msg);
+
+                const renderForwardedPost = (text) => {
+                  if (!text || typeof text !== "string") return null;
+                  if (!text.startsWith("[Forwarded Job Post]")) return null;
+
+                  const parts = text.split(/\n\n+/);
+                  const forwardedBlock = parts[0] || "";
+                  const remaining = text.slice(forwardedBlock.length).trim();
+
+                  const lines = forwardedBlock.split("\n").slice(1);
+                  const details = {};
+                  let inDescription = false;
+                  const descLines = [];
+                  for (const line of lines) {
+                    if (line.trim().toLowerCase().startsWith("description:")) {
+                      inDescription = true;
+                      const first = line.split(":")[1]?.trim();
+                      if (first) descLines.push(first);
+                      continue;
+                    }
+                    if (inDescription) {
+                      descLines.push(line);
+                    } else {
+                      const [k, ...rest] = line.split(":");
+                      const key = k?.trim();
+                      const value = rest.join(":").trim();
+                      if (key && value) details[key] = value;
+                    }
+                  }
+
+                  const title = details["Title"]; 
+                  const position = details["Position"]; 
+                  const location = details["Location"]; 
+                  const employment = details["Employment"]; 
+                  const posted = details["Posted"]; 
+                  const description = descLines.join("\n").trim();
+
+                  return (
+                    <div>
+                      <div className="mb-2 rounded-xl border border-blue-400/30 bg-blue-400/10 p-3 text-sm">
+                        <div className="text-xs uppercase tracking-wide text-blue-200 mb-2">Forwarded Job Post</div>
+                        {title && (
+                          <div className="text-gray-100"><span className="text-blue-300">Title:</span> {title}</div>
+                        )}
+                        {position && (
+                          <div className="text-gray-100"><span className="text-blue-300">Position:</span> {position}</div>
+                        )}
+                        {location && (
+                          <div className="text-gray-100"><span className="text-blue-300">Location:</span> {location}</div>
+                        )}
+                        {employment && (
+                          <div className="text-gray-100"><span className="text-blue-300">Employment:</span> {employment}</div>
+                        )}
+                        {posted && (
+                          <div className="text-gray-100"><span className="text-blue-300">Posted:</span> {posted}</div>
+                        )}
+                        {description && (
+                          <div className="mt-2 text-gray-200 whitespace-pre-line">{description}</div>
+                        )}
+                      </div>
+                      {remaining && (
+                        <div>
+                          <div className="my-2 flex items-center gap-2">
+                            <span className="flex-1 h-px bg-gray-600" />
+                            <span className="text-[10px] uppercase tracking-wider text-gray-400">Your message</span>
+                            <span className="flex-1 h-px bg-gray-600" />
+                          </div>
+                          <div className="mt-2 whitespace-pre-wrap break-words text-gray-100">{remaining}</div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                };
+
+                const content = renderForwardedPost(msg.text) || (msg.text && <p className="whitespace-pre-wrap break-words">{msg.text}</p>);
+
                 return (
                   <div key={msg._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                     <div
@@ -487,7 +563,7 @@ export default function ApplicantsMessages() {
                           : "bg-white/10 text-gray-100"
                       }`}
                     >
-                      {msg.text && <p className="whitespace-pre-wrap break-words">{msg.text}</p>}
+                      {content}
                       {renderMessageAttachment(msg)}
                       <div
                         className={`text-[10px] mt-3 ${
@@ -539,9 +615,6 @@ export default function ApplicantsMessages() {
                         <div className="mt-2 text-gray-300 whitespace-pre-line">
                           {hiringDetails.description}
                         </div>
-                      )}
-                      {hiringContext?.hiringId && (
-                        <div className="mt-1 text-xs text-gray-400">Ref: {hiringContext.hiringId}</div>
                       )}
                     </div>
                   </div>

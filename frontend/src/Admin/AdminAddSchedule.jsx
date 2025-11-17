@@ -7,7 +7,7 @@ import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 
 export default function AdminAddSchedule() {
-    const { token } = useAuth();
+    const { user, loading } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const queryParams = new URLSearchParams(location.search);
@@ -27,7 +27,7 @@ export default function AdminAddSchedule() {
         timeOut: "",
     });
 
-    const [loading, setLoading] = useState(false);
+    const [loadingpage, setLoadingpage] = useState(false);
     const [message, setMessage] = useState("");
 
     useEffect(() => {
@@ -60,8 +60,8 @@ export default function AdminAddSchedule() {
             }
         };
 
-        if (token) fetchData();
-    }, [token]);
+        if (user) fetchData();
+    }, [user]);
 
     // Handle input
     const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -106,13 +106,12 @@ export default function AdminAddSchedule() {
         console.log("Generated schedules:", schedules);
 
         try {
-            setLoading(true);
+            setLoadingpage(true);
             const res = await fetch("http://localhost:5000/api/schedules/create-schedule", {
             method: "POST",
             credentials: "include",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
             },
                 body: JSON.stringify({ schedules }), // send multiple
             });
@@ -135,7 +134,7 @@ export default function AdminAddSchedule() {
         } catch (err) {
             setMessage("❌ " + err.message);
         } finally {
-            setLoading(false);
+            setLoadingpage(false);
         }
     };
 

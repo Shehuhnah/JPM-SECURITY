@@ -23,6 +23,7 @@ const COERequestSchema = new mongoose.Schema(
     guardId: { type: String, required: true, index: true },
     guardName: { type: String, required: true },
     purpose: { type: String, required: true },
+    requesterRole: { type: String, enum: ["guard", "subadmin"], default: "guard" },
     status: {
       type: String,
       enum: ["Pending", "Accepted", "Declined"],

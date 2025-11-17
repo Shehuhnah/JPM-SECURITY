@@ -113,24 +113,30 @@ export const getScheduleById = async (req, res) => {
   }
 };
 
-// Get schedules by guard ID
+// Get schedules by guard ID only approved
 export const getSchedulesByGuard = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // find schedules based on guardId
-    const schedules = await Schedule.find({ guardId: id }).populate("guardId");
+    // Find schedules based on guardId AND isApproved === "Approved"
+    const schedules = await Schedule.find({
+      guardId: id,
+      isApproved: "Approved"
+    }).populate("guardId");
 
     if (!schedules || schedules.length === 0) {
-      // instead of 404, just return empty array (optional)
       return res.status(200).json([]);
     }
 
     res.status(200).json(schedules);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching schedules", error: error.message });
+    res.status(500).json({
+      message: "Error fetching schedules",
+      error: error.message,
+    });
   }
 };
+
 
 // ===== Approve all pending schedules for a client =====
 export const approveClientSchedules = async (req, res) => {

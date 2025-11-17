@@ -23,12 +23,17 @@ export default function GuardReqCOE() {
   const [showCOEModal, setShowCOEModal] = useState(false);
   const [selectedCOE, setSelectedCOE] = useState(null);
 
-  const { user, loading  } = useAuth();
+  const { user, loading  } = useAuth(); // can be guard account or subadmin account
+  console.log("Authenticated user:", user);
 
   useEffect(() => {
     document.title = "Request COE | JPM Agency Security";
 
-    if (!user || !loading) return;
+    if (!user || loading) {
+      // wait until user is loaded
+    } else {
+      return;
+    }
 
     const fetchRequests = async () => {
       try {
@@ -46,7 +51,7 @@ export default function GuardReqCOE() {
       }
     };
     fetchRequests();
-  }, [user]);
+  }, [user, loading]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -63,11 +68,13 @@ export default function GuardReqCOE() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ purpose }),
+        body: JSON.stringify({ purpose, role: user?.role || "guard" }),
       });
+
       if (!res.ok) throw new Error("Failed to submit request");
-      const res2 = await fetch("/api/coe/me", {
-        headers: { Authorization: token ? `Bearer ${token}` : "" },
+      const res2 = await fetch("http://localhost:5000/api/coe/me", {
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
       });
       const data = await res2.json();
       setRequests(data.items || data);
@@ -247,11 +254,19 @@ export default function GuardReqCOE() {
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-blue-400 font-semibold">Purpose</h3>
-                <p className="text-gray-100 leading-relaxed break-words">
-                  {request.purpose}
-                </p>
+              <h3 className="text-blue-400 font-semibold">Purpose</h3>
+              <p className="text-gray-100 leading-relaxed break-words">
+              {request.purpose}
+              </p>
               </div>
+              
+              {request.status === "Declined" && request.declineReason && (
+              <div className="mt-3 p-3 rounded-md bg-red-500/10 border border-red-500/40">
+              <p className="text-red-300 text-sm">
+              Decline reason: {request.declineReason}
+              </p>
+              </div>
+              )}
 
               {/* Approved COE Section */}
               {request.status === "Accepted" && request.approvedCOE && (

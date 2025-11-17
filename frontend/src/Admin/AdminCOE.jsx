@@ -17,7 +17,7 @@ export default function AdminCOE() {
   const [isFading, setIsFading] = useState(false);
   const [toasts, setToasts] = useState([]);
 
-  const { token } = useAuth();
+  const { user, loading } = useAuth();
 
   // Load COE requests from localStorage on component mount
   const fetchRequests = async () => {
@@ -91,39 +91,36 @@ export default function AdminCOE() {
   };
 
   // Confirm action
-  const handleConfirm = () => {
-    (async () => {
-      try {
-        const token = useAuth().token;
-        const body = selectedAction === 'accept' ? { action: 'accept' } : { action: 'decline', declineReason };
-        const res = await fetch(`/api/coe/${selectedRequest.id}/status`, {
-          method: 'PATCH',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error('Failed to update request');
-        const updated = await res.json();
-        setRequests((prev) => prev.map((r) => (r.id === selectedRequest.id ? {
-          ...r,
-          status: updated.status,
-          processedAt: updated.processedAt ? new Date(updated.processedAt).toLocaleString() : r.processedAt,
-          processedBy: updated.processedBy || r.processedBy,
-          declineReason: updated.declineReason || null,
-          raw: updated,
-        } : r)));
+  const handleConfirm = async () => {
+    try {
+      const body = selectedAction === 'accept' ? { action: 'accept' } : { action: 'decline', declineReason };
+      const res = await fetch(`http://localhost:5000/api/coe/${selectedRequest.id}/status`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error('Failed to update request');
+      const updated = await res.json();
+      setRequests((prev) => prev.map((r) => (r.id === selectedRequest.id ? {
+        ...r,
+        status: updated.status,
+        processedAt: updated.processedAt ? new Date(updated.processedAt).toLocaleString() : r.processedAt,
+        processedBy: updated.processedBy || r.processedBy,
+        declineReason: updated.declineReason || null,
+        raw: updated,
+      } : r)));
 
-        showToast(
-          selectedAction === 'accept' ? `✅ ${selectedRequest.name}'s request accepted` : `❌ ${selectedRequest.name}'s request declined`,
-          selectedAction === 'accept' ? 'success' : 'error'
-        );
-      } catch (err) {
-        console.error(err);
-        showToast('Error updating request', 'error');
-      } finally {
-        closePopup();
-      }
-    })();
+      showToast(
+        selectedAction === 'accept' ? `✅ ${selectedRequest.name}'s request accepted` : `❌ ${selectedRequest.name}'s request declined`,
+        selectedAction === 'accept' ? 'success' : 'error'
+      );
+    } catch (err) {
+      console.error(err);
+      showToast('Error updating request', 'error');
+    } finally {
+      closePopup();
+    }
   };
 
   // Export COE function

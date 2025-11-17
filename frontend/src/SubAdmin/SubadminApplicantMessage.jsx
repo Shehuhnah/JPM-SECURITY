@@ -440,15 +440,19 @@ export default function SubadminApplicantMessage() {
           {posted && (
             <div className="text-gray-100"><span className="text-blue-300">Posted:</span> {posted}</div>
           )}
-          {ref && (
-            <div className="text-xs text-gray-400 mt-1">Ref: {ref}</div>
-          )}
           {description && (
             <div className="mt-2 text-gray-200 whitespace-pre-line">{description}</div>
           )}
         </div>
         {remaining && (
-          <div className="whitespace-pre-wrap break-words">{remaining}</div>
+          <div>
+            <div className="my-2 flex items-center gap-2">
+              <span className="flex-1 h-px bg-gray-600" />
+              <span className="text-[10px] uppercase tracking-wider text-gray-400">Applicant message</span>
+              <span className="flex-1 h-px bg-gray-600" />
+            </div>
+            <div className="mt-2 whitespace-pre-wrap break-words text-gray-100"> Applicant message: {remaining}</div>
+          </div>
         )}
       </div>
     );

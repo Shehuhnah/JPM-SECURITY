@@ -239,27 +239,6 @@ export default function LoginForm() {
                             </div>
                         </div>
                     )}
-                    {/* Remember Me */}
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-gray-400">
-                        <label className="flex items-center">
-                            <input
-                                type="checkbox"
-                                checked={rememberMe}
-                                onChange={(e) =>
-                                    setRememberMe(e.target.checked)
-                                }
-                                className="mr-2 accent-blue-500"
-                            />
-                            Remember Me
-                        </label>
-                        <Link
-                            to="/forgot-password"
-                            className="text-blue-400 hover:underline hover:text-blue-300 transition"
-                        >
-                            Forgot Password?
-                        </Link>
-                    </div>
-
                     {/* Login Button */}
                     <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white py-2 sm:py-2.5 rounded-lg font-semibold transition-all duration-300 shadow-md hover:shadow-blue-500/20 text-sm sm:text-base" disabled={loadingPage}>
                       {isFirstLogin ? "Change Password & Continue" : "Login"}
