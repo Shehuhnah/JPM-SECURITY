@@ -35,14 +35,14 @@ export const registerUser = async (req, res) => {
       contactNumber,
     });
 
-    // set httpOnly cookie
-    const token = generateToken(admin._id, admin.role);
-    res.cookie("accessToken", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 1000 * 60 * 60 * 24 * 15, // 15 days
-    });
+    // // set httpOnly cookie
+    // const token = generateToken(admin._id, admin.role);
+    // res.cookie("accessToken", token, {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === "production",
+    //   sameSite: "strict",
+    //   maxAge: 1000 * 60 * 60 * 24 * 15, // 15 days
+    // });
 
     res.status(201).json({
       _id: admin._id,

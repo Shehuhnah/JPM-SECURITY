@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Clock, MapPin, User, Calendar, CheckCircle, ArrowLeft, Timer } from "lucide-react";
-import { guardAuth } from "../hooks/guardAuth";
+import { useAuth } from "../hooks/useAuth"; //bagong code
 
 function GuardAttendanceTimeOut() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -9,10 +9,10 @@ function GuardAttendanceTimeOut() {
   const [attendanceData, setAttendanceData] = useState(null);
   const [timeInData, setTimeInData] = useState(null);
   const [workingHours, setWorkingHours] = useState("0h 0m");
-  const [loading, setLoading] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(false); //bagong code
   const [error, setError] = useState(null);
 
-  const { guard, token } = guardAuth();
+  const { user: guard , loading } = useAuth();//bagong code
   const user = {
     fullName: guard?.fullName ?? "Unknown",
     guardId: guard?.guardId ?? guard?._id ?? guard?.id ?? "Unknown",
@@ -30,14 +30,14 @@ function GuardAttendanceTimeOut() {
   // Load guard's active duty record
   useEffect(() => {
     const run = async () => {
-      if (!guard?._id || !token) return;
+      if (!guard && !loading) return;//bagong code
 
-      setLoading(true);
+      setLoadingPage(true);
       setError(null);
 
       try {
         const res = await fetch(`http://localhost:5000/api/attendance/${guard._id}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include"//bagong code
         });
 
         const data = await res.json().catch(() => []);
@@ -55,12 +55,12 @@ function GuardAttendanceTimeOut() {
       } catch (e) {
         setError(e.message || "Failed to load attendance");
       } finally {
-        setLoading(false);
+        setLoadingPage(false); //bagong code
       }
     };
 
     run();
-  }, [guard?._id, token]);
+  }, [guard]); //bagong code
 
 
   // Recompute working hours periodically
@@ -88,8 +88,9 @@ function GuardAttendanceTimeOut() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        credentials: "include", // bagong code
+
         body: JSON.stringify(payload),
       });
       const updated = await res.json().catch(() => ({}));

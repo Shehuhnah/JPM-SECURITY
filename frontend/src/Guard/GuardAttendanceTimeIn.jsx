@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 function GuardAttendanceTimeIn() {
   const { user: guard, loading } = useAuth();
   const navigate = useNavigate();
+  const API_BASE = import.meta.env?.VITE_API_BASE_URL || "http://localhost:5000";
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [attendanceData, setAttendanceData] = useState(null);
@@ -18,14 +19,42 @@ function GuardAttendanceTimeIn() {
   const [alreadyTimedIn, setAlreadyTimedIn] = useState(false);
   const [checking, setChecking] = useState(true);
   const [checkError, setCheckError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+  const [duplicateCheckDone, setDuplicateCheckDone] = useState(false);
 
+  // Redirect to login when not authenticated
   useEffect(() => {
     if (!guard && !loading) {
       navigate("/guard/login");
-      return;
     }
-  }, [guard, navigate]);
-  
+  }, [guard, loading, navigate]);
+
+  function getTodayAttendanceStatus(records) {
+    if (!Array.isArray(records)) return { hasRecord: false };
+
+    const today = new Date().toLocaleDateString();
+
+    // Find today's record (whether timed-out or not)
+    const todayRecord = records.find(r => r.date === today);
+
+    if (!todayRecord) {
+      return {
+        hasRecord: false,
+        alreadyTimedIn: false,
+        alreadyTimedOut: false,
+        record: null,
+      };
+    }
+
+    return {
+      hasRecord: true,
+      alreadyTimedIn: Boolean(todayRecord.timeIn),
+      alreadyTimedOut: Boolean(todayRecord.timeOut),
+      record: todayRecord,
+    };
+  }
+
   const user = {
     fullName: guard?.fullName ?? "Unknown",
     guardId: guard?.guardId ?? guard?._id ?? guard?.id ?? "Unknown",
@@ -37,6 +66,56 @@ function GuardAttendanceTimeIn() {
     address: guard?.address ?? "",
   };
 
+  // Check today's attendance once guard is loaded
+  useEffect(() => {
+    const run = async () => {
+      if (loading || !guard?._id) {
+        setChecking(false);
+        return;
+      }
+
+      setChecking(true);
+      setCheckError(null);
+
+      try {
+        const res = await fetch(`${API_BASE}/api/attendance/${guard._id}`, {
+          credentials: "include",
+        });
+
+        if (!res.ok) throw new Error("Failed fetching attendance");
+
+        const data = await res.json().catch(() => []);
+
+        const today = new Date().toLocaleDateString();
+
+        const todayRecord = Array.isArray(data)
+          ? data.find(r => r.date === today)
+          : null;
+
+        if (!todayRecord) {
+          setIsSubmitted(false);
+          setAlreadyTimedIn(false);
+          setDuplicateCheckDone(false);
+          setAttendanceData(null);
+          return;
+        }
+
+        setAttendanceData(todayRecord);
+        setIsSubmitted(true);
+        setAlreadyTimedIn(true);
+        setDuplicateCheckDone(true);   
+
+      } catch (err) {
+        setCheckError(err.message || "Failed to check attendance");
+      } finally {
+        setChecking(false);
+      }
+    };
+
+    run();
+  }, [guard?._id, loading]);
+
+  
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -49,46 +128,6 @@ function GuardAttendanceTimeIn() {
 
     return () => clearInterval(timer);
   }, []);
-
-  // Check if already timed-in today for this guard
-  useEffect(() => {
-    const run = async () => {
-      if (!guard?._id) {
-        setChecking(false);
-        return;
-      }
-      setChecking(true);
-      setCheckError(null);
-      try {
-        const res = await fetch(`http://localhost:5000/api/attendance/${guard._id}`, {
-          credentials: "include"
-        });
-        const data = await res.json().catch(() => []);
-
-        if (!res.ok) {
-          setChecking(false);
-          return;
-        }
-        
-        const activeDuty = Array.isArray(data)
-        ? data.find((r) => r.status === "On Duty" && !r.timeOut)
-        : null;
-
-        if (activeDuty) {
-          setAlreadyTimedIn(true);
-          setAttendanceData(activeDuty);
-          setIsSubmitted(true);
-        }
-      } catch (e) {
-        setCheckError(e.message || 'Failed to check attendance');
-      } finally {
-        setChecking(false);
-      }
-    };
-    run();
-
-  }, [guard?._id]);
-
 
   const reverseGeocode = async (lat, lng) => {
     try {
@@ -129,9 +168,17 @@ function GuardAttendanceTimeIn() {
     );
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, []);
+
   const startCamera = async () => {
     if (alreadyTimedIn) {
-      alert("You are already time-in for today. Please proceed to Time Out.");
       return;
     }
 
@@ -259,15 +306,17 @@ function GuardAttendanceTimeIn() {
   };
 
   const handleTimeIn = async () => {
+    setSubmitError(null);
     if (!capturedImage) {
-      alert("Please take a photo before submitting.");
+      setSubmitError("Please take a photo before submitting.");
       return;
     }
+    setSubmitting(true);
 
     // Prevent duplicate Time In if already On Duty for today
     try {
-      if (guard?._id && token) {
-        const res = await fetch(`http://localhost:5000/api/attendance/${guard._id}`, {
+      if (guard) {
+        const res = await fetch(`${API_BASE}/api/attendance/${guard._id}`, {
           credentials: "include"
         });
         const data = await res.json().catch(() => []);
@@ -277,26 +326,13 @@ function GuardAttendanceTimeIn() {
           setAlreadyTimedIn(true);
           setAttendanceData(todays);
           setIsSubmitted(true);
-          alert('You are already On Duty for today. Please proceed to Time Out.');
-          return;
-        }
-      } else {
-        // Fallback to local cache check when offline/unauthorized
-        const cache = JSON.parse(localStorage.getItem('guardAttendance')) || [];
-        const today = new Date().toLocaleDateString();
-        const localTodays = cache.find(
-          (r) => r.guardId === (user?.guardId || user?._id || user?.id) && r.date === today && (r.status === 'On Duty' || r.timeIn)
-        );
-        if (localTodays) {
-          setAlreadyTimedIn(true);
-          setAttendanceData(localTodays);
-          setIsSubmitted(true);
-          alert('You are already On Duty for today. Please proceed to Time Out.');
+          setSubmitting(false);
+          setDuplicateCheckDone(true);
+          console.warn("Duplicate Time In prevented.");
           return;
         }
       }
     } catch (e) {
-      // If the validation fails due to network, continue to submission flow below
       console.warn('Pre-check for duplicate time-in failed:', e);
     }
 
@@ -317,9 +353,9 @@ function GuardAttendanceTimeIn() {
       submittedAt: currentTime.toLocaleString()
     };
 
-    // Try to persist to backend first
+    // Submit to backend only
     try {
-      const res = await fetch("http://localhost:5000/api/attendance/attendance-time-in", {
+      const res = await fetch(`${API_BASE}/api/attendance/attendance-time-in`, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -334,34 +370,13 @@ function GuardAttendanceTimeIn() {
         throw new Error(msg);
       }
 
-      // Success: use server-saved attendance
       setAttendanceData(payload);
       setIsSubmitted(true);
     } catch (err) {
       console.error("Failed to submit attendance to server:", err);
-
-      // Before caching locally, double-check local cache to avoid duplicates
-      const existingAttendance = JSON.parse(localStorage.getItem("guardAttendance")) || [];
-      const today = new Date().toLocaleDateString();
-      const dup = existingAttendance.find(
-        (r) => r.guardId === (user?.guardId || user?._id || user?.id) && r.date === today && (r.status === 'On Duty' || r.timeIn)
-      );
-      if (dup) {
-        setAlreadyTimedIn(true);
-        setAttendanceData(dup);
-        setIsSubmitted(true);
-        alert('You are already On Duty for today. Please proceed to Time Out.');
-        return;
-      }
-
-      // Fallback: cache locally so the user can proceed
-      const cached = { id: Date.now(), ...timeInData };
-      existingAttendance.push(cached);
-      localStorage.setItem("guardAttendance", JSON.stringify(existingAttendance));
-
-      alert(err.message || "Unable to sync with server. Saved locally.");
-      setAttendanceData(cached);
-      setIsSubmitted(true);
+      setSubmitError(err.message || "Failed to submit attendance. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -475,6 +490,9 @@ function GuardAttendanceTimeIn() {
           {checkError && (
             <div className="mb-4 text-sm text-red-300">{checkError}</div>
           )}
+          {submitError && (
+            <div className="mb-4 text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded p-3">{submitError}</div>
+          )}
           {/* User Profile Section */}
           <div className="text-center mb-6">
             <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-blue-500 to-blue-600 flex items-center justify-center shadow-lg mb-4 mx-auto">
@@ -546,7 +564,7 @@ function GuardAttendanceTimeIn() {
           )}
 
           {/* Attendance Summary */}
-          {attendanceData && (
+          {attendanceData && !duplicateCheckDone &&(
             <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 mb-6">
               <div className="flex items-center gap-2 mb-3">
                 <CheckCircle className="text-green-400 w-5 h-5" />
@@ -573,26 +591,31 @@ function GuardAttendanceTimeIn() {
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="space-y-3">
-            {!isSubmitted && !alreadyTimedIn ? (
+            {(!isSubmitted && !alreadyTimedIn && !duplicateCheckDone) ? (
+              // MAIN BUTTON
               <button
                 onClick={capturedImage ? handleTimeIn : startCamera}
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold py-3 rounded-lg shadow-md transition flex items-center justify-center gap-2"
+                disabled={submitting}
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold py-3 rounded-lg shadow-md transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <Camera size={18} />
-                {capturedImage ? "Submit Time In" : "Take Attendance Photo"}
+                {capturedImage ? (submitting ? "Submitting..." : "Submit Time In") : "Take Attendance Photo"}
               </button>
             ) : (
-              <Link
-                to="/guard/guard-attendance/time-out"
-                className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-semibold py-3 rounded-lg shadow-md transition flex items-center justify-center gap-2"
+              // DISABLED BUTTON (always shown if timed-in, timed-out, or duplicate)
+              <button
+                disabled
+                className="w-full bg-gradient-to-r from-gray-500 to-gray-400 text-white font-semibold py-3 rounded-lg shadow-md transition flex items-center justify-center gap-2 opacity-70 cursor-not-allowed"
               >
-                <ArrowRight size={18} />
-                Proceed to Time Out
-              </Link>
+                <Camera size={18} />
+                {duplicateCheckDone
+                  ? "You already Time In Today"
+                  : "Attendance Already Recorded"}
+              </button>
             )}
           </div>
+
         </div>
       </div>
 

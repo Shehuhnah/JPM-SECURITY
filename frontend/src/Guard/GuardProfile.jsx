@@ -36,6 +36,9 @@ export default function GuardProfile() {
     currentPassword: "",
     newpassword: "",
     confirmNewPassword: "",
+    SSSID: "",
+    PhilHealthID: "",
+    PagibigID: "",
   });
 
   useEffect(() => {
@@ -46,14 +49,43 @@ export default function GuardProfile() {
         const res = await fetch("http://localhost:5000/api/guards/me", {
           credentials: "include",
         });
+
         const result = await res.json();
-        if (result.success) setGuard((prev) => ({ ...prev, ...result.data }));
+        console.log(result);
+
+        if (!result.success) return;
+
+        const p = result.data;
+
+        setGuard((prev) => ({
+          ...prev,
+          fullName: p.fullName || "",
+          guardId: p.guardId || "",
+          email: p.email || "",
+          phoneNumber: p.phoneNumber || "",
+          address: p.address || "",
+          dutyStation: p.dutyStation || "",
+          shift: p.shift || "",
+          position: p.position || "",
+
+          // Correct mapping
+          sssId: p.SSSID || "",
+          philHealthId: p.PhilHealthID || "",
+          pagibigId: p.PagibigID || "",
+
+          // Password blanks
+          currentPassword: "",
+          newpassword: "",
+          confirmNewPassword: "",
+        }));
       } catch (error) {
         console.error("Error fetching profile:", error);
       }
     };
+
     fetchProfile();
   }, [guardData]);
+
 
   const handleSave = async () => {
 
@@ -86,9 +118,15 @@ export default function GuardProfile() {
           fullName: guard.fullName,
           address: guard.address,
           phoneNumber: guard.phoneNumber,
+
+          SSSID: guard.sssId,
+          PhilHealthID: guard.philHealthId,
+          PagibigID: guard.pagibigId,
+
           currentPassword: guard.currentPassword,
           newPassword: guard.newpassword || undefined,
         }),
+
       });
 
       const result = await res.json();
@@ -166,6 +204,32 @@ export default function GuardProfile() {
             label="Shift"
             value={guard.shift}
             editable={false}
+          />
+          <ProfileField
+            icon={<BadgeCheck className="text-blue-400 w-5 h-5" />}
+            label="SSS ID"
+            name="sssId"
+            value={guard.sssId}
+            editable={isEditing}
+            onChange={handleChange}
+          />
+
+          <ProfileField
+            icon={<BadgeCheck className="text-blue-400 w-5 h-5" />}
+            label="PhilHealth ID"
+            name="philHealthId"
+            value={guard.philHealthId}
+            editable={isEditing}
+            onChange={handleChange}
+          />
+
+          <ProfileField
+            icon={<BadgeCheck className="text-blue-400 w-5 h-5" />}
+            label="Pag-IBIG ID"
+            name="pagibigId"
+            value={guard.pagibigId}
+            editable={isEditing}
+            onChange={handleChange}
           />
         </div>
 

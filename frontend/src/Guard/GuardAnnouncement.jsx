@@ -39,7 +39,7 @@ export default function GuardAnnouncement() {
       } catch (err) {
         console.error("Error fetching announcements:", err);
       } finally {
-        setLoading(false);
+        setLoadingPage(false);
       }
     };
 
