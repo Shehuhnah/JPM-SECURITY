@@ -42,15 +42,15 @@ const guardSchema = new mongoose.Schema(
     },
     SSSID: {
       type: String,
-      required: [true, "SSS ID is required"]
+      required: false,
     },
     PhilHealthID: {
       type: String,
-      required: [true, "PhilHealth is required"]
+      required: false,
     },
     PagibigID: {
       type: String,
-      required: [true, "Pagibig ID is required"]
+      required: false,
     },
     EmergencyPerson: {
       type: String,

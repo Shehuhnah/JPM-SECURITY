@@ -12,6 +12,7 @@ import {
   XCircle,
   Briefcase,
   Filter,
+  FileDown
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -282,10 +283,8 @@ export default function ApplicantsList() {
     try {
       setSendingInvite(true);
 
-      // 1) Update status to Interview
       await updateStatus(applicant._id, "Interview");
 
-      // 2) Send message to applicant conversation as Subadmin
       const formData = new FormData();
       formData.append("text", text);
       formData.append("receiverId", applicant._id);
@@ -299,7 +298,6 @@ export default function ApplicantsList() {
       });
       if (!res.ok) throw new Error(await res.text());
 
-      // 3) Send interview email
       try {
         await fetch(
           `http://localhost:5000/api/applicants/${applicant._id}/interview-email`,
@@ -407,18 +405,37 @@ export default function ApplicantsList() {
       {/* Header */}
       <main className="flex-1 p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+          {/* Title */}
           <h1 className="text-3xl font-bold text-white flex items-center gap-2">
             <User className="text-blue-500" size={32} />
             Applicants List
           </h1>
-          {/* Filter & Search */}
-          <div className="flex flex-col sm:flex-row justify-between mb-6 gap-3">
-            <div className="flex items-center bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2">
+
+          {/* Actions: Download, Filter, Search */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
+            {/* Download Button */}
+            <div className="flex items-center bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200">
+              <FileDown className="w-4 h-4 text-blue-400 mr-2" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-[#1e293b] text-gray-200  rounded"
+              >
+                <option value="All">Download List</option>
+                <option value="Review">Review</option>
+                <option value="Interview">Interview</option>
+                <option value="Hired">Hired</option>
+                <option value="Declined">Declined</option>
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200">
               <Filter className="w-4 h-4 text-blue-400 mr-2" />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-[#1e293b] text-sm text-gray-200 focus:outline-none"
+                className="bg-[#1e293b] text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded"
               >
                 <option value="All">All Status</option>
                 <option value="Review">Review</option>
@@ -427,15 +444,23 @@ export default function ApplicantsList() {
                 <option value="Declined">Declined</option>
               </select>
             </div>
-            <input
-              type="text"
-              placeholder="Search applicant..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="bg-[#1e293b] border border-gray-700 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 w-full"
-            />
+
+            {/* Search Input */}
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="Search applicant..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="bg-[#1e293b] border border-gray-700 rounded-lg pl-10 pr-3 py-2 text-sm text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 w-full transition"
+              />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                🔍
+              </span>
+            </div>
           </div>
         </div>
+
         {/* Applicants Table */}
         <div className="overflow-x-auto bg-[#1e293b]/90 backdrop-blur-md border border-gray-700 rounded-xl shadow-lg">
           <table className="w-full text-left">
