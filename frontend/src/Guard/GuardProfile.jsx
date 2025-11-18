@@ -44,6 +44,11 @@ export default function GuardProfile() {
   useEffect(() => {
     document.title = "Manage Profile | JPM Agency Security";
 
+    if(!guardData && !loading){
+      navigate("/guard/login");
+      return;
+    }
+
     const fetchProfile = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/guards/me", {
@@ -68,7 +73,7 @@ export default function GuardProfile() {
           shift: p.shift || "",
           position: p.position || "",
 
-          // Correct mapping
+          // Valid Ids
           sssId: p.SSSID || "",
           philHealthId: p.PhilHealthID || "",
           pagibigId: p.PagibigID || "",

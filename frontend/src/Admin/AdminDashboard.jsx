@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import CountUp from "../components/CountUp";
 
 ChartJS.register(
   ArcElement,
@@ -38,7 +39,7 @@ ChartJS.register(
 );
 
 export default function AdminDashboard() {
-  const { user, loading } = useAuth(); // <-- renamed
+  const { user, loading } = useAuth(); 
   const navigate = useNavigate();
 
   const [stats, setStats] = useState({
@@ -50,7 +51,7 @@ export default function AdminDashboard() {
 
   const [error, setError] = useState(null);
   const [chartData, setChartData] = useState({
-    guardStatus: [0, 0, 0], // On Duty, Off Duty, Absent
+    guardStatus: [0, 0, 0],
     attendance7d: { labels: [], data: [] },
     applicantsByStatus: { labels: [], data: [] },
   });
@@ -69,125 +70,107 @@ export default function AdminDashboard() {
         setError(null);
         const credentialsOption = { credentials: "include" };
 
-        const [guardsRes, postsRes, logsRes, attendanceRes, hiringsRes, applicantsRes] =
-          await Promise.all([
-            fetch("http://localhost:5000/api/guards", credentialsOption),
-            fetch("http://localhost:5000/api/posts", credentialsOption),
-            fetch("http://localhost:5000/api/logbook", credentialsOption),
-            fetch("http://localhost:5000/api/attendance", credentialsOption),
-            fetch("http://localhost:5000/api/hirings", credentialsOption).catch(() => null),
-            fetch("http://localhost:5000/api/applicants", credentialsOption).catch(() => null),
-          ]);
+        // Fetch all necessary data in parallel
+        const [
+          guardsRes,
+          postsRes,
+          logsRes,
+          attendanceRes,
+          applicantsRes,
+        ] = await Promise.all([
+          fetch("http://localhost:5000/api/guards", credentialsOption),
+          fetch("http://localhost:5000/api/posts", credentialsOption),
+          fetch("http://localhost:5000/api/logbook", credentialsOption),
+          fetch("http://localhost:5000/api/attendance", credentialsOption),
+          fetch("http://localhost:5000/api/applicants", credentialsOption),
+        ]);
 
-
-
-        const guards = guardsRes?.ok ? await guardsRes.json() : [];
-        const announcements = postsRes?.ok ? await postsRes.json() : [];
-        const logs = logsRes?.ok ? await logsRes.json() : [];
-        const attendance = attendanceRes?.ok ? await attendanceRes.json() : [];
-
-        console.log(logs)
-
-
-        // Parse optional resources exactly once
-        const hirings = hiringsRes && hiringsRes.ok ? await hiringsRes.json() : [];
-        const applicants = applicantsRes && applicantsRes.ok ? await applicantsRes.json() : [];
-
-        const applicantsCount = (Array.isArray(hirings) && hirings.length)
-          ? hirings.length
-          : (Array.isArray(applicants) ? applicants.length : 0);
+        const guards = guardsRes.ok ? await guardsRes.json() : [];
+        const announcements = postsRes.ok ? await postsRes.json() : [];
+        const logs = logsRes.ok ? await logsRes.json() : [];
+        const attendance = attendanceRes.ok ? await attendanceRes.json() : [];
+        const applicants = applicantsRes.ok ? await applicantsRes.json() : [];
 
         setStats({
           totalGuards: Array.isArray(guards) ? guards.length : 0,
-          applicants: applicantsCount,
+          applicants: Array.isArray(applicants) ? applicants.length : 0,
           announcements: Array.isArray(announcements) ? announcements.length : 0,
           logs: Array.isArray(logs) ? logs.length : 0,
         });
 
-        // Build charts
-        // Guard Status Overview
-        const statusCounts = { 'On Duty': 0, 'Off Duty': 0, 'Absent': 0 };
-        if (Array.isArray(attendance)) {
-          attendance.forEach((a) => {
-            const key = a.status || 'Off Duty';
-            if (statusCounts[key] === undefined) statusCounts[key] = 0;
-            statusCounts[key]++;
-          });
-        }
-        const guardStatus = [statusCounts['On Duty'] || 0, statusCounts['Off Duty'] || 0, statusCounts['Absent'] || 0];
+        const statusCounts = { "On Duty": 0, "Off Duty": 0, Absent: 0 };
+        attendance.forEach((a) => {
+          const key = a.status || "Off Duty";
+          statusCounts[key] = (statusCounts[key] || 0) + 1;
+        });
+        const guardStatus = [
+          statusCounts["On Duty"] || 0,
+          statusCounts["Off Duty"] || 0,
+          statusCounts["Absent"] || 0,
+        ];
 
-        // Weekly Attendance Trend (last 7 days by createdAt)
-        const days = [...Array(7)].map((_, i) => {
+        const days = Array.from({ length: 7 }, (_, i) => {
           const d = new Date();
           d.setDate(d.getDate() - (6 - i));
           return d;
         });
-        const labels = days.map((d) => d.toLocaleDateString(undefined, { weekday: 'short' }));
+        const labels = days.map((d) =>
+          d.toLocaleDateString(undefined, { weekday: "short" })
+        );
         const dayKeys = days.map((d) => d.toLocaleDateString());
         const counts7d = dayKeys.map((k) => 0);
-        if (Array.isArray(attendance)) {
-          attendance.forEach((a) => {
-            const created = a.createdAt ? new Date(a.createdAt).toLocaleDateString() : a.date;
-            const idx = dayKeys.indexOf(created);
-            if (idx >= 0) counts7d[idx] += 1;
-          });
-        }
+        attendance.forEach((a) => {
+          const created = a.createdAt
+            ? new Date(a.createdAt).toLocaleDateString()
+            : null;
+          const idx = dayKeys.indexOf(created);
+          if (idx >= 0) counts7d[idx]++;
+        });
 
-        // Applicants by Status (try to aggregate if status exists)
-        let applicantsLabels = [];
-        let applicantsData = [];
-        if (Array.isArray(hirings) && hirings.length) {
-          const agg = {};
-          hirings.forEach((h) => {
-            const s = (h.status || 'Unknown').toString();
-            agg[s] = (agg[s] || 0) + 1;
-          });
-          applicantsLabels = Object.keys(agg);
-          applicantsData = Object.values(agg);
-        }
-        if (!applicantsLabels.length && Array.isArray(applicants) && applicants.length) {
-          const agg = {};
-          applicants.forEach((a) => {
-            const s = (a.status || 'Unknown').toString();
-            agg[s] = (agg[s] || 0) + 1;
-          });
-          applicantsLabels = Object.keys(agg);
-          applicantsData = Object.values(agg);
-        }
-        if (!applicantsLabels.length) {
-          applicantsLabels = ['Applicants'];
-          applicantsData = [applicantsCount];
-        }
+        const aggStatus = {};
+        applicants.forEach((a) => {
+          const status = (a.status || "Unknown").toString();
+          aggStatus[status] = (aggStatus[status] || 0) + 1;
+        });
+        const applicantsLabels = Object.keys(aggStatus);
+        const applicantsData = Object.values(aggStatus);
 
+        const logsSorted = logs
+          .slice()
+          .sort(
+            (a, b) =>
+              new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+          )
+          .slice(0, 12);
+        const activities = logsSorted.map((l, idx) => ({
+          id: l._id || idx,
+          type: l.type || "Log",
+          remarks: l.remarks || "",
+          time: l.createdAt
+            ? new Date(l.createdAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "-",
+          guard: l.guard || {},
+        }));
+
+        // === Update State ===
         setChartData({
           guardStatus,
           attendance7d: { labels, data: counts7d },
           applicantsByStatus: { labels: applicantsLabels, data: applicantsData },
         });
-
-        // Build recent activities from logs
-        const logsSorted = Array.isArray(logs)
-          ? [...logs].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-          : [];
-          const activities = logsSorted.slice(0, 12).map((l, idx) => ({
-            id: l._id || l.id || idx,
-            type: l.type || "Log",
-            remarks: l.remarks || "",
-            time: l.createdAt
-              ? new Date(l.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-              : "-",
-            guard: l.guard || {},
-          }));
         setRecentActivities(activities);
       } catch (err) {
         console.error("Dashboard fetch error:", err);
         setError("Failed to load dashboard data.");
-      } finally {
       }
     };
 
     fetchDashboardData();
-  }, [user])
+  }, [user]);
+
 
   console.log()
 
@@ -203,17 +186,29 @@ export default function AdminDashboard() {
     ],
   };
 
+ const statusColorsMap = {
+    Review: "#eab308",    // yellow
+    Interview: "#3b82f6", // blue
+    Hired: "#22c55e",     // green
+    Declined: "#ef4444",  // red
+  };
+
+  // Build backgroundColor array based on chart labels
+  const backgroundColors = chartData.applicantsByStatus.labels.map(
+    (status) => statusColorsMap[status] || "#64748b" // fallback gray
+  );
+
   const applicantData = {
     labels: chartData.applicantsByStatus.labels,
     datasets: [
       {
         label: "Applicants",
         data: chartData.applicantsByStatus.data,
-        backgroundColor: ["#eab308", "#3b82f6", "#22c55e", "#ef4444", "#f97316", "#14b8a6"],
+        backgroundColor: backgroundColors,
       },
     ],
   };
-
+  
   const attendanceTrendData = {
     labels: chartData.attendance7d.labels,
     datasets: [
@@ -355,7 +350,16 @@ function KpiCard({ icon, title, value }) {
     <div className="bg-[#1e293b] rounded-xl p-4 shadow-lg flex flex-col items-center justify-center hover:shadow-blue-500/10 transition">
       <div className="mb-2">{icon}</div>
       <h3 className="text-sm text-gray-400">{title}</h3>
-      <p className="text-2xl font-bold text-white">{value}</p>
+      <p className="text-2xl font-bold text-white">
+        <CountUp
+          from={0}
+          to={value}
+          separator=","
+          direction="up"
+          duration={1}
+          className="count-up-text"
+        />
+      </p>
     </div>
   );
 }
