@@ -65,13 +65,6 @@ export default function ApplicantsMessages() {
   const [hiringDetails, setHiringDetails] = useState(null);
 
   useEffect(() => {
-    if (!admin && !loading) {
-      navigate("/admin/login");
-      return;
-    }
-  }, [admin, loading, navigate]);
-
-  useEffect(() => {
     // Capture hiring context from URL params
     try {
       const params = new URLSearchParams(window.location.search);

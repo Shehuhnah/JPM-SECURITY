@@ -10,9 +10,9 @@ import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+router.post("/attendance-time-in", protect, createAttendance);
 router.get("/", protect, getAttendances);
 router.get("/:id", protect, getGuardAttendance);
-router.post("/attendance-time-in", protect, createAttendance);
 router.patch("/attendance-time-out/:id", protect, updateAttendance);
 router.delete("/:id", protect, deleteAttendance);
 
