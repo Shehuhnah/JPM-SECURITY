@@ -4,7 +4,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { Dialog, Transition } from "@headlessui/react";
-import { CalendarDays, Filter, ThumbsUp, ThumbsDown } from "lucide-react";
+import { CalendarDays, Filter, ThumbsUp, ThumbsDown, RefreshCw } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
@@ -60,7 +60,7 @@ export default function AdminSchedApproval() {
     };
 
     fetchData();
-  }, []); // token not needed anymore
+  }, []); 
 
   const refresh = async () => {
     try {
@@ -210,14 +210,23 @@ export default function AdminSchedApproval() {
           </h1>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          {/* Filter by Client */}
-          <div className="flex items-center gap-2 bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2">
-            <Filter className="text-gray-400 w-4 h-4" />
+        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-3">
+          {/* Refresh Button */}
+          <button
+            onClick={refresh}
+            className="flex items-center justify-center px-4 py-2 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-[#243046] transition-colors duration-200"
+            title="Refresh List"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
+
+          {/* Client Filter */}
+          <div className="flex items-center gap-2 bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2 transition-colors duration-200 hover:bg-[#243046]">
+            <Filter className="w-4 h-4 text-gray-400" />
             <select
               value={selectedClient}
               onChange={(e) => setSelectedClient(e.target.value)}
-              className="bg-[#1e293b] text-gray-200 text-sm focus:outline-none"
+              className="bg-[#1e293b] text-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 rounded transition-colors duration-200"
             >
               <option value="All Clients">All Clients</option>
               {clients.map((client) => (
@@ -228,6 +237,7 @@ export default function AdminSchedApproval() {
             </select>
           </div>
         </div>
+
       </header>
 
       {/* ===== LEGEND + ACTIONS ===== */}

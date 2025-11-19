@@ -4,6 +4,7 @@ import { Clock, MapPin, User, Calendar, CheckCircle, ArrowLeft, Timer } from "lu
 import { useAuth } from "../hooks/useAuth"; //bagong code
 
 function GuardAttendanceTimeOut() {
+  const API_BASE = import.meta.env?.VITE_API_BASE_URL || "http://localhost:5000";
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [attendanceData, setAttendanceData] = useState(null);
@@ -11,114 +12,110 @@ function GuardAttendanceTimeOut() {
   const [workingHours, setWorkingHours] = useState("0h 0m");
   const [loadingPage, setLoadingPage] = useState(false); //bagong code
   const [error, setError] = useState(null);
-
   const { user: guard , loading } = useAuth();//bagong code
   const user = {
     fullName: guard?.fullName ?? "Unknown",
     guardId: guard?.guardId ?? guard?._id ?? guard?.id ?? "Unknown",
   };
 
-  // Update time every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
+    useEffect(() => {
+      const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+      return () => clearInterval(timer);
+    }, []);
 
-    return () => clearInterval(timer);
-  }, []);
+    useEffect(() => {
+      const loadActiveDuty = async () => {
+        if (!guard?._id) return;
 
-  // Load guard's active duty record
-  useEffect(() => {
-    const run = async () => {
-      if (!guard && !loading) return;//bagong code
+        setLoadingPage(true);
+        setError(null);
 
-      setLoadingPage(true);
-      setError(null);
+        try {
+          const res = await fetch(`${API_BASE}/api/attendance/${guard._id}`, {
+            credentials: "include",
+          });
+          const data = await res.json().catch(() => []);
+          if (!res.ok) throw new Error(data?.message || "Failed to fetch attendance");
+
+          // Find active duty: status "On Duty" and no timeOut
+          const activeDuty = Array.isArray(data)
+            ? data.find(r => r.status === "On Duty" && !r.timeOut)
+            : null;
+
+          if (activeDuty) setTimeInData(activeDuty);
+
+        } catch (e) {
+          setError(e.message || "Failed to load attendance");
+        } finally {
+          setLoadingPage(false);
+        }
+      };
+
+      loadActiveDuty();
+    }, [guard?._id]);
+
+    useEffect(() => {
+      if (!timeInData) return;
+
+      const timeIn = new Date(timeInData.timeIn); 
+      const timeOut = currentTime;
+
+      let diffMs = timeOut - timeIn;
+      if (diffMs < 0) {
+        diffMs += 24 * 60 * 60 * 1000;
+      }
+
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      setWorkingHours(`${diffHours}h ${diffMinutes}m`);
+    }, [currentTime, timeInData]);
+
+    const handleTimeOut = async () => {
+      if (!timeInData) {
+        alert("No active time-in record found. Please time in first.");
+        return;
+      }
 
       try {
-        const res = await fetch(`http://localhost:5000/api/attendance/${guard._id}`, {
-          credentials: "include"//bagong code
-        });
+        const payload = {
+          timeOut: currentTime.toISOString(),
+          status: "Off Duty",
+        };
 
-        const data = await res.json().catch(() => []);
-        if (!res.ok) throw new Error(data?.message || "Failed to fetch attendance");
+        const res = await fetch(
+          `${API_BASE}/api/attendance/attendance-time-out/${timeInData._id}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(payload),
+          }
+        );
 
-        // Find active duty (ignore date)
-        const activeDuty = Array.isArray(data)
-          ? data.find(r => r.status === "On Duty" && !r.timeOut)
-          : null;
+        const updated = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(updated?.message || `Failed to time out (${res.status})`);
 
-        if (activeDuty) {
-          setTimeInData(activeDuty);
-        }
+        setAttendanceData(updated);
+        setIsSubmitted(true);
+        setTimeInData(null); 
 
       } catch (e) {
-        setError(e.message || "Failed to load attendance");
-      } finally {
-        setLoadingPage(false); //bagong code
+        console.error("Time out failed:", e);
+        alert(e.message || "Failed to submit time out");
       }
     };
 
-    run();
-  }, [guard]); //bagong code
+    const formatTime = (date) =>
+      new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-
-  // Recompute working hours periodically
-  useEffect(() => {
-    if (!timeInData) return;
-    const timeIn = new Date(`${timeInData.date} ${timeInData.timeIn}`);
-    const timeOut = currentTime;
-    const diffMs = timeOut - timeIn;
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    setWorkingHours(`${diffHours}h ${diffMinutes}m`);
-  }, [currentTime, timeInData]);
-
-  const handleTimeOut = async () => {
-    if (!timeInData) {
-      alert("No time-in record found for today. Please time in first.");
-      return;
-    }
-    try {
-      const payload = {
-        timeOut: currentTime.toLocaleTimeString(),
-        status: "Off Duty",
-      };
-      const res = await fetch(`http://localhost:5000/api/attendance/attendance-time-out/${timeInData._id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: "include", // bagong code
-
-        body: JSON.stringify(payload),
+    const formatDate = (date) =>
+      new Date(date).toLocaleDateString([], {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       });
-      const updated = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(updated?.message || `Failed to time out (${res.status})`);
-      setAttendanceData(updated);
-      setIsSubmitted(true);
-    } catch (e) {
-      console.error('Time out failed:', e);
-      alert(e.message || 'Failed to submit time out');
-    }
-  };
 
-  const formatTime = (date) => {
-    return date.toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
-
-  const formatDate = (date) => {
-    return date.toLocaleDateString([], {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-gray-100 p-6">

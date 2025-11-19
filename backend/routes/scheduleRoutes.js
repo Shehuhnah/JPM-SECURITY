@@ -6,7 +6,8 @@ import {
   approveClientSchedules,
   declineClientSchedules,
   deleteSchedule,
-  getSchedulesByGuard
+  getSchedulesByGuard,
+  getTodayScheduleByGuard
 } from "../controller/scheduleController.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
@@ -20,6 +21,8 @@ router.get("/get-schedules", protect, getSchedules);
 router.get("/:id", protect, getScheduleById);
 // get schedule by Guard
 router.get("/guard/:id", protect, getSchedulesByGuard);
+// get schedule today of Guard
+router.get("/today/:id", protect, getTodayScheduleByGuard);
 // approve by client schedules
 router.patch("/approve-client-schedules", protect, authorizeRoles("Admin", "Subadmin"), approveClientSchedules);
 // decline by client schedules

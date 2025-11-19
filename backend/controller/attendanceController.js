@@ -1,6 +1,6 @@
 import Attendance from "../models/Attendance.model.js";
+import Schedule from "../models/schedule.model.js";
 
-// ✅ GET all attendances (admin/subadmin only)
 export const getAttendances = async (req, res) => {
   try {
     const attendances = await Attendance.find()
@@ -13,7 +13,6 @@ export const getAttendances = async (req, res) => {
   }
 };
 
-// ✅ GET attendance for a specific guard (guard or admin)
 export const getGuardAttendance = async (req, res) => {
   try {
     const guardId = req.params.id;
@@ -29,10 +28,9 @@ export const getGuardAttendance = async (req, res) => {
   }
 };
 
-// ✅ POST new attendance record (guard time-in)
 export const createAttendance = async (req, res) => {
   try {
-    const guard = req.user; // from auth middleware
+    const guard = req.user;
     const {
       guardName,
       guardId,
@@ -41,8 +39,6 @@ export const createAttendance = async (req, res) => {
       dutyStation,
       email,
       phoneNumber,
-      date,
-      timeIn,
       location,
       siteAddress,
       photo,
@@ -50,52 +46,82 @@ export const createAttendance = async (req, res) => {
       submittedAt,
     } = req.body;
 
-    // 🧠 Prevent multiple time-ins for the same date
+    const now = new Date();
+
+    // Fetch all approved schedules for this guard
+    const schedules = await Schedule.find({
+      guardId: guard._id,
+      isApproved: "Approved",
+    });
+
+    if (!schedules || schedules.length === 0) {
+      return res.status(403).json({
+        message: "You cannot time in. You have no schedule.",
+      });
+    }
+
+    // Check if now is inside any schedule window (overnight-safe)
+    const currentSchedule = schedules.find((s) => {
+      const timeIn = new Date(s.timeIn);
+      const timeOut = new Date(s.timeOut);
+
+      // Overnight shift handling
+      if (timeOut < timeIn) {
+        return now >= timeIn || now <= timeOut;
+      }
+      return now >= timeIn && now <= timeOut;
+    });
+
+    if (!currentSchedule) {
+      return res.status(403).json({
+        message: "You cannot time in now. Outside of your schedule window.",
+      });
+    }
+
+    // Prevent duplicate time-in for the current schedule
     const existing = await Attendance.findOne({
-      guard: guard._id,
-      date,
+      guardId: guard._id,
+      date: now.toISOString().split("T")[0], // check today
     });
 
     if (existing) {
-      return res
-        .status(400)
-        .json({ message: "You have already timed in for today." });
+      return res.status(400).json({
+        message: "You have already timed in for today.",
+      });
     }
 
-    // ✅ Create new attendance record
+    // Create attendance record
     const attendance = await Attendance.create({
-      guard: guard._id,
+      guard: guard._id, // required by schema
       guardName: guardName || guard.fullName,
-      guardId: guardId || guard.guardId || guard._id,
-      position,
-      shift,
-      dutyStation,
-      email,
-      phoneNumber,
-      date,
-      timeIn,
-      location,
-      siteAddress,
-      photo,
+      guardId: guardId || guard.guardId || guard._id, // optional, for convenience
+      position: position || guard.position,
+      shift: shift || guard.shift,
+      dutyStation: dutyStation || guard.dutyStation,
+      email: email || guard.email,
+      phoneNumber: phoneNumber || guard.phoneNumber,
+      date: now.toISOString().split("T")[0],
+      timeIn: now.toISOString(),
+      location: location || "",
+      siteAddress: siteAddress || "",
+      photo: photo || null,
       status: status || "On Duty",
-      submittedAt,
+      submittedAt: submittedAt || now.toISOString(),
     });
 
     res.status(201).json(attendance);
   } catch (error) {
     console.error(error);
-    res.status(400).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
-// ✅ PATCH update attendance (time-out or status update)
 export const updateAttendance = async (req, res) => {
   try {
     const attendance = await Attendance.findById(req.params.id);
     if (!attendance)
       return res.status(404).json({ message: "Attendance not found" });
 
-    // Merge updated fields
     Object.assign(attendance, req.body);
     await attendance.save();
 
@@ -105,7 +131,6 @@ export const updateAttendance = async (req, res) => {
   }
 };
 
-// ✅ DELETE attendance (admin only)
 export const deleteAttendance = async (req, res) => {
   try {
     const attendance = await Attendance.findByIdAndDelete(req.params.id);

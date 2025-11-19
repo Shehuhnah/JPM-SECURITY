@@ -40,22 +40,49 @@ export default function GuardAttendancePage() {
       try {
         setLoadingPage(true);
         setError(null);
+
         const res = await fetch("http://localhost:5000/api/attendance", {
           credentials: "include",
         });
-        const data = await res.json().catch(() => []);
+
+        let data = await res.json().catch(() => []);
+
         if (!res.ok) throw new Error(data?.message || "Failed to fetch attendance");
-        setAttendance(Array.isArray(data) ? data : []);
+
+        // Format each record's date and times
+        if (Array.isArray(data)) {
+          data = data.map((record) => ({
+            ...record,
+            dateFormatted: record.date ? new Date(record.date).toLocaleDateString([], {
+              weekday: "short",
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            }) : "-",
+            timeInFormatted: record.timeIn ? new Date(record.timeIn).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            }) : "-",
+            timeOutFormatted: record.timeOut ? new Date(record.timeOut).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            }) : "-",
+          }));
+        }
+
+        setAttendance(data);
+
       } catch (err) {
         setError(err.message || "Failed to fetch attendance");
       } finally {
         setLoadingPage(false);
       }
     };
+
     fetchAttendance();
   }, [admin]);
-
-  console.log(attendance)
 
   // Filter and search
   const filtered = attendance
@@ -126,19 +153,28 @@ export default function GuardAttendancePage() {
                 filtered.map((a) => {
                   const name = a.guardName || a.guard?.fullName || "Unknown";
                   const station = a.dutyStation || a.siteAddress || "-";
-                  const date = a.date || new Date(a.createdAt).toLocaleDateString();
-                  const timeIn = a.timeIn || "-";
-                  const timeOut = a.timeOut || "-";
-                  const status = a.status || "Inactive";
+                  const date = a.date
+                    ? new Date(a.date).toLocaleDateString()
+                    : new Date(a.createdAt).toLocaleDateString();
+
+                  const timeIn = a.timeIn
+                    ? new Date(a.timeIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    : "-";
+
+                  const timeOut = a.timeOut
+                    ? new Date(a.timeOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    : "-";
 
                   // Compute working hours if both in/out exist
                   let workingHour = "-";
                   if (a.timeIn && a.timeOut) {
-                    const t1 = new Date(`1970-01-01T${convertTo24(a.timeIn)}Z`);
-                    const t2 = new Date(`1970-01-01T${convertTo24(a.timeOut)}Z`);
-                    const diff = (t2 - t1) / (1000 * 60 * 60);
+                    const t1 = new Date(a.timeIn);
+                    const t2 = new Date(a.timeOut);
+                    const diff = (t2 - t1) / (1000 * 60 * 60); // hours
                     workingHour = diff > 0 ? `${diff.toFixed(2)} hrs` : "-";
                   }
+
+                  const status = a.status || "Inactive";
 
                   return (
                     <tr
@@ -276,9 +312,9 @@ export default function GuardAttendancePage() {
                             </h3>
                             <div className="text-sm grid grid-cols-1 md:grid-cols-2 gap-6">
                               <div className="w-full">
-                                <DetailRow icon={<CalendarDays size={16} />} label="Date" value={selected.date} />
-                                <DetailRow icon={<Clock size={16} />} label="Time In" value={selected.timeIn} />
-                                <DetailRow icon={<Clock size={16} />} label="Time Out" value={selected.timeOut} />
+                                <DetailRow icon={<CalendarDays size={16} />} label="Date" value={selected.dateFormatted || selected.date} />
+                                <DetailRow icon={<Clock size={16} />} label="Time In" value={selected.timeInFormatted || selected.timeIn} />
+                                <DetailRow icon={<Clock size={16} />} label="Time Out" value={selected.timeOutFormatted || selected.timeOut} />
                                 <DetailRow icon={<Shield size={16} />} label="Status" value={selected.status} />
                                 <DetailRow icon={<MapPin size={16} />} label="Site Address" value={selected.siteAddress} />
                               </div>
@@ -292,7 +328,22 @@ export default function GuardAttendancePage() {
                                       : "-"
                                   }
                                 />
-                                <DetailRow icon={<CalendarDays size={16} />} label="Submitted At" value={selected.submittedAt} />
+                                <DetailRow
+                                  icon={<CalendarDays size={16} />}
+                                  label="Submitted At"
+                                  value={
+                                    selected.submittedAt
+                                      ? new Date(selected.submittedAt).toLocaleString([], {
+                                          year: "numeric",
+                                          month: "short",
+                                          day: "numeric",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                          second: "2-digit",
+                                        })
+                                      : "-"
+                                  }
+                                />
                                 <DetailRow
                                   icon={<CalendarDays size={16} />}
                                   label="Created"

@@ -26,13 +26,15 @@ export default function GuardTable() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
-  const [isOpen, setIsOpen] = useState(false); // For Add Guard Modal
-  const [editIsOpen, setEditIsOpen] = useState(false); // For Edit Guard Modal
+  const [isOpen, setIsOpen] = useState(false); 
+  const [isViewOpen, setIsViewOpen] = useState(false)
+  const [editIsOpen, setEditIsOpen] = useState(false); 
   const [guards, setGuards] = useState([]);
   const [loadingPage, setLoadingPage] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [selectedUser, setSelectedUser] = useState(null); // For modal
+  const [selectedUser, setSelectedUser] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [selectedGuard, setSelectedGuard] = useState(null)
   
   const [form, setForm] = useState({
       fullName: "",
@@ -256,16 +258,34 @@ export default function GuardTable() {
     }
   };
 
+  const handleView = (guard) => {
+    setSelectedGuard(guard);
+    setIsViewOpen(true);
+  };
+
+  const ProfileItem = ({ label, value }) => (
+    <div>
+      <p className="text-gray-400 text-xs">{label}</p>
+      <p className="text-white font-medium bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 mt-1">
+        {value || "—"}
+      </p>
+    </div>
+  );
+
   // filter logic
   const filteredData = guards.filter(
     (g) =>
       (filter === "All" || g.position === filter) &&
       (g.fullName?.toLowerCase().includes(search.toLowerCase()) ||
         g.email?.toLowerCase().includes(search.toLowerCase()) ||
-        g.guardId?.toLowerCase().includes(search.toLowerCase()))
+        g.guardId?.toLowerCase().includes(search.toLowerCase()) ||
+        g.SSSID?.toLowerCase().includes(search.toLowerCase()) ||
+        g.PhilHealthID?.toLowerCase().includes(search.toLowerCase()) ||
+        g.PagibigID?.toLowerCase().includes(search.toLowerCase()))
   );
+  console.log("guards:", guards)
 
-  if (loading) return <Loader text="Loading users..." />;
+  if (loading) return <Loader text="Loading, Please wait a minute..." />;
 
   return (
     <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
@@ -326,8 +346,8 @@ export default function GuardTable() {
           <table className="w-full text-sm md:text-base">
             <thead className="bg-[#10263a] text-gray-100 uppercase tracking-wide text-xs md:text-sm">
               <tr className="text-center">
-                <th className="p-3">Full Name</th>
                 <th className="p-3">Guard ID</th>
+                <th className="p-3">Full Name</th>
                 <th className="p-3">Position</th>
                 <th className="p-3">Contact</th>
                 <th className="p-3">Email</th>
@@ -341,27 +361,37 @@ export default function GuardTable() {
               {filteredData.length > 0 ? (
                 filteredData.map((g, i) => (
                   <tr key={i} className="border-t border-gray-700 hover:bg-blue-900/20 transition text-center">
+                    <td className="p-3">{g.guardId}</td>
                     <td className="p-3 font-medium flex items-center gap-2">
                       <UserCheck className="w-4 h-4 text-blue-400" />
                       {g.fullName}
                     </td>
-                    <td className="p-3">{g.guardId}</td>
                     <td className="p-3">{g.position}</td>
                     <td className="p-3">{g.phoneNumber}</td>
                     <td className="p-3 text-gray-300">{g.email}</td>
                     <td className="p-3 flex items-center">{g.status}</td>
-                    {admin.role === "Admin" && admin.accessLevel === 1 && (
-                      <td className="p-3 space-x-5">
-                        <button onClick={() => handleEdit(g)}>
-                          <Pencil className="w-5 h-5 text-gray-300 hover:text-blue-400" />
+                      <td className="p-4 space-x-5">
+                         <button 
+                          onClick={() => handleView(g)} 
+                          title="See Full Profile">
+                          <Eye className="w-5 h-5 text-gray-300 hover:text-blue-400" />
                         </button>
-                        <button
-                          onClick={() => setSelectedUser(g)}
-                        >
-                          <Trash className="w-5 h-5 text-gray-300 hover:text-red-500 ml-3" />
-                        </button>
+                        {admin.role === "Admin" && admin.accessLevel === 1 && (
+                          <>
+                            <button 
+                              onClick={() => handleEdit(g)} 
+                              title="Edit Guard Profile">
+                              <Pencil className="w-5 h-5 text-gray-300 hover:text-blue-400" />
+                            </button>
+                            <button
+                              onClick={() => setSelectedUser(g)}
+                              title="Delete Profile Guard"
+                            >
+                              <Trash className="w-5 h-5 text-gray-300 hover:text-red-500 ml-3" />
+                            </button>
+                          </>
+                        )}
                       </td>
-                    )}
                   </tr>
                 ))
               ) : (
@@ -374,6 +404,102 @@ export default function GuardTable() {
             </tbody>
           </table>
         </div>
+
+        {/* View Guard Modal */}
+        <Transition appear show={isViewOpen} as={Fragment}>
+          <Dialog
+            as="div"
+            className="relative z-50"
+            onClose={() => setIsViewOpen(false)}
+          >
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
+              <div className="fixed inset-0 bg-black/50" />
+            </Transition.Child>
+
+            <div className="fixed inset-0 overflow-y-auto">
+              <div className="flex min-h-full items-center justify-center p-4 text-center">
+                <Transition.Child
+                  as={Fragment}
+                  enter="ease-out duration-300"
+                  enterFrom="opacity-0 scale-95"
+                  enterTo="opacity-100 scale-100"
+                  leave="ease-in duration-200"
+                  leaveFrom="opacity-100 scale-100"
+                  leaveTo="opacity-0 scale-95"
+                >
+                  <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-8 text-left align-middle shadow-xl border border-gray-700">
+
+                    {/* HEADER */}
+                    <div className="flex gap-x-4 mb-6">
+                      {/* Avatar Placeholder */}
+                      <div className="w-20 h-20 bg-[#0f172a] rounded-full flex items-center justify-center border-2 border-gray-600">
+                        <Shield className="text-blue-400 w-8 h-8" />
+                      </div>
+
+                      <div className="mt-2">
+                        <Dialog.Title className="text-2xl font-bold text-white">
+                          Guard Profile
+                        </Dialog.Title>
+                        <p className="text-gray-400 text-sm">
+                          Complete information of the selected guard.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* PROFILE GRID */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                      {/* LEFT SIDE */}
+                      <div className="space-y-3 text-gray-200">
+                        <ProfileItem label="Full Name" value={selectedGuard?.fullName} />
+                        <ProfileItem label="Guard ID" value={selectedGuard?.guardId} />
+                        <ProfileItem label="Email" value={selectedGuard?.email} />
+                        <ProfileItem label="Phone Number" value={selectedGuard?.phoneNumber} />
+                        <ProfileItem label="Position" value={selectedGuard?.position} />
+                        <ProfileItem label="Address" value={selectedGuard?.address} />
+                      </div>
+
+                      {/* RIGHT SIDE */}
+                      <div className="space-y-3 text-gray-200">
+                        <ProfileItem label="SSS ID" value={selectedGuard?.SSSID} />
+                        <ProfileItem label="PhilHealth ID" value={selectedGuard?.PhilHealthID} />
+                        <ProfileItem label="Pag-IBIG ID" value={selectedGuard?.PagibigID} />
+                        <ProfileItem label="Emergency Contact Person" value={selectedGuard?.EmergencyPerson} />
+                        <ProfileItem label="Emergency Contact" value={selectedGuard?.EmergencyContact} />
+                        <ProfileItem label="Status" value={selectedGuard?.status} />
+                      </div>
+                    </div>
+
+                    {/* EXTRA META */}
+                    <div className="mt-8 text-gray-400 text-sm space-y-1">
+                      <p>Created At: {new Date(selectedGuard?.createdAt).toLocaleString()}</p>
+                      <p>Last Login: {new Date(selectedGuard?.lastLogin).toLocaleString()}</p>
+                    </div>
+
+                    {/* FOOTER */}
+                    <div className="mt-8 flex justify-end">
+                      <button
+                        onClick={() => setIsViewOpen(false)}
+                        className="bg-gray-600 hover:bg-gray-500 px-6 py-2 rounded-lg text-white w-1/4"
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                  </Dialog.Panel>
+                </Transition.Child>
+              </div>
+            </div>
+          </Dialog>
+        </Transition>
 
         {/* Add Guard Modal */}
         <Transition appear show={isOpen} as={Fragment}>

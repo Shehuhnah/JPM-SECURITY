@@ -137,8 +137,26 @@ export const getSchedulesByGuard = async (req, res) => {
   }
 };
 
+// Get schedule today of guard
+export const getTodayScheduleByGuard = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const today = new Date().toISOString().split("T")[0]; // "2025-11-19"
 
-// ===== Approve all pending schedules for a client =====
+    const schedules = await Schedule.find({
+      guardId: id,
+      isApproved: "Approved",
+      date: today
+    }).populate("guardId");
+
+    res.status(200).json({ hasSchedule: schedules.length > 0, schedules });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching schedules", error: error.message });
+  }
+};
+
+
+// Approve all pending schedules for a client 
 export const approveClientSchedules = async (req, res) => {
   const { client } = req.body;
   if (!client)
@@ -165,7 +183,7 @@ export const approveClientSchedules = async (req, res) => {
   }
 };
 
-// ===== Decline all pending schedules for a client =====
+// Decline all pending schedules for a client 
 export const declineClientSchedules = async (req, res) => {
 
   const { client, remarks } = req.body;
@@ -193,7 +211,7 @@ export const declineClientSchedules = async (req, res) => {
   }
 };
 
-// ===== Delete single schedule =====
+//  Delete single schedule 
 export const deleteSchedule = async (req, res) => {
   try {
     const deleted = await Schedule.findByIdAndDelete(req.params.id);

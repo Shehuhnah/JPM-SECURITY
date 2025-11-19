@@ -16,4 +16,5 @@ router.get("/:id", protect, getGuardAttendance);
 router.patch("/attendance-time-out/:id", protect, updateAttendance);
 router.delete("/:id", protect, deleteAttendance);
 
+
 export default router;
