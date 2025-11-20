@@ -9,16 +9,16 @@ export default function AdminPosts() {
   const [posts, setPosts] = useState([]);
   const [editingPost, setEditingPost] = useState(null);
   const [expandedPosts, setExpandedPosts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(false);
 
-  const { admin } = useAuth();
+  const { user: admin, loading } = useAuth();
 
   const API_URL = "http://localhost:5000/api/posts"; // backend port
 
   // Fetch all posts 
   useEffect(() => {
     const fetchPosts = async () => {
-      setLoading(true);
+      setLoadingPage(true);
       try {
         const res = await fetch(API_URL);
         const data = await res.json();
@@ -26,7 +26,7 @@ export default function AdminPosts() {
       } catch (err) {
         console.error("Error fetching posts:", err);
       } finally {
-        setLoading(false);
+        setLoadingPage(false);
       }
     };
 
@@ -175,7 +175,7 @@ export default function AdminPosts() {
         </div>
 
         {/* Posts List */}
-        {loading ? (
+        {loadingPage ? (
           <p className="text-center text-gray-400">Loading posts...</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

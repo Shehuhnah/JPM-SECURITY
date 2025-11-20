@@ -13,7 +13,11 @@ import {
   Phone,
   FileText,
   Hash,
-  Image as ImageIcon, } from "lucide-react";
+  Image as ImageIcon,
+  EyeIcon,
+  IdCard,
+  FileDown,
+  FileImage, } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { Dialog, Transition } from "@headlessui/react";
 
@@ -24,9 +28,13 @@ export default function GuardAttendancePage() {
   const [loadingPage, setLoadingPage] = useState(false);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [guards, setGuards] = useState(null)
+  const [selectedguardid, setSelectedGuardId] = useState(null)
+  const [dlwhmodal, setDlWhModal] = useState(false)
+  const [previewImage, setPreviewImage] = useState(null)
   const navigate = useNavigate();
 
-  const { user:admin, loading } = useAuth();
+  const { user: admin, loading } = useAuth();
 
   useEffect(() => {
     if (!admin && !loading) {
@@ -36,53 +44,85 @@ export default function GuardAttendancePage() {
   }, [admin, loading, navigate]);
 
   useEffect(() => {
-    const fetchAttendance = async () => {
+    const fetchGuards = async () => {
       try {
         setLoadingPage(true);
         setError(null);
 
-        const res = await fetch("http://localhost:5000/api/attendance", {
+        const res = await fetch("http://localhost:5000/api/guards", {
           credentials: "include",
         });
 
-        let data = await res.json().catch(() => []);
+        const data = await res.json().catch(() => []);
 
-        if (!res.ok) throw new Error(data?.message || "Failed to fetch attendance");
+        if (!res.ok) throw new Error(data?.message || "Failed to fetch guards");
 
-        // Format each record's date and times
-        if (Array.isArray(data)) {
-          data = data.map((record) => ({
-            ...record,
-            dateFormatted: record.date ? new Date(record.date).toLocaleDateString([], {
-              weekday: "short",
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-            }) : "-",
-            timeInFormatted: record.timeIn ? new Date(record.timeIn).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            }) : "-",
-            timeOutFormatted: record.timeOut ? new Date(record.timeOut).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            }) : "-",
-          }));
-        }
-
-        setAttendance(data);
+        setGuards(Array.isArray(data) ? data : []);
+        console.log(guards)
 
       } catch (err) {
-        setError(err.message || "Failed to fetch attendance");
+        setError(err.message || "Failed to fetch guards");
       } finally {
         setLoadingPage(false);
       }
     };
 
-    fetchAttendance();
+    fetchGuards();
   }, [admin]);
+
+  const fetchAttendanceForGuard = async (guardId) => {
+
+    try {
+      setLoadingPage(true);
+      setError(null);
+
+      const res = await fetch(
+        `http://localhost:5000/api/attendance/${guardId}`,
+        { credentials: "include" }
+      );
+
+      let data = await res.json().catch(() => []);
+      console.log(data)
+
+      if (!res.ok) throw new Error(data?.message || "Failed to fetch attendance");
+
+      data = data.map((record) => ({
+        ...record,
+        dateFormatted: record.date
+          ? new Date(record.date).toLocaleDateString([], {
+              weekday: "short",
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })
+          : "-",
+
+        timeInFormatted: record.timeIn
+          ? new Date(record.timeIn).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            })
+          : "-",
+
+        timeOutFormatted: record.timeOut
+          ? new Date(record.timeOut).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            })
+          : "-",
+      }));
+
+      setAttendance(data);
+      setSelectedGuardId(guardId);
+
+    } catch (err) {
+      setError(err.message || "Failed to fetch guard attendance");
+    } finally {
+      setLoadingPage(false);
+    }
+  };
 
   // Filter and search
   const filtered = attendance
@@ -92,6 +132,23 @@ export default function GuardAttendancePage() {
       return name.includes(search.toLowerCase());
     });
 
+  function parseTime12toDate(timeStr) {
+    if (!timeStr) return null;
+
+    const [time, modifier] = timeStr.split(" ");
+    let [hours, minutes, seconds] = time.split(":").map(Number);
+
+    if (modifier === "PM" && hours < 12) hours += 12;
+    if (modifier === "AM" && hours === 12) hours = 0;
+
+    const date = new Date();
+    date.setHours(hours, minutes, seconds, 0);
+    return date;
+  }
+
+  const handleDownloadWorkHours = async (guardId) => {
+    setDlWhModal(true);
+  }
   return (
     <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
       <main className="flex-1 flex flex-col p-4 md:p-6">
@@ -133,78 +190,42 @@ export default function GuardAttendancePage() {
         {error && <div className="mb-4 text-sm text-red-400">{error}</div>}
 
         {/* ===== Table ===== */}
-        <div className="overflow-x-auto bg-[#1e293b]/60 backdrop-blur-md rounded-xl border border-gray-700 shadow-lg">
-          <table className="w-full min-w-[900px] border-collapse">
+       <div className="overflow-x-auto bg-[#1e293b]/60 backdrop-blur-md rounded-xl border border-gray-700 shadow-lg">
+          <table className="w-full min-w-[800px] border-collapse">
             <thead className="bg-[#234C6A] text-gray-100 text-sm uppercase tracking-wider">
               <tr className="text-center">
                 <th className="px-4 py-3">Guard Name</th>
                 <th className="px-4 py-3">Duty Station</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Time In</th>
-                <th className="px-4 py-3">Time Out</th>
+                <th className="px-4 py-3">Shift</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Working Hour</th>
                 <th className="px-4 py-3 text-center">Action</th>
               </tr>
             </thead>
 
             <tbody>
-              {filtered.length > 0 ? (
-                filtered.map((a) => {
-                  const name = a.guardName || a.guard?.fullName || "Unknown";
-                  const station = a.dutyStation || a.siteAddress || "-";
-                  const date = a.date
-                    ? new Date(a.date).toLocaleDateString()
-                    : new Date(a.createdAt).toLocaleDateString();
-
-                  const timeIn = a.timeIn
-                    ? new Date(a.timeIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                    : "-";
-
-                  const timeOut = a.timeOut
-                    ? new Date(a.timeOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                    : "-";
-
-                  // Compute working hours if both in/out exist
-                  let workingHour = "-";
-                  if (a.timeIn && a.timeOut) {
-                    const t1 = new Date(a.timeIn);
-                    const t2 = new Date(a.timeOut);
-                    const diff = (t2 - t1) / (1000 * 60 * 60); // hours
-                    workingHour = diff > 0 ? `${diff.toFixed(2)} hrs` : "-";
-                  }
-
-                  const status = a.status || "Inactive";
+              {guards?.length > 0 ? (
+                guards.map((g) => {
+                  const name = g.fullName || g.name || "Unnamed";
+                  const station = g.dutyStation || "-";
+                  const shift = g.shift || "-";
+                  const phone = g.phoneNumber || "-";
 
                   return (
                     <tr
-                      key={a._id}
+                      key={g._id}
                       className="border-t border-gray-700 hover:bg-[#243046] transition-colors text-sm text-center"
                     >
                       <td className="px-4 py-3 font-medium text-white">{name}</td>
-                      <td className="px-4 py-3">{station}</td>
-                      <td className="px-4 py-3 text-gray-300">{date}</td>
-                      <td className="px-4 py-3">{timeIn}</td>
-                      <td className="px-4 py-3">{timeOut}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            status === "On Duty"
-                              ? "bg-green-500/20 text-green-400"
-                              : "bg-gray-500/20 text-gray-400"
-                          }`}
-                        >
-                          {status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">{workingHour}</td>
+                      <td className="px-4 py-3 text-gray-300">{station}</td>
+                      <td className="px-4 py-3">{shift}</td>
+                      <td className="px-4 py-3">{g.statusToday}</td>
+
                       <td className="px-4 py-3 text-center">
                         <button
-                          className="text-blue-400 hover:text-blue-300 transition"
-                          title="View Details"
-                          onClick={() => setSelected(a)}
+                          onClick={() => fetchAttendanceForGuard(g._id)}
+                          className="bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 px-4 py-2 rounded-lg transition font-medium"
                         >
-                          <Eye size={18} />
+                          View Attendance
                         </button>
                       </td>
                     </tr>
@@ -212,14 +233,15 @@ export default function GuardAttendancePage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan="8" className="px-4 py-6 text-center text-gray-400 italic">
-                    No attendance records found
+                  <td colSpan="5" className="px-4 py-6 text-center text-gray-400 italic">
+                    No guards found
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
 
         {/* ===== Footer Summary ===== */}
         <div className="flex justify-between items-center mt-6 text-gray-400 text-sm">
@@ -231,24 +253,247 @@ export default function GuardAttendancePage() {
         </div>
       </main>
 
-      <Transition appear show={Boolean(selected)} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setSelected(null)}>
-          {/* Backdrop */}
+      <Transition appear show={selectedguardid !== null} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setSelectedGuardId(null)}>
           <Transition.Child
             as={Fragment}
-            enter="ease-out duration-200"
+            enter="ease-out duration-300"
             enterFrom="opacity-0"
             enterTo="opacity-100"
-            leave="ease-in duration-150"
+            leave="ease-in duration-200"
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
           </Transition.Child>
 
-          {/* Modal */}
           <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-7xl transform overflow-hidden rounded-2xl bg-[#1e293b] border border-gray-700 shadow-xl transition-all">
+                  
+                  {/* ========== HEADER ========== */}
+                  <div className="flex justify-between items-center px-6 py-4 border-b border-gray-700">
+                    <h3 className="text-xl font-bold flex items-center gap-2 text-white">
+                      <User className="text-blue-400" size={20} />
+                      Guard Attendance History
+                    </h3>
+
+                    <button
+                      onClick={() => setSelectedGuardId(null)}
+                      className="text-gray-400 hover:text-white transition"
+                    >
+                      <X size={22} />
+                    </button>
+                  </div>
+
+                  {/* ========== GUARD DETAILS ========== */}
+                  {attendance[0] && (
+                    <div className="flex justify-between items-center px-6 py-4 border-b border-gray-700 bg-[#192233] gap-4">
+                      {/* Left: Guard Info */}
+                          <Shield className="text-blue-400" size={50} />
+
+                      <div className="flex-1 flex flex-col gap-1">
+                        <p className="text-xl font-semibold text-white flex items-center gap-2">
+                          <User className="text-blue-400" size={20}/>
+                          {attendance[0].guardName}
+                        </p>
+
+                        <p className="text-gray-300 flex items-center gap-2">
+                          <Phone size={20} className="text-blue-300" />
+                          {attendance[0].phoneNumber}
+                        </p>
+
+                        <p className="text-gray-300 flex items-center gap-2">
+                          <IdCard size={20} className="text-blue-300" />
+                          {attendance[0].guardId}
+                        </p>
+                      </div>
+
+                      {/* Right: Download Button */}
+                      <div className="flex-shrink-0">
+                        <button
+                          onClick={() => handleDownloadWorkHours(guardId)}
+                          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition flex gap-2"
+                        >
+                          <FileDown/> Download Working Hours
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+
+                  {/* ========== TABLE ========== */}
+                  <div className="p-6 max-h-[65vh] overflow-y-auto">
+                    {attendance.length > 0 ? (
+                      <table className="w-full border-collapse text-gray-100">
+                        <thead>
+                          <tr className="uppercase text-xs bg-[#234C6A] text-gray-100">
+                            <th className="px-3 py-2">Date</th>
+                            <th className="px-3 py-2">Site</th>
+                            <th className="px-3 py-2">Time In</th>
+                            <th className="px-3 py-2">Time Out</th>
+                            <th className="px-3 py-2">Working Hrs</th>
+                            <th className="px-3 py-2">Action</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {attendance.map((rec) => {
+                            // compute working hours
+                            let working = "-";
+                            if (rec.timeIn && rec.timeOut) {
+                              let t1 = parseTime12toDate(rec.timeIn);
+                              let t2 = parseTime12toDate(rec.timeOut);
+
+                              // If timeOut is before timeIn, assume overnight shift
+                              if (t2 <= t1) {
+                                t2.setDate(t2.getDate() + 1);
+                              }
+
+                              const diffMs = t2 - t1;
+                              if (diffMs > 0) {
+                                const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+                                const diffMin = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                                working = `${diffHrs}h ${diffMin}m`;
+                              }
+                            }
+                            return (
+                              <tr
+                                key={rec._id}
+                                className="text-center border-t border-gray-700 hover:bg-[#2a3650] transition"
+                              >
+                                <td className="px-3 py-2">{rec.date}</td>
+                                <td className="px-3 py-2 flex flex-col items-center">
+                                  <span className="block max-w-[500px] whitespace-nowrap overflow-hidden text-ellipsis">
+                                    {attendance[0].location?.address || "No location recorded"}
+                                  </span>
+
+                                  {attendance[0].location?.latitude &&
+                                    attendance[0].location?.longitude && (
+                                      <a
+                                        href={`https://www.google.com/maps?q=${attendance[0].location.latitude},${attendance[0].location.longitude}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1 mt-1"
+                                      >
+                                        <MapPin size={14} />
+                                        View on Google Maps
+                                      </a>
+                                    )}
+                                </td>
+                                <td className="px-3 py-2">{rec.timeIn}</td>
+                                <td className="px-3 py-2">{rec.timeOut}</td>
+                                
+                                <td className="px-3 py-2">{working ?? "-"}</td>
+                                <td className="px-4 py-2 ">
+                                  <button 
+                                    onClick={() => setPreviewImage(attendance[0]?.photo)}
+                                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg font-medium transition flex gap-2">
+                                      <FileImage className="text-white" />
+                                      Image
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot className="bg-[#234C6A] text-gray-100 text-sm uppercase tracking-wider">
+                          <tr className="text-center">
+                            <td className="px-4 py-3" colSpan={2}></td> {/* Empty cells to align */}
+                            <td className="px-4 py-3 font-medium text-white">Totals Days:</td>
+                            <td className="px-4 py-3 font-medium">
+                              {/* Present days */}
+                              No. {attendance.filter((rec) => rec.timeIn).length}
+                            </td>
+                            <td className="px-4 py-3 font-medium text-white">Totals Hours:</td>
+                            <td className="px-4 py-3 font-medium" colSpan={2}>
+                              {(() => {
+                                let totalMinutes = attendance.reduce((sum, rec) => {
+                                  if (rec.timeIn && rec.timeOut) {
+                                    const inParts = rec.timeIn.replace(" AM", "").replace(" PM", "").split(":").map(Number);
+                                    const outParts = rec.timeOut.replace(" AM", "").replace(" PM", "").split(":").map(Number);
+
+                                    let [h1, m1, s1] = inParts;
+                                    let [h2, m2, s2] = outParts;
+
+                                    // Convert 12-hour to 24-hour
+                                    if (rec.timeIn.includes("PM") && h1 < 12) h1 += 12;
+                                    if (rec.timeIn.includes("AM") && h1 === 12) h1 = 0;
+                                    if (rec.timeOut.includes("PM") && h2 < 12) h2 += 12;
+                                    if (rec.timeOut.includes("AM") && h2 === 12) h2 = 0;
+
+                                    let start = new Date(0, 0, 0, h1, m1, s1);
+                                    let end = new Date(0, 0, 0, h2, m2, s2);
+
+                                    // Handle overnight
+                                    if (end < start) end.setDate(end.getDate() + 1);
+
+                                    const diffMinutes = (end - start) / (1000 * 60);
+                                    return sum + diffMinutes;
+                                  }
+                                  return sum;
+                                }, 0);
+
+                                const hours = Math.floor(totalMinutes / 60);
+                                const minutes = Math.round(totalMinutes % 60);
+
+                                return `${hours}h ${minutes}m`;
+                              })()}
+                            </td>
+
+                            <td className="px-4 py-3"></td> {/* Empty for action column */}
+                          </tr>
+                        </tfoot>
+
+                      </table>
+                    ) : (
+                      <p className="text-gray-400 text-center py-6 italic">
+                        No attendance records found.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* ========== FOOTER ========== */}
+                  <div className="px-6 py-3 text-sm text-gray-400 border-t border-gray-700">
+                    Showing {attendance.length} record(s)
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+      {previewImage && (
+        <Transition appear show={Boolean(previewImage)} as={Fragment}>
+          <Dialog
+            as="div"
+            className="relative z-50"
+            onClose={() => setPreviewImage(null)}
+          >
+            {/* Backdrop */}
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-200"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="ease-in duration-150"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
+              <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+            </Transition.Child>
+
+            {/* Modal Panel */}
+            <div className="fixed inset-0 flex items-center justify-center p-4">
               <Transition.Child
                 as={Fragment}
                 enter="ease-out duration-200"
@@ -258,157 +503,35 @@ export default function GuardAttendancePage() {
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-full max-w-7xl overflow-hidden rounded-2xl bg-[#0f172a]/95 border border-gray-700 shadow-2xl backdrop-blur-md">
-                  {/* Header */}
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800 bg-[#121c2b]">
-                    <Dialog.Title className="text-xl font-semibold text-white flex items-center gap-2">
-                      <FileText size={20} className="text-blue-400" />
-                      Attendance Details
+                <Dialog.Panel className="w-full max-w-3xl bg-[#0f172a]/95 border border-gray-700 rounded-2xl p-4 shadow-2xl">
+                  <div className="flex justify-between items-center mb-4">
+                    <Dialog.Title className="text-lg text-white font-semibold">
+                      Attendance Image
                     </Dialog.Title>
                     <button
-                      onClick={() => setSelected(null)}
-                      className="text-gray-400 hover:text-white transition"
+                      className="text-gray-400 hover:text-white"
+                      onClick={() => setPreviewImage(null)}
                     >
-                      <X size={22} />
+                      <X size={20} />
                     </button>
                   </div>
-
-                  {/* Body */}
-                  <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-gray-800">
-                    {/* Left Panel */}
-                    <div className="w-1/2 p-6 space-y-6 bg-gradient-to-b from-[#111a2b] to-[#0b1220] overflow-y-auto max-h-[80vh]">
-                      {selected && (
-                        <>
-                          <div className="flex gap-x-4 justify-between w-full">
-                            {/* Guard Info */}
-                            <div className="w-full">
-                              <h3 className="text-sm font-semibold uppercase tracking-wide text-blue-400 mb-3">
-                                Guard Information
-                              </h3>
-                              <div className="space-y-2 text-sm ">
-                                <DetailRow icon={<User size={16} />} label="Name" value={selected.guardName || selected.guard?.fullName} />
-                                <DetailRow icon={<Hash size={16} />} label="Guard ID" value={selected.guardId} />
-                                <DetailRow icon={<Shield size={16} />} label="Position" value={selected.position} />
-                                <DetailRow icon={<Clock size={16} />} label="Shift" value={selected.shift} />
-                                <DetailRow icon={<MapPin size={16} />} label="Duty Station" value={selected.dutyStation} />
-                              </div>
-                            </div>
-                            {/* Contact Info */}
-                            <div className="w-full">
-                              <h3 className="text-sm font-semibold uppercase tracking-wide text-blue-400 mb-3">
-                                Contact
-                              </h3>
-                              <div className="space-y-2 text-sm">
-                                <DetailRow icon={<Mail size={16} />} label="Email" value={selected.email || selected.guard?.email} />
-                                <DetailRow icon={<Phone size={16} />} label="Phone" value={selected.phoneNumber} />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Attendance Info */}
-                          <div className="w-full">
-                            <h3 className="text-sm font-semibold uppercase tracking-wide text-blue-400 mb-3">
-                              Attendance Record
-                            </h3>
-                            <div className="text-sm grid grid-cols-1 md:grid-cols-2 gap-6">
-                              <div className="w-full">
-                                <DetailRow icon={<CalendarDays size={16} />} label="Date" value={selected.dateFormatted || selected.date} />
-                                <DetailRow icon={<Clock size={16} />} label="Time In" value={selected.timeInFormatted || selected.timeIn} />
-                                <DetailRow icon={<Clock size={16} />} label="Time Out" value={selected.timeOutFormatted || selected.timeOut} />
-                                <DetailRow icon={<Shield size={16} />} label="Status" value={selected.status} />
-                                <DetailRow icon={<MapPin size={16} />} label="Site Address" value={selected.siteAddress} />
-                              </div>
-                              <div className="w-full">
-                                <DetailRow
-                                  icon={<MapPin size={16} />}
-                                  label="Coordinates"
-                                  value={
-                                    selected.location
-                                      ? `${selected.location.latitude?.toFixed?.(5)}, ${selected.location.longitude?.toFixed?.(5)}`
-                                      : "-"
-                                  }
-                                />
-                                <DetailRow
-                                  icon={<CalendarDays size={16} />}
-                                  label="Submitted At"
-                                  value={
-                                    selected.submittedAt
-                                      ? new Date(selected.submittedAt).toLocaleString([], {
-                                          year: "numeric",
-                                          month: "short",
-                                          day: "numeric",
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                          second: "2-digit",
-                                        })
-                                      : "-"
-                                  }
-                                />
-                                <DetailRow
-                                  icon={<CalendarDays size={16} />}
-                                  label="Created"
-                                  value={selected.createdAt ? new Date(selected.createdAt).toLocaleString() : "-"}
-                                />
-                                <DetailRow icon={<Hash size={16} />} label="Record ID" value={selected._id} />
-                              </div>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Right Panel (Photo) */}
-                    <div className="w-full md:w-1/2 bg-[#0b1320] flex flex-col items-center justify-center p-6">
-                      {selected?.photo ? (
-                        <div className="relative group">
-                          <img
-                            src={selected.photo}
-                            alt="Attendance evidence"
-                            className="max-h-[75vh] w-auto rounded-xl border border-gray-700 shadow-lg transition-transform duration-300 group-hover:scale-[1.02]"
-                          />
-                          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 px-3 py-1 rounded-full text-xs text-gray-300 opacity-0 group-hover:opacity-100 transition">
-                            <ImageIcon size={12} className="inline mr-1" /> Evidence Photo
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center text-gray-500 text-sm">
-                          <ImageIcon className="mb-2" size={36} />
-                          No image available
-                        </div>
-                      )}
-                    </div>
+                  <div className="flex justify-center">
+                    {previewImage ? (
+                      <img
+                        src={previewImage}
+                        alt="Attendance Evidence"
+                        className="max-h-[70vh] w-auto rounded-xl border border-gray-700 shadow-lg"
+                      />
+                    ) : (
+                      <p className="text-gray-400">No image available</p>
+                    )}
                   </div>
                 </Dialog.Panel>
               </Transition.Child>
             </div>
-          </div>
-        </Dialog>
-      </Transition>
+          </Dialog>
+        </Transition>
+      )}
     </div>
   );
-}
-
-const DetailRow = ({ icon, label, value }) => (
-  <div className="py-2 border-b border-gray-800/40">
-    <div className="flex gap-1 items-start">
-      <div className="flex items-center gap-2 text-gray-400">
-        <span className="text-blue-400">{icon}</span>
-        <span className="font-medium">{label}:</span>
-      </div>
-      <div className="text-gray-200 break-words whitespace-pre-wrap ">
-        {value || "-"}
-      </div>
-    </div>
-  </div>
-);
-
-// Helper: Convert 12-hour time (e.g., "10:23:14 PM") to 24-hour "HH:mm:ss"
-function convertTo24(timeStr) {
-  if (!timeStr.includes("M")) return timeStr; // already 24hr
-  const [time, modifier] = timeStr.split(" ");
-  let [hours, minutes, seconds] = time.split(":");
-  hours = parseInt(hours, 10);
-  if (modifier === "PM" && hours < 12) hours += 12;
-  if (modifier === "AM" && hours === 12) hours = 0;
-  return `${String(hours).padStart(2, "0")}:${minutes}:${seconds}`;
 }

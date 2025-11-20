@@ -37,5 +37,6 @@ router.get("/me", protect, getMe); // get current logged in user
 //FETCHING FOR CONVERSATION
 router.get("/subadmins", protect, getSubadmins);
 router.get("/admins", protect, getAdmins);
-router.get("/guards", protect, getGuards); 
+router.get("/guards", protect, getGuards);
+
 export default router;

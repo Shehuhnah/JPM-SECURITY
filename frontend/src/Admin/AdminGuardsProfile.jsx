@@ -561,7 +561,7 @@ export default function GuardTable() {
                         <input
                           type="text"
                           name="fullName"
-                          placeholder="Full Name"
+                          placeholder="First Name, Middle Name, Last Name"
                           value={form.fullName}
                           onChange={handleChange}
                           className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
@@ -625,16 +625,21 @@ export default function GuardTable() {
 
                       {/* Right Column */}
                       <div className="space-y-3">
-                        <input
-                          type="text"
-                          name="phoneNumber"
-                          placeholder="Phone Number"
-                          value={form.phoneNumber}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                          pattern="^(09\\d{9}|\\+639\\d{9})$"
-                          title="Enter a valid PH mobile number (09XXXXXXXXX or +639XXXXXXXXX)"
-                        />
+                        <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                          <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none">+63</span>
+                          <input
+                            type="tel"
+                            name="phoneNumber"
+                            placeholder="9123456789"
+                            value={form.phoneNumber.replace(/^\+63/, "")} // remove +63 from displayed value
+                            onChange={(e) => {
+                              let value = e.target.value.replace(/\D/g, ""); // only digits
+                              if (value.length > 10) value = value.slice(0, 10); // max 10 digits
+                              setForm({ ...form, phoneNumber: "+63" + value });
+                            }}
+                            className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none"
+                          />
+                        </div>
                         <input
                           type="text"
                           name="SSSID"

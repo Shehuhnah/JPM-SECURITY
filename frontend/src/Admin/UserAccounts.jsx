@@ -54,6 +54,8 @@ export default function UserAccounts() {
       setLoadingPage(false);
   }, []);
 
+  console.log(users)
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -107,7 +109,18 @@ export default function UserAccounts() {
         transition: Bounce,
       });
     } catch (err) {
-      console.error("Add user error:", err);
+      console.error("Add Staff error:", err);
+      toast.error("Failed to Add Staff Error: ", err, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+        transition: Bounce,
+      });
       setErrorMsg("❌ Failed to save user. Check backend connection.");
     }
   };
@@ -161,18 +174,80 @@ export default function UserAccounts() {
 
   const handleDelete = async (id) => {
     try {
+      const userToDelete = users.find(u => u._id === id);
+
+      if (!userToDelete) return;
+
+      // Count Admins and Subadmins separately
+      const adminCount = users.filter(u => u.role === "Admin").length;
+      const subadminCount = users.filter(u => u.role === "Subadmin").length;
+
+      // Prevent deleting the last Admin/Subadmin of their role
+      if (userToDelete.role === "Admin" && adminCount <= 1) {
+        toast.error("System must have atleast 1 Admin! ", {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "dark",
+          transition: Bounce,
+        });
+        setSelectedUser(null);
+        return;
+      }
+
+      if (userToDelete.role === "Subadmin" && subadminCount <= 1) {
+        toast.error("System must have atleast 1 Subadmin!", {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "dark",
+          transition: Bounce,
+        });
+        setSelectedUser(null);
+        return;
+      }
+
       const res = await fetch(`http://localhost:5000/api/auth/delete-user/${id}`, {
         credentials: "include",
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete user");
 
-      setUsers((prev) => prev.filter((u) => u._id !== id));
-      setSelectedUser(null); // close modal after delete
+      setUsers(prev => prev.filter(u => u._id !== id));
+      setSelectedUser(null);
       console.log("✅ User deleted successfully");
+      toast.success("Staff Deleted Successfully", {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+        transition: Bounce,
+      });
     } catch (err) {
-      console.error("❌ Delete user error:", err);
-      alert("Failed to delete user");
+      console.error("❌ Delete staff error:", err);
+      toast.error("Deleting Staff Error!", {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+        transition: Bounce,
+      });
     }
   };
 
@@ -344,12 +419,19 @@ export default function UserAccounts() {
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 text-left align-middle shadow-xl border border-gray-700">
-                  <Dialog.Title className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <ShieldAlert className="text-blue-400" />
-                    Add New Admin / Subadmin
+                <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 text-left align-middle shadow-xl border border-gray-700">
+                  <Dialog.Title className="flex items-center justify-center gap-1">
+                    <ShieldAlert className=" text-blue-400" size={100}/>
+                    <div className="flex flex-col gap-1">
+                      <h3 className="text-3xl font-bold text-white">
+                          Add New Admin / Subadmin
+                      </h3>
+                      <p className="text-gray-300 text-xs">
+                        Create a new administrative account with full or limited access to manage the system. 
+                        Ensure that you assign roles carefully to maintain proper system control and security.
+                      </p>
+                    </div>
                   </Dialog.Title>
-
                   {errorMsg && (
                     <div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-4">
                       {errorMsg}
@@ -360,7 +442,7 @@ export default function UserAccounts() {
                     <input
                       type="text"
                       name="name"
-                      placeholder="Full Name"
+                      placeholder="First Name, Last Name"
                       value={form.name}
                       onChange={handleChange}
                       className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
@@ -381,14 +463,21 @@ export default function UserAccounts() {
                       onChange={handleChange}
                       className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
                     />
-                    <input
-                      type="text"
-                      name="contactNumber"
-                      placeholder="Contact Number"
-                      value={form.contactNumber}
-                      onChange={handleChange}
-                      className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                    />
+                    <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden">
+                      <span className="text-white bg-[#2e3e58] px-3 py-2">+63</span>
+                      <input
+                        type="tel"
+                        name="contactNumber"
+                        placeholder="XXXXXXXXXX"
+                        value={form.contactNumber}
+                        onChange={(e) => {
+                          let value = e.target.value.replace(/^(\+63)?0*/, ""); // remove leading 0 or existing +63
+                          if (value.length > 10) value = value.slice(0, 10); // max 10 digits after +63
+                          setForm({ ...form, contactNumber: value });
+                        }}
+                        className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
                     <select
                       name="role"
                       value={form.role}

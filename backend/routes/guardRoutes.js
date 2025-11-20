@@ -18,8 +18,8 @@ router.put("/update-guard-profile", protect, updateGuardProfile);
 
 // admin route
 router.get("/", protect, authorizeRoles("Admin", "Subadmin"), getAllGuards);
-router.get("/:id", protect, authorizeRoles("Admin", "Subadmin"), getGuardById);
 router.post("/", protect, authorizeRoles("Admin", "Subadmin"), createGuard);
+router.get("/:id", protect, authorizeRoles("Admin", "Subadmin"), getGuardById);
 router.put("/:id", protect, authorizeRoles("Admin", "Subadmin"), updateGuard);
 router.delete("/:id", protect, authorizeRoles("Admin", "Subadmin"), deleteGuard);
 
