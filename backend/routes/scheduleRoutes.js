@@ -7,7 +7,9 @@ import {
   declineClientSchedules,
   deleteSchedule,
   getSchedulesByGuard,
-  getTodayScheduleByGuard
+  getTodayScheduleByGuard,
+  updateSchedulesByBatchId,
+  getSchedulesByBatchId
 } from "../controller/scheduleController.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
@@ -29,5 +31,8 @@ router.patch("/approve-client-schedules", protect, authorizeRoles("Admin", "Suba
 router.patch("/decline-client-schedules", protect, authorizeRoles("Admin", "Subadmin"), declineClientSchedules);
 // delete schedule by ID
 router.delete("/:id", protect, authorizeRoles("Admin", "Subadmin"), deleteSchedule);
-
+// Get schedule by batch id
+router.get("/get-by-batch/:id", protect, authorizeRoles("Admin", "Subadmin"), getSchedulesByBatchId)
+// modify schedule by batch ID
+router.patch("/batch/:id", protect, authorizeRoles("Admin", "Subadmin"), updateSchedulesByBatchId)
 export default router;

@@ -1,49 +1,50 @@
 import Schedule from "../models/schedule.model.js";
+
+// 🧩 Helper: check if a schedule conflicts with existing ones
+const findConflict = async (scheduleData) => {
+  const { client, deploymentLocation, timeIn, timeOut, shiftType, position } = scheduleData;
+
+  const start = new Date(timeIn);
+  const end = new Date(timeOut);
+
+  // Check if a schedule already exists with same client, shiftType, and position
+  const existing = await Schedule.findOne({
+    client,
+    shiftType,
+    position,
+  });
+
+  if (existing) {
+    return {
+      ...scheduleData,
+      reason: `Position "${position}" already exists in ${shiftType} for ${client}`,
+    };
+  }
+
+  // Check for overlapping schedules for the same client + deploymentLocation
+  const overlap = await Schedule.findOne({
+    client,
+    deploymentLocation,
+    shiftType,
+    $or: [
+      { timeIn: { $lte: end }, timeOut: { $gte: start } },
+    ],
+  });
+
+  if (overlap) {
+    return {
+      ...scheduleData,
+      reason: `Overlapping time detected at "${deploymentLocation}" for ${client} (${shiftType})`,
+    };
+  }
+
+  return null; // no conflict
+};
+
 // Create a Schedule
 export const createSchedule = async (req, res) => {
   try {
     const { schedules } = req.body;
-
-    // 🧩 Helper: check if a schedule conflicts with existing ones
-    const findConflict = async (scheduleData) => {
-      const { client, deploymentLocation, timeIn, timeOut, shiftType, position } = scheduleData;
-
-      const start = new Date(timeIn);
-      const end = new Date(timeOut);
-
-      // Check if a schedule already exists with same client, shiftType, and position
-      const existing = await Schedule.findOne({
-        client,
-        shiftType,
-        position,
-      });
-
-      if (existing) {
-        return {
-          ...scheduleData,
-          reason: `Position "${position}" already exists in ${shiftType} for ${client}`,
-        };
-      }
-
-      // Check for overlapping schedules for the same client + deploymentLocation
-      const overlap = await Schedule.findOne({
-        client,
-        deploymentLocation,
-        shiftType,
-        $or: [
-          { timeIn: { $lte: end }, timeOut: { $gte: start } },
-        ],
-      });
-
-      if (overlap) {
-        return {
-          ...scheduleData,
-          reason: `Overlapping time detected at "${deploymentLocation}" for ${client} (${shiftType})`,
-        };
-      }
-
-      return null; // no conflict
-    };
 
     // ========== MULTIPLE SCHEDULE SUBMISSION ==========
     if (Array.isArray(schedules)) {
@@ -223,5 +224,77 @@ export const deleteSchedule = async (req, res) => {
     res
       .status(500)
       .json({ message: "Error deleting schedule", error: error.message });
+  }
+};
+
+// edit schedule by batch id
+export const updateSchedulesByBatchId = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { schedules: newSchedules } = req.body;
+
+    // 1. Find the original schedule to identify the batch
+    const originalSchedule = await Schedule.findById(id);
+    if (!originalSchedule) {
+      return res.status(404).json({ message: "Original schedule not found, cannot identify batch." });
+    }
+
+    const { client, deploymentLocation, shiftType, isApproved } = originalSchedule;
+
+    // 2. Delete all schedules in the old batch
+    await Schedule.deleteMany({
+      client,
+      deploymentLocation,
+      shiftType,
+      isApproved,
+    });
+
+    const validSchedules = [];
+    const conflicts = [];
+
+    for (const schedule of newSchedules) {
+      const conflict = await findConflict(schedule);
+      if (conflict) conflicts.push(conflict);
+      else validSchedules.push(schedule);
+    }
+
+    if (conflicts.length > 0) {
+      return res.status(400).json({
+        message: "Some new schedules have conflicts. The old batch was deleted, but the new one was not created.",
+        conflicts,
+      });
+    }
+
+    const createdSchedules = await Schedule.insertMany(validSchedules);
+    res.status(200).json({ message: 'Batch updated successfully', schedules: createdSchedules });
+
+  } catch (err) {
+    console.error("Error updating schedule batch:", err);
+    res.status(500).json({ message: "Error updating schedule batch", error: err.message });
+  }
+};
+
+// Get schedule by batch id
+export const getSchedulesByBatchId = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const schedule = await Schedule.findById(id);
+
+    if (!schedule) {
+      return res.status(404).json({ message: "Schedule not found" });
+    }
+
+    const { client, deploymentLocation, shiftType, isApproved } = schedule;
+
+    const batchSchedules = await Schedule.find({
+      client,
+      deploymentLocation,
+      shiftType,
+      isApproved,
+    });
+
+    res.status(200).json(batchSchedules);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching schedule batch", error: error.message });
   }
 };

@@ -393,261 +393,261 @@ export default function UserAccounts() {
           </table>
         </div>
 
-      {/* Add Admin/Subadmin Modal */}
-      <Transition appear show={isOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setIsOpen(false)}>
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black/50" />
-          </Transition.Child>
+        {/* Add Admin/Subadmin Modal */}
+        <Transition appear show={isOpen} as={Fragment}>
+          <Dialog as="div" className="relative z-50" onClose={() => setIsOpen(false)}>
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
+              <div className="fixed inset-0 bg-black/50" />
+            </Transition.Child>
 
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4 text-center">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 text-left align-middle shadow-xl border border-gray-700">
-                  <Dialog.Title className="flex items-center justify-center gap-1">
-                    <ShieldAlert className=" text-blue-400" size={100}/>
-                    <div className="flex flex-col gap-1">
-                      <h3 className="text-3xl font-bold text-white">
-                          Add New Admin / Subadmin
-                      </h3>
-                      <p className="text-gray-300 text-xs">
-                        Create a new administrative account with full or limited access to manage the system. 
-                        Ensure that you assign roles carefully to maintain proper system control and security.
-                      </p>
-                    </div>
-                  </Dialog.Title>
-                  {errorMsg && (
-                    <div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-4">
-                      {errorMsg}
-                    </div>
-                  )}
+            <div className="fixed inset-0 overflow-y-auto">
+              <div className="flex min-h-full items-center justify-center p-4 text-center">
+                <Transition.Child
+                  as={Fragment}
+                  enter="ease-out duration-300"
+                  enterFrom="opacity-0 scale-95"
+                  enterTo="opacity-100 scale-100"
+                  leave="ease-in duration-200"
+                  leaveFrom="opacity-100 scale-100"
+                  leaveTo="opacity-0 scale-95"
+                >
+                  <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 text-left align-middle shadow-xl border border-gray-700">
+                    <Dialog.Title className="flex items-center justify-center gap-1">
+                      <ShieldAlert className=" text-blue-400" size={100}/>
+                      <div className="flex flex-col gap-1">
+                        <h3 className="text-3xl font-bold text-white">
+                            Add New Admin / Subadmin
+                        </h3>
+                        <p className="text-gray-300 text-xs">
+                          Create a new administrative account with full or limited access to manage the system. 
+                          Ensure that you assign roles carefully to maintain proper system control and security.
+                        </p>
+                      </div>
+                    </Dialog.Title>
+                    {errorMsg && (
+                      <div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-4">
+                        {errorMsg}
+                      </div>
+                    )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input
-                      type="text"
-                      name="name"
-                      placeholder="First Name, Last Name"
-                      value={form.name}
-                      onChange={handleChange}
-                      className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="email"
-                      name="email"
-                      placeholder="Email"
-                      value={form.email}
-                      onChange={handleChange}
-                      className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      name="position"
-                      placeholder="Position (optional)"
-                      value={form.position}
-                      onChange={handleChange}
-                      className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                    />
-                    <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden">
-                      <span className="text-white bg-[#2e3e58] px-3 py-2">+63</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <input
-                        type="tel"
-                        name="contactNumber"
-                        placeholder="XXXXXXXXXX"
-                        value={form.contactNumber}
-                        onChange={(e) => {
-                          let value = e.target.value.replace(/^(\+63)?0*/, ""); // remove leading 0 or existing +63
-                          if (value.length > 10) value = value.slice(0, 10); // max 10 digits after +63
-                          setForm({ ...form, contactNumber: value });
-                        }}
-                        className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        type="text"
+                        name="name"
+                        placeholder="First Name, Last Name"
+                        value={form.name}
+                        onChange={handleChange}
+                        className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="email"
+                        name="email"
+                        placeholder="Email"
+                        value={form.email}
+                        onChange={handleChange}
+                        className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="text"
+                        name="position"
+                        placeholder="Position (optional)"
+                        value={form.position}
+                        onChange={handleChange}
+                        className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      />
+                      <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden">
+                        <span className="text-white bg-[#2e3e58] px-3 py-2">+63</span>
+                        <input
+                          type="tel"
+                          name="contactNumber"
+                          placeholder="XXXXXXXXXX"
+                          value={form.contactNumber}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/^(\+63)?0*/, ""); // remove leading 0 or existing +63
+                            if (value.length > 10) value = value.slice(0, 10); // max 10 digits after +63
+                            setForm({ ...form, contactNumber: value });
+                          }}
+                          className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <select
+                        name="role"
+                        value={form.role}
+                        onChange={handleChange}
+                        className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select Role</option>
+                        <option value="Admin">Admin</option>
+                        <option value="Subadmin">Subadmin</option>
+                      </select>
+                      <select
+                        name="accessLevel"
+                        value={form.accessLevel}
+                        onChange={handleChange}
+                        className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select Access Level</option>
+                        <option value="1">Admin (1)</option>
+                        <option value="2">Subadmin (2)</option>
+                      </select>
+                      <input
+                        type="password"
+                        name="password"
+                        placeholder="Password"
+                        value={form.password}
+                        onChange={handleChange}
+                        className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
-                    <select
-                      name="role"
-                      value={form.role}
-                      onChange={handleChange}
-                      className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Role</option>
-                      <option value="Admin">Admin</option>
-                      <option value="Subadmin">Subadmin</option>
-                    </select>
-                    <select
-                      name="accessLevel"
-                      value={form.accessLevel}
-                      onChange={handleChange}
-                      className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Access Level</option>
-                      <option value="1">Admin (1)</option>
-                      <option value="2">Subadmin (2)</option>
-                    </select>
-                    <input
-                      type="password"
-                      name="password"
-                      placeholder="Password"
-                      value={form.password}
-                      onChange={handleChange}
-                      className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
 
-                  <div className="mt-6 flex justify-end gap-3">
-                    <button
-                      onClick={() => setIsOpen(false)}
-                      className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-white"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleAddUser}
-                      className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-6 py-2 rounded-lg shadow text-white font-medium"
-                    >
-                      Save User
-                    </button>
-                  </div>
-                </Dialog.Panel>
-              </Transition.Child>
+                    <div className="mt-6 flex justify-end gap-3">
+                      <button
+                        onClick={() => setIsOpen(false)}
+                        className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-white"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleAddUser}
+                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-6 py-2 rounded-lg shadow text-white font-medium"
+                      >
+                        Save User
+                      </button>
+                    </div>
+                  </Dialog.Panel>
+                </Transition.Child>
+              </div>
             </div>
-          </div>
-        </Dialog>
-      </Transition>
+          </Dialog>
+        </Transition>
 
-      {/* Edit Staff Modal */}
-      <Transition appear show={isEditOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setIsEditOpen(false)}>
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black/50" />
-          </Transition.Child>
+        {/* Edit Staff Modal */}
+        <Transition appear show={isEditOpen} as={Fragment}>
+          <Dialog as="div" className="relative z-50" onClose={() => setIsEditOpen(false)}>
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
+              <div className="fixed inset-0 bg-black/50" />
+            </Transition.Child>
 
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4 text-center">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 text-left align-middle shadow-xl border border-gray-700">
-                  <Dialog.Title className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <Edit3 className="text-blue-400" />
-                    Update Staff Information
-                  </Dialog.Title>
+            <div className="fixed inset-0 overflow-y-auto">
+              <div className="flex min-h-full items-center justify-center p-4 text-center">
+                <Transition.Child
+                  as={Fragment}
+                  enter="ease-out duration-300"
+                  enterFrom="opacity-0 scale-95"
+                  enterTo="opacity-100 scale-100"
+                  leave="ease-in duration-200"
+                  leaveFrom="opacity-100 scale-100"
+                  leaveTo="opacity-0 scale-95"
+                >
+                  <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 text-left align-middle shadow-xl border border-gray-700">
+                    <Dialog.Title className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                      <Edit3 className="text-blue-400" />
+                      Update Staff Information
+                    </Dialog.Title>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input
-                      type="text"
-                      name="name"
-                      placeholder="Full Name"
-                      value={editForm.name}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, name: e.target.value })
-                      }
-                      className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="email"
-                      name="email"
-                      placeholder="Email"
-                      value={editForm.email}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, email: e.target.value })
-                      }
-                      className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      name="position"
-                      placeholder="Position"
-                      value={editForm.position}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, position: e.target.value })
-                      }
-                      className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      name="contactNumber"
-                      placeholder="Contact Number"
-                      value={editForm.contactNumber}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, contactNumber: e.target.value })
-                      }
-                      className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                    />
-                    <select
-                      name="role"
-                      value={editForm.role}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, role: e.target.value })
-                      }
-                      className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="Admin">Admin</option>
-                      <option value="Subadmin">Subadmin</option>
-                    </select>
-                    <select
-                      name="accessLevel"
-                      value={editForm.accessLevel}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, accessLevel: e.target.value })
-                      }
-                      className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="2">Admin (1)</option>
-                      <option value="1">Subadmin (2)</option>
-                    </select>
-                  </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <input
+                        type="text"
+                        name="name"
+                        placeholder="Full Name"
+                        value={editForm.name}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, name: e.target.value })
+                        }
+                        className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="email"
+                        name="email"
+                        placeholder="Email"
+                        value={editForm.email}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, email: e.target.value })
+                        }
+                        className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="text"
+                        name="position"
+                        placeholder="Position"
+                        value={editForm.position}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, position: e.target.value })
+                        }
+                        className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="text"
+                        name="contactNumber"
+                        placeholder="Contact Number"
+                        value={editForm.contactNumber}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, contactNumber: e.target.value })
+                        }
+                        className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      />
+                      <select
+                        name="role"
+                        value={editForm.role}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, role: e.target.value })
+                        }
+                        className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="Admin">Admin</option>
+                        <option value="Subadmin">Subadmin</option>
+                      </select>
+                      <select
+                        name="accessLevel"
+                        value={editForm.accessLevel}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, accessLevel: e.target.value })
+                        }
+                        className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="2">Admin (1)</option>
+                        <option value="1">Subadmin (2)</option>
+                      </select>
+                    </div>
 
-                  <div className="mt-6 flex justify-end gap-3">
-                    <button
-                      onClick={() => setIsEditOpen(false)}
-                      className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-white"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleUpdateUser}
-                      className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-6 py-2 rounded-lg shadow text-white font-medium"
-                    >
-                      Save Changes
-                    </button>
-                  </div>
-                </Dialog.Panel>
-              </Transition.Child>
+                    <div className="mt-6 flex justify-end gap-3">
+                      <button
+                        onClick={() => setIsEditOpen(false)}
+                        className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-white"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleUpdateUser}
+                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-6 py-2 rounded-lg shadow text-white font-medium"
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  </Dialog.Panel>
+                </Transition.Child>
+              </div>
             </div>
-          </div>
-        </Dialog>
-      </Transition>
+          </Dialog>
+        </Transition>
 
-      <ToastContainer />
+        <ToastContainer />
 
         {/* Delete Modal */}
         {selectedUser && (

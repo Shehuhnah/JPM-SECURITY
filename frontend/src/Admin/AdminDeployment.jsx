@@ -12,25 +12,29 @@ import {
   ClipboardList,
   Table,
   LayoutGrid,
-  ChevronDown
+  ChevronDown,
+  Pencil,
+  Trash
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function AdminDeployment() {
   const navigate = useNavigate();
-  const { user, loading } = useAuth(); // <-- renamed
+  const { user, loading } = useAuth();
   const [schedules, setSchedules] = useState([]);
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState("");
   const [showClientModal, setShowClientModal] = useState(false);
   const [viewMode, setViewMode] = useState("calendar");
-  const [statusFilter, setStatusFilter] = useState("All"); // ✅ New state
+  const [statusFilter, setStatusFilter] = useState("All"); 
+  const [deleteSchedModal, setDeleteSchedModal] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
       navigate("/admin/login");
-    }
+    };
+    document.title = "Deployment | JPM Security Agency"
   }, [user, loading, navigate]);
 
   useEffect(() => {
@@ -59,28 +63,25 @@ export default function AdminDeployment() {
         console.error("Error fetching data:", error);
       }
     };
-
     if (user) fetchData();
   }, [user]);
+  console.log(schedules)
 
   const shiftColors = {
     "Night Shift": "#ef4444", // red
     "Day Shift": "#fde047", // yellow
   };
 
-  // ✅ FILTER LOGIC
   const filteredSchedules = schedules.filter((s) => {
     const matchesClient =
       !selectedClient || selectedClient === "All" || s.client === selectedClient;
 
-    // ✅ Compare actual string value (Approved/Pending/Declined)
     const matchesStatus =
       !statusFilter || statusFilter === "All" || s.isApproved === statusFilter;
 
     return matchesClient && matchesStatus;
   });
 
-  // Generate events only from filtered schedules
   const filteredEvents = filteredSchedules.map((s, idx) => ({
     id: String(idx),
     title: `${s.guardName} (${s.shiftType})`,
@@ -93,7 +94,7 @@ export default function AdminDeployment() {
     extendedProps: {
       client: s.client,
       location: s.deploymentLocation,
-      status: s.isApproved, // optional — you can use this later for badges or tooltips
+      status: s.isApproved, 
     },
   }));
 
@@ -128,9 +129,106 @@ export default function AdminDeployment() {
             Deployment Schedule
           </h1>
         </div>
+          {/* FILTERS */}
+          <div className="flex">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 ">
+              {/* Client Filter */}
+              <div className="flex items-center gap-2 bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2">
+                <Filter className="text-gray-400 w-4 h-4" />
+                <select
+                  value={selectedClient}
+                  onChange={(e) => setSelectedClient(e.target.value)}
+                  className="bg-[#1e293b] text-gray-200 text-sm focus:outline-none"
+                >
+                  <option value="">Select Client</option>
+                  {clients.map((client) => (
+                    <option key={client._id} value={client.clientName}>
+                      {client.clientName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {/* Right: Status Filter */}
+              <div className="flex items-center gap-2 bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2">
+                <Filter className="text-gray-400 w-4 h-4" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="bg-[#1e293b]  text-gray-200 text-sm rounded-lg  focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="All">All</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Declined">Declined</option>
+                </select>
+              </div>
+            </div>
+            {/* View Mode Dropdown */}
+            <div className="flex items-center gap-2 ml-2">
+              <Menu as="div" className="relative inline-block text-left">
+                <Menu.Button
+                  className="flex items-center justify-center gap-2 bg-[#1e293b] border border-gray-600 text-gray-200 hover:bg-gray-700 px-3 py-3 rounded-lg text-sm font-medium"
+                >
+                  {viewMode === "calendar" ? (
+                    <LayoutGrid size={16} />
+                  ) : (
+                    <Table size={16} />
+                  )}
+                  <ChevronDown size={14} className="opacity-70" />
+                </Menu.Button>
+                <Menu.Items className="absolute right-1 mt-2 w-40 origin-top-left bg-[#1e293b] border border-gray-700 rounded-lg shadow-lg focus:outline-none z-50">
+                  <div className="py-1">
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          onClick={() => setViewMode("calendar")}
+                          className={`flex items-center gap-2 w-full text-left px-3 py-2 text-sm rounded-md ${
+                            viewMode === "calendar"
+                              ? "bg-blue-600 text-white"
+                              : active
+                              ? "bg-gray-700 text-white"
+                              : "text-gray-300"
+                          }`}
+                        >
+                          <LayoutGrid size={16} /> Calendar View
+                        </button>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          onClick={() => setViewMode("table")}
+                          className={`flex items-center gap-2 w-full text-left px-3 py-2 text-sm rounded-md ${
+                            viewMode === "table"
+                              ? "bg-blue-600 text-white"
+                              : active
+                              ? "bg-gray-700 text-white"
+                              : "text-gray-300"
+                          }`}
+                        >
+                          <Table size={16} /> Table View
+                        </button>
+                      )}
+                    </Menu.Item>
+                  </div>
+                </Menu.Items>
+              </Menu>
+            </div>
+          </div>
+      </header>
 
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          
+      <div className="flex justify-between items-center gap-4 mb-4 text-sm ">
+        {/* ===== LEGEND ===== */}
+        <div className="items-center text-gray-400">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 bg-[#fde047] rounded-sm"></span> Day Shift
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 bg-[#ef4444] rounded-sm"></span> Night Shift
+          </div>
+        </div>
+        <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row items-center gap-3">
           {/* Action Buttons */}
           <div className="flex gap-2">
             <button
@@ -147,104 +245,7 @@ export default function AdminDeployment() {
             </button>
           </div>
         </div>
-      </header>
-
-      <div className="flex justify-between items-center gap-4 mb-4 text-sm ">
-        {/* ===== LEGEND ===== */}
-        <div className="items-center text-gray-400">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 bg-[#fde047] rounded-sm"></span> Day Shift
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 bg-[#ef4444] rounded-sm"></span> Night Shift
-          </div>
-        </div>
-        <div className="flex justify-between items-center">
-          {/* FILTERS */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 ">
-            {/* Client Filter */}
-            <div className="flex items-center gap-2 bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2">
-              <Filter className="text-gray-400 w-4 h-4" />
-              <select
-                value={selectedClient}
-                onChange={(e) => setSelectedClient(e.target.value)}
-                className="bg-[#1e293b] text-gray-200 text-sm focus:outline-none"
-              >
-                <option value="">Select Client</option>
-                {clients.map((client) => (
-                  <option key={client._id} value={client.clientName}>
-                    {client.clientName}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {/* Right: Status Filter */}
-            <div className="flex items-center gap-2 bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2">
-              <Filter className="text-gray-400 w-4 h-4" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-[#1e293b]  text-gray-200 text-sm rounded-lg  focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="All">All</option>
-                <option value="Approved">Approved</option>
-                <option value="Pending">Pending</option>
-                <option value="Declined">Declined</option>
-              </select>
-            </div>
-          </div>
-          {/* View Mode Dropdown */}
-          <div className="flex items-center gap-2 ml-2">
-            <Menu as="div" className="relative inline-block text-left">
-              <Menu.Button
-                className="flex items-center justify-center gap-2 bg-[#1e293b] border border-gray-600 text-gray-200 hover:bg-gray-700 px-3 py-3 rounded-lg text-sm font-medium"
-              >
-                {viewMode === "calendar" ? (
-                  <LayoutGrid size={16} />
-                ) : (
-                  <Table size={16} />
-                )}
-                <ChevronDown size={14} className="opacity-70" />
-              </Menu.Button>
-
-              <Menu.Items className="absolute right-1 mt-2 w-40 origin-top-left bg-[#1e293b] border border-gray-700 rounded-lg shadow-lg focus:outline-none z-50">
-                <div className="py-1">
-                  <Menu.Item>
-                    {({ active }) => (
-                      <button
-                        onClick={() => setViewMode("calendar")}
-                        className={`flex items-center gap-2 w-full text-left px-3 py-2 text-sm rounded-md ${
-                          viewMode === "calendar"
-                            ? "bg-blue-600 text-white"
-                            : active
-                            ? "bg-gray-700 text-white"
-                            : "text-gray-300"
-                        }`}
-                      >
-                        <LayoutGrid size={16} /> Calendar View
-                      </button>
-                    )}
-                  </Menu.Item>
-                  <Menu.Item>
-                    {({ active }) => (
-                      <button
-                        onClick={() => setViewMode("table")}
-                        className={`flex items-center gap-2 w-full text-left px-3 py-2 text-sm rounded-md ${
-                          viewMode === "table"
-                            ? "bg-blue-600 text-white"
-                            : active
-                            ? "bg-gray-700 text-white"
-                            : "text-gray-300"
-                        }`}
-                      >
-                        <Table size={16} /> Table View
-                      </button>
-                    )}
-                  </Menu.Item>
-                </div>
-              </Menu.Items>
-            </Menu>
-          </div>
+          
         </div>
       </div>
 
@@ -277,15 +278,14 @@ export default function AdminDeployment() {
             </div>
           )
         ) : (
-          // ===== TABLE VIEW =====
           <div className="space-y-10">
             {Object.entries(
-  filteredSchedules.reduce((acc, schedule) => {
-    const client = schedule.client || "Unknown Client";
-    if (!acc[client]) acc[client] = [];
-    acc[client].push(schedule);
-    return acc;
-  }, {})
+              filteredSchedules.reduce((acc, schedule) => {
+                const client = schedule.client || "Unknown Client";
+                if (!acc[client]) acc[client] = [];
+                acc[client].push(schedule);
+                return acc;
+              }, {})
             ).map(([clientName, clientSchedules]) => (
               <div key={clientName}>
                 {/* Client Header */}
@@ -293,67 +293,107 @@ export default function AdminDeployment() {
                   <h2 className="text-lg font-semibold text-white mb-3 border-l-4 border-teal-500 pl-3">
                     {clientName}
                   </h2>
-                  <div className="flex items-center gap-2 mb-3 pr-5">
-                    <span className="text-gray-400 text-sm">Status:</span>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold
-                        ${
-                          statusFilter === "Approved"
-                            ? "bg-green-600/20 text-green-400 border border-green-500/50"
-                            : statusFilter === "Pending"
-                            ? "bg-yellow-600/20 text-yellow-400 border border-yellow-500/50"
-                            : statusFilter === "Declined"
-                            ? "bg-red-600/20 text-red-400 border border-red-500/50"
-                            : "bg-gray-700 text-gray-300 border border-gray-600/50"
-                        }`}
-                    >
-                      {statusFilter}
-                    </span>
-                  </div>
                 </div>
 
-                {/* ✅ Use clientSchedules, not schedules */}
-                <div className="overflow-x-auto rounded-lg shadow-lg">
-                  <table className="min-w-full text-sm text-gray-300 border border-gray-700 rounded-lg overflow-hidden">
-                    <thead className="bg-[#0f172a] text-gray-400">
-                      <tr>
-                        <th className="py-3 px-4 text-left">Guard Name</th>
-                        <th className="py-3 px-4 text-left">Location</th>
-                        <th className="py-3 px-4 text-left">Shift</th>
-                        <th className="py-3 px-4 text-left">Time In</th>
-                        <th className="py-3 px-4 text-left">Time Out</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {clientSchedules.map((s, i) => (
-                        <tr
-                          key={i}
-                          className={`${
-                            i % 2 === 0 ? "bg-[#1e293b]" : "bg-[#162033]"
-                          } hover:bg-[#2a3954]`}
+                {Object.entries(
+                  clientSchedules.reduce((batchAcc, schedule) => {
+                    const batchKey = `${schedule.deploymentLocation}-${schedule.shiftType}-${schedule.isApproved}`;
+                    if (!batchAcc[batchKey]) batchAcc[batchKey] = [];
+                    batchAcc[batchKey].push(schedule);
+                    return batchAcc;
+                  }, {})
+                ).map(([batchKey, batchSchedules]) => (
+                  <div key={batchKey} className="mb-8">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-md font-semibold text-gray-300 mb-2 pl-3 border-l-2 border-blue-500">
+                        {batchSchedules[0].deploymentLocation} -{" "}
+                        {batchSchedules[0].shiftType}{" "}
+                        <span
+                          className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${
+                            batchSchedules[0].isApproved === "Approved"
+                              ? "bg-green-600/20 text-green-400 border border-green-500/50"
+                              : batchSchedules[0].isApproved === "Pending"
+                              ? "bg-yellow-600/20 text-yellow-400 border border-yellow-500/50"
+                              : "bg-red-600/20 text-red-400 border border-red-500/50"
+                          }`}
                         >
-                          <td className="py-3 px-4">{s.guardName}</td>
-                          <td className="py-3 px-4">{s.deploymentLocation}</td>
-                          <td
-                            className={`py-3 px-4 font-semibold ${
-                              s.shiftType === "Night Shift"
-                                ? "text-red-400"
-                                : "text-yellow-400"
-                            }`}
-                          >
-                            {s.shiftType}
-                          </td>
-                          <td className="py-3 px-4">
-                            {new Date(s.timeIn).toLocaleString()}
-                          </td>
-                          <td className="py-3 px-4">
-                            {new Date(s.timeOut).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          {batchSchedules[0].isApproved}
+                        </span>
+                      </h3>
+                      <div className="flex items-center justify-center gap-2">
+                        <Link 
+                          to={`/admin/deployment/add-schedule/${batchSchedules[0]._id}`}
+                          className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg text-sm font-medium">
+                          <Pencil size={16}/>
+                          Edit Schedule
+                        </Link>
+                        <button 
+                          onClick={() => setDeleteSchedModal(true)}
+                          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm font-medium">
+                          <Trash size={16}/>
+                          Delete Schedule
+                        </button>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto rounded-lg shadow-lg">
+                      <table className="min-w-full text-sm text-gray-300 border border-gray-700 rounded-lg overflow-hidden">
+                        <thead className="bg-[#0f172a] text-gray-400">
+                          <tr>
+                            <th className="py-3 px-4 text-left">Guard Name</th>
+                            <th className="py-3 px-4 text-left">Location</th>
+                            <th className="py-3 px-4 text-left">Shift</th>
+                            <th className="py-3 px-4 text-left">Time In</th>
+                            <th className="py-3 px-3 text-left">Time Out</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {batchSchedules.map((s, i) => (
+                            <tr
+                              key={i}
+                              className={`${
+                                i % 2 === 0 ? "bg-[#1e293b]" : "bg-[#162033]"
+                              } hover:bg-[#2a3954]`}
+                            >
+                              <td className="py-3 px-4">{s.guardName}</td>
+                              <td className="py-3 px-4">
+                                {s.deploymentLocation}
+                              </td>
+                              <td
+                                className={`py-3 px-4 font-semibold ${
+                                  s.shiftType === "Night Shift"
+                                    ? "text-red-400"
+                                    : "text-yellow-400"
+                                }`}
+                              >
+                                {s.shiftType}
+                              </td>
+                              <td className="py-3 px-4">
+                                {new Date(s.timeIn).toLocaleString()}
+                              </td>
+                              <td className="py-3 px-3">
+                                {new Date(s.timeOut).toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        {batchSchedules[0]?.remarks && (
+                          <tfoot>
+                            <tr>
+                              <td colSpan={5} className="px-4 py-3 border-t border-gray-700 bg-red-500 rounded-2xl">
+                                <div className="max-h-24 overflow-y-auto overflow-x-auto px-2 py-1 whitespace-nowrap">
+                                  <span className="font-medium">Remarks: </span>
+                                  <span className="font-medium">
+                                    {batchSchedules[0]?.remarks || "No remarks available."}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          </tfoot>
+                        )}
+                      </table>
+                    </div>
+                  </div>
+                ))}
               </div>
             ))}
             {/* If no schedules at all */}

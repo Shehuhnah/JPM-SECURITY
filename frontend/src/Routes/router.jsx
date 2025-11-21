@@ -99,6 +99,7 @@ const Router = () => {
                 { path: "request-coe", element: <GuardReqCOE /> },
                 { path: "schedule-approval", element: <AdminSchedApproval /> },
                 { path: "deployment/add-schedule", element: <AdminAddSchedule /> },
+                { path: "deployment/add-schedule/:id", element: <AdminAddSchedule /> },
                 { path: "subadmin-message", element: <SubAdminMessage/>},
                 { path: "applicant-message", element: <SubadminApplicantMessage/>}
               ],
