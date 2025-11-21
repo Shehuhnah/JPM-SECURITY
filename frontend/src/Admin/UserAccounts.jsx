@@ -110,7 +110,7 @@ export default function UserAccounts() {
       });
     } catch (err) {
       console.error("Add Staff error:", err);
-      toast.error("Failed to Add Staff Error: ", err, {
+      toast.error("Failed to Add Staff: ", err, {
         position: "top-right",
         autoClose: 5000,
         hideProgressBar: false,

@@ -298,3 +298,93 @@ export const getSchedulesByBatchId = async (req, res) => {
     res.status(500).json({ message: "Error fetching schedule batch", error: error.message });
   }
 };
+
+// Delete schedule by batch id
+export const deleteScheduleByBatch = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const schedule = await Schedule.findById(id);
+
+        if (!schedule) {
+            return res.status(404).json({ message: "Schedule not found, cannot identify batch to delete." });
+        }
+
+        const { client, deploymentLocation, shiftType, isApproved } = schedule;
+
+        const result = await Schedule.deleteMany({
+            client,
+            deploymentLocation,
+            shiftType,
+            isApproved,
+        });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ message: "No schedules found for this batch to delete."})
+        }
+
+        res.status(200).json({ message: `${result.deletedCount} schedules from the batch were deleted successfully.`});
+
+    } catch (error) {
+        res.status(500).json({ message: "Error deleting schedule batch", error: error.message });
+    }
+};
+
+// Approve schedule by batch id
+export const approveScheduleBatch = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const schedule = await Schedule.findById(id);
+
+    if (!schedule) {
+      return res.status(404).json({ message: "Schedule not found, cannot identify batch to approve." });
+    }
+
+    const { client, deploymentLocation, shiftType } = schedule;
+
+    const result = await Schedule.updateMany(
+      { client, deploymentLocation, shiftType, isApproved: "Pending" },
+      { $set: { isApproved: "Approved" } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: "No pending schedules found for this batch to approve." });
+    }
+
+    res.status(200).json({ message: `${result.modifiedCount} schedules from the batch were approved successfully.` });
+  } catch (error) {
+    res.status(500).json({ message: "Error approving schedule batch", error: error.message });
+  }
+};
+
+// Decline schedule by batch id
+export const declineScheduleBatch = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { remarks } = req.body;
+    
+    if (!remarks) {
+      return res.status(400).json({ message: "Remarks are required to decline a batch." });
+    }
+
+    const schedule = await Schedule.findById(id);
+
+    if (!schedule) {
+      return res.status(404).json({ message: "Schedule not found, cannot identify batch to decline." });
+    }
+
+    const { client, deploymentLocation, shiftType } = schedule;
+
+    const result = await Schedule.updateMany(
+      { client, deploymentLocation, shiftType, isApproved: "Pending" },
+      { $set: { isApproved: "Declined", remarks } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: "No pending schedules found for this batch to decline." });
+    }
+
+    res.status(200).json({ message: `${result.modifiedCount} schedules from the batch were declined successfully.` });
+  } catch (error) {
+    res.status(500).json({ message: "Error declining schedule batch", error: error.message });
+  }
+};

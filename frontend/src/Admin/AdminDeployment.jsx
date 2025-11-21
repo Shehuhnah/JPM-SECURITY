@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { Link, useNavigate } from "react-router-dom";
+import { ToastContainer, toast, Bounce } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function AdminDeployment() {
   const navigate = useNavigate();
@@ -29,6 +31,7 @@ export default function AdminDeployment() {
   const [viewMode, setViewMode] = useState("calendar");
   const [statusFilter, setStatusFilter] = useState("All"); 
   const [deleteSchedModal, setDeleteSchedModal] = useState(false)
+  const [batchToDelete, setBatchToDelete] = useState(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -37,35 +40,35 @@ export default function AdminDeployment() {
     document.title = "Deployment | JPM Security Agency"
   }, [user, loading, navigate]);
 
+  const fetchData = async () => {
+    try {
+      const [schedulesRes, clientsRes] = await Promise.all([
+        fetch("http://localhost:5000/api/schedules/get-schedules", {
+          credentials: "include",
+        }),
+        fetch("http://localhost:5000/api/clients/get-clients", {
+          credentials: "include",
+        }),
+      ]);
+
+      if (!schedulesRes.ok || !clientsRes.ok)
+        throw new Error("Failed to fetch schedules or clients");
+
+      const [schedulesData, clientsData] = await Promise.all([
+        schedulesRes.json(),
+        clientsRes.json(),
+      ]);
+
+      setSchedules(schedulesData);
+      setClients(clientsData);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [schedulesRes, clientsRes] = await Promise.all([
-          fetch("http://localhost:5000/api/schedules/get-schedules", {
-            credentials: "include",
-          }),
-          fetch("http://localhost:5000/api/clients/get-clients", {
-            credentials: "include",
-          }),
-        ]);
-
-        if (!schedulesRes.ok || !clientsRes.ok)
-          throw new Error("Failed to fetch schedules or clients");
-
-        const [schedulesData, clientsData] = await Promise.all([
-          schedulesRes.json(),
-          clientsRes.json(),
-        ]);
-
-        setSchedules(schedulesData);
-        setClients(clientsData);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      }
-    };
     if (user) fetchData();
   }, [user]);
-  console.log(schedules)
 
   const shiftColors = {
     "Night Shift": "#ef4444", // red
@@ -113,9 +116,96 @@ export default function AdminDeployment() {
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to add client");
+      toast.success("Client Created Successfully", {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+        transition: Bounce,
+      });
       setClients((prev) => [...prev, data.client]);
     } catch (err) {
       console.error("Error adding client:", err.message);
+      toast.error("Failed to Add Client: ", err, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+        transition: Bounce,
+      });
+    }
+  };
+
+  const openDeleteModal = (batch) => {
+    setBatchToDelete(batch);
+    setDeleteSchedModal(true);
+  };
+
+  const handleDeleteBatch = async () => {
+    if (!batchToDelete){ 
+      toast.error("Please Select a Schedule to Delete", err, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "dark",
+          transition: Bounce,
+        });
+      return
+    };
+
+    try {
+        const id = batchToDelete[0]._id;
+        const res = await fetch(`http://localhost:5000/api/schedules/batch/${id}`, {
+            method: 'DELETE',
+            credentials: 'include',
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.message || 'Failed to delete batch');
+        }
+        toast.success("Schedule Deleted Succesfully", {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "dark",
+          transition: Bounce,
+        });
+        // Refetch data to update the list
+        await fetchData();
+        setDeleteSchedModal(false);
+        setBatchToDelete(null);
+
+    } catch (error) {
+        console.error('Error deleting batch:', error);
+        toast.error("Error deleting batch:: ", error, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+        transition: Bounce,
+      });
     }
   };
 
@@ -321,18 +411,22 @@ export default function AdminDeployment() {
                         </span>
                       </h3>
                       <div className="flex items-center justify-center gap-2">
-                        <Link 
-                          to={`/admin/deployment/add-schedule/${batchSchedules[0]._id}`}
-                          className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg text-sm font-medium">
-                          <Pencil size={16}/>
-                          Edit Schedule
-                        </Link>
-                        <button 
-                          onClick={() => setDeleteSchedModal(true)}
-                          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm font-medium">
-                          <Trash size={16}/>
-                          Delete Schedule
-                        </button>
+                        { batchSchedules[0].isApproved === "Declined" && (
+                          <>
+                            <Link 
+                              to={`/admin/deployment/add-schedule/${batchSchedules[0]._id}`}
+                              className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg text-sm font-medium">
+                              <Pencil size={16}/>
+                              Edit Schedule
+                            </Link>
+                            <button 
+                              onClick={() => openDeleteModal(batchSchedules)}
+                              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm font-medium">
+                              <Trash size={16}/>
+                              Delete Schedule
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="overflow-x-auto rounded-lg shadow-lg">
@@ -406,7 +500,7 @@ export default function AdminDeployment() {
         )}
       </div>
 
-      {/* ===== ADD CLIENT MODAL ===== */}
+      {/* ===== add CLIENT MODAL ===== */}
       <Transition appear show={showClientModal} as={Fragment}>
         <Dialog
           as="div"
@@ -541,6 +635,75 @@ export default function AdminDeployment() {
           </div>
         </Dialog>
       </Transition>
+
+      {/* ===== Delete Batch MODAL ===== */}
+      <Transition appear show={deleteSchedModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setDeleteSchedModal(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/50" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-[#1e293b] p-8 text-left align-middle shadow-xl border border-gray-700">
+                <Dialog.Title className="text-2xl font-bold text-red-400 mb-1 flex items-center gap-x-3">
+                  <Trash size={28} /> Confirm Deletion
+                </Dialog.Title>
+                
+                {batchToDelete && (
+                  <div className="text-gray-300 space-y-3">
+                    <p>Are you sure you want to delete this entire schedule batch?</p>
+                    <div className="bg-[#0f172a] p-4 rounded-lg border border-gray-600">
+                      <p>🏢 Client: <span className="font-medium text-white">{batchToDelete[0].client}</span></p>
+                      <p>👮 Guard: <span className="font-medium text-white">{batchToDelete[0].guardName}</span></p>
+                      <p>📌 Location: <span className="font-medium text-white">{batchToDelete[0].deploymentLocation}</span></p>
+                      <p>🕛 Shift: <span className="font-medium text-white">{batchToDelete[0].shiftType}</span></p>
+                      <p>⌛ Status: <span className="font-medium text-white">{batchToDelete[0].isApproved}</span></p>
+                      <p>📅 Schedules to be deleted: <span className="font-medium text-white">{batchToDelete.length}</span></p>
+                    </div>
+                    <p className="text-sm text-yellow-400">*This action cannot be undone.</p>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-4 pt-6 mt-4 border-t border-gray-700">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteSchedModal(false)}
+                    className="bg-gray-600 hover:bg-gray-500 px-6 py-2 rounded-lg text-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteBatch}
+                    className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-lg text-white font-medium"
+                  >
+                    Confirm Delete
+                  </button>
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </Dialog>
+      </Transition>
+
+      <ToastContainer/>
     </div>
   );
 }

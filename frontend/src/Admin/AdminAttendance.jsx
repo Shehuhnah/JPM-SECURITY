@@ -20,6 +20,8 @@ import {
   FileImage, } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { Dialog, Transition } from "@headlessui/react";
+import { ToastContainer, toast, Bounce } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function GuardAttendancePage() {
   const [filter, setFilter] = useState("All");
@@ -30,8 +32,8 @@ export default function GuardAttendancePage() {
   const [selected, setSelected] = useState(null);
   const [guards, setGuards] = useState(null)
   const [selectedguardid, setSelectedGuardId] = useState(null)
-  const [dlwhmodal, setDlWhModal] = useState(false)
   const [previewImage, setPreviewImage] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate();
 
   const { user: admin, loading } = useAuth();
@@ -113,6 +115,7 @@ export default function GuardAttendancePage() {
             })
           : "-",
       }));
+      console.log(data)
 
       setAttendance(data);
       setSelectedGuardId(guardId);
@@ -146,9 +149,51 @@ export default function GuardAttendancePage() {
     return date;
   }
 
-  const handleDownloadWorkHours = async (guardId) => {
-    setDlWhModal(true);
-  }
+  const handleDownloadWorkHours = async (id) => {
+    console.log(id)
+    setSubmitting(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/attendance/download-working-hours/${id}`, {
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to download PDF. The record may not exist or another error occurred.' }));
+        throw new Error(errorData.message);
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      
+      const disposition = res.headers.get('content-disposition');
+      let filename = `working-hours-${id}.pdf`;
+      if (disposition && disposition.indexOf('attachment') !== -1) {
+          const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+          const matches = filenameRegex.exec(disposition);
+          if (matches != null && matches[1]) { 
+              filename = matches[1].replace(/['"]/g, '');
+          }
+      }
+      a.download = filename;
+      
+      document.body.appendChild(a);
+      a.click();
+      
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success("PDF downloaded successfully!");
+
+    } catch (error) {
+      toast.error(error.message || "An error occurred while downloading the PDF.");
+      console.error('Error downloading work hours:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
   return (
     <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
       <main className="flex-1 flex flex-col p-4 md:p-6">
@@ -321,7 +366,7 @@ export default function GuardAttendancePage() {
                       {/* Right: Download Button */}
                       <div className="flex-shrink-0">
                         <button
-                          onClick={() => handleDownloadWorkHours(guardId)}
+                          onClick={() => handleDownloadWorkHours(attendance[0].guard)}
                           className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition flex gap-2"
                         >
                           <FileDown/> Download Working Hours

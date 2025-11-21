@@ -13,6 +13,7 @@ import {
   Table,
   LayoutGrid,
   ChevronDown,
+  Trash,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -22,8 +23,6 @@ import 'react-toastify/dist/ReactToastify.css';
 export default function AdminSchedApproval() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [approveModal, setApproveModal] = useState(false);
-  const [declineModal, setDeclineModal] = useState(false);
   const [remarks, setRemarks] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [schedules, setSchedules] = useState([]);
@@ -32,6 +31,10 @@ export default function AdminSchedApproval() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [viewMode, setViewMode] = useState("calendar");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [showApproveBatchModal, setShowApproveBatchModal] = useState(false);
+  const [batchToApprove, setBatchToApprove] = useState(null);
+  const [showDeclineBatchModal, setShowDeclineBatchModal] = useState(false);
+  const [batchToDecline, setBatchToDecline] = useState(null);
 
   useEffect(() => {
     if (!user && !loading) {
@@ -42,38 +45,7 @@ export default function AdminSchedApproval() {
   }, [user, loading, navigate]);
 
   // Fetch all schedules 
-  useEffect(() => {
-    document.title = "Manage Schedules | JPM Security Agency";
-    const fetchData = async () => {
-      try {
-        const [schedulesRes, clientsRes] = await Promise.all([
-          fetch("http://localhost:5000/api/schedules/get-schedules", {
-            credentials: "include",
-          }),
-          fetch("http://localhost:5000/api/clients/get-clients", {
-            credentials: "include",
-          }),
-        ]);
-
-        const [schedulesData, clientsData] = await Promise.all([
-          schedulesRes.json(),
-          clientsRes.json(),
-        ]);
-
-        if (!schedulesRes.ok) throw new Error(schedulesData.message);
-        if (!clientsRes.ok) throw new Error(clientsData.message);
-
-        setSchedules(schedulesData);
-        setClients(clientsData);
-      } catch (err) {
-        console.error("Failed to fetch data:", err);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  const refresh = async () => {
+  const fetchData = async () => {
     try {
       const [schedulesRes, clientsRes] = await Promise.all([
         fetch("http://localhost:5000/api/schedules/get-schedules", {
@@ -94,10 +66,139 @@ export default function AdminSchedApproval() {
 
       setSchedules(schedulesData);
       setClients(clientsData);
-    } catch (err)
-      {
+    } catch (err) {
       console.error("Failed to fetch data:", err);
     }
+  };
+
+  useEffect(() => {
+    document.title = "Manage Schedules | JPM Security Agency";
+    fetchData();
+  }, []);
+
+  const openApproveBatchModal = (batch) => {
+  console.log("openApproveBatchModal called with batch:", batch);
+    setBatchToApprove(batch);
+    setShowApproveBatchModal(true);
+    console.log("setShowApproveBatchModal(true) called.");
+  };
+
+  const openDeclineBatchModal = (batch) => {
+    console.log("openDeclineBatchModal called with batch:", batch);
+    setBatchToDecline(batch);
+    setShowDeclineBatchModal(true);
+    setRemarks(""); // Reset remarks
+    console.log("setShowDeclineBatchModal(true) called.");
+  };
+
+  const handleApproveBatch = async () => {
+    if (!batchToApprove) return;
+    setSubmitting(true);
+    try {
+      const id = batchToApprove[0]._id;
+      const res = await fetch(`http://localhost:5000/api/schedules/batch/approve/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to approve batch');
+      
+      toast.success("Schedule Approve Successfully", {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+        transition: Bounce,
+      });
+      await refresh();
+      setShowApproveBatchModal(false);
+      setBatchToApprove(null);
+    } catch (error) {
+      toast.error("Error Approving Schedule: ", error, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+        transition: Bounce,
+      });
+      console.error('Error approving batch:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeclineBatch = async (declineRemarks) => {
+    if (!batchToDecline) return;
+    if (!declineRemarks) {
+      toast.error("Remarks are required to decline!", {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+        transition: Bounce,
+      });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const id = batchToDecline[0]._id;
+      const res = await fetch(`http://localhost:5000/api/schedules/batch/decline/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ remarks: declineRemarks }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to decline batch');
+
+      toast.success("Schedule Decline Successfully", {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+        transition: Bounce,
+      });
+      await refresh();
+      setShowDeclineBatchModal(false);
+      setBatchToDecline(null);
+      setRemarks("");
+    } catch (error) {
+      toast.error("Error Declining Schedule: ", error, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+        transition: Bounce,
+      });
+      console.error('Error declining batch:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const refresh = async () => {
+    await fetchData();
   };
 
   const shiftColors = {
@@ -129,177 +230,6 @@ export default function AdminSchedApproval() {
     },
   }));
 
-  // ===== Approve all schedules for selected client =====
-  const handleApprove = async () => {
-    if (!selectedClient || selectedClient === "All"){
-      toast.error("Please Select Specific Client First! ", {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
-    }
-
-    const clientSchedules = schedules.filter(
-      (s) => s.client === selectedClient && s.isApproved === "Pending"
-    );
-
-    if (clientSchedules.length === 0){
-      toast.error(`No Pending Schedules for ${selectedClient}!`, {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
-    }
-
-    try {
-      const res = await fetch(
-        `http://localhost:5000/api/schedules/approve-client-schedules`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ client: selectedClient }),
-        }
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to approve schedules");
-
-       toast.success(`All Schedules for ${selectedClient} Approved!`, {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
-
-      setSchedules((prev) =>
-        prev.map((s) =>
-          s.client === selectedClient ? { ...s, isApproved: "Approved" } : s
-        )
-      );
-      refresh();
-    } catch (err) {
-      console.error(err);
-    };
-  }
-
-  // ===== Decline all schedules for selected client =====
-  const handleDecline = async (remarks) => {
-    if (!selectedClient || selectedClient === "All") {
-      toast.error("Please Select a Specific Client First. ", {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
-      return;
-    }
-
-    const clientSchedules = schedules.filter(
-      (s) => s.client === selectedClient && s.isApproved === "Pending"
-    );
-
-    if (clientSchedules.length === 0) {
-      toast.error(`No Pending Schedule to Decline for: ${selectedClient}`, {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
-      return;
-    }
-
-    if (!remarks || !remarks.trim()){
-      toast.error("Please Provide a Reason for Declining", {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
-      return;
-    }
-
-    try {
-      const res = await fetch(
-        `http://localhost:5000/api/schedules/decline-client-schedules`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            client: selectedClient,
-            remarks,
-          }),
-        }
-      );
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-
-      toast.success(`All Schedule for ${selectedClient} Declined!`, {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
-
-      setSchedules((prev) =>
-        prev.map((s) =>
-          s.client === selectedClient
-            ? { ...s, isApproved: "Declined", declineRemarks: remarks }
-            : s
-        )
-      );
-    } catch (err) {
-      toast.error( err.message, {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
-    }
-  };
 
   // Reopen a previously declined schedule (set status back to Pending)
   const reopenSchedule = async (scheduleId) => {
@@ -314,10 +244,30 @@ export default function AdminSchedApproval() {
       if (!res.ok) throw new Error(data.message || "Failed to reopen schedule");
 
       setSchedules((prev) => prev.map((s) => (s._id === scheduleId ? { ...s, isApproved: "Pending" } : s)));
-      alert("✅ Schedule reopened and set to Pending.");
+      toast.success("Schedule reopened and set to Pending.", {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+        transition: Bounce,
+      });
     } catch (err) {
       console.error("Failed to reopen schedule:", err);
-      alert(err.message || "Failed to reopen schedule.");
+      toast.error("Failed to reopen schedule:", err, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+        transition: Bounce,
+      });
     }
   };
 
@@ -436,38 +386,6 @@ export default function AdminSchedApproval() {
             <span className="w-3 h-3 bg-[#ef4444] rounded-sm"></span> Night Shift
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          {/* Action Buttons */}
-          {statusFilter === "Pending" && selectedClient && selectedClient !== "All" && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => setApproveModal(true)}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-medium"
-              >
-                <ThumbsUp size={16} /> Approve All
-              </button>
-
-              <button
-                onClick={() => setDeclineModal(true)}
-                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm font-medium"
-              >
-                <ThumbsDown size={16} /> Decline All
-              </button>
-            </div>
-          )}
-
-          {/* Declined State Button */}
-          {statusFilter === "Declined" && selectedClient && selectedClient !== "All" && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => setReopenModal(true)}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium"
-              >
-                <ThumbsUp size={16} /> Reopen
-              </button>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* ===== VIEW RENDERING ===== */}
@@ -515,70 +433,123 @@ export default function AdminSchedApproval() {
             ).map(([clientName, clientSchedules]) => (
               <div key={clientName}>
                 {/* Client Header */}
-                <div className="flex justify-between items-center">
+                <div className="flex items-center justify-between mb-2">
                   <h2 className="text-lg font-semibold text-white mb-3 border-l-4 border-teal-500 pl-3">
                     {clientName}
                   </h2>
-                  <div className="flex items-center gap-2 mb-3 pr-5">
-                    <span className="text-gray-400 text-sm">Status:</span>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold
-                        ${
-                          statusFilter === "Approved"
-                            ? "bg-green-600/20 text-green-400 border border-green-500/50"
-                            : statusFilter === "Pending"
-                            ? "bg-yellow-600/20 text-yellow-400 border border-yellow-500/50"
-                            : statusFilter === "Declined"
-                            ? "bg-red-600/20 text-red-400 border border-red-500/50"
-                            : "bg-gray-700 text-gray-300 border border-gray-600/50"
-                        }`}
-                    >
-                      {statusFilter}
-                    </span>
-                  </div>
                 </div>
 
-                <div className="overflow-x-auto rounded-lg shadow-lg">
-                  <table className="min-w-full text-sm text-gray-300 border border-gray-700 rounded-lg overflow-hidden">
-                    <thead className="bg-[#0f172a] text-gray-400">
-                      <tr>
-                        <th className="py-3 px-4 text-left">Guard Name</th>
-                        <th className="py-3 px-4 text-left">Location</th>
-                        <th className="py-3 px-4 text-left">Shift</th>
-                        <th className="py-3 px-4 text-left">Time In</th>
-                        <th className="py-3 px-4 text-left">Time Out</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {clientSchedules.map((s, i) => (
-                        <tr
-                          key={i}
-                          className={`${
-                            i % 2 === 0 ? "bg-[#1e293b]" : "bg-[#162033]"
-                          } hover:bg-[#2a3954]`}
-                        >
-                          <td className="py-3 px-4">{s.guardName}</td>
-                          <td className="py-3 px-4">{s.deploymentLocation}</td>
-                          <td
-                            className={`py-3 px-4 font-semibold ${
-                              s.shiftType === "Night Shift"
-                                ? "text-red-400"
-                                : "text-yellow-400"
+                {Object.entries(
+                  clientSchedules.reduce((batchAcc, schedule) => {
+                    const batchKey = `${schedule.deploymentLocation}-${schedule.shiftType}-${schedule.isApproved}`;
+                    if (!batchAcc[batchKey]) batchAcc[batchKey] = [];
+                    batchAcc[batchKey].push(schedule);
+                    return batchAcc;
+                  }, {})
+                ).map(([batchKey, batchSchedules]) => (
+                  <div key={batchKey} className="mb-8">
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-md font-semibold text-gray-300 pl-3 border-l-2 border-blue-500">
+                          {batchSchedules[0].deploymentLocation} -{" "}
+                          {batchSchedules[0].shiftType}{" "}
+                          <span
+                            className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${
+                              batchSchedules[0].isApproved === "Approved"
+                                ? "bg-green-600/20 text-green-400 border border-green-500/50"
+                                : batchSchedules[0].isApproved === "Pending"
+                                ? "bg-yellow-600/20 text-yellow-400 border border-yellow-500/50"
+                                : "bg-red-600/20 text-red-400 border border-red-500/50"
                             }`}
                           >
-                            {s.shiftType}
-                          </td>
-                          <td className="py-3 px-4">
-                            {new Date(s.timeIn).toLocaleString()}
-                          </td>
-                          <td className="py-3 px-4">
-                            {new Date(s.timeOut).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                            {batchSchedules[0].isApproved}
+                          </span>
+                        </h3>
+                        <div className="flex items-center justify-center gap-2">
+                            {batchSchedules[0].isApproved === 'Pending' && (
+                                <>
+                                    <button 
+                                      onClick={() => openApproveBatchModal(batchSchedules)}
+                                      className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-medium">
+                                        <ThumbsUp size={16}/>
+                                        Approve
+                                    </button>
+                                    <button 
+                                      onClick={() => openDeclineBatchModal(batchSchedules)}
+                                      className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg text-sm font-medium">
+                                        <ThumbsDown size={16}/>
+                                        Decline
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto rounded-lg shadow-lg">
+                      <table className="min-w-full text-sm text-gray-300 border border-gray-700 rounded-lg overflow-hidden">
+                        <thead className="bg-[#0f172a] text-gray-400">
+                          <tr>
+                            <th className="py-3 px-4 text-left">Guard Name</th>
+                            <th className="py-3 px-4 text-left">Location</th>
+                            <th className="py-3 px-4 text-left">Shift</th>
+                            <th className="py-3 px-4 text-left">Time In</th>
+                            <th className="py-3 px-4 text-left">Time Out</th>
+                            <th className="py-3 px-4 text-left">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {batchSchedules.map((s, i) => (
+                            <tr
+                              key={i}
+                              className={`${
+                                i % 2 === 0 ? "bg-[#1e293b]" : "bg-[#162033]"
+                              } hover:bg-[#2a3954]`}
+                            >
+                              <td className="py-3 px-4">{s.guardName}</td>
+                              <td className="py-3 px-4">{s.deploymentLocation}</td>
+                              <td
+                                className={`py-3 px-4 font-semibold ${
+                                  s.shiftType === "Night Shift"
+                                    ? "text-red-400"
+                                    : "text-yellow-400"
+                                }`}
+                              >
+                                {s.shiftType}
+                              </td>
+                              <td className="py-3 px-4">
+                                {new Date(s.timeIn).toLocaleString()}
+                              </td>
+                              <td className="py-3 px-4">
+                                {new Date(s.timeOut).toLocaleString()}
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`px-2 py-1 rounded text-xs font-semibold ${
+                                      s.isApproved === "Approved"
+                                        ? "bg-green-600 text-white"
+                                        : s.isApproved === "Declined"
+                                        ? "bg-red-600 text-white"
+                                        : "bg-yellow-600 text-black"
+                                    }`}
+                                  >
+                                    {s.isApproved || "Pending"}
+                                  </span>
+                                  {s.isApproved === "Declined" && (
+                                    <button
+                                      onClick={() => reopenSchedule(s._id)}
+                                      className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded"
+                                    >
+                                      Reopen
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
               </div>
             ))}
             {filteredSchedules.length === 0 && (
@@ -590,322 +561,66 @@ export default function AdminSchedApproval() {
         )}
       </div>
 
-      {/* ===== SELECTED EVENT DISPLAY ===== */}
-      {selectedEvent && (
-        <div className="mt-6 bg-[#1e293b] border border-gray-700 p-4 rounded-xl">
-          <h2 className="text-lg font-bold mb-2">{selectedEvent.guardName}</h2>
-          <p className="text-gray-300">
-            <strong>Client:</strong> {selectedEvent.client}
-          </p>
-          <p className="text-gray-300">
-            <strong>Shift:</strong> {selectedEvent.shiftType}
-          </p>
-          <p className="text-gray-300">
-            <strong>Location:</strong> {selectedEvent.deploymentLocation}
-          </p>
-          <p className="text-gray-300">
-            <strong>Status:</strong> {selectedEvent.isApproved || "Pending"}
-          </p>
-        </div>
-      )}
-
-      {/* ===== APPROVE MODAL ===== */}
-      <Transition appear show={approveModal} as={Fragment}>
-        <Dialog
-          as="div"
-          className="relative z-50"
-          onClose={() => setApproveModal(false)}
-        >
-          <div className="fixed inset-0 bg-black/50" />
-          <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Dialog.Panel className="bg-[#1e293b] border border-gray-700 rounded-2xl shadow-xl p-6 max-w-md w-full">
-              <Dialog.Title className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <ThumbsUp className="text-green-400" /> Approve All Schedules
-              </Dialog.Title>
-              {/* Summary Info */}
-              <div className="bg-[#0f172a] border border-gray-700 rounded-lg p-4 mb-4">
-                <p className="text-sm text-gray-300 mb-2">
-                  You are about to approve all pending schedules for the month
-                  of
-                  <span className="text-green-400 font-medium ml-1">
-                    {new Date().toLocaleString("default", {
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </span>
-                  .
-                </p>
-
-                <div className="text-gray-100 text-sm space-y-1">
-                  <p>
-                    <span className="text-gray-400">🏢 Client:</span>{" "}
-                    <span className="font-medium text-white">
-                      {selectedClient}
-                    </span>
-                  </p>
-                  <p>
-                    <span className="text-gray-400">
-                      🕒 Total Pending Work Days:
-                    </span>{" "}
-                    <span className="font-semibold text-yellow-400">
-                      {
-                        schedules.filter(
-                          (s) =>
-                            s.client === selectedClient &&
-                            s.isApproved === "Pending"
-                        ).length
-                      }
-                    </span>
-                  </p>
-                  <p>
-                    <span className="text-gray-400">👮 Guards Involved:</span>{" "}
-                    <span className="font-semibold text-blue-400">
-                      {
-                        [
-                          ...new Set(
-                            schedules
-                              .filter(
-                                (s) =>
-                                  s.client === selectedClient &&
-                                  s.isApproved === "Pending"
-                              )
-                              .map((s) => s.guardName)
-                          ),
-                        ].length
-                      }
-                    </span>
-                  </p>
-                  <p>
-                    <span className="text-gray-400">📅 Coverage Dates:</span>{" "}
-                    <span className="text-gray-200">
-                      {(() => {
-                        const scheds = schedules.filter(
-                          (s) =>
-                            s.client === selectedClient &&
-                            s.isApproved === "Pending"
-                        );
-                        if (!scheds.length) return "N/A";
-                        const dates = scheds.map((s) => new Date(s.timeIn));
-                        const earliest = new Date(
-                          Math.min(...dates)
-                        ).toLocaleDateString();
-                        const latest = new Date(
-                          Math.max(...dates)
-                        ).toLocaleDateString();
-                        return `${earliest} - ${latest}`;
-                      })()}
-                    </span>
-                  </p>
+      {/* ===== APPROVE BATCH MODAL ===== */}
+      <Transition appear show={showApproveBatchModal} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={() => setShowApproveBatchModal(false)}>
+      <div className="fixed inset-0 bg-black/50" />
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        <Dialog.Panel className="bg-[#1e293b] border border-gray-700 rounded-2xl shadow-xl p-6 max-w-md w-full">
+            <Dialog.Title className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <ThumbsUp className="text-green-400" /> Approve Schedule Batch
+            </Dialog.Title>
+            {batchToApprove && (
+                <div className="text-gray-300 space-y-2">
+                    <p>Are you sure you want to approve this schedule batch?</p>
+                    <div className="bg-[#0f172a] p-3 rounded-lg border border-gray-600 text-sm">
+                        <p><strong>Client:</strong> {batchToApprove[0].client}</p>
+                        <p><strong>Location:</strong> {batchToApprove[0].deploymentLocation}</p>
+                        <p><strong>Shift:</strong> {batchToApprove[0].shiftType}</p>
+                        <p><strong>Schedules:</strong> {batchToApprove.length}</p>
+                    </div>
                 </div>
-              </div>
-
-              {/* Warning */}
-              <p className="text-gray-400 text-xs mb-6 italic">
-                ⚠️ Once approved, these schedules will be locked and visible to
-                the assigned guards.
-              </p>
-
-              {/* Buttons */}
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setApproveModal(false)}
-                  className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={async () => {
-                    try {
-                      setSubmitting(true);
-                      await handleApprove();
-                      setApproveModal(false);
-                    } catch (error) {
-                      console.error("Error approving schedules:", error);
-                    } finally {
-                      setSubmitting(false);
-                    }
-                  }}
-                  disabled={submitting}
-                  className="bg-green-600 hover:bg-green-500 px-5 py-2 rounded-lg text-white font-medium disabled:opacity-50"
-                >
-                  {submitting ? "Approving..." : "Confirm Approve"}
-                </button>
-              </div>
-            </Dialog.Panel>
-          </div>
-        </Dialog>
+            )}
+            <div className="flex justify-end gap-3 mt-6">
+                <button onClick={() => setShowApproveBatchModal(false)} className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-white">Cancel</button>
+                <button onClick={handleApproveBatch} className="bg-green-600 hover:bg-green-500 px-5 py-2 rounded-lg text-white font-medium">Confirm Approve</button>
+            </div>
+        </Dialog.Panel>
+      </div>
+      </Dialog>
       </Transition>
 
-      {/* ===== DECLINE MODAL ===== */}
-      <Transition appear show={declineModal} as={Fragment}>
-        <Dialog
-          as="div"
-          className="relative z-50"
-          onClose={() => setDeclineModal(false)}
-        >
+      {/* ===== DECLINE BATCH MODAL ===== */}
+      <Transition appear show={showDeclineBatchModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowDeclineBatchModal(false)}>
           <div className="fixed inset-0 bg-black/50" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
             <Dialog.Panel className="bg-[#1e293b] border border-gray-700 rounded-2xl shadow-xl p-6 max-w-md w-full">
               <Dialog.Title className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <ThumbsDown className="text-red-400" /> Decline All Schedules
+                  <ThumbsDown className="text-red-400" /> Decline Schedule Batch
               </Dialog.Title>
-
-              {/* Context Info */}
-              <div className="bg-[#0f172a] border border-gray-700 rounded-lg p-4 mb-4">
-                <p className="text-sm text-gray-300 mb-3">
-                  You are about to decline all{" "}
-                  <span className="font-semibold text-white">
-                    {selectedClient}
-                  </span>{" "}
-                  schedules for{" "}
-                  <span className="text-red-400 font-medium">
-                    {new Date().toLocaleString("default", {
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </span>
-                  .
-                </p>
-
-                {/* Summary Details */}
-                <div className="text-sm text-gray-200 space-y-1">
-                  <p>
-                    <span className="text-gray-400">📅 Coverage:</span>{" "}
-                    <span className="text-gray-100">
-                      {(() => {
-                        const scheds = schedules.filter(
-                          (s) =>
-                            s.client === selectedClient &&
-                            s.isApproved === "Pending"
-                        );
-                        if (!scheds.length) return "N/A";
-                        const dates = scheds.map((s) => new Date(s.timeIn));
-                        const earliest = new Date(
-                          Math.min(...dates)
-                        ).toLocaleDateString();
-                        const latest = new Date(
-                          Math.max(...dates)
-                        ).toLocaleDateString();
-                        return `${earliest} - ${latest}`;
-                      })()}
-                    </span>
-                  </p>
-                  <p>
-                    <span className="text-gray-400">📅 Client:</span>{" "}
-                    <span className="text-gray-100">
-                      {selectedClient && selectedClient !== "All" ? selectedClient : "N/A"}
-                    </span>
-                  </p>
-                  <p>
-                    <span className="text-gray-400">
-                      📦 Total Pending Schedules:
-                    </span>{" "}
-                    <span className="font-semibold text-yellow-400">
-                      {
-                        schedules.filter(
-                          (s) =>
-                            s.client === selectedClient &&
-                            s.isApproved === "Pending"
-                        ).length
-                      }
-                    </span>
-                  </p>
-
-                  <p>
-                    <span className="text-gray-400">👮 Guards Involved:</span>{" "}
-                    <span className="font-semibold text-blue-400">
-                      {
-                        [
-                          ...new Set(
-                            schedules
-                              .filter(
-                                (s) =>
-                                  s.client === selectedClient &&
-                                  s.isApproved === "Pending"
-                              )
-                              .map((s) => s.guardName)
-                          ),
-                        ].length
-                      }
-                    </span>
-                  </p>
-
-                  <p>
-                    <span className="text-gray-400">🗓️ Total Workdays:</span>{" "}
-                    <span className="font-semibold text-green-400">
-                      {
-                        [
-                          ...new Set(
-                            schedules
-                              .filter(
-                                (s) =>
-                                  s.client === selectedClient &&
-                                  s.isApproved === "Pending"
-                              )
-                              .map((s) => new Date(s.timeIn).toDateString())
-                          ),
-                        ].length
-                      }
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Remarks Input */}
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Reason for Declining
-              </label>
-              <textarea
-                rows="3"
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                placeholder="Enter detailed reason..."
-                className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 mb-4 focus:ring-2 focus:ring-red-500"
-              />
-
-              <p className="text-xs text-gray-500 italic mb-4">
-                ⚠️ Declining will mark all pending schedules for this client as{" "}
-                <span className="text-red-400">Declined</span>. This action
-                cannot be undone.
-              </p>
-
-              {/* Buttons */}
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setDeclineModal(false)}
-                  className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={async () => {
-                    if (!remarks.trim())
-                      return toast.error("Please Provide a Reason for Declining", {
-                                position: "top-right",
-                                autoClose: 5000,
-                                hideProgressBar: false,
-                                closeOnClick: false,
-                                pauseOnHover: true,
-                                draggable: true,
-                                progress: undefined,
-                                theme: "dark",
-                                transition: Bounce,
-                              });;
-                    try {
-                      setSubmitting(true);
-                      await handleDecline(remarks);
-                      setDeclineModal(false);
-                    } catch (error) {
-                      console.error("Error declining schedules:", error);
-                    } finally {
-                      setSubmitting(false);
-                    }
-                  }}
-                  disabled={submitting}
-                  className="bg-red-600 hover:bg-red-500 px-5 py-2 rounded-lg text-white font-medium disabled:opacity-50"
-                >
-                  {submitting ? "Declining..." : "Confirm Decline"}
-                </button>
+              {batchToDecline && (
+                  <div className="text-gray-300 space-y-3">
+                      <p>You are about to decline the following schedule batch:</p>
+                      <div className="bg-[#0f172a] p-3 rounded-lg border border-gray-600 text-sm">
+                          <p><strong>Client:</strong> {batchToDecline[0].client}</p>
+                          <p><strong>Location:</strong> {batchToDecline[0].deploymentLocation}</p>
+                          <p><strong>Shift:</strong> {batchToDecline[0].shiftType}</p>
+                          <p><strong>Schedules:</strong> {batchToDecline.length}</p>
+                      </div>
+                      <label className="block text-sm font-medium text-gray-300 pt-2">Reason for Declining</label>
+                      <textarea
+                          rows="3"
+                          value={remarks}
+                          onChange={(e) => setRemarks(e.target.value)}
+                          placeholder="Enter detailed reason..."
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-red-500"
+                      />
+                  </div>
+              )}
+              <div className="flex justify-end gap-3 mt-6">
+                  <button onClick={() => setShowDeclineBatchModal(false)} className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-white">Cancel</button>
+                  <button onClick={() => handleDeclineBatch(remarks)} className="bg-red-600 hover:bg-red-500 px-5 py-2 rounded-lg text-white font-medium">Confirm Decline</button>
               </div>
             </Dialog.Panel>
           </div>

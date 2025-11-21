@@ -9,7 +9,10 @@ import {
   getSchedulesByGuard,
   getTodayScheduleByGuard,
   updateSchedulesByBatchId,
-  getSchedulesByBatchId
+  getSchedulesByBatchId,
+  deleteScheduleByBatch,
+  approveScheduleBatch,
+  declineScheduleBatch,
 } from "../controller/scheduleController.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
@@ -35,4 +38,12 @@ router.delete("/:id", protect, authorizeRoles("Admin", "Subadmin"), deleteSchedu
 router.get("/get-by-batch/:id", protect, authorizeRoles("Admin", "Subadmin"), getSchedulesByBatchId)
 // modify schedule by batch ID
 router.patch("/batch/:id", protect, authorizeRoles("Admin", "Subadmin"), updateSchedulesByBatchId)
+// delete schedule by batch ID
+router.delete("/batch/:id", protect, authorizeRoles("Admin", "Subadmin"), deleteScheduleByBatch)
+
+// approve schedule by batch ID
+router.patch("/batch/approve/:id", protect, authorizeRoles("Admin", "Subadmin"), approveScheduleBatch);
+// decline schedule by batch ID
+router.patch("/batch/decline/:id", protect, authorizeRoles("Admin", "Subadmin"), declineScheduleBatch);
+
 export default router;

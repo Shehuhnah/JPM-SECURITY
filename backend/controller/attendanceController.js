@@ -1,5 +1,59 @@
 import Attendance from "../models/Attendance.model.js";
 import Schedule from "../models/schedule.model.js";
+import Guard from "../models/guard.model.js";
+import { generateWorkHoursPDF } from "../utils/workingHoursPdfGenerator.js";
+
+export const downloadWorkHours = async (req, res) => {
+    try {
+        const guardId = req.params.id;
+        const guard = await Guard.findById(guardId);
+        if (!guard) {
+            return res.status(404).json({ message: "Guard not found" });
+        }
+
+        // Determine current pay period
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = today.getMonth(); // 0-indexed
+        let startDate, endDate, periodCover;
+
+        if (today.getDate() <= 15) {
+            startDate = new Date(year, month, 1);
+            endDate = new Date(year, month, 15);
+            periodCover = `${startDate.toLocaleString('default', { month: 'long' })} 1-15, ${year}`;
+        } else {
+            startDate = new Date(year, month, 16);
+            endDate = new Date(year, month + 1, 0); 
+            periodCover = `${startDate.toLocaleString('default', { month: 'long' })} 16-${endDate.getDate()}, ${year}`;
+        }
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+
+        // Fetch all records for the guard and filter in-memory due to date format issues
+        const allAttendance = await Attendance.find({ guard: guardId });
+
+        const attendanceRecords = allAttendance.filter(record => {
+            if (!record.date) return false;
+            const recordDate = new Date(record.date);
+            return recordDate >= startDate && recordDate <= endDate;
+        });
+
+        // Sort records chronologically for the PDF
+        attendanceRecords.sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        // Generate PDF
+        const pdfBuffer = await generateWorkHoursPDF(guard, attendanceRecords, periodCover);
+
+        // Send PDF as response
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=DTR_${guard.fullName.replace(' ', '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+        res.send(pdfBuffer);
+
+    } catch (error) {
+        console.error("Error generating work hours PDF:", error);
+        res.status(500).json({ message: "Failed to generate PDF", error: error.message });
+    }
+};
 
 export const getAttendances = async (req, res) => {
   try {
