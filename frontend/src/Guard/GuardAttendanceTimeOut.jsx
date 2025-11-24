@@ -37,9 +37,10 @@ function GuardAttendanceTimeOut() {
           const data = await res.json().catch(() => []);
           if (!res.ok) throw new Error(data?.message || "Failed to fetch attendance");
 
-          // Find active duty: status "On Duty" and no timeOut
+          // Find active duty: status "On Duty" and no timeOut for the current day
+          const todayISO = new Date().toISOString().split('T')[0];
           const activeDuty = Array.isArray(data)
-            ? data.find(r => r.status === "On Duty" && !r.timeOut)
+            ? data.find(r => r.status === "On Duty" && !r.timeOut && new Date(r.timeIn).toISOString().split('T')[0] === todayISO)
             : null;
 
           if (activeDuty) setTimeInData(activeDuty);
@@ -171,15 +172,23 @@ function GuardAttendanceTimeOut() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-400">Date:</span>
-                  <span className="text-gray-200">{timeInData.date}</span>
+                  <span className="text-gray-200">{new Date(timeInData.timeIn).toLocaleDateString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Time In:</span>
-                  <span className="text-gray-200">{timeInData.timeIn}</span>
+                  <span className="text-gray-200">{new Date(timeInData.timeIn).toLocaleTimeString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Client:</span>
+                  <span className="text-gray-200">{timeInData.scheduleId?.client || '-'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Location:</span>
-                  <span className="text-gray-200">{timeInData.location?.address || '-'}</span>
+                  <span className="text-gray-200">{timeInData.scheduleId?.deploymentLocation || timeInData.location?.address || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Shift:</span>
+                  <span className="text-gray-200">{timeInData.scheduleId?.shiftType || '-'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Working Hours:</span>
@@ -198,12 +207,34 @@ function GuardAttendanceTimeOut() {
               </div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
+                  <span className="text-gray-400">Date:</span>
+                  <span className="text-gray-200">{new Date(attendanceData.timeIn).toLocaleDateString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Time In:</span>
+                  <span className="text-gray-200">{new Date(attendanceData.timeIn).toLocaleTimeString()}</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-gray-400">Time Out:</span>
-                  <span className="text-gray-200">{attendanceData.timeOut}</span>
+                  <span className="text-gray-200">{new Date(attendanceData.timeOut).toLocaleTimeString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Total Hours:</span>
-                  <span className="text-green-400 font-medium">{attendanceData.workingHours}</span>
+                  <span className="text-green-400 font-medium">
+                    {(() => {
+                        if (attendanceData.timeIn && attendanceData.timeOut) {
+                            const start = new Date(attendanceData.timeIn);
+                            const end = new Date(attendanceData.timeOut);
+                            const diffMs = end - start;
+                            if (diffMs > 0) {
+                                const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+                                const diffMin = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                                return `${diffHrs}h ${diffMin}m`;
+                            }
+                        }
+                        return "0h 0m";
+                    })()}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Status:</span>

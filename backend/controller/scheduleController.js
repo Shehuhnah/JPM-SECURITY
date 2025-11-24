@@ -1,44 +1,64 @@
 import Schedule from "../models/schedule.model.js";
-
-// 🧩 Helper: check if a schedule conflicts with existing ones
+import { v4 as uuidv4 } from "uuid";
+// Helper
 const findConflict = async (scheduleData) => {
-  const { client, deploymentLocation, timeIn, timeOut, shiftType, position } = scheduleData;
+  const { timeIn, _id, shiftType, position, deploymentLocation, guardId } = scheduleData;
 
   const start = new Date(timeIn);
-  const end = new Date(timeOut);
+  const newScheduleDateOnly = start.toISOString().split("T")[0];
 
-  // Check if a schedule already exists with same client, shiftType, and position
-  const existing = await Schedule.findOne({
-    client,
-    shiftType,
+  // Prevent another guard in SAME CLIENT with same Day + ShiftType + Position
+  const clientConflictQuery = {
+    deploymentLocation,  // same client
     position,
-  });
-
-  if (existing) {
-    return {
-      ...scheduleData,
-      reason: `Position "${position}" already exists in ${shiftType} for ${client}`,
-    };
-  }
-
-  // Check for overlapping schedules for the same client + deploymentLocation
-  const overlap = await Schedule.findOne({
-    client,
-    deploymentLocation,
     shiftType,
-    $or: [
-      { timeIn: { $lte: end }, timeOut: { $gte: start } },
-    ],
-  });
+    $expr: {
+      $eq: [
+        { $dateToString: { format: "%Y-%m-%d", date: "$timeIn" } },
+        newScheduleDateOnly,
+      ],
+    },
+  };
 
-  if (overlap) {
+  if (_id) {
+    clientConflictQuery._id = { $ne: _id };
+  }
+
+  const clientConflict = await Schedule.findOne(clientConflictQuery);
+
+  if (clientConflict) {
     return {
       ...scheduleData,
-      reason: `Overlapping time detected at "${deploymentLocation}" for ${client} (${shiftType})`,
+      reason: `This client already has a guard assigned on this date for the same Shift Type and Position.`,
     };
   }
 
-  return null; // no conflict
+  // Prevent guard from working in ANY OTHER CLIENT on the same day
+  const guardConflictQuery = {
+    guardId,
+    $expr: {
+      $eq: [
+        { $dateToString: { format: "%Y-%m-%d", date: "$timeIn" } },
+        newScheduleDateOnly,
+      ],
+    },
+  };
+
+  // Exclude itself if updating
+  if (_id) {
+    guardConflictQuery._id = { $ne: _id };
+  }
+
+  const guardConflict = await Schedule.findOne(guardConflictQuery);
+
+  if (guardConflict) {
+    return {
+      ...scheduleData,
+      reason: `This guard is already scheduled on this date at another client ("${guardConflict.deploymentLocation}").`,
+    };
+  }
+
+  return null;
 };
 
 // Create a Schedule
@@ -46,30 +66,27 @@ export const createSchedule = async (req, res) => {
   try {
     const { schedules } = req.body;
 
-    // ========== MULTIPLE SCHEDULE SUBMISSION ==========
-    if (Array.isArray(schedules)) {
-      const validSchedules = [];
-      const conflicts = [];
+    // Assign a single batchId for all schedules submitted together
+    const batchId = uuidv4();
 
+    // Handle multiple schedule submissions
+    if (Array.isArray(schedules)) {
       for (const schedule of schedules) {
         const conflict = await findConflict(schedule);
-        if (conflict) conflicts.push(conflict);
-        else validSchedules.push(schedule);
+        if (conflict) {
+          return res.status(400).json({
+            message: "A schedule conflict was detected. Please review and fix it.",
+            conflicts: [conflict],
+          });
+        }
+        schedule.batchId = batchId; // attach batchId
       }
 
-      // If any conflicts, return them all at once
-      if (conflicts.length > 0) {
-        return res.status(400).json({
-          message: "Some schedules have conflicts. Please review and fix them.",
-          conflicts,
-        });
-      }
-
-      const created = await Schedule.insertMany(validSchedules);
-      return res.status(201).json(created);
+      const createdSchedules = await Schedule.insertMany(schedules);
+      return res.status(201).json(createdSchedules);
     }
 
-    // ========== SINGLE SCHEDULE SUBMISSION ==========
+    // Handle single schedule submission
     const conflict = await findConflict(req.body);
     if (conflict) {
       return res.status(400).json({
@@ -78,9 +95,9 @@ export const createSchedule = async (req, res) => {
       });
     }
 
+    req.body.batchId = batchId; // attach batchId
     const schedule = new Schedule(req.body);
     await schedule.save();
-
     res.status(201).json(schedule);
   } catch (err) {
     console.error("Error creating schedule:", err);
@@ -92,11 +109,10 @@ export const createSchedule = async (req, res) => {
 export const getSchedules = async (req, res) => {
   try {
     const { status } = req.query; 
-
     const filter = {};
-    if (status) filter.isApproved  = status; 
+    if (status) filter.isApproved = status; 
 
-    const schedules = await Schedule.find(filter).populate("guardId", "fullName email");
+    const schedules = await Schedule.find(filter).populate("guardId", "fullName email guardId");
     res.status(200).json(schedules);
   } catch (error) {
     res.status(500).json({ message: "Error fetching schedules", error: error.message });
@@ -106,7 +122,7 @@ export const getSchedules = async (req, res) => {
 // Get single schedule by ID
 export const getScheduleById = async (req, res) => {
   try {
-    const schedule = await Schedule.findById(req.params.id).populate("guard");
+    const schedule = await Schedule.findById(req.params.id).populate("guardId", "fullName email guardId");
     if (!schedule) return res.status(404).json({ message: "Schedule not found" });
     res.status(200).json(schedule);
   } catch (error) {
@@ -118,23 +134,14 @@ export const getScheduleById = async (req, res) => {
 export const getSchedulesByGuard = async (req, res) => {
   try {
     const { id } = req.params;
-
-    // Find schedules based on guardId AND isApproved === "Approved"
     const schedules = await Schedule.find({
       guardId: id,
       isApproved: "Approved"
-    }).populate("guardId");
-
-    if (!schedules || schedules.length === 0) {
-      return res.status(200).json([]);
-    }
+    }).populate("guardId", "fullName email");
 
     res.status(200).json(schedules);
   } catch (error) {
-    res.status(500).json({
-      message: "Error fetching schedules",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Error fetching schedules for guard", error: error.message });
   }
 };
 
@@ -142,20 +149,22 @@ export const getSchedulesByGuard = async (req, res) => {
 export const getTodayScheduleByGuard = async (req, res) => {
   try {
     const { id } = req.params;
-    const today = new Date().toISOString().split("T")[0]; // "2025-11-19"
+    const now = new Date();
+    const startOfDay = new Date(now.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(now.setHours(23, 59, 59, 999));
 
     const schedules = await Schedule.find({
       guardId: id,
       isApproved: "Approved",
-      date: today
-    }).populate("guardId");
+      timeIn: { $lte: endOfDay }, // Schedule starts before end of today
+      timeOut: { $gte: startOfDay } // Schedule ends after start of today
+    }).populate("guardId", "fullName email");
 
     res.status(200).json({ hasSchedule: schedules.length > 0, schedules });
   } catch (error) {
-    res.status(500).json({ message: "Error fetching schedules", error: error.message });
+    res.status(500).json({ message: "Error fetching today's schedule", error: error.message });
   }
 };
-
 
 // Approve all pending schedules for a client 
 export const approveClientSchedules = async (req, res) => {
@@ -170,25 +179,19 @@ export const approveClientSchedules = async (req, res) => {
     );
 
     if (result.matchedCount === 0)
-      return res
-        .status(404)
-        .json({ message: "No pending schedules found for this client" });
+      return res.status(404).json({ message: "No pending schedules found for this client" });
 
     res.status(200).json({
       message: `Approved ${result.modifiedCount} schedule(s) for ${client}`,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error approving schedules", error: error.message });
+    res.status(500).json({ message: "Error approving schedules", error: error.message });
   }
 };
 
 // Decline all pending schedules for a client 
 export const declineClientSchedules = async (req, res) => {
-
   const { client, remarks } = req.body;
-
   if (!client)
     return res.status(400).json({ message: "Client name is required" });
 
@@ -198,17 +201,13 @@ export const declineClientSchedules = async (req, res) => {
     { isApproved: "Declined", remarks: remarks });
 
     if (result.matchedCount === 0)
-      return res
-        .status(404)
-        .json({ message: "No pending schedules found for this client" });
+      return res.status(404).json({ message: "No pending schedules found for this client" });
 
     res.status(200).json({
       message: `Declined ${result.modifiedCount} schedule(s) for ${client}`,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error declining schedules", error: error.message });
+    res.status(500).json({ message: "Error declining schedules", error: error.message });
   }
 };
 
@@ -221,9 +220,7 @@ export const deleteSchedule = async (req, res) => {
 
     res.status(200).json({ message: "Schedule deleted successfully" });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error deleting schedule", error: error.message });
+    res.status(500).json({ message: "Error deleting schedule", error: error.message });
   }
 };
 
@@ -233,7 +230,6 @@ export const updateSchedulesByBatchId = async (req, res) => {
     const { id } = req.params;
     const { schedules: newSchedules } = req.body;
 
-    // 1. Find the original schedule to identify the batch
     const originalSchedule = await Schedule.findById(id);
     if (!originalSchedule) {
       return res.status(404).json({ message: "Original schedule not found, cannot identify batch." });
@@ -241,31 +237,19 @@ export const updateSchedulesByBatchId = async (req, res) => {
 
     const { client, deploymentLocation, shiftType, isApproved } = originalSchedule;
 
-    // 2. Delete all schedules in the old batch
-    await Schedule.deleteMany({
-      client,
-      deploymentLocation,
-      shiftType,
-      isApproved,
-    });
-
-    const validSchedules = [];
-    const conflicts = [];
+    await Schedule.deleteMany({ client, deploymentLocation, shiftType, isApproved });
 
     for (const schedule of newSchedules) {
       const conflict = await findConflict(schedule);
-      if (conflict) conflicts.push(conflict);
-      else validSchedules.push(schedule);
+      if (conflict) {
+        return res.status(400).json({
+          message: "A schedule conflict was detected. The old batch was deleted, but the new one was not created.",
+          conflicts: [conflict],
+        });
+      }
     }
 
-    if (conflicts.length > 0) {
-      return res.status(400).json({
-        message: "Some new schedules have conflicts. The old batch was deleted, but the new one was not created.",
-        conflicts,
-      });
-    }
-
-    const createdSchedules = await Schedule.insertMany(validSchedules);
+    const createdSchedules = await Schedule.insertMany(newSchedules);
     res.status(200).json({ message: 'Batch updated successfully', schedules: createdSchedules });
 
   } catch (err) {
@@ -291,7 +275,7 @@ export const getSchedulesByBatchId = async (req, res) => {
       deploymentLocation,
       shiftType,
       isApproved,
-    });
+    }).populate('guardId', 'fullName');
 
     res.status(200).json(batchSchedules);
   } catch (error) {
@@ -301,58 +285,49 @@ export const getSchedulesByBatchId = async (req, res) => {
 
 // Delete schedule by batch id
 export const deleteScheduleByBatch = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const schedule = await Schedule.findById(id);
+  try {
+      const { id } = req.params;
+      const schedule = await Schedule.findById(id);
 
-        if (!schedule) {
-            return res.status(404).json({ message: "Schedule not found, cannot identify batch to delete." });
-        }
+      if (!schedule) {
+          return res.status(404).json({ message: "Schedule not found, cannot identify batch to delete." });
+      }
 
-        const { client, deploymentLocation, shiftType, isApproved } = schedule;
+      const { client, deploymentLocation, shiftType, isApproved } = schedule;
 
-        const result = await Schedule.deleteMany({
-            client,
-            deploymentLocation,
-            shiftType,
-            isApproved,
-        });
+      const result = await Schedule.deleteMany({ batchId: schedule.batchId });
 
-        if (result.deletedCount === 0) {
-            return res.status(404).json({ message: "No schedules found for this batch to delete."})
-        }
+      if (result.deletedCount === 0) {
+          return res.status(404).json({ message: "No schedules found for this batch to delete."})
+      }
 
-        res.status(200).json({ message: `${result.deletedCount} schedules from the batch were deleted successfully.`});
+      res.status(200).json({ message: `${result.deletedCount} schedules from the batch were deleted successfully.`});
 
-    } catch (error) {
-        res.status(500).json({ message: "Error deleting schedule batch", error: error.message });
-    }
+  } catch (error) {
+      res.status(500).json({ message: "Error deleting schedule batch", error: error.message });
+  }
 };
 
 // Approve schedule by batch id
 export const approveScheduleBatch = async (req, res) => {
   try {
     const { id } = req.params;
-    const schedule = await Schedule.findById(id);
 
+    const schedule = await Schedule.findById(id);
     if (!schedule) {
-      return res.status(404).json({ message: "Schedule not found, cannot identify batch to approve." });
+      return res.status(404).json({ message: "Schedule not found" });
     }
 
-    const { client, deploymentLocation, shiftType } = schedule;
-
     const result = await Schedule.updateMany(
-      { client, deploymentLocation, shiftType, isApproved: "Pending" },
+      { batchId: schedule.batchId, isApproved: "Pending" },
       { $set: { isApproved: "Approved" } }
     );
 
-    if (result.matchedCount === 0) {
-      return res.status(404).json({ message: "No pending schedules found for this batch to approve." });
-    }
-
-    res.status(200).json({ message: `${result.modifiedCount} schedules from the batch were approved successfully.` });
-  } catch (error) {
-    res.status(500).json({ message: "Error approving schedule batch", error: error.message });
+    res.status(200).json({
+      message: `${result.modifiedCount} schedules approved.`,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Error approving batch", error: err });
   }
 };
 
@@ -361,30 +336,25 @@ export const declineScheduleBatch = async (req, res) => {
   try {
     const { id } = req.params;
     const { remarks } = req.body;
-    
+
     if (!remarks) {
-      return res.status(400).json({ message: "Remarks are required to decline a batch." });
+      return res.status(400).json({ message: "Remarks required" });
     }
 
     const schedule = await Schedule.findById(id);
-
     if (!schedule) {
-      return res.status(404).json({ message: "Schedule not found, cannot identify batch to decline." });
+      return res.status(404).json({ message: "Schedule not found" });
     }
 
-    const { client, deploymentLocation, shiftType } = schedule;
-
     const result = await Schedule.updateMany(
-      { client, deploymentLocation, shiftType, isApproved: "Pending" },
+      { batchId: schedule.batchId, isApproved: "Pending" },
       { $set: { isApproved: "Declined", remarks } }
     );
 
-    if (result.matchedCount === 0) {
-      return res.status(404).json({ message: "No pending schedules found for this batch to decline." });
-    }
-
-    res.status(200).json({ message: `${result.modifiedCount} schedules from the batch were declined successfully.` });
-  } catch (error) {
-    res.status(500).json({ message: "Error declining schedule batch", error: error.message });
+    res.status(200).json({
+      message: `${result.modifiedCount} schedules declined.`,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Error declining batch", error: err });
   }
 };

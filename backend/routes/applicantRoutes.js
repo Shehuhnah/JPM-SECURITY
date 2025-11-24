@@ -3,9 +3,10 @@ import {
   getApplicants,
   createApplicant,
   updateApplicant,
-  deleteApplicant,
+  declineApplicant,
   sendInterviewEmail,
-  sendHireEmail, // ✅ Add this
+  sendHireEmail,
+  addInterviewRemarks,
 } from "../controller/applicantController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -16,6 +17,8 @@ router.route("/").get(protect, getApplicants).post(protect, createApplicant);
 router.post("/:id/interview-email", protect, sendInterviewEmail);
 router.post("/:id/hire-email", protect, sendHireEmail); // ✅ Add this route
 
-router.route("/:id").put(protect, updateApplicant).delete(protect, deleteApplicant);
+router.route("/:id").put(protect, updateApplicant);
+router.patch("/:id/decline", protect, declineApplicant);
+router.patch("/:id/remarks", protect, addInterviewRemarks);
 
 export default router;

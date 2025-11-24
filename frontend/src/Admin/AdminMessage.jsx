@@ -52,11 +52,20 @@ export default function MessagesPage() {
 
   const getParticipantName = (p) => {
     if (!p) return "Unknown";
-    if (typeof p.userId === "object" && p.userId?.name) return p.userId.name;
+    // If participant object has a populated user field (from backend)
+    if (p.user?.fullName) return p.user.fullName; // For Guards
+    if (p.user?.name) return p.user.name; // For Admin/Subadmin/Applicant
+    
+    // Fallback for cases where participant.userId might be directly the populated object.
+    if (p.userId?.fullName) return p.userId.fullName;
+    if (p.userId?.name) return p.userId.name;
 
+    // Fallback if trying to match with availableUsers (e.g., for starting new chats)
     const match = availableUsers.find(u => u._id === (typeof p.userId === "string" ? p.userId : p.userId?._id));
-    if (match) return match.name;
-    if (p.userId === user._id) return user.name || "Me";
+    if (match) return match.fullName || match.name; // Use fullName for guards, name for others
+
+    // If it's the current user's entry in participants array
+    if (p.userId === user._id) return user.fullName || user.name || "Me";
 
     return "Unknown";
   };
@@ -203,22 +212,34 @@ export default function MessagesPage() {
     return () => socket.off("conversationUpdated", handleConversationUpdated);
   }, [selectedConversation, user]);
 
+  const getReceiver = () => {
+    return selectedConversation?.participants?.find(p => {
+      const pid = p?.userId?._id || p?.userId; // object OR string
+      return pid?.toString() !== user._id.toString();
+    });
+  };
+  
   // Send message
   const handleSend = async () => {
     if (!newMessage.trim() && !file) return;
     if (!selectedConversation) return;
 
     if (!isAdminConversation(selectedConversation)) return;
+    console.log("selected convo: ", selectedConversation)
 
-    const receiver = selectedConversation.participants.find(p => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id);
+    const receiver = getReceiver();
     if (!receiver) return;
 
+    const receiverId =
+      receiver?.userId?._id ||
+      receiver?.userId;
+      
     const tempId = Date.now();
 
     const formData = new FormData();
     formData.append("text", newMessage);
     formData.append("type", selectedConversation.type || "admin-subadmin");
-    formData.append("receiverId", typeof receiver.userId === "string" ? receiver.userId : receiver.userId?._id);
+    formData.append("receiverId", receiverId); // Access _id from populated user
     formData.append("receiverRole", receiver.role);
     if (file) formData.append("file", file);
 
@@ -269,8 +290,8 @@ export default function MessagesPage() {
     const tempConversation = {
       _id: `temp-${Date.now()}`,
       participants: [
-        { userId: user._id, role: user.role, name: user.name },
-        { userId: targetUser._id, role: targetUser.role, name: targetUser.name },
+        { userId: user._id, role: user.role, user: { _id: user._id, name: user.name, fullName: user.fullName } },
+        { userId: targetUser._id, role: targetUser.role, user: { _id: targetUser._id, name: targetUser.name, fullName: targetUser.fullName } },
       ],
       type,
       lastMessage: null,

@@ -5,6 +5,8 @@ import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { parseISO, format } from "date-fns";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
+import { ToastContainer, toast, Bounce } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function AdminAddSchedule() {
   const { user, loading } = useAuth();
@@ -84,9 +86,9 @@ export default function AdminAddSchedule() {
             });
 
             // Check if all schedules in the batch have the same guardId
-            const uniqueGuardIds = new Set(batchData.map(s => s.guardId));
+            const uniqueGuardIds = new Set(batchData.map(s => s.guardId.toString())); // Convert to string for comparison
             if (uniqueGuardIds.size === 1) {
-                const guard = guards.find((g) => g._id === firstSched.guardId);
+                const guard = guards.find((g) => g._id === firstSched.guardId.toString()); // Convert to string for comparison
                 setSelectedGuard(guard);
             } else {
                 setMessage("❌ This batch contains schedules for multiple guards and cannot be edited on this page.");
@@ -131,14 +133,15 @@ export default function AdminAddSchedule() {
       const dateStr = format(day, "yyyy-MM-dd");
       const timeInFull = `${dateStr}T${shiftTimes.timeIn}`;
       let timeOutFull = `${dateStr}T${shiftTimes.timeOut}`;
+
       if (form.shiftType === "Night Shift") {
         const nextDay = new Date(day);
         nextDay.setDate(nextDay.getDate() + 1);
         timeOutFull = `${format(nextDay, "yyyy-MM-dd")}T${shiftTimes.timeOut}`;
       }
+
       return {
         guardId: selectedGuard._id,
-        guardName: selectedGuard.fullName,
         deploymentLocation: form.deploymentLocation,
         client: form.client,
         position: form.position,
@@ -156,8 +159,10 @@ export default function AdminAddSchedule() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ schedules }),
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Error adding schedules");
+
       setMessage("✅ Schedules added successfully!");
       navigate("/admin/deployment");
     } catch (err) {
@@ -187,7 +192,6 @@ export default function AdminAddSchedule() {
       }
       return {
         guardId: selectedGuard._id,
-        guardName: selectedGuard.fullName,
         deploymentLocation: form.deploymentLocation,
         client: form.client,
         position: form.position,
@@ -265,7 +269,23 @@ export default function AdminAddSchedule() {
               filteredGuards.map((guard) => (
                 <div
                   key={guard._id}
-                  onClick={() => setSelectedGuard(guard)}
+                  onClick={() => {
+                    if (guard.status === "Active") {
+                      setSelectedGuard(guard);
+                    } else {
+                      toast.error("Active guards only can be deploy", {
+                        position: "top-right",
+                        autoClose: 5000,
+                        hideProgressBar: false,
+                        closeOnClick: false,
+                        pauseOnHover: true,
+                        draggable: true,
+                        progress: undefined,
+                        theme: "dark",
+                        transition: Bounce,
+                      });
+                    }
+                  }}
                   className={`p-4 rounded-lg cursor-pointer transition ${
                     selectedGuard?._id === guard._id
                       ? "bg-blue-600/20 border-blue-500"
@@ -442,6 +462,7 @@ export default function AdminAddSchedule() {
       <div className="text-center text-gray-500 text-xs mt-10">
         © {new Date().getFullYear()} JPM Security Agency — Admin Dashboard
       </div>
+      <ToastContainer />
     </section>
   );
 }

@@ -38,7 +38,6 @@ const guardSchema = new mongoose.Schema(
     phoneNumber: {
       type: String,
       required: [true, "Phone number is required"],
-      match: [/^\d{10,11}$/, "Please enter a valid phone number"],
     },
     SSSID: {
       type: String,
@@ -66,7 +65,6 @@ const guardSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["Active", "Inactive"],
       default: "Active",
     },
     lastLogin: {

@@ -1,7 +1,6 @@
 import IDRequest from "../models/IDRequest.model.js";
 import mongoose from "mongoose";
 
-
 export const createRequest = async (req, res) => {
   try {
     const { requestType, requestReason } = req.body;
@@ -10,7 +9,7 @@ export const createRequest = async (req, res) => {
       return res.status(400).json({ message: "All fields are required." });
     }
 
-    // Guard info from auth middleware
+    // Guard info from auth middleware (req.user is the guard document)
     const guardId = req.user._id;
 
     const newRequest = await IDRequest.create({
@@ -32,22 +31,19 @@ export const createRequest = async (req, res) => {
 
 export const getAllRequests = async (req, res) => {
   try {
-    const requests = await IDRequest.find()
-        .populate(
-            "guard",
-            "fullName email guardId dutyStation shift phoneNumber position status"
-            )   
-        .sort({ createdAt: -1 });
+    const requests = await IDRequest.find({ guard: { $ne: null } })
+      .populate("guard", "fullName position email guardId") // <- make sure you include the fields you need
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
-        success: true,
-        count: requests.length,
-        data: requests,
+      success: true,
+      count: requests.length,
+      data: requests,
     });
-    } catch (error) {
-        console.error("Error fetching ID requests:", error);
-        res.status(500).json({ message: "Server error fetching ID requests." });
-    }
+  } catch (error) {
+    console.error("Error fetching ID requests:", error);
+    res.status(500).json({ message: "Server error fetching ID requests." });
+  }
 };
 
 export const getRequestById = async (req, res) => {
@@ -58,8 +54,7 @@ export const getRequestById = async (req, res) => {
       return res.status(400).json({ message: "Invalid request ID." });
     }
 
-    const request = await IDRequest.findById(id).populate("guard", "fullName email");
-
+    const request = await IDRequest.findById(id).populate("guard", "fullName email guardId"); // Added guardId to populate
     if (!request) {
       return res.status(404).json({ message: "ID request not found." });
     }
@@ -76,6 +71,7 @@ export const getMyRequests = async (req, res) => {
     const guardId = req.user.id;
 
     const myRequests = await IDRequest.find({ guard: guardId })
+      .populate("guard", "fullName email guardId") // Populating guard data
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -113,7 +109,7 @@ export const updateRequest = async (req, res) => {
       id,
       updateFields,
       { new: true }
-    ).populate("guard", "fullName email dutyStation shift guardId");
+    ).populate("guard", "fullName email guardId"); // Updated populate fields
 
     if (!updatedRequest) {
       return res.status(404).json({ message: "Request not found." });

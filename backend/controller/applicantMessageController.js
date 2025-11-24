@@ -1,6 +1,9 @@
 import Conversation from "../models/conversation.model.js";
 import Message from "../models/message.model.js";
 import Applicant from "../models/applicant.model.js";
+import User from "../models/User.model.js"; // Import User model explicitly
+import Guard from "../models/guard.model.js"; // Import Guard model explicitly
+
 
 import { io, onlineUsersMap } from "../server.js";
 
@@ -11,17 +14,25 @@ const normalizeId = (value) => {
   return String(value);
 };
 
-const ensureAdminParticipant = async (conversation) => {
-  const hasAdmin = conversation.participants.some((p) => p.role === "Admin");
-  if (hasAdmin) return;
-  const userModel = await import("../models/User.model.js").then((m) => m.default);
-  const admin = await userModel.findOne({ role: "Admin" }, "name role");
-  if (!admin) {
-    throw new Error("No admin available for applicant chat.");
+// This function needs to ensure that if an applicant conversation exists, it has an Admin/Subadmin participant.
+// It will dynamically add one if missing.
+const ensureHRParticipant = async (conversation) => {
+  const hrParticipant = conversation.participants.some(p => p.role === "Admin" || p.role === "Subadmin");
+  if (hrParticipant) return; // Already has an HR participant
+
+  // Find any Subadmin first, then fallback to Admin
+  let hrUser = await User.findOne({ role: "Subadmin" }, "_id name role");
+  if (!hrUser) {
+    hrUser = await User.findOne({ role: "Admin" }, "_id name role");
   }
+
+  if (!hrUser) {
+    throw new Error("No HR representative (Admin/Subadmin) available for applicant chat.");
+  }
+
   conversation.participants.push({
-    userId: admin._id,
-    role: "Admin",
+    userId: hrUser._id,
+    role: hrUser.role,
   });
   await conversation.save();
 };
@@ -87,6 +98,9 @@ export const initApplicantConversation = async (req, res) => {
       });
     }
 
+    // Ensure an HR participant is in the conversation
+    await ensureHRParticipant(conversation);
+
     // Populate applicant participant for response
     const applicantParticipant = conversation.participants.find((p) => p.role === "Applicant");
     if (applicantParticipant) {
@@ -148,35 +162,19 @@ export const sendApplicantMessage = async (req, res) => {
     const { conversationId } = req.params;
     const { text, applicantId, jobPosition } = req.body;
 
-    console.log("📨 [sendApplicantMessage] Received request:", {
-      conversationId,
-      applicantId,
-      hasText: !!text,
-      hasFile: !!req.file
-    });
-
     const conversation = await Conversation.findById(conversationId);
-    console.log("🔍 [sendApplicantMessage] Conversation found:", {
-      exists: !!conversation,
-      type: conversation?.type,
-      participants: conversation?.participants?.length || 0
-    });
 
     if (!conversation) {
-      console.error("❌ [sendApplicantMessage] Conversation not found with ID:", conversationId);
       return res.status(404).json({ message: "Conversation not found." });
     }
 
-    // Check if conversation type is valid (including legacy types)
     const validTypes = ["admin-applicant", "applicant-admin", "subadmin-applicant", "applicant-subadmin"];
     if (!validTypes.includes(conversation.type)) {
-      console.error("❌ [sendApplicantMessage] Invalid conversation type:", conversation.type);
       return res.status(404).json({ message: "Conversation not found." });
     }
 
     // Convert old admin-applicant types to applicant-subadmin
     if (conversation.type === "admin-applicant" || conversation.type === "applicant-admin") {
-      console.log("🔄 [sendApplicantMessage] Converting conversation type from", conversation.type, "to applicant-subadmin");
       conversation.type = "applicant-subadmin";
       await conversation.save();
     }
@@ -191,46 +189,29 @@ export const sendApplicantMessage = async (req, res) => {
     }
 
     const senderId = applicantParticipant.userId;
-    // Ensure there is an HR participant (prefer Subadmin; fallback to Admin)
-    let subadminParticipant = conversation.participants.find((p) => p.role === "Subadmin");
-    let adminParticipant = conversation.participants.find((p) => p.role === "Admin");
+    const senderRole = "Applicant";
+    // Ensure there is an HR participant (Subadmin or Admin)
+    await ensureHRParticipant(conversation);
 
-    let receiverId = subadminParticipant?.userId || adminParticipant?.userId;
-    let receiverRole = subadminParticipant ? "Subadmin" : (adminParticipant ? "Admin" : null);
+    let receiverHR = conversation.participants.find(p => p.role === "Subadmin" || p.role === "Admin");
+    let receiverId = receiverHR?.userId || senderId; // Fallback to sender if no HR found (shouldn't happen with ensureHRParticipant)
+    let receiverRole = receiverHR?.role || "Applicant";
 
-    if (!receiverId) {
-      try {
-        // Try to attach a Subadmin
-        const userModel = await import("../models/User.model.js").then((m) => m.default);
-        const anySubadmin = await userModel.findOne({ role: "Subadmin" }, "_id name role");
-        if (anySubadmin) {
-          conversation.participants.push({ userId: anySubadmin._id, role: "Subadmin", user: anySubadmin });
-          receiverId = anySubadmin._id;
-          receiverRole = "Subadmin";
-        } else {
-          // Fallback: ensure there is at least one Admin participant
-          await ensureAdminParticipant(conversation);
-          adminParticipant = conversation.participants.find((p) => p.role === "Admin");
-          receiverId = adminParticipant?.userId;
-          receiverRole = "Admin";
-        }
-        await conversation.save();
-      } catch (e) {
-        console.error("Failed ensuring HR participant:", e);
-      }
-    }
+    // Map roles to model names for refPath
+    const senderModel = "Applicant";
+    const receiverModel = (receiverRole === 'Admin' || receiverRole === 'Subadmin') ? 'Admin' : receiverRole;
 
     const messageData = {
       conversationId: conversation._id,
       senderId,
-      receiverId: receiverId || senderId, // Fallback if no receiver yet
+      receiverId,
       text: text || "",
-      sender: { userId: senderId, role: "Applicant" },
-      receiver: { userId: receiverId || senderId, role: receiverRole || (subadminParticipant ? "Subadmin" : "Admin") },
+      sender: { userId: senderId, role: senderModel },
+      receiver: { userId: receiverId, role: receiverModel },
     };
 
     if (req.file) {
-      messageData.file = "/uploads/" + req.file.filename;
+      messageData.file = "/uploads/messages/" + req.file.filename; // Correct path
       messageData.fileName = req.file.originalname;
     }
 
@@ -239,8 +220,7 @@ export const sendApplicantMessage = async (req, res) => {
     // If a job position is provided (from forwarded post), update applicant's position
     try {
       if (jobPosition && typeof jobPosition === "string" && jobPosition.trim()) {
-        const applicantDoc = await import("../models/applicant.model.js").then(m => m.default);
-        await applicantDoc.findByIdAndUpdate(senderId, { position: jobPosition.trim() });
+        await Applicant.findByIdAndUpdate(senderId, { position: jobPosition.trim() });
       }
     } catch (e) {
       console.error("Failed to update applicant position:", e);
@@ -263,73 +243,64 @@ export const sendApplicantMessage = async (req, res) => {
     conversation.lastMessage = {
       text: text || (req.file ? "Sent an attachment" : ""),
       senderId,
-      senderRole: "Applicant",
+      senderRole: senderRole,
       createdAt: new Date(),
       seen: false,
     };
-    // Populate lastMessage.sender with Applicant user details for front-end name fallback
-    try {
-      const applicantUser = await Applicant.findById(senderId, "name email resume status");
-      if (applicantUser) {
-        conversation.lastMessage.sender = applicantUser;
-      }
-    } catch (e) {
-      console.error("Failed populating lastMessage.sender (applicant):", e);
-    }
     await conversation.save();
 
     // Populate participants before emitting
-    for (let participant of conversation.participants) {
-      if (participant.role === "Admin" || participant.role === "Subadmin") {
-        const userModel = await import("../models/User.model.js").then(m => m.default);
-        participant.user = await userModel.findById(participant.userId, "name email role");
-      } else if (participant.role === "Guard") {
-        const guardModel = await import("../models/guard.model.js").then(m => m.default);
-        participant.user = await guardModel.findById(participant.userId, "fullName email role");
-      } else if (participant.role === "Applicant") {
-        const applicantModel = await import("../models/applicant.model.js").then(m => m.default);
-        participant.user = await applicantModel.findById(participant.userId, "name email phone isDeleted");
-      }
+    const populateParticipants = async (participants) => {
+        const populated = [];
+        for (let participant of participants) {
+            let userDoc = null;
+            if (participant.role === "Admin" || participant.role === "Subadmin") {
+                userDoc = await User.findById(participant.userId, "name email role");
+            } else if (participant.role === "Guard") {
+                userDoc = await Guard.findById(participant.userId, "fullName email role");
+            } else if (participant.role === "Applicant") {
+                userDoc = await Applicant.findById(participant.userId, "name email phone isDeleted");
+            }
+            if (userDoc) {
+                populated.push({ ...participant.toObject(), user: userDoc });
+            } else {
+                populated.push(participant.toObject());
+            }
+        }
+        return populated;
     }
 
+    const populatedConversation = {
+        ...conversation.toObject(),
+        participants: await populateParticipants(conversation.participants)
+    };
+
+    // Emit to sender and receiver
     const recipients = [senderId.toString(), receiverId.toString()];
     for (const id of recipients) {
       const socketId = onlineUsersMap[id];
       if (!socketId) continue;
 
-      // Include senderUser similar to other flows for consistent client handling
-      const senderUser = await Applicant.findById(senderId, "name email resume status");
+      let senderUser;
+      if (senderRole === "Applicant") {
+        senderUser = await Applicant.findById(senderId, "name email resume status");
+      }
       io.to(socketId).emit("receiveMessage", { ...message.toObject(), senderUser });
-      io.to(socketId).emit("conversationUpdated", conversation.toObject());
+      io.to(socketId).emit("conversationUpdated", populatedConversation);
     }
 
     // Notify all subadmins and admins that an applicant has sent a message
-    try {
-      const userModel = await import("../models/User.model.js").then((m) => m.default);
-      const subadmins = await userModel.find({ role: "Subadmin" }, "_id");
-      for (const subadmin of subadmins) {
-        const subadminSocket = onlineUsersMap[normalizeId(subadmin._id)];
-        if (subadminSocket) {
-          const senderUser = await Applicant.findById(senderId, "name email resume status");
-          io.to(subadminSocket).emit("conversationUpdated", conversation.toObject());
-          io.to(subadminSocket).emit("receiveMessage", { ...message.toObject(), senderUser });
-        }
+    const allHrUsers = await User.find({ $or: [{ role: "Subadmin" }, { role: "Admin" }] }, "_id");
+    for (const hrUser of allHrUsers) {
+      const hrSocketId = onlineUsersMap[normalizeId(hrUser._id)];
+      if (hrSocketId && !recipients.includes(normalizeId(hrUser._id))) { // Avoid double-emitting
+        let senderUser = await Applicant.findById(senderId, "name email resume status");
+        io.to(hrSocketId).emit("conversationUpdated", populatedConversation);
+        io.to(hrSocketId).emit("receiveMessage", { ...message.toObject(), senderUser });
       }
-      
-      const admins = await userModel.find({ role: "Admin" }, "_id");
-      for (const admin of admins) {
-        const adminSocket = onlineUsersMap[normalizeId(admin._id)];
-        if (adminSocket) {
-          const senderUser = await Applicant.findById(senderId, "name email resume status");
-          io.to(adminSocket).emit("conversationUpdated", conversation.toObject());
-          io.to(adminSocket).emit("receiveMessage", { ...message.toObject(), senderUser });
-        }
-      }
-    } catch (e) {
-      console.error("Failed broadcasting applicant message to subadmins/admins:", e);
     }
 
-    res.status(201).json({ message: message.toObject(), conversation: conversation.toObject() });
+    res.status(201).json({ message: message.toObject(), conversation: populatedConversation });
   } catch (err) {
     console.error("Error sending applicant message:", err);
     res.status(500).json({ message: "Failed to send message." });

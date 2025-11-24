@@ -23,33 +23,46 @@ export default function GuardReqCOE() {
   const [showCOEModal, setShowCOEModal] = useState(false);
   const [selectedCOE, setSelectedCOE] = useState(null);
 
-  const { user, loading  } = useAuth(); // can be guard account or subadmin account
-  console.log("Authenticated user:", user);
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     document.title = "Request COE | JPM Agency Security";
 
-    if (!user || loading) {
-      // wait until user is loaded
-    } else {
-      return;
-    }
+    if (!user || loading) return;
 
     const fetchRequests = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/coe/me", {
           credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
         });
         if (!res.ok) throw new Error("Failed to load requests");
         const data = await res.json();
-        setRequests(data.items || data);
+
+        const normalizedRequests = (data.items || data).map((req) => {
+          const userObj =
+            req.requesterRole === "guard"
+              ? req.guard || {}
+              : req.subadmin || {};
+
+          return {
+            ...req,
+            user: {
+              name: userObj.fullName || userObj.name || "UNDEFINED",
+              id: userObj._id || "",
+              guardId: userObj.guardId || userObj._id || "",
+              phone: userObj.phoneNumber || userObj.contactNumber || "",
+              email: userObj.email || "",
+            },
+          };
+        });
+
+        setRequests(normalizedRequests);
       } catch (err) {
         console.error(err);
       }
     };
+
     fetchRequests();
   }, [user, loading]);
 
@@ -65,23 +78,41 @@ export default function GuardReqCOE() {
       const res = await fetch("http://localhost:5000/api/coe", {
         method: "POST",
         credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ purpose, role: user?.role || "guard" }),
       });
-
       if (!res.ok) throw new Error("Failed to submit request");
+
+      // reload requests
       const res2 = await fetch("http://localhost:5000/api/coe/me", {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
       });
       const data = await res2.json();
-      setRequests(data.items || data);
+
+      const normalizedRequests = (data.items || data).map((req) => {
+        const userObj =
+          req.requesterRole === "guard"
+            ? req.guard || {}
+            : req.subadmin || {};
+        return {
+          ...req,
+          user: {
+            name: userObj.fullName || userObj.name || "UNDEFINED",
+            id: userObj._id || "",
+            guardId: userObj.guardId || userObj._id || "",
+            phone: userObj.phoneNumber || userObj.contactNumber || "",
+            email: userObj.email || "",
+          },
+        };
+      });
+
+      setRequests(normalizedRequests);
       setPurpose("");
       setMessage("✅ Your COE request has been sent successfully!");
       setTimeout(() => setMessage(""), 3000);
-    } catch (error) {
+    } catch (err) {
+      console.error(err);
       setMessage("❌ Error submitting request. Please try again.");
     } finally {
       setLoadingPage(false);
@@ -91,35 +122,35 @@ export default function GuardReqCOE() {
   const handleClientGenerateAndDownload = (coe) => {
     try {
       const payload = {
-        name: coe.guardName || "Employee Name",
-        guardId: coe.guardId || "",
+        name: coe.user?.name || "Employee Name",
+        guardId: coe.user?.guardId || "",
         purpose: coe.purpose || "For employment verification",
         id: coe._id || "0000",
       };
 
       const options = {
         headerImage: header,
-        position: coe.position || "Security Officer",
-        employmentStart: coe.employmentStartDate || "November 2023",
-        employmentEnd: coe.employmentEndDate || "Present",
-        salary: coe.salary || "Twenty-Four Thousand Pesos (P24,000)",
-        companyName: coe.companyName || "JPM SECURITY AGENCY CORP",
-        companyAddress: coe.companyAddress || "Indang, Cavite, Philippines",
+        position: coe.approvedCOE?.position || "Security Officer",
+        employmentStart: coe.approvedCOE?.employmentStartDate || "November 2023",
+        employmentEnd: coe.approvedCOE?.employmentEndDate || "Present",
+        salary: coe.approvedCOE?.salary || "Twenty-Four Thousand Pesos (P24,000)",
+        companyName: "JPM SECURITY AGENCY CORP",
+        companyAddress: "Indang, Cavite, Philippines",
         issuedDate:
-          coe.issuedDate ||
+          coe.approvedCOE?.issuedDate ||
           new Date().toLocaleDateString("en-US", {
             month: "long",
             day: "numeric",
             year: "numeric",
           }),
         location: "Indang, Cavite",
-        signatory: coe.issuedBy || "KYLE CHRISTOPHER E. PASTRANA",
-        signatoryTitle: coe.signatoryTitle || "HR and Head Administrator",
+        signatory: coe.approvedCOE?.issuedBy || "KYLE CHRISTOPHER E. PASTRANA",
+        signatoryTitle: "HR and Head Administrator",
         companyShort: "JPMSA Corp.",
       };
 
       generateAndDownloadCOE(payload, options);
-      setMessage("📄 COE generated and downloaded successfully!");
+      setMessage("✅ COE generated and downloaded successfully!");
       setTimeout(() => setMessage(""), 3000);
     } catch (err) {
       console.error(err);
@@ -185,10 +216,10 @@ export default function GuardReqCOE() {
           <div className="flex justify-center">
             <button
               type="submit"
-              disabled={loading}
+              disabled={loadingPage}
               className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:from-gray-600 disabled:to-gray-500 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition flex items-center justify-center gap-2 text-sm sm:text-base"
             >
-              {loading ? (
+              {loadingPage ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   Submitting...
@@ -254,18 +285,18 @@ export default function GuardReqCOE() {
               </div>
 
               <div className="space-y-2">
-              <h3 className="text-blue-400 font-semibold">Purpose</h3>
-              <p className="text-gray-100 leading-relaxed break-words">
-              {request.purpose}
-              </p>
+                <h3 className="text-blue-400 font-semibold">Purpose</h3>
+                <p className="text-gray-100 leading-relaxed break-words">
+                  {request.purpose}
+                </p>
               </div>
-              
+
               {request.status === "Declined" && request.declineReason && (
-              <div className="mt-3 p-3 rounded-md bg-red-500/10 border border-red-500/40">
-              <p className="text-red-300 text-sm">
-              Decline reason: {request.declineReason}
-              </p>
-              </div>
+                <div className="mt-3 p-3 rounded-md bg-red-500/10 border border-red-500/40">
+                  <p className="text-red-300 text-sm">
+                    Decline reason: {request.declineReason}
+                  </p>
+                </div>
               )}
 
               {/* Approved COE Section */}
@@ -280,21 +311,13 @@ export default function GuardReqCOE() {
 
                       <div className="flex gap-2 w-full sm:w-auto justify-end">
                         <button
-                          onClick={() => handleViewCOE(request.approvedCOE)}
+                          onClick={() => handleViewCOE(request)}
                           className="p-2 bg-blue-600/20 text-blue-400 rounded-md hover:bg-blue-600/30 transition"
                         >
                           <Eye size={14} />
                         </button>
                         <button
-                          onClick={() =>
-                            handleClientGenerateAndDownload({
-                              guardName: request.guardName,
-                              guardId: request.guardId,
-                              purpose: request.purpose,
-                              _id: request._id,
-                              ...request.approvedCOE,
-                            })
-                          }
+                          onClick={() => handleClientGenerateAndDownload(request)}
                           className="p-2 bg-green-600/20 text-green-400 rounded-md hover:bg-green-600/30 transition"
                         >
                           <Download size={14} />
@@ -310,9 +333,7 @@ export default function GuardReqCOE() {
                       <p>
                         <Calendar className="inline w-4 h-4 mr-1" />
                         Issued:{" "}
-                        {new Date(
-                          request.approvedCOE.issuedDate
-                        ).toLocaleDateString()}
+                        {new Date(request.approvedCOE.issuedDate).toLocaleDateString()}
                       </p>
                       <p>
                         <User className="inline w-4 h-4 mr-1" />
@@ -332,7 +353,6 @@ export default function GuardReqCOE() {
         <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50 p-4 overflow-y-auto">
           <div className="bg-[#1e293b] text-white rounded-xl border border-gray-700 w-full max-w-3xl shadow-2xl">
             <div className="p-4 sm:p-6">
-              {/* Header */}
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg sm:text-xl font-semibold text-green-400 flex items-center gap-2">
                   <FileText size={20} />
@@ -346,13 +366,14 @@ export default function GuardReqCOE() {
                 </button>
               </div>
 
-              {/* COE Content */}
               <div className="bg-white text-black rounded-lg p-4 sm:p-6 space-y-4 sm:space-y-6 text-sm sm:text-base">
                 <div className="text-center border-b pb-3 sm:pb-4 border-gray-300">
                   <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
-                    {selectedCOE.companyName}
+                    {selectedCOE.approvedCOE.companyName || "JPM SECURITY AGENCY CORP"}
                   </h1>
-                  <p className="text-gray-600">{selectedCOE.companyAddress}</p>
+                  <p className="text-gray-600">
+                    {selectedCOE.approvedCOE.companyAddress || "Indang, Cavite, Philippines"}
+                  </p>
                 </div>
 
                 <div className="text-center">
@@ -360,22 +381,22 @@ export default function GuardReqCOE() {
                     CERTIFICATE OF EMPLOYMENT
                   </h2>
                   <p className="text-gray-600">
-                    Document No: {selectedCOE.documentNumber}
+                    Document No: {selectedCOE.approvedCOE.documentNumber}
                   </p>
                 </div>
 
                 <div className="space-y-3 sm:space-y-4 text-gray-700">
                   <p>
                     This is to certify that{" "}
-                    <strong>{selectedCOE.guardName}</strong> (ID:{" "}
-                    {selectedCOE.guardId}) has been employed with{" "}
-                    <strong>{selectedCOE.companyName}</strong> as a{" "}
-                    <strong>{selectedCOE.position}</strong> from{" "}
-                    <strong>{selectedCOE.employmentStartDate}</strong> to{" "}
-                    <strong>{selectedCOE.employmentEndDate}</strong>.
+                    <strong>{selectedCOE.user?.name}</strong> (ID:{" "}
+                    {selectedCOE.user?.guardId}) has been employed with{" "}
+                    <strong>{selectedCOE.approvedCOE.companyName || "JPM SECURITY AGENCY CORP"}</strong> as a{" "}
+                    <strong>{selectedCOE.approvedCOE.position}</strong> from{" "}
+                    <strong>{selectedCOE.approvedCOE.employmentStartDate || "Undefined"}</strong> to{" "}
+                    <strong>{selectedCOE.approvedCOE.employmentEndDate || "Present"}</strong>.
                   </p>
                   <p>
-                    Salary: <strong>{selectedCOE.salary}</strong>
+                    Salary: <strong>{selectedCOE.approvedCOE.salary}</strong>
                   </p>
                   <p>
                     Purpose: <strong>{selectedCOE.purpose}</strong>
@@ -386,20 +407,17 @@ export default function GuardReqCOE() {
                   <div className="text-center">
                     <div className="border-t border-gray-400 pt-2 w-40 mx-auto">
                       <p className="font-semibold">
-                        {selectedCOE.digitalSignature}
+                        {selectedCOE.approvedCOE.issuedBy}
                       </p>
-                      <p className="text-xs text-gray-600">
-                        Authorized Signatory
-                      </p>
+                      <p className="text-xs text-gray-600">Authorized Signatory</p>
                     </div>
                   </div>
                   <p className="text-xs text-gray-600">
-                    Date: {selectedCOE.issuedDate}
+                    Date: {new Date(selectedCOE.approvedCOE.issuedDate).toLocaleDateString()}
                   </p>
                 </div>
               </div>
 
-              {/* Buttons */}
               <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4">
                 <button
                   onClick={() => handleClientGenerateAndDownload(selectedCOE)}

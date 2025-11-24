@@ -107,8 +107,8 @@ export default function AdminDashboard() {
 
         const guards = guardsRes.ok ? await guardsRes.json() : [];
         const announcements = postsRes.ok ? await postsRes.json() : [];
-        const logs = logsRes.ok ? await logsRes.json() : [];
-        const attendance = attendanceRes.ok ? await attendanceRes.json() : [];
+        const logs = logsRes.ok ? await logsRes.json() : []; // logs now has populated guard
+        const attendance = attendanceRes.ok ? await attendanceRes.json() : []; // attendance now has populated guard and scheduleId
         // store raw attendance for dynamic trend
         setRawAttendance(attendance);
         const applicantsData = applicantsRes.ok
@@ -129,7 +129,7 @@ export default function AdminDashboard() {
         // ——— Guard Status ———
         const statusCounts = { "On Duty": 0, "Off Duty": 0, Absent: 0 };
         attendance.forEach((a) => {
-          const key = a.status || "Off Duty";
+          const key = a.status || "Off Duty"; // Status is directly on Attendance model
           statusCounts[key] = (statusCounts[key] || 0) + 1;
         });
 
@@ -154,10 +154,11 @@ export default function AdminDashboard() {
         const counts7d = dayKeys.map(() => 0);
 
         attendance.forEach((a) => {
-          const created = a.createdAt
-            ? new Date(a.createdAt).toLocaleDateString()
+          // Use a.timeIn for attendance records as it's the Date object now
+          const attendanceDate = a.timeIn 
+            ? new Date(a.timeIn).toLocaleDateString() 
             : null;
-          const idx = dayKeys.indexOf(created);
+          const idx = dayKeys.indexOf(attendanceDate);
           if (idx >= 0) counts7d[idx]++;
         });
 
@@ -189,7 +190,9 @@ export default function AdminDashboard() {
                 minute: "2-digit",
               })
             : "-",
-          guard: l.guard || {},
+          guard: l.guard || {}, // guard object is populated here
+          post: l.post || "", // from logbook itself
+          shift: l.shift || "", // from logbook itself
         }));
 
         // Store chart data
@@ -234,7 +237,7 @@ export default function AdminDashboard() {
       labels.push(cursor.toLocaleString("default", { month: "short", year: "numeric" }));
 
       const count = rawAttendance.filter((rec) => {
-        const d = rec.createdAt ? new Date(rec.createdAt) : null;
+        const d = rec.timeIn ? new Date(rec.timeIn) : null; // Use timeIn for attendance trend
         if (!d) return false;
         return d.getFullYear() === year && d.getMonth() === month;
       }).length;
@@ -616,8 +619,8 @@ export default function AdminDashboard() {
                     {a.guard && (
                       <p className="text-gray-500 text-xs mt-1">
                         {a.guard.fullName || "Unknown Guard"}{" "}
-                        {a.guard.dutyStation
-                          ? `• ${a.guard.dutyStation}`
+                        {a.post
+                          ? `• ${a.post}`
                           : ""}
                       </p>
                     )}

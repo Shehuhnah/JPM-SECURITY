@@ -33,6 +33,22 @@ const normalizeId = (value) => {
   return String(value);
 };
 
+const getParticipantName = (p, session) => { // session is passed as an argument
+  if (!p) return "Unknown";
+  // Prioritize populated user object
+  if (p.user?.fullName) return p.user.fullName; // For Guard
+  if (p.user?.name) return p.user.name; // For Admin/Subadmin/Applicant
+
+  // Fallback if userId itself might be the populated object (less likely with consistent populate)
+  if (p.userId?.fullName) return p.userId.fullName;
+  if (p.userId?.name) return p.userId.name;
+
+  // Fallback to current session's name if this is the applicant's own entry
+  if (normalizeId(p.userId) === normalizeId(session?.applicantId)) return session?.name || "Applicant";
+
+  return "Unknown";
+};
+
 export default function ApplicantsMessages() {
   const { user: admin, loading } = useAuth();
   const navigate = useNavigate();

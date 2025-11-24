@@ -35,15 +35,6 @@ export const registerUser = async (req, res) => {
       contactNumber,
     });
 
-    // // set httpOnly cookie
-    // const token = generateToken(admin._id, admin.role);
-    // res.cookie("accessToken", token, {
-    //   httpOnly: true,
-    //   secure: process.env.NODE_ENV === "production",
-    //   sameSite: "strict",
-    //   maxAge: 1000 * 60 * 60 * 24 * 15, // 15 days
-    // });
-
     res.status(201).json({
       _id: admin._id,
       name: admin.name,
@@ -155,7 +146,7 @@ export const getMe = async (req, res) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Try finding admin first
+    // Try finding admin/subadmin first
     let user = await User.findById(decoded.id).select("-password");
     // If not found, try guard
     if (!user) {
@@ -197,7 +188,7 @@ export const getAdmins = async (req, res) => {
 export const getGuards = async (req, res) => {
   try {
     const guards = await Guard.find({ role: "Guard" }).select(
-      "fullName email role guardId dutyStation shift status"
+      "fullName email guardId phoneNumber address position status" // Removed dutyStation and shift
     );
     res.json(guards);
   } catch (err) {

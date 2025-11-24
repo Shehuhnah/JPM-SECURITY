@@ -4,18 +4,22 @@ const logbookSchema = new mongoose.Schema(
   {
     guard: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Guard", // references the Guard who made the entry
+      ref: "Guard",
       required: true,
+    },
+    scheduleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Schedule",
     },
     post: {
       type: String,
-      required: [true, "Post is required"], // e.g., "Gate 1", "Lobby", etc.
+      required: true,
       trim: true,
     },
     shift: {
       type: String,
       enum: ["Day Shift", "Night Shift", "Rotational"],
-      required: [true, "Shift is required"],
+      required: true,
     },
     type: {
       type: String,
@@ -33,7 +37,7 @@ const logbookSchema = new mongoose.Schema(
       default: Date.now,
     },
   },
-  { timestamps: true } // adds createdAt and updatedAt automatically
+  { timestamps: true } 
 );
 
 const Logbook = mongoose.model("Logbook", logbookSchema);

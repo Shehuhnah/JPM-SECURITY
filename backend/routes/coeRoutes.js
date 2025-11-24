@@ -4,7 +4,7 @@ import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// Guards create requests and view their own
+// Guards/subadmin create requests and view their own
 router.post("/", protect, coeController.createRequest);
 router.get("/me", protect, coeController.getMyRequests);
 

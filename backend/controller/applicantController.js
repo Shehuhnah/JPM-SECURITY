@@ -40,7 +40,21 @@ export const createApplicant = async (req, res) => {
 export const updateApplicant = async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedApplicant = await Applicant.findByIdAndUpdate(id, req.body, {
+    const updateData = { ...req.body };
+
+    if (updateData.status) {
+      const processedById = req.user.id;
+      
+      if (updateData.status === "Interview") {
+        updateData.dateOfInterview = new Date();
+        updateData.processedBy = processedById;
+      } else if (updateData.status === "Hired") {
+        updateData.dateOfHired = new Date();
+        updateData.processedBy = processedById;
+      }
+    }
+
+    const updatedApplicant = await Applicant.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
     });
@@ -56,21 +70,24 @@ export const updateApplicant = async (req, res) => {
   }
 };
 
-// 🔴 Delete applicant
-export const deleteApplicant = async (req, res) => {
+// 🔴 Decline an applicant
+export const declineApplicant = async (req, res) => {
   try {
     const { id } = req.params;
     const applicant = await Applicant.findById(id);
     if (!applicant) {
       return res.status(404).json({ message: "Applicant not found." });
     }
-    // Decline behavior: just mark status and keep data intact
+    
     applicant.status = "Declined";
+    applicant.declinedBy = req.user.id;
+    applicant.declinedDate = new Date();
+    
     await applicant.save();
     res.status(200).json({ message: "Applicant declined successfully." });
   } catch (error) {
-    console.error("Error deleting applicant:", error);
-    res.status(500).json({ message: "Failed to delete applicant." });
+    console.error("Error declining applicant:", error);
+    res.status(500).json({ message: "Failed to decline applicant." });
   }
 };
 
@@ -388,5 +405,26 @@ export const sendHireEmail = async (req, res) => {
   } catch (error) {
     console.error("Error sending hire email:", error);
     res.status(500).json({ message: "Failed to send hire email." });
+  }
+};
+
+// 📝 Add or update interview remarks
+export const addInterviewRemarks = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { remarks } = req.body;
+
+    const applicant = await Applicant.findById(id);
+    if (!applicant) {
+      return res.status(404).json({ message: "Applicant not found." });
+    }
+
+    applicant.interviewRemarks = remarks || "";
+    const updatedApplicant = await applicant.save();
+
+    res.status(200).json(updatedApplicant);
+  } catch (error) {
+    console.error("Error adding interview remarks:", error);
+    res.status(500).json({ message: "Failed to add interview remarks." });
   }
 };

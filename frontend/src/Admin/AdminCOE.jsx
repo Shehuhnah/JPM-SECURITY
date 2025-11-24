@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Filter, RefreshCw, CheckCircle, XCircle, Clock, IdCardLanyard, Eye, Download, FileText, Calendar, User, Phone, Mail } from "lucide-react";
+import { Filter, RefreshCw, CheckCircle, XCircle, Clock, IdCardLanyard, Eye, Download, FileText, Calendar, User, Phone, Mail, Shield, ReceiptText, X } from "lucide-react";
 import { generateAndDownloadCOE } from "../utils/pdfGenerator";
 import { useAuth } from "../hooks/useAuth";
 import header from "../assets/headerpdf/header.png"
-import signature from "../assets/headerpdf/signature.png"
 export default function AdminCOE() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [requests, setRequests] = useState([]);
-
+  const [salaryModal, setSalaryModal] = useState(false)
   const [showPopup, setShowPopup] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedAction, setSelectedAction] = useState(null);
@@ -16,39 +15,47 @@ export default function AdminCOE() {
   const [declineReason, setDeclineReason] = useState("");
   const [isFading, setIsFading] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [salary, setSalary] = useState("");
 
   const { user, loading } = useAuth();
 
-  // Load COE requests from localStorage on component mount
   const fetchRequests = async () => {
     try {
       const res = await fetch('http://localhost:5000/api/coe', {
         credentials: 'include'
       });
       if (!res.ok) throw new Error('Failed to load requests');
+
       const data = await res.json();
       console.log("datas:", data);
+
       const items = data.items || [];
-      const mapped = items.map((req, index) => ({
-        id: req._id,
-        name: req.guardName,
-        guardId: req.guardId,
-        purpose: req.purpose,
-        status: req.status,
-        requesterRole: req.requesterRole,
-        requestedAt: new Date(req.requestedAt).toLocaleString(),
-        phone: req.phone || `0912345678${index + 1}`,
-        email: req.email || `${req.guardName ? req.guardName.toLowerCase().replace(/\s+/g, '.') : 'guard'}@jpmsecurity.com`,
-        processedAt: req.processedAt ? new Date(req.processedAt).toLocaleString() : null,
-        processedBy: req.processedBy || null,
-        declineReason: req.declineReason || null,
-        raw: req,
-      }));
+      const mapped = items.map((req) => {
+        const person = req.raw.requesterRole === 'guard' ? req.raw.guard : req.raw.subadmin;
+        return {
+          id: req.id,
+          name: person?.fullName || person?.name || "N/A",
+          guardId: req.raw.requesterRole === 'guard' ? person?.guardId || "N/A" : person?._id || "N/A",
+          phone: person?.phoneNumber || person?.contactNumber || "N/A",
+          email: person?.email || "N/A",
+          position: person?.position || "N/A",
+          purpose: req.purpose,
+          status: req.status,
+          requesterRole: req.requesterRole,
+          requestedAt: new Date(req.requestedAt).toLocaleString(),
+          processedAt: req.processedAt ? new Date(req.processedAt).toLocaleString() : null,
+          processedBy: req.processedBy || null,
+          declineReason: req.declineReason || null,
+          raw: req.raw,
+        };
+      });
+
       setRequests(mapped);
     } catch (err) {
       console.error(err);
     }
   };
+
 
   useEffect(() => {
     fetchRequests();
@@ -65,11 +72,17 @@ export default function AdminCOE() {
   const handleActionClick = (action, request) => {
     setSelectedAction(action);
     setSelectedRequest(request);
-    setShowPopup(true);
-    setDeclineReason("");
+    setDeclineReason(""); 
+    if (action === "accept") {
+      setSalaryModal(true);   
+      return;                 
+    }
+    setShowPopup(true);;           
   };
 
+
   const handleViewDetails = (request) => {
+    console.log("request: ", request)
     setSelectedRequest(request);
     setShowDetailModal(true);
   };
@@ -93,55 +106,93 @@ export default function AdminCOE() {
   // Confirm action
   const handleConfirm = async () => {
     try {
-      const body = selectedAction === 'accept' ? { action: 'accept' } : { action: 'decline', declineReason };
-      const res = await fetch(`http://localhost:5000/api/coe/${selectedRequest.id}/status`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error('Failed to update request');
+      let body;
+
+      if (selectedAction === "accept") {
+        body = { 
+          action: "accept", 
+          approvedCOE: { salary } // <-- send salary inside approvedCOE
+        };
+      } else {
+        body = { action: "decline", declineReason };
+      }
+
+      const res = await fetch(
+        `http://localhost:5000/api/coe/${selectedRequest.id}/status`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+
+      if (!res.ok) throw new Error("Failed to update request");
+
       const updated = await res.json();
-      setRequests((prev) => prev.map((r) => (r.id === selectedRequest.id ? {
-        ...r,
-        status: updated.status,
-        processedAt: updated.processedAt ? new Date(updated.processedAt).toLocaleString() : r.processedAt,
-        processedBy: updated.processedBy || r.processedBy,
-        declineReason: updated.declineReason || null,
-        raw: updated,
-      } : r)));
+
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === selectedRequest.id
+            ? {
+                ...r,
+                status: updated.status,
+                processedAt: updated.processedAt
+                  ? new Date(updated.processedAt).toLocaleString()
+                  : r.processedAt,
+                processedBy: updated.processedBy || r.processedBy,
+                declineReason: updated.declineReason || null,
+                raw: updated,
+              }
+            : r
+        )
+      );
 
       showToast(
-        selectedAction === 'accept' ? `✅ ${selectedRequest.name}'s request accepted` : `❌ ${selectedRequest.name}'s request declined`,
-        selectedAction === 'accept' ? 'success' : 'error'
+        selectedAction === "accept"
+          ? `✅ ${selectedRequest.name}'s request accepted`
+          : `❌ ${selectedRequest.name}'s request declined`,
+        selectedAction === "accept" ? "success" : "error"
       );
     } catch (err) {
       console.error(err);
-      showToast('Error updating request', 'error');
+      showToast("Error updating request", "error");
     } finally {
       closePopup();
     }
   };
 
   // Export COE function
-  const handleExportCOE = (request) => {
+  const handleExportCOE = async (requestId) => {
     try {
+      // Fetch the full request data from backend
+      const res = await fetch(`http://localhost:5000/api/coe/${requestId}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to fetch COE request');
+      const data = await res.json();
+      console.log("exported data: " , data)
+
+      // Determine requester based on role
+      const person = data.requesterRole === 'guard' ? data.guard : data.subadmin || {};
+      const approvedCOE = data.approvedCOE || {};
+
       generateAndDownloadCOE(
         {
-          name: request.name.toUpperCase(),
-          guardId: request.guardId,
-          purpose: request.purpose,
-          id: request.id,
+          name: (person.fullName || person.name || "UNDEFINED").toUpperCase(),
+          guardId: person.guardId || person._id || "UNDEFINED",
+          purpose: data.purpose,
+          id: data._id,
         },
         {
-          headerImage: header, 
-          position: request.raw?.position || "Security Officer".toUpperCase(),
-          employmentStart: "November 2023",
-          employmentEnd: "current date",
-          salary: "Twenty-Four Thousand Pesos (P24,000)",
+          headerImage: header,
+          position: approvedCOE.position || person.position || "Undefined",
+          employmentStart: approvedCOE.employmentStartDate || "Undefined",
+          employmentEnd: approvedCOE.employmentEndDate || "Present",
+          salary: approvedCOE.salary || "Undefined",
           companyName: "JPM SECURITY AGENCY CORP",
           companyAddress: "Indang, Cavite, Philippines",
-          issuedDate: new Date().toLocaleDateString("en-US", {
+          issuedDate: new Date(approvedCOE.issuedDate || Date.now()).toLocaleDateString("en-US", {
             month: "long",
             day: "numeric",
             year: "numeric",
@@ -160,12 +211,13 @@ export default function AdminCOE() {
     }
   };
 
+
   // Filtering
-  const filtered = requests.filter(
-    (r) =>
-      (statusFilter === "All" || r.status === statusFilter) &&
-      r.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = requests.filter((r) => {
+    const name = r.name || ""; // fallback if undefined
+    return (statusFilter === "All" || r.status === statusFilter) &&
+          name.toLowerCase().includes(search.toLowerCase());
+  });
 
   // Badge
   const getStatusBadge = (status) => {
@@ -255,15 +307,11 @@ export default function AdminCOE() {
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <img
-                        src={`https://i.pravatar.cc/40?u=${r.id}`}
-                        alt={r.name}
-                        className="w-10 h-10 rounded-full border border-gray-600"
-                      />
+                      <IdCardLanyard className="text-blue-400 w-10 h-10"/>
                       <div>
-                        <div className="font-medium text-white">{r.name}</div>
-                        <div className="text-xs text-gray-400">Role: {r.requesterRole}</div>
-                        <div className="text-xs text-gray-400">{r.phone}</div>
+                        <div className="font-medium text-white">{r.name}</div> {/* Access from populated guard */}
+                        <div className="text-xs text-gray-400 font-medium">Position: {r.position}</div>
+                        <div className="text-xs text-gray-400 font-medium">Phone: {r.phone}</div> {/* Access from populated guard */}
                       </div>
                     </div>
                   </td>
@@ -308,7 +356,7 @@ export default function AdminCOE() {
                       
                       {r.status === "Accepted" && (
                         <button
-                          onClick={() => handleExportCOE(r)}
+                          onClick={() => handleExportCOE(r.id)}
                           className="p-2 bg-green-600/20 text-green-400 rounded-md hover:bg-green-600/30 transition"
                           title="Export COE"
                         >
@@ -443,24 +491,20 @@ export default function AdminCOE() {
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={`https://i.pravatar.cc/60?u=${selectedRequest.id}`}
-                          alt={selectedRequest.name}
-                          className="w-12 h-12 rounded-full border border-gray-600"
-                        />
+                        <Shield className="text-blue-400 w-12 h-12"/>
                         <div>
-                          <div className="font-medium text-white">{selectedRequest.name}</div>
-                          <div className="text-sm text-gray-400">ID: {selectedRequest.guardId}</div>
+                          <div className="font-medium text-white">{selectedRequest.name}</div> {/* Access from populated guard */}
+                          <div className="text-sm text-gray-400">ID: {selectedRequest.guardId}</div> {/* Access from populated guard */}
                         </div>
                       </div>
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-sm">
                           <Phone size={14} className="text-blue-400" />
-                          <span className="text-gray-300">{selectedRequest.phone}</span>
+                          <span className="text-gray-300">{selectedRequest.phone}</span> {/* Access from populated guard */}
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                           <Mail size={14} className="text-blue-400" />
-                          <span className="text-gray-300">{selectedRequest.email}</span>
+                          <span className="text-gray-300">{selectedRequest.email}</span> {/* Access from populated guard */}
                         </div>
                       </div>
                     </div>
@@ -567,6 +611,76 @@ export default function AdminCOE() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Salary Modal */}
+        {salaryModal && selectedRequest && (
+          <div
+            className={`fixed inset-0 flex items-center justify-center bg-black/60 z-50 transition duration-300 ${
+              isFading ? "opacity-0" : "opacity-100"
+            }`}
+          >
+            <div
+              className={`bg-[#1e293b] text-white p-6 rounded-xl border border-gray-700 w-full max-w-xl mx-4 shadow-2xl transform transition-all duration-300 ${
+                isFading ? "scale-95 opacity-0" : "scale-100 opacity-100"
+              }`}
+            >
+              <div className="mb-6 flex items-center justify-between">
+                <div className="">
+                  <h2 className="text-xl font-semibold text-blue-400 flex items-center gap-2">
+                    <ReceiptText size={20} />
+                    Approving COE Request
+                  </h2>
+                  <p className="text-gray-300 text-sm mt-1">
+                    Please verify the details below before entering the salary.
+                  </p>
+                </div>
+                <div className="">
+                  <button onClick={() => setSalaryModal(false)}><X/></button>
+                </div>
+              </div>
+
+              {/* Guard Information */}
+              <div className="bg-[#243447] p-4 rounded-lg border border-gray-700 mb-6">
+                <h3 className="text-lg font-semibold text-white mb-3 flex gap-2 items-center"><User className="text-blue-400 w-8 h-8"/> Employee Information</h3>
+
+                <div className="space-y-1 text-gray-300 text-sm font-medium">
+                  <p><span className="text-gray-400">Name:</span> {selectedRequest.name}</p>
+                  <p><span className="text-gray-400">Guard ID:</span> {selectedRequest.guardId}</p>
+                  <p><span className="text-gray-400">Position:</span> {selectedRequest.raw?.guard?.position}</p> 
+                  <p><span className="text-gray-400">Phone:</span> {selectedRequest.phone}</p>
+                  <p><span className="text-gray-400">Email:</span> {selectedRequest.email}</p>
+                  <p><span className="text-gray-400">Purpose:</span> {selectedRequest.purpose}</p>
+                  <p><span className="text-gray-400">Requested At:</span> {selectedRequest.requestedAt}</p>
+                </div>
+              </div>
+
+              {/* Salary Input */}
+              <div className="flex flex-col items-center">
+                <input
+                  type="text"
+                  className="w-full p-2 rounded bg-gray-800 border border-gray-600"
+                  placeholder="Enter salary"
+                  value={salary}
+                  onChange={(e) => setSalary(e.target.value)}
+                />
+
+                <button
+                  onClick={() => {
+                    if (!salary.trim()) {
+                      showToast("Please enter a salary amount first.", "error");
+                      return;
+                    }
+                    setSalaryModal(false);
+                    setShowPopup(true);
+                  }}
+                  className="mt-4 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
+                >
+                  Continue
+                </button>
+              </div>
             </div>
           </div>
         )}

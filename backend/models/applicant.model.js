@@ -23,6 +23,28 @@ const applicantSchema = new mongoose.Schema(
       enum: ["Review", "Interview", "Hired", "Declined"],
       default: "Review",
     },
+    // New fields
+    dateOfHired: {
+      type: Date,
+    },
+    processedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    dateOfInterview: {
+      type: Date,
+    },
+    interviewRemarks: {
+      type: String,
+      default: ''
+    },
+    declinedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    declinedDate: {
+      type: Date,
+    }
   },
   { timestamps: true }
 );

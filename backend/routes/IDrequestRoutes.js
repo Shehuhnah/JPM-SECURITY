@@ -13,7 +13,7 @@ const router = express.Router();
 
 // Guards can create and view their own requests
 router.post("/", protect, createRequest);
-router.get("/myrequests", protect, getMyRequests); // 👈 guard history
+router.get("/myrequests", protect, getMyRequests); // guard history
 router.get("/:id", protect, getRequestById);
 
 // Admins can view all requests or modify them

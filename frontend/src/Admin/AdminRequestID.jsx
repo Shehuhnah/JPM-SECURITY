@@ -50,6 +50,7 @@ export default function RequestedIDs() {
 
       if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
       const result = await res.json();
+      console.log(result)
 
       if (result.success && Array.isArray(result.data)) {
         setRequests(result.data);

@@ -5,19 +5,21 @@ import { generateAndSaveCOE } from "../utils/pdfGenerator.js";
 // Create new COE request (guard or subadmin)
 export const createRequest = async (req, res) => {
   try {
-    const { purpose, role } = req.body;
-    if (!purpose || !purpose.trim()) return res.status(400).json({ message: "Purpose is required" });
+    const { purpose } = req.body;
+    if (!purpose || !purpose.trim()) 
+      return res.status(400).json({ message: "Purpose is required" });
 
     const user = req.user;
-    if (!user) {
+    if (!user) 
       return res.status(401).json({ message: "Unauthorized: user not authenticated" });
-    }
 
-    const requesterRole = ((role ?? user?.role) || "guard").toString().toLowerCase();
+    // Determine role
+    const requesterRole = (user.role || "guard").toLowerCase(); // 'guard' or 'subadmin'
 
+    // Create request with correct reference based on role
     const newReq = await COERequest.create({
-      guardId: user.guardId || user.id || user._id?.toString?.() || "",
-      guardName: user.fullName || user.name || user.email || "",
+      guard: requesterRole === "guard" ? user._id : undefined,
+      subadmin: requesterRole === "subadmin" ? user._id : undefined,
       purpose,
       requesterRole,
     });
@@ -29,25 +31,54 @@ export const createRequest = async (req, res) => {
   }
 };
 
+
 // List requests (admin) or filter
 export const listRequests = async (req, res) => {
   try {
-    const { status, guardId, q, page = 1, limit = 50 } = req.query;
+    const { status, userId, q, page = 1, limit = 50 } = req.query;
     const filter = {};
     if (status && status !== "All") filter.status = status;
-    if (guardId) filter.guardId = guardId;
-    if (q) filter.$or = [
-      { purpose: new RegExp(q, "i") },
-      { guardName: new RegExp(q, "i") },
-    ];
+    if (userId) filter.$or = [{ guard: userId }, { subadmin: userId }];
 
     const skip = (page - 1) * limit;
     const [items, total] = await Promise.all([
-      COERequest.find(filter).sort({ requestedAt: -1 }).skip(Number(skip)).limit(Number(limit)),
+      COERequest.find(filter)
+        .populate('guard', 'fullName email guardId phoneNumber position')
+        .populate('subadmin', 'name email position contactNumber') // populate subadmin if needed
+        .sort({ requestedAt: -1 })
+        .skip(Number(skip))
+        .limit(Number(limit)),
       COERequest.countDocuments(filter),
     ]);
 
-    res.json({ items, total, page: Number(page), limit: Number(limit) });
+    // normalize for frontend
+    const normalizedItems = items.map(item => {
+      let isGuard = item.requesterRole === 'guard';
+      const person = isGuard ? item.guard : item.subadmin;
+      return {
+        id: item._id,
+        name: person?.fullName || person?.name || "N/A",
+        guardId: isGuard ? item.guard?.guardId || "N/A" : item.subadmin?._id.toString(),
+        phone: isGuard ? item.guard?.phoneNumber || "N/A" : item.subadmin?.contactNumber || "N/A",
+        email: person?.email || "N/A",
+        position: person?.position || "Undefined",
+        purpose: item.purpose,
+        status: item.status,
+        requesterRole: item.requesterRole,
+        requestedAt: item.requestedAt,
+        processedAt: item.processedAt,
+        processedBy: item.processedBy,
+        declineReason: item.declineReason,
+        raw: item,
+      };
+    });
+
+    // optional search
+    const filteredItems = q
+      ? normalizedItems.filter(i => i.name.toLowerCase().includes(q.toLowerCase()))
+      : normalizedItems;
+
+    res.json({ items: filteredItems, total, page: Number(page), limit: Number(limit) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -58,8 +89,19 @@ export const listRequests = async (req, res) => {
 export const getMyRequests = async (req, res) => {
   try {
     const user = req.user;
-    const guardId = user.guardId || user.id || user._id;
-    const items = await COERequest.find({ guardId }).sort({ requestedAt: -1 });
+    let filter = {};
+
+    if (user.role === "guard") {
+      filter.guard = user._id;
+    } else if (user.role === "subadmin") {
+      filter.subadmin = user._id;
+    }
+
+    const items = await COERequest.find(filter)
+      .populate('guard', 'fullName email guardId')
+      .populate('subadmin', 'name email position contactNumber')
+      .sort({ requestedAt: -1 });
+
     res.json({ items });
   } catch (err) {
     console.error(err);
@@ -67,12 +109,16 @@ export const getMyRequests = async (req, res) => {
   }
 };
 
+
 // Get single request
 export const getRequest = async (req, res) => {
   try {
     const id = req.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: "Invalid id" });
-    const reqObj = await COERequest.findById(id);
+    const reqObj = await COERequest.findById(id)
+    .populate('guard', 'fullName email guardId phoneNumber position')
+    .populate('subadmin', 'name email position contactNumber'); // <-- add this
+
     if (!reqObj) return res.status(404).json({ message: "Not found" });
     res.json(reqObj);
   } catch (err) {
@@ -86,24 +132,35 @@ export const updateStatus = async (req, res) => {
   try {
     const id = req.params.id;
     const { action, declineReason, approvedCOE } = req.body;
-    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: "Invalid id" });
 
-    const reqObj = await COERequest.findById(id);
+    if (!mongoose.Types.ObjectId.isValid(id)) 
+      return res.status(400).json({ message: "Invalid id" });
+
+    // Populate both guard and subadmin
+    const reqObj = await COERequest.findById(id)
+      .populate('guard', 'fullName email guardId phoneNumber position')
+      .populate('subadmin', 'name email position contactNumber');
+
     if (!reqObj) return res.status(404).json({ message: "Request not found" });
+
+    const processedBy = req.user?.name || req.user?.fullName || req.user?.email || "Admin";
 
     if (action === "accept") {
       reqObj.status = "Accepted";
       reqObj.processedAt = new Date();
-      reqObj.processedBy = req.user?.name || req.user?.fullName || req.user?.email;
+      reqObj.processedBy = processedBy;
 
-      // attach approvedCOE details or set defaults
       const approved = approvedCOE || {};
+
+      // Determine the requester (guard or subadmin)
+      const person = reqObj.requesterRole === "guard" ? reqObj.guard : reqObj.subadmin;
+
       reqObj.approvedCOE = {
         documentNumber: approved.documentNumber || `COE-${reqObj._id}-${new Date().getFullYear()}`,
         issuedDate: approved.issuedDate || new Date(),
-        issuedBy: approved.issuedBy || (req.user?.name || "Admin"),
+        issuedBy: approved.issuedBy || processedBy,
         validUntil: approved.validUntil || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        position: approved.position || "Security Guard",
+        position: approved.position || person?.position || "Undefined",
         employmentStartDate: approved.employmentStartDate || "",
         employmentEndDate: approved.employmentEndDate || "Present",
         salary: approved.salary || "",
@@ -113,20 +170,17 @@ export const updateStatus = async (req, res) => {
         qrCodeUrl: approved.qrCodeUrl || null,
       };
 
-      // Save first to ensure _id exists
       await reqObj.save();
 
-      // Attempt to generate PDF server-side and update pdfUrl
+      // Generate PDF server-side
       try {
         const { fileName, publicPath } = await generateAndSaveCOE(reqObj);
-        // Build absolute URL
         const host = req.get('host');
         const protocol = req.protocol;
         reqObj.approvedCOE.pdfUrl = `${protocol}://${host}${publicPath}`;
         await reqObj.save();
       } catch (pdfErr) {
         console.error('PDF generation error:', pdfErr);
-        // continue without failing the request
       }
 
       return res.json(reqObj);
@@ -136,24 +190,26 @@ export const updateStatus = async (req, res) => {
       reqObj.status = "Declined";
       reqObj.declineReason = declineReason || "No reason provided";
       reqObj.processedAt = new Date();
-      reqObj.processedBy = req.user?.name || req.user?.email || "Admin";
+      reqObj.processedBy = processedBy;
       await reqObj.save();
       return res.json(reqObj);
     }
 
     res.status(400).json({ message: "Invalid action" });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
+
 // Download or redirect to PDF (if available)
 export const downloadCOE = async (req, res) => {
   try {
     const id = req.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: "Invalid id" });
-    const reqObj = await COERequest.findById(id);
+    const reqObj = await COERequest.findById(id).populate('guard', 'fullName email guardId');
     if (!reqObj) return res.status(404).json({ message: "Not found" });
 
     if (reqObj.status !== "Accepted" || !reqObj.approvedCOE) return res.status(404).json({ message: "COE not available" });

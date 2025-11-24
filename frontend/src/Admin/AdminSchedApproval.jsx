@@ -70,6 +70,7 @@ export default function AdminSchedApproval() {
       console.error("Failed to fetch data:", err);
     }
   };
+  console.log(schedules)
 
   useEffect(() => {
     document.title = "Manage Schedules | JPM Security Agency";
@@ -92,44 +93,28 @@ export default function AdminSchedApproval() {
   };
 
   const handleApproveBatch = async () => {
-    if (!batchToApprove) return;
+    if (!batchToApprove || batchToApprove.length === 0) return;
     setSubmitting(true);
+
     try {
-      const id = batchToApprove[0]._id;
+      const id = batchToApprove[0]; // ← FIX
+
       const res = await fetch(`http://localhost:5000/api/schedules/batch/approve/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to approve batch');
       
-      toast.success("Schedule Approve Successfully", {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
+      toast.success("Schedule Approved Successfully", {/* ... */});
+      
       await refresh();
       setShowApproveBatchModal(false);
       setBatchToApprove(null);
     } catch (error) {
-      toast.error("Error Approving Schedule: ", error, {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
+      toast.error(`Error Approving Schedule: ${error.message}`, {/* ... */});
       console.error('Error approving batch:', error);
     } finally {
       setSubmitting(false);
@@ -154,7 +139,7 @@ export default function AdminSchedApproval() {
     }
     setSubmitting(true);
     try {
-      const id = batchToDecline[0]._id;
+      const id = batchToDecline[0];
       const res = await fetch(`http://localhost:5000/api/schedules/batch/decline/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -218,7 +203,7 @@ export default function AdminSchedApproval() {
   // ===== Convert to FullCalendar format =====
   const filteredEvents = filteredSchedules.map((s, idx) => ({
     id: String(idx),
-    title: `${s.guardName} (${s.shiftType})`,
+    title: `${s.guardId.fullName} (${s.shiftType})`, // Access from populated guardId
     start: s.timeIn,
     end: s.timeOut,
     backgroundColor: shiftColors[s.shiftType] || "#3b82f6",
@@ -227,6 +212,7 @@ export default function AdminSchedApproval() {
     display: "block",
     extendedProps: {
       ...s,
+      guardName: s.guardId.fullName, // Add guardName to extendedProps for consistent access
     },
   }));
 
@@ -424,140 +410,126 @@ export default function AdminSchedApproval() {
           // ===== TABLE VIEW =====
           <div className="space-y-10">
             {Object.entries(
-              filteredSchedules.reduce((acc, schedule) => {
-                const client = schedule.client || "Unknown Client";
-                if (!acc[client]) acc[client] = [];
-                acc[client].push(schedule);
-                return acc;
+              filteredSchedules.reduce((batchAcc, schedule) => {
+                const batchKey = `${schedule.client}-${schedule.deploymentLocation}-${schedule.shiftType}-${schedule.guardId._id}`;
+                if (!batchAcc[batchKey]) batchAcc[batchKey] = [];
+                batchAcc[batchKey].push(schedule);
+                return batchAcc;
               }, {})
-            ).map(([clientName, clientSchedules]) => (
-              <div key={clientName}>
-                {/* Client Header */}
+            ).map(([batchKey, batchSchedules]) => (
+              <div key={batchKey} className="mb-8">
+                {/* Batch Header */}
                 <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-lg font-semibold text-white mb-3 border-l-4 border-teal-500 pl-3">
-                    {clientName}
-                  </h2>
+                  <h3 className="text-md font-semibold text-gray-300 pl-3 border-l-2 border-blue-500">
+                    {batchSchedules[0].client} – {batchSchedules[0].deploymentLocation} – {batchSchedules[0].shiftType}
+                    <span
+                      className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${
+                        batchSchedules[0].isApproved === "Approved"
+                          ? "bg-green-600/20 text-green-400 border border-green-500/50"
+                          : batchSchedules[0].isApproved === "Pending"
+                          ? "bg-yellow-600/20 text-yellow-400 border border-yellow-500/50"
+                          : "bg-red-600/20 text-red-400 border border-red-500/50"
+                      }`}
+                    >
+                      {batchSchedules[0].isApproved}
+                      {console.log(batchSchedules[0])}
+                    </span>
+                  </h3>
+
+                  <div className="flex items-center justify-center gap-2">
+                    {batchSchedules[0].isApproved === "Pending" && (
+                      <>
+                        <button
+                          onClick={() => openApproveBatchModal(batchSchedules.map(s => s._id))}
+                          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-medium"
+                        >
+                          <ThumbsUp size={16} />
+                          Approve
+                        </button>
+
+                        <button
+                          onClick={() => openDeclineBatchModal(batchSchedules.map(s => s._id))}
+                          className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg text-sm font-medium"
+                        >
+                          <ThumbsDown size={16} />
+                          Decline
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
 
-                {Object.entries(
-                  clientSchedules.reduce((batchAcc, schedule) => {
-                    const batchKey = `${schedule.deploymentLocation}-${schedule.shiftType}-${schedule.isApproved}`;
-                    if (!batchAcc[batchKey]) batchAcc[batchKey] = [];
-                    batchAcc[batchKey].push(schedule);
-                    return batchAcc;
-                  }, {})
-                ).map(([batchKey, batchSchedules]) => (
-                  <div key={batchKey} className="mb-8">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-md font-semibold text-gray-300 pl-3 border-l-2 border-blue-500">
-                          {batchSchedules[0].deploymentLocation} -{" "}
-                          {batchSchedules[0].shiftType}{" "}
-                          <span
-                            className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${
-                              batchSchedules[0].isApproved === "Approved"
-                                ? "bg-green-600/20 text-green-400 border border-green-500/50"
-                                : batchSchedules[0].isApproved === "Pending"
-                                ? "bg-yellow-600/20 text-yellow-400 border border-yellow-500/50"
-                                : "bg-red-600/20 text-red-400 border border-red-500/50"
+                <div className="overflow-x-auto rounded-lg shadow-lg">
+                  <table className="min-w-full text-sm text-gray-300 border border-gray-700 rounded-lg overflow-hidden">
+                    <thead className="bg-[#0f172a] text-gray-400">
+                      <tr>
+                        <th className="py-3 px-4 text-left">Guard Name</th>
+                        <th className="py-3 px-4 text-left">Position</th>
+                        <th className="py-3 px-4 text-left">Location</th>
+                        <th className="py-3 px-4 text-left">Shift</th>
+                        <th className="py-3 px-4 text-left">Time In</th>
+                        <th className="py-3 px-4 text-left">Time Out</th>
+                        <th className="py-3 px-4 text-left">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {batchSchedules.map((s, i) => (
+                        <tr
+                          key={i}
+                          className={`${
+                            i % 2 === 0 ? "bg-[#1e293b]" : "bg-[#162033]"
+                          } hover:bg-[#2a3954]`}
+                        >
+                          <td className="py-3 px-4">{s.guardId.fullName}</td>
+                          <td className="py-3 px-4">{s.position}</td>
+                          <td className="py-3 px-4">{s.deploymentLocation}</td>
+                          <td
+                            className={`py-3 px-4 font-semibold ${
+                              s.shiftType === "Night Shift"
+                                ? "text-red-400"
+                                : "text-yellow-400"
                             }`}
                           >
-                            {batchSchedules[0].isApproved}
-                          </span>
-                        </h3>
-                        <div className="flex items-center justify-center gap-2">
-                            {batchSchedules[0].isApproved === 'Pending' && (
-                                <>
-                                    <button 
-                                      onClick={() => openApproveBatchModal(batchSchedules)}
-                                      className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-medium">
-                                        <ThumbsUp size={16}/>
-                                        Approve
-                                    </button>
-                                    <button 
-                                      onClick={() => openDeclineBatchModal(batchSchedules)}
-                                      className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg text-sm font-medium">
-                                        <ThumbsDown size={16}/>
-                                        Decline
-                                    </button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                    <div className="overflow-x-auto rounded-lg shadow-lg">
-                      <table className="min-w-full text-sm text-gray-300 border border-gray-700 rounded-lg overflow-hidden">
-                        <thead className="bg-[#0f172a] text-gray-400">
-                          <tr>
-                            <th className="py-3 px-4 text-left">Guard Name</th>
-                            <th className="py-3 px-4 text-left">Location</th>
-                            <th className="py-3 px-4 text-left">Shift</th>
-                            <th className="py-3 px-4 text-left">Time In</th>
-                            <th className="py-3 px-4 text-left">Time Out</th>
-                            <th className="py-3 px-4 text-left">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {batchSchedules.map((s, i) => (
-                            <tr
-                              key={i}
-                              className={`${
-                                i % 2 === 0 ? "bg-[#1e293b]" : "bg-[#162033]"
-                              } hover:bg-[#2a3954]`}
-                            >
-                              <td className="py-3 px-4">{s.guardName}</td>
-                              <td className="py-3 px-4">{s.deploymentLocation}</td>
-                              <td
-                                className={`py-3 px-4 font-semibold ${
-                                  s.shiftType === "Night Shift"
-                                    ? "text-red-400"
-                                    : "text-yellow-400"
+                            {s.shiftType}
+                          </td>
+                          <td className="py-3 px-4">
+                            {new Date(s.timeIn).toLocaleString()}
+                          </td>
+                          <td className="py-3 px-4">
+                            {new Date(s.timeOut).toLocaleString()}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-2 py-1 rounded text-xs font-semibold ${
+                                  s.isApproved === "Approved"
+                                    ? "bg-green-600 text-white"
+                                    : s.isApproved === "Declined"
+                                    ? "bg-red-600 text-white"
+                                    : "bg-yellow-600 text-black"
                                 }`}
                               >
-                                {s.shiftType}
-                              </td>
-                              <td className="py-3 px-4">
-                                {new Date(s.timeIn).toLocaleString()}
-                              </td>
-                              <td className="py-3 px-4">
-                                {new Date(s.timeOut).toLocaleString()}
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={`px-2 py-1 rounded text-xs font-semibold ${
-                                      s.isApproved === "Approved"
-                                        ? "bg-green-600 text-white"
-                                        : s.isApproved === "Declined"
-                                        ? "bg-red-600 text-white"
-                                        : "bg-yellow-600 text-black"
-                                    }`}
-                                  >
-                                    {s.isApproved || "Pending"}
-                                  </span>
-                                  {s.isApproved === "Declined" && (
-                                    <button
-                                      onClick={() => reopenSchedule(s._id)}
-                                      className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded"
-                                    >
-                                      Reopen
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ))}
+                                {s.isApproved || "Pending"}
+                              </span>
+                              {s.isApproved === "Declined" && (
+                                <button
+                                  onClick={() => reopenSchedule(s._id)}
+                                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded"
+                                >
+                                  Reopen
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ))}
-            {filteredSchedules.length === 0 && (
-              <p className="text-center text-gray-500 italic py-10">
-                No schedules found for the selected filters.
-              </p>
-            )}
           </div>
+
         )}
       </div>
 
@@ -572,12 +544,8 @@ export default function AdminSchedApproval() {
             </Dialog.Title>
             {batchToApprove && (
                 <div className="text-gray-300 space-y-2">
-                    <p>Are you sure you want to approve this schedule batch?</p>
-                    <div className="bg-[#0f172a] p-3 rounded-lg border border-gray-600 text-sm">
-                        <p><strong>Client:</strong> {batchToApprove[0].client}</p>
-                        <p><strong>Location:</strong> {batchToApprove[0].deploymentLocation}</p>
-                        <p><strong>Shift:</strong> {batchToApprove[0].shiftType}</p>
-                        <p><strong>Schedules:</strong> {batchToApprove.length}</p>
+                    <div className="bg-green-600 p-3 rounded-lg border border-gray-600 font-medium text-center">
+                        <p>Are you sure you want to approve this schedule batch?</p>
                     </div>
                 </div>
             )}
@@ -601,14 +569,10 @@ export default function AdminSchedApproval() {
               </Dialog.Title>
               {batchToDecline && (
                   <div className="text-gray-300 space-y-3">
-                      <p>You are about to decline the following schedule batch:</p>
-                      <div className="bg-[#0f172a] p-3 rounded-lg border border-gray-600 text-sm">
-                          <p><strong>Client:</strong> {batchToDecline[0].client}</p>
-                          <p><strong>Location:</strong> {batchToDecline[0].deploymentLocation}</p>
-                          <p><strong>Shift:</strong> {batchToDecline[0].shiftType}</p>
-                          <p><strong>Schedules:</strong> {batchToDecline.length}</p>
+                      <div className="bg-red-600 p-3 rounded-lg border border-gray-600 font-medium text-center">
+                        <p>Are you sure you want to decline this schedule?</p>
                       </div>
-                      <label className="block text-sm font-medium text-gray-300 pt-2">Reason for Declining</label>
+                      <label className="block text-sm font-medium text-gray-300 pt-2">Reason for Declining:</label>
                       <textarea
                           rows="3"
                           value={remarks}

@@ -11,11 +11,11 @@ const messageSchema = new mongoose.Schema(
     receiverId: { type: mongoose.Schema.Types.ObjectId, required: true },
 
     sender: {
-      userId: { type: mongoose.Schema.Types.ObjectId, required: true, refPath: "sender.role" },
+      userId: { type: mongoose.Schema.Types.ObjectId, required: true },
       role: { type: String, enum: ["Admin", "Subadmin", "Guard", "Applicant"], required: true },
     },
     receiver: {
-      userId: { type: mongoose.Schema.Types.ObjectId, required: true, refPath: "receiver.role" },
+      userId: { type: mongoose.Schema.Types.ObjectId, required: true },
       role: { type: String, enum: ["Admin", "Subadmin", "Guard", "Applicant"], required: true },
     },
 
