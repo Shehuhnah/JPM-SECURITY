@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Shield, Eye, EyeOff } from "lucide-react";
-import bg from "../home/assets/home-bg.jpg";
+import bg from "../Home/assets/home-bg.jpg";
 import { useAuth } from "../hooks/useAuth";
 import { el } from "date-fns/locale/el";
 
