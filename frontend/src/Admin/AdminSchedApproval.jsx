@@ -19,6 +19,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast, Bounce } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+const api = import.meta.env.VITE_API_URL;
 
 export default function AdminSchedApproval() {
   const { user, loading } = useAuth();
@@ -48,10 +49,10 @@ export default function AdminSchedApproval() {
   const fetchData = async () => {
     try {
       const [schedulesRes, clientsRes] = await Promise.all([
-        fetch("http://localhost:5000/api/schedules/get-schedules", {
+        fetch(`${api}/api/schedules/get-schedules`, {
           credentials: "include",
         }),
-        fetch("http://localhost:5000/api/clients/get-clients", {
+        fetch(`${api}/api/clients/get-clients`, {
           credentials: "include",
         }),
       ]);
@@ -99,7 +100,7 @@ export default function AdminSchedApproval() {
     try {
       const id = batchToApprove[0]; // ← FIX
 
-      const res = await fetch(`http://localhost:5000/api/schedules/batch/approve/${id}`, {
+      const res = await fetch(`${api}/api/schedules/batch/approve/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -140,7 +141,7 @@ export default function AdminSchedApproval() {
     setSubmitting(true);
     try {
       const id = batchToDecline[0];
-      const res = await fetch(`http://localhost:5000/api/schedules/batch/decline/${id}`, {
+      const res = await fetch(`${api}/api/schedules/batch/decline/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -220,7 +221,7 @@ export default function AdminSchedApproval() {
   // Reopen a previously declined schedule (set status back to Pending)
   const reopenSchedule = async (scheduleId) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/schedules/update-status`, {
+      const res = await fetch(`${api}/api/schedules/update-status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+const api = import.meta.env.VITE_API_URL;
 
 
 export default function GuardAnnouncement() {
@@ -30,7 +31,7 @@ export default function GuardAnnouncement() {
 
     const fetchAnnouncements = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/posts" ,{
+        const res = await fetch(`${api}/api/posts` ,{
           credentials: "include",
         });
         if (!res.ok) throw new Error("Failed to fetch announcements");

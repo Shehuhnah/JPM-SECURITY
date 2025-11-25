@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+const api = import.meta.env.VITE_API_URL;
 
 export default function GuardReqID() {
  const { user: guard, loading } = useAuth();
@@ -25,7 +26,7 @@ export default function GuardReqID() {
     
     const fetchRequests = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/idrequests/myrequests", {
+        const res = await fetch(`${api}/api/idrequests/myrequests`, {
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
@@ -52,7 +53,7 @@ export default function GuardReqID() {
     try {
       setLoadingPage(true);
       setMessage("");
-      const res = await fetch("http://localhost:5000/api/idrequests", {
+      const res = await fetch(`${api}/api/idrequests`, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -66,7 +67,7 @@ export default function GuardReqID() {
 
       if (!res.ok) throw new Error("Failed to submit request");
 
-      const res2 = await fetch("http://localhost:5000/api/idrequests/myrequests", {
+      const res2 = await fetch(`${api}/api/idrequests/myrequests`, {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",

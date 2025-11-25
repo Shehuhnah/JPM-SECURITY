@@ -20,6 +20,7 @@ import {
 
 import { useAuth } from "../hooks/useAuth";
 import logo from "../assets/jpmlogo.png";
+const api = import.meta.env.VITE_API_URL;
 
 export default function GuardsLayout() {
   const { user: guard, loading } = useAuth();
@@ -37,7 +38,7 @@ export default function GuardsLayout() {
 
   const handleLogout = async () => {
     try {
-      await fetch("http://localhost:5000/api/auth/logout", {
+      await fetch(`${api}/api/auth/logout`, {
         method: "POST",
         credentials: "include",
       });

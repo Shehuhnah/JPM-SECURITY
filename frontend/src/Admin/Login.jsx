@@ -5,7 +5,7 @@ import logo from "../assets/jpmlogo.png";
 import { ToastContainer, toast, Bounce } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useEffect } from "react";
-
+const api = import.meta.env.VITE_API_URL;
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -20,7 +20,7 @@ export default function Login() {
     document.title = "Admin Login | JPM Security Agency";
     const checkLogin = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/auth/me", { credentials: "include" });
+        const res = await fetch(`${api}/api/auth/me`, { credentials: "include" });
         if (res.ok) {
           const data = await res.json();
           console.log(data)
@@ -39,7 +39,7 @@ export default function Login() {
     setLoading(true);
   
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
+      const res = await fetch(`${api}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

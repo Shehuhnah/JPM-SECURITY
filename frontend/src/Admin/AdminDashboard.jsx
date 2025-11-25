@@ -39,6 +39,8 @@ ChartJS.register(
   Legend
 );
 
+const api = import.meta.env.VITE_API_URL;
+
 export default function AdminDashboard() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -98,11 +100,11 @@ export default function AdminDashboard() {
 
         const [guardsRes, postsRes, logsRes, attendanceRes, applicantsRes] =
           await Promise.all([
-            fetch("http://localhost:5000/api/guards", opt),
-            fetch("http://localhost:5000/api/posts", opt),
-            fetch("http://localhost:5000/api/logbook", opt),
-            fetch("http://localhost:5000/api/attendance", opt),
-            fetch("http://localhost:5000/api/applicants", opt),
+            fetch(`${api}/api/guards`, opt),
+            fetch(`${api}/api/posts`, opt),
+            fetch(`${api}/api/logbook`, opt),
+            fetch(`${api}/api/attendance`, opt),
+            fetch(`${api}/api/applicants`, opt),
           ]);
 
         const guards = guardsRes.ok ? await guardsRes.json() : [];

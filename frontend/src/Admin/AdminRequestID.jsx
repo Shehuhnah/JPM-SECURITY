@@ -13,6 +13,7 @@ import {
 import { Dialog, Transition } from "@headlessui/react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+const api = import.meta.env.VITE_API_URL;
 
 export default function RequestedIDs() {
   const { user: admin, loading } = useAuth();
@@ -41,7 +42,7 @@ export default function RequestedIDs() {
       }
 
       setLoadingPage(true);
-      const res = await fetch("http://localhost:5000/api/idrequests", {
+      const res = await fetch(`${api}/api/idrequests`, {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
@@ -103,7 +104,7 @@ const handleConfirmApprove = async () => {
   if (!pickupDate) return alert("Please select a pickup date.");
     try {
       setSubmitting(true);
-      const res = await fetch(`http://localhost:5000/api/idrequests/${selectedId}`, {
+      const res = await fetch(`${api}/api/idrequests/${selectedId}`, {
         method: "PUT",
         credentials: "include",
         headers: {
@@ -141,7 +142,7 @@ const handleConfirmApprove = async () => {
     if (!declineReason.trim()) return alert("Please provide a reason for declining.");
     try {
       setSubmitting(true);
-      const res = await fetch(`http://localhost:5000/api/idrequests/${selectedId}`, {
+      const res = await fetch(`${api}/api/idrequests/${selectedId}`, {
         method: "PUT",
         credentials: "include",
         headers: {

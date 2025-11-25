@@ -7,6 +7,7 @@ import { ToastContainer, toast, Bounce } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useAuth } from "../hooks/useAuth.js"
 import { useNavigate } from "react-router-dom";
+const api = import.meta.env.VITE_API_URL;
 
 export default function UserAccounts() {
   const { user: admin, loading } = useAuth();
@@ -47,7 +48,7 @@ export default function UserAccounts() {
       navigate("/admin/login")
     };
 
-    fetch("http://localhost:5000/api/auth/users", { credentials: "include", })
+    fetch(`${api}/api/auth/users`, { credentials: "include", })
       .then((res) => res.json())
       .then((data) => setUsers(data))
       .catch((err) => console.error("Fetch users error:", err));
@@ -70,7 +71,7 @@ export default function UserAccounts() {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/register", {
+      const res = await fetch(`${api}/api/auth/register`, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -133,7 +134,7 @@ export default function UserAccounts() {
 
   const handleUpdateUser = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/auth/update-user/${editForm._id}`, {
+      const res = await fetch(`${api}/api/auth/update-user/${editForm._id}`, {
         method: "PUT",
         credentials: "include",
         body: JSON.stringify(editForm),
@@ -215,7 +216,7 @@ export default function UserAccounts() {
         return;
       }
 
-      const res = await fetch(`http://localhost:5000/api/auth/delete-user/${id}`, {
+      const res = await fetch(`${api}/api/auth/delete-user/${id}`, {
         credentials: "include",
         method: "DELETE",
       });

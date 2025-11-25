@@ -23,6 +23,7 @@ import { useAuth } from "../hooks/useAuth";
 import { Dialog, Transition } from "@headlessui/react";
 import { ToastContainer, toast, Bounce } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+const api = import.meta.env.VITE_API_URL;
 
 export default function GuardAttendancePage() {
   const [filter, setFilter] = useState("All");
@@ -51,7 +52,7 @@ export default function GuardAttendancePage() {
       setLoadingPage(true);
       setError(null);
 
-      const res = await fetch("http://localhost:5000/api/attendance", {
+      const res = await fetch(`${api}/api/attendance`, {
         credentials: "include",
       });
       const data = await res.json();
@@ -83,7 +84,7 @@ export default function GuardAttendancePage() {
       try {
         setLoadingPage(true);
         const res = await fetch(
-          `http://localhost:5000/api/attendance/${selectedGuardId}`,
+          `${api}/api/attendance/${selectedGuardId}`,
           { credentials: "include" }
         );
         const data = await res.json();
@@ -114,7 +115,7 @@ export default function GuardAttendancePage() {
     console.log(id)
     setSubmitting(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/attendance/download-working-hours/${id}`, {
+      const res = await fetch(`${api}/api/attendance/download-working-hours/${id}`, {
         credentials: 'include',
       });
 
@@ -159,7 +160,7 @@ export default function GuardAttendancePage() {
   const handleDownloadWorkHoursByClient = async (clientName) => {
     setSubmitting(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/attendance/download-working-hours/client/${encodeURIComponent(clientName)}`, {
+      const res = await fetch(`${api}/api/attendance/download-working-hours/client/${encodeURIComponent(clientName)}`, {
         credentials: 'include',
       });
 

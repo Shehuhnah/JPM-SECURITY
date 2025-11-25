@@ -4,6 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useNavigate, Link } from "react-router-dom";
 
 export default function GuardLogBook() {
+  const api = import.meta.env.VITE_API_URL;
   const { user: guard, loading } = useAuth();
   const navigate = useNavigate();
   const [logs, setLogs] = useState([]);
@@ -30,7 +31,7 @@ export default function GuardLogBook() {
       setloadingPage(true);
       try {
         // Fetch current schedule info
-        const scheduleRes = await fetch(`http://localhost:5000/api/logbook/current-info/${guard._id}`, { credentials: "include" });
+        const scheduleRes = await fetch(`${api}/api/logbook/current-info/${guard._id}`, { credentials: "include" });
         if (scheduleRes.ok) {
           const scheduleData = await scheduleRes.json();
           setScheduleInfo(scheduleData);
@@ -48,7 +49,7 @@ export default function GuardLogBook() {
         }
 
         // Fetch existing logs
-        const logsRes = await fetch(`http://localhost:5000/api/logbook?guardId=${guard._id}`, { credentials: "include" });
+        const logsRes = await fetch(`${api}/api/logbook?guardId=${guard._id}`, { credentials: "include" });
         if (logsRes.ok) {
           const logsData = await logsRes.json();
           setLogs(logsData);
@@ -78,7 +79,7 @@ export default function GuardLogBook() {
       setloadingPage(true);
       setMessage("");
       
-      const response = await fetch("http://localhost:5000/api/logbook", {
+      const response = await fetch(`${api}/api/logbook`, {
         method: "POST",
         credentials: "include",
         headers: {

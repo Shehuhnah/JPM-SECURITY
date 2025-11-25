@@ -19,7 +19,8 @@ import { Fragment } from "react";
 function GuardAttendanceTimeIn() {
   const { user: guard, loading } = useAuth();
   const navigate = useNavigate();
-  const API_BASE = import.meta.env?.VITE_API_BASE_URL || "http://localhost:5000";
+  const api = import.meta.env.VITE_API_URL;
+
 
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -58,7 +59,7 @@ function GuardAttendanceTimeIn() {
       setCheckError(null);
       try {
         const res = await fetch(
-          `${API_BASE}/api/schedules/today/${guard._id}`,
+          `${api}/api/schedules/today/${guard._id}`,
           {
             method: "GET",
             credentials: "include",
@@ -96,7 +97,7 @@ function GuardAttendanceTimeIn() {
       setCheckError(null);
       try {
         // Check if there's already an attendance record for this schedule
-        const res = await fetch(`${API_BASE}/api/attendance`, {
+        const res = await fetch(`${api}/api/attendance`, {
           credentials: "include",
         });
         const allAttendance = await res.json(); // Fetch all to find specific schedule
@@ -307,7 +308,7 @@ function GuardAttendanceTimeIn() {
     };
 
     try {
-      const res = await fetch(`${API_BASE}/api/attendance/attendance-time-in`, {
+      const res = await fetch(`${api}/api/attendance/attendance-time-in`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

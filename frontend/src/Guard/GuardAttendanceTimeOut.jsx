@@ -4,7 +4,7 @@ import { Clock, MapPin, User, Calendar, CheckCircle, ArrowLeft, Timer } from "lu
 import { useAuth } from "../hooks/useAuth"; //bagong code
 
 function GuardAttendanceTimeOut() {
-  const API_BASE = import.meta.env?.VITE_API_BASE_URL || "http://localhost:5000";
+  const api = import.meta.env.VITE_API_URL;
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [attendanceData, setAttendanceData] = useState(null);
@@ -31,7 +31,7 @@ function GuardAttendanceTimeOut() {
         setError(null);
 
         try {
-          const res = await fetch(`${API_BASE}/api/attendance/${guard._id}`, {
+          const res = await fetch(`${api}/api/attendance/${guard._id}`, {
             credentials: "include",
           });
           const data = await res.json().catch(() => []);
@@ -84,7 +84,7 @@ function GuardAttendanceTimeOut() {
         };
 
         const res = await fetch(
-          `${API_BASE}/api/attendance/attendance-time-out/${timeInData._id}`,
+          `${api}/api/attendance/attendance-time-out/${timeInData._id}`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },

@@ -4,7 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { Paperclip, Send, Search, CircleUserRound, ArrowLeft, MessageSquare  } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
-const socket = io("http://localhost:5000");
+const api = import.meta.env.VITE_API_URL;
+const socket = io(api);
 
 export default function MessagesPage() {
   const { user, loading } = useAuth();
@@ -99,7 +100,7 @@ export default function MessagesPage() {
   useEffect(() => {
     const fetchConversations = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/messages/conversations", {
+        const res = await fetch(`${api}/api/messages/conversations`, {
           credentials: "include",
         });
         const data = await res.json();
@@ -120,8 +121,8 @@ export default function MessagesPage() {
     const fetchUsers = async () => {
       try {
         const endpoint = user.role === "Admin"
-          ? "http://localhost:5000/api/auth/subadmins"
-          : "http://localhost:5000/api/auth/admins";
+          ? `${api}/api/auth/subadmins`
+          : `${api}/api/auth/admins`;
         const res = await fetch(endpoint, { credentials: "include" });
         const data = await res.json();
         setAvailableUsers(Array.isArray(data) ? data : []);
@@ -141,7 +142,7 @@ export default function MessagesPage() {
 
     const fetchMessages = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/messages/${selectedConversation._id}`, {
+        const res = await fetch(`${api}/api/messages/${selectedConversation._id}`, {
           credentials: "include",
         });
         const data = await res.json();
@@ -200,7 +201,7 @@ export default function MessagesPage() {
 
       if (selectedConversation?._id === updatedConv._id) {
         try {
-          const res = await fetch(`http://localhost:5000/api/messages/${updatedConv._id}`, { credentials: "include" });
+          const res = await fetch(`${api}/api/messages/${updatedConv._id}`, { credentials: "include" });
           const data = await res.json();
           setMessages(Array.isArray(data) ? data : []);
         } catch (err) {
@@ -244,7 +245,7 @@ export default function MessagesPage() {
     if (file) formData.append("file", file);
 
     try {
-      const res = await fetch("http://localhost:5000/api/messages", { method: "POST", credentials: "include", body: formData });
+      const res = await fetch(`${api}/api/messages`, { method: "POST", credentials: "include", body: formData });
       if (!res.ok) return console.error("Failed to send message:", await res.text());
 
       const { message, conversation: realConversation } = await res.json();
@@ -461,14 +462,14 @@ export default function MessagesPage() {
                       {msg.file && (
                         msg.file.match(/\.(png|jpg|jpeg|gif)$/i) ? (
                           <img
-                            src={`http://localhost:5000${msg.file}`}
+                            src={`${api}${msg.file}`}
                             alt={msg.fileName || "attachment"}
                             className="mt-1 rounded border max-w-full max-h-60 object-contain cursor-pointer"
-                            onClick={() => setPreviewImage(`http://localhost:5000${msg.file}`)}
+                            onClick={() => setPreviewImage(`${api}${msg.file}`)}
                           />
                         ) : (
                           <a
-                            href={`http://localhost:5000${msg.file}`}
+                            href={`${api}${msg.file}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="underline text-blue-400 block mt-1"

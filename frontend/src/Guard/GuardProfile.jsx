@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+const api = import.meta.env.VITE_API_URL;
 
 export default function GuardProfile() {
   const { user: guardData, loading } = useAuth();
@@ -51,7 +52,7 @@ export default function GuardProfile() {
 
     const fetchProfile = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/guards/me", {
+        const res = await fetch(`${api}/api/guards/me`, {
           credentials: "include",
         });
 
@@ -113,7 +114,7 @@ export default function GuardProfile() {
 
 
     try {
-      const res = await fetch("http://localhost:5000/api/guards/update-guard-profile", {
+      const res = await fetch(`${api}/api/guards/update-guard-profile`, {
         method: "PUT",
         credentials: "include",
         headers: {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Send, Trash2, Edit3, Save } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+const api = import.meta.env.VITE_API_URL;
 export default function AdminHiring() {
   const { user, loading } = useAuth();
   const [title, setTitle] = useState("");
@@ -15,7 +16,7 @@ export default function AdminHiring() {
 
   const fetchPosts = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/hirings", {
+      const res = await fetch(`${api}/api/hirings`, {
         credentials: "include"
       });
       if (!res.ok) throw new Error("Failed to fetch posts");
@@ -49,7 +50,7 @@ export default function AdminHiring() {
     try {
       if (editingId) {
         //  UPDATE existing post
-        const res = await fetch(`http://localhost:5000/api/hirings/${editingId}`, {
+        const res = await fetch(`${api}/api/hirings/${editingId}`, {
           method: "PUT",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -63,7 +64,7 @@ export default function AdminHiring() {
         setEditingId(null);
       } else {
         // CREATE new post
-        const res = await fetch("http://localhost:5000/api/hirings", {
+        const res = await fetch(`${api}/api/hirings`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -92,7 +93,7 @@ export default function AdminHiring() {
     if (!window.confirm("Are you sure you want to delete this post?")) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/hirings/${id}`, {
+      const res = await fetch(`${api}/api/hirings/${id}`, {
         method: "DELETE",
         credentials: "include"
       });

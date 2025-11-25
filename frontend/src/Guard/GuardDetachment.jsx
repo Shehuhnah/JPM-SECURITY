@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CalendarDays, Clock, Users, MapPin } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+const api = import.meta.env.VITE_API_URL;
 
 export default function GuardUpcomingSchedule() {
     const { user: guard, loading } = useAuth();
@@ -20,7 +21,7 @@ export default function GuardUpcomingSchedule() {
             const fetchSchedulesByGuard = async () => {
                 try {
                     const res = await fetch(
-                        `http://localhost:5000/api/schedules/guard/${guard._id}`,
+                        `${api}/api/schedules/guard/${guard._id}`,
                         {
                             method: "GET",
                             credentials: "include",

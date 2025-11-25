@@ -4,7 +4,9 @@ import { Paperclip, Send, CircleUserRound, Search, ArrowLeft } from "lucide-reac
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
-const socket = io("http://localhost:5000");
+const api = import.meta.env.VITE_API_URL;
+
+const socket = io(api);
 
 export default function SubadminApplicantMessage() {
   const { user, loading } = useAuth();
@@ -96,7 +98,7 @@ export default function SubadminApplicantMessage() {
       console.log("🔍 [SubadminApplicantMessage] Fetching conversations...");
       
       const res = await fetch(
-        "http://localhost:5000/api/messages/conversations", {
+        `${api}/api/messages/conversations`, {
           credentials: "include"
         }
       );
@@ -154,7 +156,7 @@ export default function SubadminApplicantMessage() {
     const fetchMessages = async () => {
       try {
         const res = await fetch(
-          `http://localhost:5000/api/messages/${selectedConversation._id}`,{
+          `${api}/api/messages/${selectedConversation._id}`,{
             credentials: "include"
           }
           
@@ -334,7 +336,7 @@ export default function SubadminApplicantMessage() {
     if (file) formData.append("file", file);
 
     try {
-      const res = await fetch("http://localhost:5000/api/messages", {
+      const res = await fetch(`${api}/api/messages`, {
         method: "POST",
         credentials: "include",
         body: formData,
@@ -605,14 +607,14 @@ export default function SubadminApplicantMessage() {
                   {msg.file && (
                     isImage ? (
                       <img
-                        src={`http://localhost:5000${msg.file}`}
+                        src={`${api}${msg.file}`}
                         alt={msg.fileName || "attachment"}
                         className="mt-2 rounded border max-w-full max-h-60 object-contain cursor-pointer"
-                        onClick={() => setPreviewImage(`http://localhost:5000${msg.file}`)}
+                        onClick={() => setPreviewImage(`${api}${msg.file}`)}
                       />
                     ) : (
                       <a
-                        href={`http://localhost:5000${msg.file}`}
+                        href={`${api}${msg.file}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="underline text-blue-200 block mt-2"

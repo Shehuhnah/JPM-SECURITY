@@ -21,6 +21,7 @@ import { useAuth } from "../hooks/useAuth";
 import { Link, useNavigate } from "react-router-dom";
 import { ToastContainer, toast, Bounce } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+const api = import.meta.env.VITE_API_URL;
 
 export default function AdminDeployment() {
   const navigate = useNavigate();
@@ -44,10 +45,10 @@ export default function AdminDeployment() {
   const fetchData = async () => {
     try {
       const [schedulesRes, clientsRes] = await Promise.all([
-        fetch("http://localhost:5000/api/schedules/get-schedules", {
+        fetch(`${api}/api/schedules/get-schedules`, {
           credentials: "include",
         }),
-        fetch("http://localhost:5000/api/clients/get-clients", {
+        fetch(`${api}/api/clients/get-clients`, {
           credentials: "include",
         }),
       ]);
@@ -108,7 +109,7 @@ export default function AdminDeployment() {
   const handleAddClient = async (newClient) => {
     try {
       const res = await fetch(
-        "http://localhost:5000/api/clients/create-client",
+        `${api}/api/clients/create-client`,
         {
           method: "POST",
           credentials: "include",
@@ -171,7 +172,7 @@ export default function AdminDeployment() {
 
     try {
         const id = batchToDelete[0]._id;
-        const res = await fetch(`http://localhost:5000/api/schedules/batch/${id}`, {
+        const res = await fetch(`${api}/api/schedules/batch/${id}`, {
             method: 'DELETE',
             credentials: 'include',
         });

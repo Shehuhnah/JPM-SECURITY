@@ -6,6 +6,7 @@ import { useAuth } from "../hooks/useAuth";
 import { el } from "date-fns/locale/el";
 
 export default function LoginForm() {
+    const api = import.meta.env.VITE_API_URL;
     const { user: guard, loading } = useAuth();
     const navigate = useNavigate();
     const [loadingPage, setLoadingPage] = useState(false);
@@ -42,7 +43,7 @@ export default function LoginForm() {
 
         try {
             const res = await fetch(
-                "http://localhost:5000/api/auth/login-guard",{
+                `${api}/api/auth/login-guard`,{
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   credentials: "include",
@@ -102,7 +103,7 @@ export default function LoginForm() {
 
       try {
           const res = await fetch(
-              "http://localhost:5000/api/auth/change-password-guard",
+              `${api}/api/auth/change-password-guard`,
               {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },

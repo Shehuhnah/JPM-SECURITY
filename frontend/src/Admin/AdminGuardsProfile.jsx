@@ -20,6 +20,7 @@ import DeleteUserModal from "../components/DeleteUserModal";
 import { useAuth } from "../hooks/useAuth.js"
 import { Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+const api = import.meta.env.VITE_API_URL;
 
 export default function GuardTable() {
   const { user: admin, loading } = useAuth();
@@ -65,7 +66,7 @@ export default function GuardTable() {
     }
     const fetchGuards = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/guards", {
+        const res = await fetch(`${api}/api/guards`, {
          credentials: "include",
         });
         if (!res.ok) throw new Error("Failed to fetch guards");
@@ -86,7 +87,7 @@ export default function GuardTable() {
   const handleRefresh = async () => {
     try {
       setLoadingPage(true);
-      const res = await fetch("http://localhost:5000/api/guards", {
+      const res = await fetch(`${api}/api/guards`, {
          credentials: "include",
         });
       const data = await res.json();
@@ -138,7 +139,7 @@ export default function GuardTable() {
 
     try {
       setLoadingPage(true);
-      const res = await fetch("http://localhost:5000/api/guards", {
+      const res = await fetch(`${api}/api/guards`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -195,7 +196,7 @@ export default function GuardTable() {
   // delete guard
   const handleDelete = async (id) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/guards/${id}`, {
+      const res = await fetch(`${api}/api/guards/${id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -241,7 +242,7 @@ export default function GuardTable() {
         return;
       }
 
-      const res = await fetch(`http://localhost:5000/api/guards/${form._id}`, {
+      const res = await fetch(`${api}/api/guards/${form._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

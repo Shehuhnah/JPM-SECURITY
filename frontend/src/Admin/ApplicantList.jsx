@@ -22,6 +22,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
+const api = import.meta.env.VITE_API_URL;
 
 export default function ApplicantsList() {
   const [applicants, setApplicants] = useState([]);
@@ -71,7 +72,7 @@ export default function ApplicantsList() {
 
   const fetchApplicants = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/applicants", { credentials: "include" });
+      const res = await fetch(`${api}/api/applicants`, { credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setApplicants(Array.isArray(data) ? data : []);
@@ -88,7 +89,7 @@ export default function ApplicantsList() {
 
   const updateStatus = async (id, status) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/applicants/${id}`, {
+      const res = await fetch(`${api}/api/applicants/${id}`, {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -127,7 +128,7 @@ export default function ApplicantsList() {
 
     if (status === "Declined") {
       try {
-        const res = await fetch(`http://localhost:5000/api/applicants/${applicant._id}/decline`, {
+        const res = await fetch(`${api}/api/applicants/${applicant._id}/decline`, {
           method: "PATCH",
           credentials: "include",
         });
@@ -218,7 +219,7 @@ export default function ApplicantsList() {
     if (!selectedApplicant) return;
     setSavingRemarks(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/applicants/${selectedApplicant._id}/remarks`, {
+      const res = await fetch(`${api}/api/applicants/${selectedApplicant._id}/remarks`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -244,7 +245,7 @@ export default function ApplicantsList() {
       toast.info("This applicant has not submitted a resume yet.");
       return;
     }
-    window.open(`http://localhost:5000${file}`, "_blank", "noopener,noreferrer");
+    window.open(`${api}${file}`, "_blank", "noopener,noreferrer");
   };
 
   const getStatusBadge = (status) => {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Send, Trash2, Edit, Save } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+const api = import.meta.env.VITE_API_URL;
 
 export default function AdminPosts() {
   const [title, setTitle] = useState("");
@@ -13,7 +14,7 @@ export default function AdminPosts() {
 
   const { user: admin, loading } = useAuth();
 
-  const API_URL = "http://localhost:5000/api/posts"; // backend port
+  const API_URL = `${api}/api/posts`; // backend port
 
   // Fetch all posts 
   useEffect(() => {

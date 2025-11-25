@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Shield, UserCheck } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+const api = import.meta.env.VITE_API_URL;
 
 export default function AdminGuardUpdates() {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ export default function AdminGuardUpdates() {
     try {
       setError("");
       
-      const response = await fetch("http://localhost:5000/api/guards", {
+      const response = await fetch(`${api}/api/guards`, {
         credentials: "include",
       });
 

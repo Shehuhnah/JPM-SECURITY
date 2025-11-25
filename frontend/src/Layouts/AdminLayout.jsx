@@ -25,6 +25,7 @@ import {
 
 import avatar from "../assets/gerard.jpg";
 import logo from "../assets/jpmlogo.png";
+const api = import.meta.env.VITE_API_URL;
 
 export default function AdminLayout() {
   const [messagesDropdown, setMessagesDropdown] = useState(false);
@@ -42,7 +43,7 @@ export default function AdminLayout() {
 
   const handleLogout = async () => {
     try {
-      await fetch("http://localhost:5000/api/auth/logout", {
+      await fetch(`${api}/api/auth/logout`, {
         method: "POST",
         credentials: "include",
       });

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+const api = import.meta.env.VITE_API_URL;
 
 export function useAuth() {
   const [user, setUser] = useState(null); // can be admin or guard
@@ -7,7 +8,7 @@ export function useAuth() {
   useEffect(() => {
     const fetchMe = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/auth/me", {
+        const res = await fetch(`${api}/api/auth/me`, {
           credentials: "include",
         });
 

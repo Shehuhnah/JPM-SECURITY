@@ -7,6 +7,7 @@ import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import { ToastContainer, toast, Bounce } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+const api = import.meta.env.VITE_API_URL;
 
 export default function AdminAddSchedule() {
   const { user, loading } = useAuth();
@@ -34,10 +35,10 @@ export default function AdminAddSchedule() {
     const fetchData = async () => {
       try {
         const [guardsRes, clientsRes] = await Promise.all([
-          fetch("http://localhost:5000/api/guards", {
+          fetch(`${api}/api/guards`, {
             credentials: "include",
           }),
-          fetch("http://localhost:5000/api/clients/get-clients", {
+          fetch(`${api}/api/clients/get-clients`, {
             credentials: "include",
           }),
         ]);
@@ -68,7 +69,7 @@ export default function AdminAddSchedule() {
         try {
           setLoadingpage(true);
           const res = await fetch(
-            `http://localhost:5000/api/schedules/get-by-batch/${id}`,
+            `${api}/api/schedules/get-by-batch/${id}`,
             { credentials: "include" }
           );
           if (!res.ok) throw new Error("Failed to fetch schedule batch for editing");
@@ -153,7 +154,7 @@ export default function AdminAddSchedule() {
 
     try {
       setLoadingpage(true);
-      const res = await fetch("http://localhost:5000/api/schedules/create-schedule", {
+      const res = await fetch(`${api}/api/schedules/create-schedule`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -203,7 +204,7 @@ export default function AdminAddSchedule() {
     
     try {
       setLoadingpage(true);
-      const res = await fetch(`http://localhost:5000/api/schedules/batch/${id}`, {
+      const res = await fetch(`${api}/api/schedules/batch/${id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { ArrowLeft, Clock, MapPin, User, Shield, CalendarDays } from "lucide-react";
+const api = import.meta.env.VITE_API_URL;
 
 function AdminGuardUpdates2() {
   const { id } = useParams();
@@ -31,7 +32,7 @@ function AdminGuardUpdates2() {
       setLoadingPage(true);
       setError("");
       
-      const response = await fetch(`http://localhost:5000/api/guards/${id}/details`, {
+      const response = await fetch(`${api}/api/guards/${id}/details`, {
         credentials: "include",
       });
 

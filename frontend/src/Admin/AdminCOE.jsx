@@ -3,6 +3,8 @@ import { Filter, RefreshCw, CheckCircle, XCircle, Clock, IdCardLanyard, Eye, Dow
 import { generateAndDownloadCOE } from "../utils/pdfGenerator";
 import { useAuth } from "../hooks/useAuth";
 import header from "../assets/headerpdf/header.png"
+const api = import.meta.env.VITE_API_URL;
+
 export default function AdminCOE() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -21,7 +23,7 @@ export default function AdminCOE() {
 
   const fetchRequests = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/coe', {
+      const res = await fetch(`${api}/api/coe`, {
         credentials: 'include'
       });
       if (!res.ok) throw new Error('Failed to load requests');
@@ -55,7 +57,6 @@ export default function AdminCOE() {
       console.error(err);
     }
   };
-
 
   useEffect(() => {
     fetchRequests();
@@ -118,7 +119,7 @@ export default function AdminCOE() {
       }
 
       const res = await fetch(
-        `http://localhost:5000/api/coe/${selectedRequest.id}/status`,
+        `${api}/api/coe/${selectedRequest.id}/status`,
         {
           method: "PATCH",
           credentials: "include",
@@ -166,7 +167,7 @@ export default function AdminCOE() {
   const handleExportCOE = async (requestId) => {
     try {
       // Fetch the full request data from backend
-      const res = await fetch(`http://localhost:5000/api/coe/${requestId}`, {
+      const res = await fetch(`${api}/api/coe/${requestId}`, {
         credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to fetch COE request');

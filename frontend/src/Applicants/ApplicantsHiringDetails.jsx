@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { MapPin, Briefcase, Clock, FileText, CalendarDays, Info } from "lucide-react";
-
+const api = import.meta.env.VITE_API_URL;
 
 export default function ApplicantsHiringDetails() {
   const [hirings, setHirings] = useState([]);
@@ -11,7 +11,7 @@ export default function ApplicantsHiringDetails() {
   useEffect(() => {
     const fetchHirings = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/hirings");
+        const res = await fetch(`${api}/api/hirings`);
         if (!res.ok) throw new Error("Failed to fetch hiring posts");
         const data = await res.json();
         setHirings(data);

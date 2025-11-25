@@ -14,6 +14,7 @@ import {
 import { generateAndDownloadCOE } from "../utils/pdfGenerator";
 import header from "../assets/headerpdf/header.png";
 import { useAuth } from "../hooks/useAuth";
+const api = import.meta.env.VITE_API_URL;
 
 export default function GuardReqCOE() {
   const [purpose, setPurpose] = useState("");
@@ -32,7 +33,7 @@ export default function GuardReqCOE() {
 
     const fetchRequests = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/coe/me", {
+        const res = await fetch(`${api}/api/coe/me`, {
           credentials: "include",
           headers: { "Content-Type": "application/json" },
         });
@@ -75,7 +76,7 @@ export default function GuardReqCOE() {
     try {
       setLoadingPage(true);
       setMessage("");
-      const res = await fetch("http://localhost:5000/api/coe", {
+      const res = await fetch(`${api}/api/coe`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -84,7 +85,7 @@ export default function GuardReqCOE() {
       if (!res.ok) throw new Error("Failed to submit request");
 
       // reload requests
-      const res2 = await fetch("http://localhost:5000/api/coe/me", {
+      const res2 = await fetch(`${api}/api/coe/me`, {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
       });

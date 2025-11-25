@@ -23,7 +23,7 @@ import clientRoutes from "./routes/clientsRoutes.js";
 import scheduleRoutes from "./routes/scheduleRoutes.js";
 import userRoutes from "./routes/authRoutes.js";
 import applicantMessageRoutes from "./routes/applicantMessageRoutes.js";
-import applicantRoutes from "./routes/applicantRoutes.js"
+import applicantRoutes from "./routes/applicantRoutes.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -31,19 +31,18 @@ const httpServer = createServer(app);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ✅ Socket.IO Setup
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: process.env.CLIENT_ORIGIN,
     methods: ["GET", "POST"],
     credentials: true,
   },
 });
 
-export const onlineUsersMap = {}; // key: userId, value: socket.id
-export { io }; // export to use inside controllers
+export const onlineUsersMap = {};
+export { io };
 
-// Middleware to inject io into routes
+// Inject io into requests
 app.use((req, res, next) => {
   req.io = io;
   next();
@@ -51,20 +50,19 @@ app.use((req, res, next) => {
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: process.env.CLIENT_ORIGIN,
     credentials: true,
   })
 );
-app.use(cookieParser());
 
+app.use(cookieParser());
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads/messages")));
-app.use('/assets', express.static(path.join(__dirname, 'assets')));
+app.use("/assets", express.static(path.join(__dirname, "assets")));
 
 
-// ✅ Register routes
 app.use("/api/auth", authRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/posts", postRoutes);
@@ -78,47 +76,44 @@ app.use("/api/clients", clientRoutes);
 app.use("/api/schedules", scheduleRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/applicant-messages", applicantMessageRoutes);
-app.use("/api/applicants", applicantRoutes)
+app.use("/api/applicants", applicantRoutes);
 
 app.get("/", (req, res) => res.send("API is running"));
 
-// ✅ Connect MongoDB
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    httpServer.listen(5000, () => console.log("Server running on port 5000"));
+    const PORT = process.env.PORT || 5000;
+    httpServer.listen(PORT, () =>
+      console.log(`Server running on port ${PORT}`)
+    );
   })
   .catch((err) => console.log(err));
 
-// ✅ Socket events (no DB logic here)
 io.on("connection", (socket) => {
   console.log("🟢 New user connected:", socket.id);
 
   socket.on("userOnline", (userId) => {
     onlineUsersMap[userId] = socket.id;
-    console.log("✅ User online:", userId);
     io.emit("onlineUsers", Object.keys(onlineUsersMap));
   });
 
   socket.on("joinConversation", (conversationId) => {
     socket.join(conversationId);
-    console.log(`📩 Joined conversation ${conversationId}`);
   });
 
   socket.on("mark_seen", ({ conversationId, userId }) => {
-    io.to(conversationId).emit("messages_seen", { conversationId, seenBy: userId });
+    io.to(conversationId).emit("messages_seen", {
+      conversationId,
+      seenBy: userId,
+    });
   });
 
   socket.on("disconnect", () => {
     const userId = Object.keys(onlineUsersMap).find(
       (key) => onlineUsersMap[key] === socket.id
     );
-    if (userId) {
-      delete onlineUsersMap[userId];
-      console.log("🔴 User disconnected:", userId);
-      io.emit("onlineUsers", Object.keys(onlineUsersMap));
-    } else {
-      console.log("❌ Unknown socket disconnected:", socket.id);
-    }
+    if (userId) delete onlineUsersMap[userId];
+    io.emit("onlineUsers", Object.keys(onlineUsersMap));
   });
 });

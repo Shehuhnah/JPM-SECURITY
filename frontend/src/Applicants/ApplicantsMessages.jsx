@@ -12,8 +12,8 @@ import {
 import { useAuth } from "../hooks/useAuth.js"
 import { useNavigate } from "react-router-dom";
 
-
-const socket = io("http://localhost:5000");
+const api = import.meta.env.VITE_API_URL;
+const socket = io(api);
 const STORAGE_KEY = "jpm-applicant-chat";
 
 const formatDateTime = (timestamp) =>
@@ -110,7 +110,7 @@ export default function ApplicantsMessages() {
   const fetchMessages = async (conversationId, applicantId) => {
     try {
       const res = await fetch(
-        `http://localhost:5000/api/applicant-messages/${conversationId}?applicantId=${applicantId}`, {
+        `${api}/api/applicant-messages/${conversationId}?applicantId=${applicantId}`, {
           credentials: "include"
         }
       );
@@ -141,7 +141,7 @@ export default function ApplicantsMessages() {
       try {
         setLoadingPage(true);
         const phonePayload = session.phone ?? phoneInput;
-        const res = await fetch("http://localhost:5000/api/applicant-messages/session", {
+        const res = await fetch(`${api}/api/applicant-messages/session`, {
           credentials: "include",
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -189,7 +189,7 @@ export default function ApplicantsMessages() {
     const loadHiring = async () => {
       if (!hiringContext?.hiringId) return;
       try {
-        const res = await fetch(`http://localhost:5000/api/hirings/${hiringContext.hiringId}`,{
+        const res = await fetch(`${api}/api/hirings/${hiringContext.hiringId}`,{
           credentials: "include"
         });
         if (res.ok) {
@@ -318,7 +318,7 @@ export default function ApplicantsMessages() {
       }
       if (file) formData.append("file", file);
 
-      const url = `http://localhost:5000/api/applicant-messages/${session.conversationId}/messages`;
+      const url = `${api}/api/applicant-messages/${session.conversationId}/messages`;
       console.log("🌐 [ApplicantsMessages] Request URL:", url);
 
       const res = await fetch(url, {
@@ -336,7 +336,7 @@ export default function ApplicantsMessages() {
         if (res.status === 404 && errorText.includes("Conversation not found")) {
           console.log("🔄 [ApplicantsMessages] Conversation not found, re-initializing...");
           // Clear session and re-initialize
-          const res = await fetch("http://localhost:5000/api/applicant-messages/session", {
+          const res = await fetch(`${api}/api/applicant-messages/session`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name: session.name, email: session.email, phone: phoneInput, position: hiringContext?.position }),
@@ -360,7 +360,7 @@ export default function ApplicantsMessages() {
             if (file) retryFormData.append("file", file);
             
             const retryRes = await fetch(
-              `http://localhost:5000/api/applicant-messages/${updatedSession.conversationId}/messages`,
+              `${api}/api/applicant-messages/${updatedSession.conversationId}/messages`,
               {
                 method: "POST",
                 body: retryFormData,
@@ -420,17 +420,17 @@ export default function ApplicantsMessages() {
     if (isImage) {
       return (
         <img
-          src={`http://localhost:5000${msg.file}`}
+          src={`${api}${msg.file}`}
           alt={msg.fileName || "attachment"}
           className="mt-3 rounded-lg border border-white/10 max-w-full max-h-64 object-cover cursor-pointer"
-          onClick={() => setPreviewImage(`http://localhost:5000${msg.file}`)}
+          onClick={() => setPreviewImage(`${api}${msg.file}`)}
         />
       );
     }
 
     return (
       <a
-        href={`http://localhost:5000${msg.file}`}
+        href={`${api}${msg.file}`}
         target="_blank"
         rel="noopener noreferrer"
         className="mt-3 inline-flex items-center gap-2 text-sm text-blue-200 underline hover:text-blue-100"
