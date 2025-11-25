@@ -5,33 +5,24 @@ import logo from "../assets/jpmlogo.png";
 import { ToastContainer, toast, Bounce } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useEffect } from "react";
+import { useAuth } from "../hooks/useAuth.js"
 const api = import.meta.env.VITE_API_URL;
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loadingPage, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
+  const { user: admin, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => { 
     document.title = "Admin Login | JPM Security Agency";
-    const checkLogin = async () => {
-      try {
-        const res = await fetch(`${api}/api/auth/me`, { credentials: "include" });
-        if (res.ok) {
-          const data = await res.json();
-          console.log(data)
-          if (data) navigate("/admin/deployment");
-        }
-      } catch (err) {
-        console.error("Check login error:", err);
-      }
+    if(!admin && !loading){
+      navigate("/admin/login")
     };
-    checkLogin();
-  }, [navigate]);
+  }, [admin , loading, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
