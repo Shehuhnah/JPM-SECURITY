@@ -5,7 +5,7 @@ import {
   getHiringById,
   updateHiring,
   deleteHiring,
-} from "../controller/hiringcontroller.js";
+} from "../controller/hiringController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
