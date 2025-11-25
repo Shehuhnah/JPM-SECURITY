@@ -1,12 +1,14 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { io } from "socket.io-client";
 import { Paperclip, Send, CircleUserRound, Search, ArrowLeft } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
+import { io } from "socket.io-client";
 const api = import.meta.env.VITE_API_URL;
-
-const socket = io(api);
+export const socket = io(api, {
+  withCredentials: true,
+  transports: ["websocket", "polling"], 
+});
 
 export default function SubadminApplicantMessage() {
   const { user, loading } = useAuth();

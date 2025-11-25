@@ -13,7 +13,10 @@ import { useAuth } from "../hooks/useAuth.js"
 import { useNavigate } from "react-router-dom";
 
 const api = import.meta.env.VITE_API_URL;
-const socket = io(api);
+export const socket = io(api, {
+  withCredentials: true,
+  transports: ["websocket", "polling"], 
+});
 const STORAGE_KEY = "jpm-applicant-chat";
 
 const formatDateTime = (timestamp) =>

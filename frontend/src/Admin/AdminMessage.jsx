@@ -5,7 +5,10 @@ import { Paperclip, Send, Search, CircleUserRound, ArrowLeft, MessageSquare  } f
 import { useAuth } from "../hooks/useAuth";
 
 const api = import.meta.env.VITE_API_URL;
-const socket = io(api);
+export const socket = io(api, {
+  withCredentials: true,
+  transports: ["websocket", "polling"], 
+});
 
 export default function MessagesPage() {
   const { user, loading } = useAuth();
