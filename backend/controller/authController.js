@@ -65,10 +65,11 @@ export const loginUser = async (req, res) => {
 
     res.cookie("accessToken", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production", // must be true in prod HTTPS
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", 
       maxAge: 1000 * 60 * 60 * 24, // 1 day
     });
+
 
     user.lastLogin = new Date();
     await user.save();
@@ -122,9 +123,9 @@ export const loginGuard = async (req, res) => {
     const token = generateToken(guard._id, guard.role);
     res.cookie("accessToken", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 1000 * 60 * 60, // 1 hour
+      secure: process.env.NODE_ENV === "production", // must be true in prod HTTPS
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", 
+      maxAge: 1000 * 60 * 60 * 24, // 1 day
     });
 
     // update last login
