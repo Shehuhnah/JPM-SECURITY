@@ -8,83 +8,98 @@ import { generateWorkHoursPDF, generateWorkHoursByClientPDF } from "../utils/wor
  * @route   POST /api/attendance/time-in
  * @access  Private (Guard)
  */
+
 export const createAttendance = async (req, res) => {
-    try {
-        const guardId = req.user.id;
-        const { scheduleId, location, photo } = req.body;
+  try {
+    const guardId = req.user.id;
+    const { scheduleId, location, photo } = req.body;
 
-        if (!scheduleId) {
-            return res.status(400).json({ message: "Schedule ID is required for time-in." });
-        }
-
-        // 1. Find the schedule to validate against
-        const schedule = await Schedule.findById(scheduleId);
-        if (!schedule) {
-            return res.status(404).json({ message: "Schedule not found." });
-        }
-
-        // 2. Validate that the schedule belongs to the authenticated guard
-        if (schedule.guardId.toString() !== guardId) {
-            return res.status(403).json({ message: "You are not authorized for this schedule." });
-        }
-        
-        // 3. Validate schedule approval status
-        if (schedule.isApproved !== 'Approved') {
-            return res.status(403).json({ message: "Cannot time-in for a schedule that is not approved." });
-        }
-
-        const now = new Date();
-        const scheduledTimeIn = new Date(schedule.timeIn);
-        const scheduledTimeOut = new Date(schedule.timeOut);
-
-        const validTimeInStart = new Date(scheduledTimeIn);
-        validTimeInStart.setHours(validTimeInStart.getHours() - 1);
-
-        const validTimeInEnd = new Date(scheduledTimeIn);
-        validTimeInEnd.setHours(validTimeInEnd.getHours() + 2);
-
-        console.log("Now:          ", now.toLocaleString());
-        console.log("Scheduled In: ", scheduledTimeIn.toLocaleString());
-        console.log("Scheduled Out:", scheduledTimeOut.toLocaleString());
-        console.log("Valid Start:  ", validTimeInStart.toLocaleString());
-        console.log("Valid End:    ", validTimeInEnd.toLocaleString());
-
-        // Block time-in if shift already ended
-        if (now > scheduledTimeOut) {
-            return res.status(400).json({
-                message: "Cannot time-in. Your shift has already ended.",
-            });
-        }
-
-        // 5. Prevent duplicate time-in for this specific schedule
-        const existingAttendance = await Attendance.findOne({ scheduleId });
-        if (existingAttendance) {
-            return res.status(400).json({ message: "You have already timed in for this schedule." });
-        }
-
-        // 6. Create the new attendance record
-        const attendance = await Attendance.create({
-            guard: guardId,
-            scheduleId: scheduleId,
-            timeIn: now,
-            status: "On Duty",
-            location: location || {},
-            photo: photo || null,
-        });
-
-        const populatedAttendance = await attendance.populate([
-            { path: 'guard', select: 'fullName guardId' },
-            { path: 'scheduleId' }
-        ]);
-
-        res.status(201).json(populatedAttendance);
-
-    } catch (error) {
-        console.error("Error creating attendance:", error);
-        res.status(500).json({ message: "Server error during time-in." });
+    if (!scheduleId) {
+      return res.status(400).json({ message: "Schedule ID is required for time-in." });
     }
-};
 
+    // 1️⃣ Find the schedule
+    const schedule = await Schedule.findById(scheduleId);
+    if (!schedule) {
+      return res.status(404).json({ message: "Schedule not found." });
+    }
+
+    // 2️⃣ Validate schedule ownership
+    if (schedule.guardId.toString() !== guardId) {
+      return res.status(403).json({ message: "You are not authorized for this schedule." });
+    }
+
+    // 3️⃣ Validate approval status
+    if (schedule.isApproved !== 'Approved') {
+      return res.status(403).json({ message: "Cannot time-in for a schedule that is not approved." });
+    }
+
+    const now = new Date();
+    const scheduledTimeIn = new Date(schedule.timeIn);
+    const scheduledTimeOut = new Date(schedule.timeOut);
+
+    // 4️⃣ Define time-in window: 1 hour before → 2 hours after scheduled start
+    const validTimeInStart = new Date(scheduledTimeIn);
+    validTimeInStart.setHours(validTimeInStart.getHours() - 1);
+
+    // const validTimeInEnd = new Date(scheduledTimeIn);
+    // validTimeInEnd.setHours(validTimeInEnd.getHours() + 2);
+
+    console.log("🕒 Now:          ", now.toLocaleString());
+    console.log("🕒 Scheduled In: ", scheduledTimeIn.toLocaleString());
+    console.log("🕒 Scheduled Out:", scheduledTimeOut.toLocaleString());
+    console.log("🕒 Valid Start:  ", validTimeInStart.toLocaleString());
+    // console.log("🕒 Valid End:    ", validTimeInEnd.toLocaleString());
+
+    // 5️⃣ Block time-in if shift hasn't started yet
+    if (now < validTimeInStart) {
+      return res.status(400).json({
+        message: `Cannot time-in yet. You can time-in starting at ${validTimeInStart.toLocaleTimeString()}.`,
+      });
+    }
+
+    // // 6️⃣ Block time-in if the time-in window passed
+    // if (now > validTimeInEnd) {
+    //   return res.status(400).json({
+    //     message: "Time-in window has passed. Please contact your supervisor.",
+    //   });
+    // }
+
+    // 7️⃣ Block if shift already ended
+    if (now > scheduledTimeOut) {
+      return res.status(400).json({
+        message: "Cannot time-in. Your shift has already ended.",
+      });
+    }
+
+    // 8️⃣ Prevent duplicate time-in
+    const existingAttendance = await Attendance.findOne({ scheduleId });
+    if (existingAttendance) {
+      return res.status(400).json({ message: "You have already timed in for this schedule." });
+    }
+
+    // 9️⃣ Create attendance
+    const attendance = await Attendance.create({
+      guard: guardId,
+      scheduleId: scheduleId,
+      timeIn: now,
+      status: "On Duty",
+      location: location || {},
+      photo: photo || null,
+    });
+
+    const populatedAttendance = await attendance.populate([
+      { path: 'guard', select: 'fullName guardId' },
+      { path: 'scheduleId' }
+    ]);
+
+    res.status(201).json(populatedAttendance);
+
+  } catch (error) {
+    console.error("Error creating attendance:", error);
+    res.status(500).json({ message: "Server error during time-in." });
+  }
+};
 
 /**
  * @desc    Guard performs time-out for a specific shift

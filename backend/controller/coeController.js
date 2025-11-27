@@ -91,10 +91,16 @@ export const getMyRequests = async (req, res) => {
     const user = req.user;
     let filter = {};
 
-    if (user.role === "guard") {
+    // Ensure role comparison is case-insensitive if roles might vary in capitalization
+    const userRole = user.role?.toLowerCase(); 
+
+    if (userRole === "guard") {
       filter.guard = user._id;
-    } else if (user.role === "subadmin") {
+    } else if (userRole === "admin" || userRole === "subadmin") { // Check for both 'admin' and 'subadmin' roles
       filter.subadmin = user._id;
+    } else {
+      // If the user's role is not recognized, return no requests
+      return res.json({ items: [] });
     }
 
     const items = await COERequest.find(filter)
@@ -108,7 +114,6 @@ export const getMyRequests = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 // Get single request
 export const getRequest = async (req, res) => {

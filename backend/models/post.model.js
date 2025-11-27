@@ -17,11 +17,12 @@ const postSchema = new mongoose.Schema(
       required: true,
     },
     author: {
-      type: String,
-      default: "ADMIN",
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      ref: "Admin",
     },
   },
-  { timestamps: true } // Automatically adds createdAt, updatedAt
+  { timestamps: true } 
 );
 
 export default mongoose.model("Post", postSchema);

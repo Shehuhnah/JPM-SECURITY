@@ -10,7 +10,6 @@ import Aboutbg from "../Home/assets/about-bg.jpg";
 import Clientsbg from "../Home/assets/clients-bg.jpg";
 import Contactbg from "../Home/assets/contact-bg.jpg";
 import Homebg from "../Home/assets/home-bg.jpg";
-import Img1 from "../Home/assets/img1.png";
 
 export default function GalleryPage() {
   useEffect(() => {
@@ -18,9 +17,9 @@ export default function GalleryPage() {
   }, []);
 
   const images = [
-    Homebg, Aboutbg, Clientsbg, Contactbg, Img1,
+    Homebg, Aboutbg, Clientsbg, Contactbg, ,
     Homebg, Aboutbg, Homebg, Clientsbg, Contactbg,
-    Img1, Homebg, Aboutbg, Clientsbg, Contactbg, Img1,
+    , Homebg, Aboutbg, Clientsbg, Contactbg, ,
   ];
 
   // Split images into collage groups

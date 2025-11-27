@@ -45,10 +45,11 @@ export default function ApplicantsList() {
   const [selectedApplicant, setSelectedApplicant] = useState(null);
   const [remarks, setRemarks] = useState("");
   const [savingRemarks, setSavingRemarks] = useState(false);
+  const [downloadModalOpen, setDownloadModalOpen] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleString('default', { month: 'long' }));
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const { user, loading } = useAuth();
-  const role = user?.role;
-  const isSubadmin = role === "Subadmin"; 
   const navigate = useNavigate();
 
   const openPanel = (applicant) => {
@@ -175,9 +176,25 @@ export default function ApplicantsList() {
 
     try {
       setSendingHire(true);
+
+      // 1. Update applicant status to "Hired"
       await updateStatus(applicant._id, "Hired");
-      toast.success(`${applicant.name} has been hired!`);
-      // Other notifications (email, etc.) can be added here
+
+      // 2. Send the hire email with an optional message
+      const emailBody = { message: hireMessage };
+
+      const res = await fetch(`${api}/api/applicants/${applicant._id}/hire-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(emailBody),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to send hire email.');
+      }
+
+      toast.success(`Hire notification sent to ${applicant.name}`);
       closeHireModal();
     } catch (err) {
       console.error("Failed to send hire notification:", err);
@@ -199,13 +216,47 @@ export default function ApplicantsList() {
   };
 
   const sendInterviewInvite = async () => {
-    // This function can be simplified or removed if interview scheduling is handled differently
     if (!interviewModal.applicant) return;
+    const applicant = interviewModal.applicant;
+
+    // --- Validation ---
+    if (interviewType === "single" && !interviewDate) {
+      toast.error("Please select a date for the interview.");
+      return;
+    }
+    if (interviewType === "range" && (!interviewStart || !interviewEnd)) {
+      toast.error("Please select a valid start and end date.");
+      return;
+    }
+
     try {
       setSendingInvite(true);
-      await updateStatus(interviewModal.applicant._id, "Interview");
-      // The rest of the email/messaging logic can be kept or adapted as needed
-      toast.success(`Interview scheduled for ${interviewModal.applicant.name}`);
+
+      // 1. Update applicant status to "Interview"
+      await updateStatus(applicant._id, "Interview");
+
+      // 2. Send the interview email with all details
+      const emailBody = {
+        type: interviewType,
+        date: interviewDate || null,
+        startDate: interviewStart || null,
+        endDate: interviewEnd || null,
+        time: interviewTime || null,
+        message: interviewMessage,
+      };
+
+      const res = await fetch(`${api}/api/applicants/${applicant._id}/interview-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(emailBody),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to send interview email.');
+      }
+
+      toast.success(`Interview invitation sent to ${applicant.name}`);
       closeInterviewModal();
     } catch (err) {
       console.error("Failed to send interview invite:", err);
@@ -265,7 +316,64 @@ export default function ApplicantsList() {
     return matchesSearch && matchesStatus;
   });
 
-  return (
+  const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+    const handleDownloadList = async () => {
+
+      try {
+
+        const res = await fetch(`${api}/api/applicants/download-hired-list?month=${selectedMonth}&year=${selectedYear}`, {
+
+          credentials: 'include',
+
+        });
+
+        if (!res.ok) {
+
+          const errorData = await res.json().catch(() => ({ message: 'Failed to download PDF.' }));
+
+          throw new Error(errorData.message);
+
+        }
+
+        const blob = await res.blob();
+
+        const url = window.URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+
+        a.style.display = 'none';
+
+        a.href = url;
+
+        a.download = `Hired_Applicants_${selectedMonth}_${selectedYear}.pdf`;
+
+        document.body.appendChild(a);
+
+        a.click();
+
+        window.URL.revokeObjectURL(url);
+
+        document.body.removeChild(a);
+
+        toast.success("PDF downloaded successfully!");
+
+        setDownloadModalOpen(false);
+
+      } catch (error) {
+
+        toast.error(error.message || "An error occurred while downloading the PDF.");
+
+        console.error('Error downloading hired list:', error);
+
+      }
+
+    };
+
+  
+
+    return (
     <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
       <ToastContainer theme="dark" />
       <main className="flex-1 p-6">
@@ -281,6 +389,12 @@ export default function ApplicantsList() {
               title="Refresh List"
             >
               <RefreshCcw className="size-4" />
+            </button>
+            <button
+              onClick={() => setDownloadModalOpen(true)} 
+              className="flex items-center bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200">
+              <FileDown className="w-4 h-4 text-blue-400 mr-2" />
+              <p>Download List</p>
             </button>
             <div className="flex items-center bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200">
               <Filter className="w-4 h-4 text-blue-400 mr-2" />
@@ -375,9 +489,25 @@ export default function ApplicantsList() {
                                   {selectedApplicant.declinedDate && <div className="py-3 sm:grid sm:grid-cols-3 sm:gap-4"><dt className="text-sm text-gray-400">Date Declined</dt><dd className="mt-1 text-sm text-white sm:col-span-2 sm:mt-0">{formatDate(selectedApplicant.declinedDate)}</dd></div>}
                                 </dl>
                               </div>
-
+                              
+                              {user?.role === "Admin" && (
+                                <div className="mt-2 flex flex-col gap-2">
+                                  <button 
+                                    onClick={() => handleViewResume(selectedApplicant)} 
+                                    className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 px-3 py-2 rounded-md flex items-center gap-2 text-sm justify-center">
+                                      <Eye size={14} /> View Resume
+                                  </button>
+                                  <div className="">
+                                    <h3 className="font-medium text-gray-200">Interview Remarks</h3>
+                                    <div className="mt-4">
+                                        <h4 className="font-medium text-sm text-gray-400">Current Remarks:</h4>
+                                        <p className="text-sm text-gray-300 italic mt-1 whitespace-pre-wrap">{selectedApplicant.interviewRemarks || "No remarks yet."}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                               {/* Actions Section */}
-                              {isSubadmin && (
+                              {user?.role === "Subadmin" && (
                                 <div>
                                   <h3 className="font-medium text-gray-200">Actions</h3>
                                   <div className="mt-2 grid grid-cols-2 gap-2">
@@ -390,7 +520,7 @@ export default function ApplicantsList() {
                               )}
                               
                               {/* Remarks Section */}
-                              {isSubadmin && (
+                              {user?.role === "Subadmin" && (
                                 <div>
                                   <h3 className="font-medium text-gray-200">Interview Remarks</h3>
                                   <div className="mt-2">
@@ -484,6 +614,7 @@ export default function ApplicantsList() {
           </div>
         </Dialog>
       </Transition>
+
       {/* Existing Modals (Confirm, Interview, Hire) */}
       <Transition appear show={interviewModal.open} as={Fragment}>
         <Dialog
@@ -650,6 +781,8 @@ export default function ApplicantsList() {
           </div>
         </Dialog>
       </Transition>
+
+      {/* Existing Modals  for hire modal*/}
       <Transition appear show={hireModal.open} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={closeHireModal}>
           <Transition.Child
@@ -727,6 +860,38 @@ export default function ApplicantsList() {
               </Transition.Child>
             </div>
           </div>
+        </Dialog>
+      </Transition>
+      
+       {/* Download Hired List Modal */}
+      <Transition appear show={downloadModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setDownloadModalOpen(false)}>
+          <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0"><div className="fixed inset-0 bg-black/60" /></Transition.Child>
+          <div className="fixed inset-0 overflow-y-auto"><div className="flex min-h-full items-center justify-center p-4">
+            <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-150" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+              <Dialog.Panel className="w-full max-w-md rounded-2xl bg-[#0f172a] border border-white/10 p-6 shadow-xl text-gray-100">
+                <Dialog.Title className="text-lg font-semibold mb-4">Download Hired Applicants List</Dialog.Title>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm text-gray-400">Month</label>
+                    <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="w-full mt-1 rounded-lg bg-[#0f172a] border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/70">
+                      {months.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-400">Year</label>
+                    <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="w-full mt-1 rounded-lg bg-[#0f172a] border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/70">
+                      {years.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <button onClick={() => setDownloadModalOpen(false)} className="px-4 py-2 rounded-lg border border-gray-600 text-gray-200 hover:bg-white/5">Cancel</button>
+                  <button onClick={handleDownloadList} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white">Download</button>
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div></div>
         </Dialog>
       </Transition>
     </div>

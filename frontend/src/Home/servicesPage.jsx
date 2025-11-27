@@ -77,7 +77,7 @@ export default function ServicesPage() {
         "Patrol and protective operations",
         "Handler certification and field deployment",
       ],
-      bg: Img1, // 🔹 replace this placeholder
+      bg: Clientsbg, // 🔹 replace this placeholder
     },
     {
       icon: Truck,

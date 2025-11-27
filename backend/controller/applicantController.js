@@ -1,5 +1,6 @@
 import Applicant from "../models/applicant.model.js";
 import { sendMail } from "../utils/mailer.js";
+import { generateHiredApplicantsPDF } from "../utils/hiredApplicantsPdfGenerator.js";
 
 // 🟢 Get all applicants (latest first)
 export const getApplicants = async (req, res) => {
@@ -112,8 +113,8 @@ export const sendInterviewEmail = async (req, res) => {
     const { id } = req.params;
     const { type, date, startDate, endDate, time, message } = req.body;
 
-    if (req.user?.role !== "Subadmin") {
-      return res.status(403).json({ message: "Only subadmins can send interview emails." });
+    if (!["Admin", "Subadmin"].includes(req.user?.role)) {
+      return res.status(403).json({ message: "You are not authorized to perform this action." });
     }
 
     const applicant = await Applicant.findById(id);
@@ -271,8 +272,8 @@ export const sendHireEmail = async (req, res) => {
     const { id } = req.params;
     const { message } = req.body;
 
-    if (req.user?.role !== "Subadmin") {
-      return res.status(403).json({ message: "Only subadmins can send hire emails." });
+    if (!["Admin", "Subadmin"].includes(req.user?.role)) {
+      return res.status(403).json({ message: "You are not authorized to perform this action." });
     }
 
     const applicant = await Applicant.findById(id);
@@ -426,5 +427,41 @@ export const addInterviewRemarks = async (req, res) => {
   } catch (error) {
     console.error("Error adding interview remarks:", error);
     res.status(500).json({ message: "Failed to add interview remarks." });
+  }
+};
+
+// 📄 Download list of hired applicants for a specific month
+export const downloadHiredList = async (req, res) => {
+  try {
+    const { month, year } = req.query;
+    if (!month || !year) {
+      return res.status(400).json({ message: "Month and year are required." });
+    }
+
+    const monthIndex = new Date(Date.parse(month +" 1, 2012")).getMonth();
+    const startDate = new Date(year, monthIndex, 1);
+    const endDate = new Date(year, monthIndex + 1, 0);
+
+    const hiredApplicants = await Applicant.find({
+      status: "Hired",
+      dateOfHired: {
+        $gte: startDate,
+        $lte: endDate,
+      },
+    }).sort({ dateOfHired: 'asc' });
+
+    if (hiredApplicants.length === 0) {
+      return res.status(404).json({ message: "No hired applicants found for the selected month." });
+    }
+
+    const pdfBuffer = await generateHiredApplicantsPDF(hiredApplicants, month, year);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Hired_Applicants_${month}_${year}.pdf`);
+    res.send(pdfBuffer);
+
+  } catch (error) {
+    console.error("Error generating hired applicants PDF:", error);
+    res.status(500).json({ message: "Failed to generate PDF." });
   }
 };

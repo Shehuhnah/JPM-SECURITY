@@ -23,7 +23,6 @@ const applicantSchema = new mongoose.Schema(
       enum: ["Review", "Interview", "Hired", "Declined"],
       default: "Review",
     },
-    // New fields
     dateOfHired: {
       type: Date,
     },

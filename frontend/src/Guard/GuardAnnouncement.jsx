@@ -100,7 +100,7 @@ export default function GuardAnnouncement() {
                     </div>
                     <div>
                       <h2 className="font-semibold text-white flex items-center gap-2">
-                        {a.author || "ADMIN"}
+                        {a.author?.name || a.author || "ADMIN"}
                       </h2>
                       <p className="text-xs text-gray-400 flex items-center gap-1">
                         <CalendarClock className="w-3 h-3 text-gray-400" />

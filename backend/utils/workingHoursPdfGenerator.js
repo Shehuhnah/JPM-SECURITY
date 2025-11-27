@@ -153,56 +153,43 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
       doc.on("end", () => resolve(Buffer.concat(buffers)));
       doc.on("error", (err) => reject(err));
 
-      // --- LAYOUT CONSTANTS ---
       const pageW = doc.page.width;
       const pageH = doc.page.height;
       const margin = 30;
-
       const noColW = 30;
       const nameColW = 120;
+      const ampmColW = 30;
       const daysColW = 40;
       const hoursColW = 55;
       const sigColW = 70;
-
       const contentW = pageW - margin * 2;
-      const dateAreaW = contentW - (noColW + nameColW + daysColW + hoursColW + sigColW);
+      const dateAreaW = contentW - (noColW + nameColW + ampmColW + daysColW + hoursColW + sigColW);
       const dateCellW = Math.floor(dateAreaW / 16);
-      
       const headerRowHeight = 18;
       const rowHeight = 18;
       const guardRowHeight = rowHeight * 2;
       const signatureBlockHeight = 90;
+      const pmShadeColor = '#E8E8E8';
 
       let currentY = margin;
 
       const drawPageHeader = (isFirstPage) => {
         currentY = margin;
         if (isFirstPage) {
-          const logoPath = path.join(process.cwd(), "backend", "assets", "headerpdf", "jpmlogo.png");
-          if (fs.existsSync(logoPath)) {
-            doc.image(logoPath, pageW - margin - 70, margin - 10, { width: 70 });
+          const headerPath = path.join(process.cwd(), "backend", "assets", "headerpdf", "header.png");
+          if (fs.existsSync(headerPath)) {
+            const imageWidth = 450;
+            doc.image(headerPath, (pageW - imageWidth) / 2, margin - 15, { width: imageWidth });
           }
-
-          doc.font("Helvetica-Bold").fontSize(12).text("JPM SECURITY AGENCY CORP.", margin, currentY);
-          currentY += 14;
-          doc.font("Helvetica").fontSize(9).text("123 Security Drive, Indang, Cavite, 4122", margin, currentY);
-          currentY += 11;
-          doc.font("Helvetica").text("Contact: (123) 456-7890", margin, currentY);
-          currentY += 11;
-          doc.font("Helvetica").text("Email: contact@jpmsecurity.test", margin, currentY);
-          currentY += 20;
+          currentY += 60;
         } else {
-          currentY += 75; // Reserve space on subsequent pages
+          currentY += 75;
         }
-
         doc.font("Helvetica-Bold").fontSize(10);
         doc.text("Period Covered:", margin, currentY, { continued: true });
-        doc.font("Helvetica").text(` ${periodCover}`);
-
-        // Simplified Detachment positioning
+        doc.font("Helvetica-Bold").text(` ${periodCover}`, { underline: true });
         doc.font("Helvetica-Bold").text("Detachment:", margin, currentY + 12, { continued: true });
-        doc.font("Helvetica").text(` ${clientName}`);
-
+        doc.font("Helvetica-Bold").text(` ${clientName}`, { underline: true });
         currentY += 35;
       };
 
@@ -215,27 +202,29 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
         doc.rect(currentX, headerY1, noColW, headerRowHeight * 2).stroke();
         doc.text("No.", currentX, headerY1 + 10, { width: noColW, align: "center" });
         currentX += noColW;
-
         doc.rect(currentX, headerY1, nameColW, headerRowHeight * 2).stroke();
         doc.text("Name of Guard", currentX, headerY1 + 10, { width: nameColW, align: "center" });
         currentX += nameColW;
+        doc.rect(currentX, headerY1, ampmColW, headerRowHeight).stroke();
+        doc.text("AM", currentX, headerY1 + 6, { width: ampmColW, align: 'center' });
+        doc.rect(currentX, headerY2, ampmColW, headerRowHeight).fillAndStroke(pmShadeColor, 'black');
+        doc.fillColor('black').text("PM", currentX, headerY2 + 6, { width: ampmColW, align: 'center' });
+        currentX += ampmColW;
 
         const dateHeaderStartX = currentX;
         for (let col = 0; col < 16; col++) {
           const thisColW = dateCellW;
           const topDay = col + 1;
           const bottomDay = col + 16;
-          
           if (topDay <= 15) {
             doc.rect(currentX, headerY1, thisColW, headerRowHeight).stroke();
             doc.text(String(topDay), currentX, headerY1 + 6, { width: thisColW, align: "center" });
           } else {
             doc.rect(currentX, headerY1, thisColW, headerRowHeight).stroke();
           }
-
           if (bottomDay <= 31) {
-            doc.rect(currentX, headerY2, thisColW, headerRowHeight).stroke();
-            doc.text(String(bottomDay), currentX, headerY2 + 6, { width: thisColW, align: "center" });
+            doc.rect(currentX, headerY2, thisColW, headerRowHeight).fillAndStroke(pmShadeColor, 'black');
+            doc.fillColor('black').text(String(bottomDay), currentX, headerY2 + 6, { width: thisColW, align: "center" });
           } else {
             doc.rect(currentX, headerY2, thisColW, headerRowHeight).stroke();
           }
@@ -246,23 +235,21 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
         doc.rect(currentX, headerY1, daysColW, headerRowHeight * 2).stroke();
         doc.text("Days", currentX, headerY1 + 10, { width: daysColW, align: "center" });
         currentX += daysColW;
-
         doc.rect(currentX, headerY1, hoursColW, headerRowHeight * 2).stroke();
         doc.text("Total No. Hours", currentX, headerY1 + 10, { width: hoursColW, align: "center" });
         currentX += hoursColW;
-
         doc.rect(currentX, headerY1, sigColW, headerRowHeight * 2).stroke();
         doc.text("Signature", currentX, headerY1 + 10, { width: sigColW, align: "center" });
-
         currentY += headerRowHeight * 2;
       };
 
       drawPageHeader(true);
       drawTableHeaders();
 
-      const guards = Array.from(groupedAttendance.keys ? groupedAttendance.keys() : []);
+      const guards = Array.from(groupedAttendance.keys());
       for (let i = 0; i < guards.length; i++) {
         const guard = guards[i];
+        const records = groupedAttendance.get(guard) || [];
 
         if (currentY + guardRowHeight > pageH - margin) {
           doc.addPage();
@@ -270,65 +257,107 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
           drawTableHeaders();
         }
 
+        const amHoursMap = new Map();
+        const pmHoursMap = new Map();
+        let totalMinutes = 0;
+
+        records.forEach(rec => {
+          if (rec.timeIn && rec.timeOut) {
+            const t1 = new Date(rec.timeIn);
+            const t2 = new Date(rec.timeOut);
+            let diffMs = t2 - t1;
+            if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
+            const hours = diffMs / (1000 * 60 * 60);
+            totalMinutes += diffMs / (1000 * 60);
+
+            const day = t1.getDate();
+            if (rec.scheduleId?.shiftType === 'Day Shift') {
+              amHoursMap.set(day, (amHoursMap.get(day) || 0) + hours);
+            } else { // Assume Night Shift or other fallbacks go to PM
+              pmHoursMap.set(day, (pmHoursMap.get(day) || 0) + hours);
+            }
+          }
+        });
+        
+        const totalHours = (totalMinutes / 60).toFixed(2);
+        const totalDays = new Set([...amHoursMap.keys(), ...pmHoursMap.keys()]).size;
+
         const rowY = currentY;
         let currentX = margin;
         
         doc.rect(currentX, rowY, noColW, guardRowHeight).stroke();
         doc.font("Helvetica").fontSize(9).text(String(i + 1), currentX, rowY + 12, { width: noColW, align: "center" });
         currentX += noColW;
-
         doc.rect(currentX, rowY, nameColW, guardRowHeight).stroke();
-        const guardName = guard && guard.fullName ? guard.fullName : (typeof guard === "string" ? guard : "");
-        doc.text(guardName || "", currentX + 3, rowY + 12, { width: nameColW - 6, ellipsis: true });
+        doc.text(guard.fullName || "", currentX + 3, rowY + 12, { width: nameColW - 6, ellipsis: true });
         currentX += nameColW;
+        doc.rect(currentX, rowY, ampmColW, rowHeight).stroke();
+        doc.text('AM', currentX, rowY + 6, { width: ampmColW, align: 'center' });
+        doc.rect(currentX, rowY + rowHeight, ampmColW, rowHeight).fillAndStroke(pmShadeColor, 'black');
+        doc.fillColor('black').text('PM', currentX, rowY + rowHeight + 6, { width: ampmColW, align: 'center' });
+        currentX += ampmColW;
 
         const dateCellStartX = currentX;
         for (let col = 0; col < 16; col++) {
           const thisColW = dateCellW;
+          const day1 = col + 1;
+          const day2 = col + 16;
+          const amHours1 = amHoursMap.get(day1);
+          const pmHours1 = pmHoursMap.get(day1);
+          const amHours2 = amHoursMap.get(day2);
+          const pmHours2 = pmHoursMap.get(day2);
+
           doc.rect(currentX, rowY, thisColW, rowHeight).stroke();
-          doc.rect(currentX, rowY + rowHeight, thisColW, rowHeight).stroke();
+          if (amHours1) doc.text(amHours1.toFixed(1), currentX, rowY + 6, { width: thisColW, align: 'center' });
+          if (pmHours1) doc.text(pmHours1.toFixed(1), currentX, rowY + rowHeight + 6, { width: thisColW, align: 'center' });
+
+          doc.rect(currentX, rowY + rowHeight, thisColW, rowHeight).fillAndStroke(pmShadeColor, 'black');
+          doc.fillColor('black');
+          if (day2 <= 31) {
+            if (amHours2) doc.text(amHours2.toFixed(1), currentX, rowY + 6, { width: thisColW, align: 'center' });
+            if (pmHours2) doc.text(pmHours2.toFixed(1), currentX, rowY + rowHeight + 6, { width: thisColW, align: 'center' });
+          }
           currentX += thisColW;
         }
 
         currentX = dateCellStartX + dateCellW * 16;
         doc.rect(currentX, rowY, daysColW, guardRowHeight).stroke();
+        doc.text(totalDays.toString(), currentX, rowY + 12, { width: daysColW, align: 'center' });
         currentX += daysColW;
         doc.rect(currentX, rowY, hoursColW, guardRowHeight).stroke();
+        doc.text(totalHours, currentX, rowY + 12, { width: hoursColW, align: 'center' });
         currentX += hoursColW;
         doc.rect(currentX, rowY, sigColW, guardRowHeight).stroke();
-
         currentY += guardRowHeight;
       }
 
       if (currentY + signatureBlockHeight > pageH - margin) {
         doc.addPage();
-        currentY = margin + 20; // Add some top margin on new page for signatures
+        currentY = margin + 20;
       }
       
-      doc.font("Helvetica-Bold").fontSize(10);
-      const sigBlockX = margin;
-      const sigBlockWidth = 250;
-      const lineYOffset = 10;
-
-      // Position signature block at the end of content
       currentY = pageH - margin - signatureBlockHeight;
+      doc.font("Helvetica-Bold").fontSize(9);
+      const signatureY = pageH - margin - 80;
+      const labelY = signatureY - 12;
+      const lineY = signatureY + 2;
+      const colWidth = contentW / 3;
+      const col1X = margin;
+      const col2X = margin + colWidth;
+      const col3X = margin + colWidth * 2;
+      const lineLength = colWidth - 80;
 
-      doc.text("Prepared By:", sigBlockX, currentY);
-      doc.moveTo(sigBlockX + 70, currentY + lineYOffset).lineTo(sigBlockX + sigBlockWidth, currentY + lineYOffset).stroke();
-      currentY += 12;
-      doc.font("Helvetica").fontSize(8).text("Guard on Duty", sigBlockX + 70, currentY);
-      
-      currentY += 18;
-      doc.font("Helvetica-Bold").fontSize(10).text("Checked By:", sigBlockX, currentY);
-      doc.moveTo(sigBlockX + 70, currentY + lineYOffset).lineTo(sigBlockX + sigBlockWidth, currentY + lineYOffset).stroke();
-      currentY += 12;
-      doc.font("Helvetica").fontSize(8).text("Officer / Supervisor / Manager", sigBlockX + 70, currentY);
-
-      currentY += 18;
-      doc.font("Helvetica-Bold").fontSize(10).text("Approved By:", sigBlockX, currentY);
-      doc.moveTo(sigBlockX + 70, currentY + lineYOffset).lineTo(sigBlockX + sigBlockWidth, currentY + lineYOffset).stroke();
-      currentY += 12;
-      doc.font("Helvetica").fontSize(8).text("Client Representative", sigBlockX + 70, currentY);
+      doc.text("Prepared By:", col1X, labelY);
+      doc.moveTo(col1X + 80, lineY).lineTo(col1X + lineLength, lineY).stroke();
+      doc.text("Approved By (Client):", col2X, labelY);
+      doc.moveTo(col2X + 110, lineY).lineTo(col2X + lineLength + 30, lineY).stroke();
+      doc.text("Certified By (Agency):", col3X, labelY);
+      doc.moveTo(col3X + 110, lineY).lineTo(col3X + lineLength + 30, lineY).stroke();
+      const receivedY = pageH - margin - 65;
+      doc.font("Helvetica-Bold").text("Received By", margin, receivedY );
+      doc.font("Helvetica-Bold").text("Signature:", margin, receivedY + 15);
+      doc.font("Helvetica").text("Name: ____________________", margin, receivedY + 30);
+      doc.text("Date: ____________________", margin, receivedY + 45);
 
       doc.end();
     } catch (err) {

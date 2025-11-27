@@ -21,7 +21,7 @@ export default function AdminPosts() {
     const fetchPosts = async () => {
       setLoadingPage(true);
       try {
-        const res = await fetch(API_URL);
+        const res = await fetch(API_URL, { credentials: "include"} );
         const data = await res.json();
         setPosts(data.reverse()); // latest first
       } catch (err) {
@@ -45,7 +45,7 @@ export default function AdminPosts() {
       title,
       subject,
       body,
-      author: admin.role, // adjust if you’ll use auth later
+      author: admin?._id, // <-- use admin ID here
     };
 
     try {
@@ -54,6 +54,7 @@ export default function AdminPosts() {
         // Update existing post
         res = await fetch(`${API_URL}/${editingPost._id}`, {
           method: "PUT",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(newPost),
         });
@@ -61,6 +62,7 @@ export default function AdminPosts() {
         // Create new post
         res = await fetch(API_URL, {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(newPost),
         });
@@ -102,7 +104,12 @@ export default function AdminPosts() {
     if (!window.confirm("Are you sure you want to delete this post?")) return;
 
     try {
-      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_URL}/${id}`, 
+        { 
+          method: "DELETE",
+          credentials: "include"
+        }
+      );
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.message || "Failed to delete");
@@ -201,7 +208,7 @@ export default function AdminPosts() {
                     <div>
                       <div className="flex justify-between text-xs text-gray-400 mb-2">
                         <span className="font-semibold text-blue-400">
-                          👤 {p.author}
+                          👤 {p.author?.name || p.author || 'ADMIN'}
                         </span>
                         <span>
                           {new Date(p.createdAt).toLocaleDateString()} •{" "}

@@ -3,9 +3,9 @@ import mongoose from "mongoose";
 const hiringSchema = new mongoose.Schema(
   {
     author: {
-      type: String,
-      default: "ADMIN",
-      trim: true,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
+      required: true,
     },
     title: {
       type: String,

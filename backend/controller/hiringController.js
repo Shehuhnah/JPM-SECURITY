@@ -3,13 +3,10 @@ import Hiring from "../models/hiring.model.js";
 // CREATE new hiring post
 export const createHiring = async (req, res) => {
   try {
-    const { author, title, position, location, employmentType, description, date, time } = req.body;
-
-    console.log("REQ.BODY:", req.body);
-
+    const { title, position, location, employmentType, description, date, time } = req.body;
 
     const newHiring = new Hiring({
-      author,
+      author: req.user.id,
       title,
       position,
       location,
@@ -29,7 +26,7 @@ export const createHiring = async (req, res) => {
 // GET all hiring posts
 export const getHirings = async (req, res) => {
   try {
-    const hirings = await Hiring.find().sort({ createdAt: -1 });
+    const hirings = await Hiring.find().populate('author', 'name').sort({ createdAt: -1 });
     res.status(200).json(hirings);
   } catch (error) {
     res.status(500).json({ message: error.message });

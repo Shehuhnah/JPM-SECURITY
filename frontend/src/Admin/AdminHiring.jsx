@@ -44,7 +44,6 @@ export default function AdminHiring() {
       location,
       employmentType,
       description,
-      author: "ADMIN",
     };
 
     try {
@@ -227,7 +226,7 @@ export default function AdminHiring() {
                 >
                   <div className="flex justify-between text-xs text-gray-400 mb-3">
                     <span className="font-semibold text-blue-400">
-                      👤 {p.author}
+                      👤 {p.author?.name || 'Admin'}
                     </span>
                     <span>
                       {new Date(p.createdAt).toLocaleDateString()} •{" "}
