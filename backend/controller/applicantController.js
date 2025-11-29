@@ -1,4 +1,5 @@
 import Applicant from "../models/applicant.model.js";
+import Guard from "../models/guard.model.js";
 import { sendMail } from "../utils/mailer.js";
 import { generateHiredApplicantsPDF } from "../utils/hiredApplicantsPdfGenerator.js";
 
@@ -164,7 +165,6 @@ export const sendInterviewEmail = async (req, res) => {
                   <td align="center" style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#334155 100%);padding:36px 24px;">
                     <img src="${logoUrl}" alt="JPM Security Agency" width="160" style="display:block;height:auto;margin:0 auto 12px auto;" />
                     <div style="font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:.2px;">Interview Invitation</div>
-                    <div style="font-family:Arial,Helvetica,sans-serif;color:rgba(255,255,255,.9);font-size:14px;margin-top:6px;">Confidential Communication</div>
                   </td>
                 </tr>
                 <tr>
@@ -270,7 +270,7 @@ export const sendInterviewEmail = async (req, res) => {
 export const sendHireEmail = async (req, res) => {
   try {
     const { id } = req.params;
-    const { message } = req.body;
+    const { message, credentials } = req.body; // Expect credentials
 
     if (!["Admin", "Subadmin"].includes(req.user?.role)) {
       return res.status(403).json({ message: "You are not authorized to perform this action." });
@@ -284,9 +284,19 @@ export const sendHireEmail = async (req, res) => {
       return res.status(400).json({ message: "Applicant email is missing." });
     }
 
-    const subject = `Congratulations! You've Been Hired${applicant.position ? ` - ${applicant.position}` : ""}`;
+    const subject = `Congratulations! You've Been Hired - ${applicant.position || 'Security Personnel'}`;
     const defaultMessage =
       "We are pleased to inform you that you have been selected for the position at JPM Security Agency. Welcome to our team!";
+    
+    const credentialsBlock = credentials 
+      ? `
+          Your login credentials are:
+          Email: ${credentials.email}
+          Password: ${credentials.password}
+
+          Please log in and change your password immediately.
+        ` 
+      : "";
 
     const plainMessage = [
       `Dear ${applicant.name || "Applicant"},`,
@@ -295,10 +305,9 @@ export const sendHireEmail = async (req, res) => {
       "",
       defaultMessage,
       "",
+      credentialsBlock,
       message?.trim() ? `${message.trim()}\n` : undefined,
       "We will be in touch soon with further details regarding your onboarding process.",
-      "",
-      "If you have any questions, please feel free to reach out.",
       "",
       "Best regards,",
       "JPM Security Agency Recruitment Team",
@@ -308,7 +317,24 @@ export const sendHireEmail = async (req, res) => {
 
       const logoUrl = "http://localhost:5000/assets/headerpdf/jpmlogo.png";
 
-
+    const htmlCredentialsBlock = credentials 
+      ? `<tr>
+           <td style="padding:18px 24px 0 24px;">
+             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde047;border-radius:10px;">
+               <tr>
+                 <td style="padding:14px 16px 6px 16px;font-family:Arial,Helvetica,sans-serif;color:#854d0e;font-size:13px;font-weight:700;">Your Account Credentials</td>
+               </tr>
+               <tr>
+                 <td style="padding:0 16px 16px 16px;font-family:Arial,Helvetica,sans-serif;color:#a16207;font-size:14px;line-height:1.7;">
+                   <strong>Email:</strong> ${credentials.email}<br/>
+                   <strong>Password:</strong> ${credentials.password}<br/><br/>
+                   <em>For your security, please log in to the guard portal and change your password immediately.</em>
+                 </td>
+               </tr>
+             </table>
+           </td>
+         </tr>`
+      : "";
 
     const htmlMessage = `
       <div style="margin:0;padding:0;background:#f5f7fb;">
@@ -329,10 +355,11 @@ export const sendHireEmail = async (req, res) => {
                     <p style="margin:0 0 16px 0;">${defaultMessage}</p>
                   </td>
                 </tr>
+                ${htmlCredentialsBlock}
                 ${
                   applicant.position
                     ? `<tr>
-                         <td style="padding:0 24px 0 24px;">
+                         <td style="padding:18px 24px 0 24px;">
                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;">
                              <tr>
                                <td style="padding:14px 16px 6px 16px;font-family:Arial,Helvetica,sans-serif;color:#166534;font-size:13px;font-weight:700;">Position</td>
@@ -463,5 +490,67 @@ export const downloadHiredList = async (req, res) => {
   } catch (error) {
     console.error("Error generating hired applicants PDF:", error);
     res.status(500).json({ message: "Failed to generate PDF." });
+  }
+};
+
+export const finalizeHiring = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const guardData = req.body;
+
+    // 1. Find the applicant
+    const applicant = await Applicant.findById(id);
+    if (!applicant) {
+      return res.status(404).json({ message: "Applicant not found." });
+    }
+    if (applicant.status === 'Hired') {
+      return res.status(400).json({ message: "Applicant has already been hired." });
+    }
+
+    // 2. Create the new Guard
+    const newGuard = new Guard(guardData);
+    const savedGuard = await newGuard.save();
+
+    // 3. Update the applicant's status
+    applicant.status = "Hired";
+    applicant.dateOfHired = new Date();
+    applicant.processedBy = req.user.id;
+    await applicant.save();
+
+    // 4. Send the hiring email with credentials
+    // We are calling sendHireEmail internally, so we create a mock req/res
+    const mockReq = {
+      params: { id },
+      user: req.user,
+      body: {
+        message: "Congratulations on your new role!",
+        credentials: {
+          email: savedGuard.email,
+          password: guardData.password, // The raw password before it gets hashed
+        }
+      }
+    };
+    const mockRes = {
+      status: (code) => ({
+        json: (data) => {
+          console.log(`Hire email sent with status ${code}:`, data);
+        }
+      }),
+    };
+    
+    await sendHireEmail(mockReq, mockRes);
+    
+    res.status(201).json({ 
+      message: "Applicant successfully hired and guard account created.",
+      guard: savedGuard,
+      applicant: applicant
+    });
+
+  } catch (error) {
+    console.error("Error during finalize hiring process:", error);
+    if (error.code === 11000) { // Handle duplicate key errors (e.g., email or guardId)
+      return res.status(409).json({ message: "A guard with this email or Guard ID already exists." });
+    }
+    res.status(500).json({ message: "Server error during hiring process." });
   }
 };

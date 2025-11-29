@@ -3,7 +3,6 @@ import nodemailer from "nodemailer";
 let transporter = null;
 let transporterPromise = null;
 
-// ✅ Automatically detect if .env email settings exist
 const isEmailConfigured = () =>
   process.env.EMAIL_HOST &&
   process.env.EMAIL_PORT &&
@@ -29,33 +28,10 @@ const getTransporter = async () => {
       },
     });
     return transporter;
-  } else {
-    // 💡 Local dev mode using Ethereal fake SMTP
-    transporterPromise = (async () => {
-      const testAccount = await nodemailer.createTestAccount();
-
-      const etherealTransporter = nodemailer.createTransport({
-        host: "smtp.ethereal.email",
-        port: 587,
-        secure: false,
-        auth: {
-          user: testAccount.user,
-          pass: testAccount.pass,
-        },
-      });
-
-      console.log("🧪 [Ethereal] Using test account for email:");
-      console.log(`   Login: ${testAccount.user}`);
-      console.log(`   Pass:  ${testAccount.pass}`);
-      console.log(`   Preview: https://ethereal.email`);
-
-      return etherealTransporter;
-    })();
-
-    transporter = await transporterPromise;
-    transporterPromise = null; // ✅ Clear promise after resolution
-    return transporter;
   }
+  // If email is not configured, we should throw an error or handle it explicitly
+  // rather than falling back to Ethereal, as per the user's request to remove Ethereal.
+  throw new Error("Email configuration missing in .env. Please set EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS, and optionally EMAIL_FROM.");
 };
 
 // ✅ EXPORT the sendMail function
@@ -72,17 +48,7 @@ export const sendMail = async ({ to, subject, text, html }) => {
     html,
   });
 
-  // If Ethereal, show the preview URL
-  if (!isEmailConfigured()) {
-    const previewUrl = nodemailer.getTestMessageUrl(info);
-    if (previewUrl) {
-      console.log(`📧 [Ethereal] Email sent! Preview at: ${previewUrl}`);
-    } else {
-      console.log(`📧 [Ethereal] Email sent! Check your Ethereal inbox.`);
-    }
-  } else {
-    console.log(`📧 Email sent successfully to: ${to}`);
-  }
+  console.log(`📧 Email sent successfully to: ${to}`);
 
   return info;
 };

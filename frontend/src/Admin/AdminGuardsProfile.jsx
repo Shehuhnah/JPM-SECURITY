@@ -38,17 +38,17 @@ export default function GuardTable() {
   const [selectedGuard, setSelectedGuard] = useState(null)
   
   const [form, setForm] = useState({
-      fullName: "",
-      email: "",
-      guardId: "",
-      address: "",
-      position: "",
-      phoneNumber: "",
-      SSSID: "",
-      PhilHealthID: "",
-      PagibigID: "",
-      EmergencyPerson: "",
-      EmergencyContact: ""
+    fullName: "",
+    email: "",
+    guardId: "",
+    address: "",
+    position: "",
+    phoneNumber: "",
+    SSSID: "",
+    PhilHealthID: "",
+    PagibigID: "",
+    EmergencyPerson: "",
+    EmergencyContact: ""
   });
 
   const generateGuardPassword = () => {

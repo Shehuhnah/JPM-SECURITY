@@ -1,7 +1,6 @@
 import Router from "./Routes/router.jsx";
 
 function App() {
-
   return (
     <>
       {/* <div className="
