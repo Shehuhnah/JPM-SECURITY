@@ -28,6 +28,8 @@ import applicantRoutes from "./routes/applicantRoutes.js";
 const app = express();
 const httpServer = createServer(app);
 
+app.set("trust proxy", 1);
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 

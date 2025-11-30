@@ -143,7 +143,7 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({
-        size: "LEGAL",
+        size: "A4",
         layout: "landscape",
         margins: { top: 30, bottom: 30, left: 30, right: 30 },
       });
