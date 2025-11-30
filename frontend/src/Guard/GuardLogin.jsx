@@ -12,19 +12,28 @@ export default function LoginForm() {
     const [loadingPage, setLoadingPage] = useState(false);
     const [formData, setFormData] = useState({ email: "", password: "", newpassword: "" });
     const [showPassword, setShowPassword] = useState(false);
-    const [rememberMe, setRememberMe] = useState(false);
     const [message, setMessage] = useState("");
     const [isFirstLogin, setIsFirstLogin] = useState(false);
 
     useEffect(() => {
-      document.title = "Guard Login | JPM Security Agency";
+        document.title = "Guard Login | JPM Security Agency";
 
-      if (loading) return;
+        if (loading) return;
 
-      if (guard) {
-          navigate("/guard/announcements");
-      }
-  }, [guard, loading, navigate]);
+        if (guard) {
+            if (guard.isFirstLogin) {
+                setIsFirstLogin(true);
+                setMessage("✅ First time login detected. Please change your password below.");
+                setFormData(prev => ({
+                    ...prev,
+                    guardId: guard._id,
+                    email: guard.email || "",
+                }));
+            } else {
+                navigate("/guard/announcements");
+            }
+        }
+    }, [guard, loading, navigate]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -80,7 +89,7 @@ export default function LoginForm() {
       e.preventDefault();
 
       // Basic empty-field check
-      if (!formData.email || !formData.password || !formData.newpassword) {
+      if (!formData.email || !formData.newpassword) {
           setMessage("❌ Please fill in all fields.");
           return;
       }
@@ -184,31 +193,33 @@ export default function LoginForm() {
                     </div>
 
                     {/* Password */}
-                    <div className="relative">
-                        <label className="block mb-1 text-sm font-medium text-gray-300">
-                            Password
-                        </label>
+                    {!isFirstLogin && (
+                        <div className="relative">
+                            <label className="block mb-1 text-sm font-medium text-gray-300">
+                                Password
+                            </label>
 
-                        <input
-                            type={showPassword ? "text" : "password"}
-                            name="password"
-                            value={formData.password}
-                            onChange={handleChange}
-                            className="w-full px-4 py-2 pr-10 bg-[#0f172a] border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm sm:text-base"
-                            placeholder="••••••••"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute inset-y-0 right-3 top-6 flex items-center text-gray-400 hover:text-gray-200"
-                        >
-                            {showPassword ? (
-                                <EyeOff size={18} />
-                            ) : (
-                                <Eye size={18} />
-                            )}
-                        </button>
-                    </div>
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                name="password"
+                                value={formData.password}
+                                onChange={handleChange}
+                                className="w-full px-4 py-2 pr-10 bg-[#0f172a] border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm sm:text-base"
+                                placeholder="••••••••"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute inset-y-0 right-3 top-6 flex items-center text-gray-400 hover:text-gray-200"
+                            >
+                                {showPassword ? (
+                                    <EyeOff size={18} />
+                                ) : (
+                                    <Eye size={18} />
+                                )}
+                            </button>
+                        </div>
+                    )}
                     {isFirstLogin && (
                         <div className="">
                             <div className="relative">

@@ -461,18 +461,32 @@ export const addInterviewRemarks = async (req, res) => {
 // 📄 Download list of hired applicants for a specific month
 export const downloadHiredList = async (req, res) => {
   try {
-    const { month, year } = req.query;
+    let { month, year } = req.query;
     if (!month || !year) {
       return res.status(400).json({ message: "Month and year are required." });
     }
 
-    const monthIndex = new Date(Date.parse(month +" 1, 2012")).getMonth();
-    const startDate = new Date(year, monthIndex, 1);
-    const endDate = new Date(year, monthIndex + 1, 0);
+    console.log("Requested month and year:", month, year);
+
+    const monthMap = {
+      January: 0, February: 1, March: 2, April: 3,
+      May: 4, June: 5, July: 6, August: 7,
+      September: 8, October: 9, November: 10, December: 11
+    };
+
+    month = month.charAt(0).toUpperCase() + month.slice(1).toLowerCase();
+
+    const monthIndex = monthMap[month];
+    if (monthIndex === undefined) {
+      return res.status(400).json({ message: "Invalid month." });
+    }
+
+    const startDate = new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0));
+    const endDate = new Date(Date.UTC(year, monthIndex + 1, 0, 23, 59, 59));
 
     const hiredApplicants = await Applicant.find({
       status: "Hired",
-      dateOfHired: {
+      dateOfHired: {  
         $gte: startDate,
         $lte: endDate,
       },
@@ -493,6 +507,7 @@ export const downloadHiredList = async (req, res) => {
     res.status(500).json({ message: "Failed to generate PDF." });
   }
 };
+
 
 export const finalizeHiring = async (req, res) => {
   try {
