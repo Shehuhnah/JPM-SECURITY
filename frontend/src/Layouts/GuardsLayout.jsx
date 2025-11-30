@@ -105,7 +105,7 @@ export default function GuardsLayout() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2 text-gray-300 overflow-y-auto">
+          <nav className="flex-1 px-4 pt-6 pb-4 space-y-2 text-gray-300 overflow-y-auto">
 
             {/* Attendance Dropdown */}
             <div>
@@ -161,18 +161,18 @@ export default function GuardsLayout() {
                 <span>{label}</span>
               </Link>
             ))}
-
-            {/* Logout */}
-            <div className="pt-4 border-t border-gray-700">
-              <button
-                onClick={() => handleLogout()}
-                className="flex items-center gap-3 p-3 rounded-lg font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all w-full"
-              >
-                <LogOut size={18} />
-                <span>Logout</span>
-              </button>
-            </div>
           </nav>
+
+          {/* Logout */}
+          <div className="px-6 py-4 border-t border-gray-700">
+            <button
+              onClick={() => handleLogout()}
+              className="flex items-center gap-3 p-3 rounded-lg font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all w-full"
+            >
+              <LogOut size={18} />
+              <span>Logout</span>
+            </button>
+          </div>
         </aside>
         {/* Overlay (mobile) */}
         {sidebarOpen && (
