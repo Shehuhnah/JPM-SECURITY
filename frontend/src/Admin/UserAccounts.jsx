@@ -1,6 +1,6 @@
 import { useState, useEffect, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { UserPlus, Search, ShieldAlert, Trash2, Edit3, Users, User, RefreshCw   } from "lucide-react";
+import { UserPlus, Search, ShieldAlert, Trash2, Edit3, Users, User, RefreshCw, Eye, EyeOff   } from "lucide-react";
 import Loader from "../components/Loading.jsx";
 import DeleteUserModal from "../components/DeleteUserModal";
 import { ToastContainer, toast, Bounce } from 'react-toastify';
@@ -39,6 +39,8 @@ export default function UserAccounts() {
     position: "",
     contactNumber: "",
   });
+
+  const [showPassword, setShowPassword] = useState(false);
 
   //  Fetch users
   useEffect(() => {
@@ -499,14 +501,27 @@ export default function UserAccounts() {
                         <option value="1">Admin (1)</option>
                         <option value="2">Subadmin (2)</option>
                       </select>
-                      <input
-                        type="password"
-                        name="password"
-                        placeholder="Password"
-                        value={form.password}
-                        onChange={handleChange}
-                        className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          name="password"
+                          placeholder="Password"
+                          value={form.password}
+                          onChange={handleChange}
+                          className="bg-[#0f172a] border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 w-full pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 focus:outline-none"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-5 w-5" />
+                          ) : (
+                            <Eye className="h-5 w-5" />
+                          )}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="mt-6 flex justify-end gap-3">
