@@ -105,9 +105,8 @@ export default function ApplicantsList() {
       }
 
       toast.success(data.message);
-      fetchApplicants(); // Refresh the list
+      fetchApplicants(); 
       setGuardConfirmModalOpen(false);
-      setAddGuardModalOpen(false);
     } catch (err) {
       console.error("Error finalizing hiring:", err);
       setErrorMsg(err.message);
@@ -265,41 +264,41 @@ export default function ApplicantsList() {
     setHireMessage("");
   };
 
-  const closeHireModal = () => setHireModal({ open: false, applicant: null });
+  // const closeHireModal = () => setHireModal({ open: false, applicant: null });
 
-  const sendHireNotification = async () => {
-    if (!hireModal.applicant) return;
-    const applicant = hireModal.applicant;
+  // const sendHireNotification = async () => {
+  //   if (!hireModal.applicant) return;
+  //   const applicant = hireModal.applicant;
 
-    try {
-      setSendingHire(true);
+  //   try {
+  //     setSendingHire(true);
 
-      // 1. Update applicant status to "Hired"
-      await updateStatus(applicant._id, "Hired");
+  //     // 1. Update applicant status to "Hired"
+  //     await updateStatus(applicant._id, "Hired");
 
-      // 2. Send the hire email with an optional message
-      const emailBody = { message: hireMessage };
+  //     // 2. Send the hire email with an optional message
+  //     const emailBody = { message: hireMessage };
 
-      const res = await fetch(`${api}/api/applicants/${applicant._id}/hire-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(emailBody),
-      });
+  //     const res = await fetch(`${api}/api/applicants/${applicant._id}/hire-email`, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       credentials: "include",
+  //       body: JSON.stringify(emailBody),
+  //     });
 
-      if (!res.ok) {
-        throw new Error('Failed to send hire email.');
-      }
+  //     if (!res.ok) {
+  //       throw new Error('Failed to send hire email.');
+  //     }
 
-      toast.success(`Hire notification sent to ${applicant.name}`);
-      closeHireModal();
-    } catch (err) {
-      console.error("Failed to send hire notification:", err);
-      toast.error("❌ Failed to send hire notification.");
-    } finally {
-      setSendingHire(false);
-    }
-  };
+  //     toast.success(`Hire notification sent to ${applicant.name}`);
+  //     closeHireModal();
+  //   } catch (err) {
+  //     console.error("Failed to send hire notification:", err);
+  //     toast.error("❌ Failed to send hire notification.");
+  //   } finally {
+  //     setSendingHire(false);
+  //   }
+  // };
 
   const formatDate = (val) => {
     if (!val) return "N/A";
@@ -428,6 +427,7 @@ export default function ApplicantsList() {
       }
 
       const blob = await res.blob();
+      console.log(blob)
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';

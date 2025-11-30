@@ -59,9 +59,8 @@ app.use(cookieParser());
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads/messages")));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/assets", express.static(path.join(__dirname, "assets")));
-
 
 app.use("/api/auth", authRoutes);
 app.use("/api/attendance", attendanceRoutes);
