@@ -267,7 +267,7 @@ export default function UserAccounts() {
   const handleRefresh = async () => {
     try {
       setLoadingPage(true);
-      const res = await fetch("http://localhost:5000/api/auth/users", { credentials: "include" });
+      const res = await fetch(`${api}/api/auth/users`, { credentials: "include" });
       const data = await res.json();
       setUsers(data);
     } catch (err) {
