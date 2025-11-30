@@ -148,16 +148,6 @@ export default function GuardsLayout() {
                       <span>{label}</span>
                     </Link>
                   ))}
-                  {/* Logout */}
-                  <div className="px-6 py-4 border-t border-gray-700">
-                    <button
-                      onClick={() => handleLogout()}
-                      className="flex items-center gap-3 p-3 rounded-lg font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all w-full"
-                    >
-                      <LogOut size={18} />
-                      <span>Logout</span>
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
@@ -178,6 +168,16 @@ export default function GuardsLayout() {
                 <span>{label}</span>
               </Link>
             ))}
+            {/* Logout */}
+            <div className="px-6 py-4 border-t border-gray-700">
+              <button
+                onClick={() => handleLogout()}
+                className="flex items-center gap-3 p-3 rounded-lg font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all w-full"
+              >
+                <LogOut size={18} />
+                <span>Logout</span>
+              </button>
+            </div>
           </nav>
 
           {/* Logout */}
@@ -211,14 +211,6 @@ export default function GuardsLayout() {
                 <span className="font-bold text-white text-lg">JPM SECURITY</span>
               </div>
             </div>
-
-            {/* ✅ RIGHT SIDE — Notification icon (Desktop only, stays at top right) */}
-            <Link
-              to="/guard/notifications"
-              className="text-gray-300 hover:text-white transition"
-            >
-              <Bell size={24} />
-            </Link>
           </div>
 
           {/* ✅ Topbar (mobile only) */}
@@ -237,10 +229,6 @@ export default function GuardsLayout() {
 
             {/* Mobile Message + Notification Icons */}
             <div className="flex items-center gap-4">
-              <Link to="/guard/notifications" className="text-gray-400 hover:text-white transition">
-                <Bell size={22} />
-              </Link>
-
               <Link to="/guard/messages" className="text-gray-400 hover:text-white transition">
                 <MessageCircle size={22} />
               </Link>
