@@ -73,9 +73,17 @@ export default function GuardsLayout() {
       <div className="flex h-screen bg-[#0f172a]">
         {/* ===== Sidebar ===== */}
         <aside
-                    className={`fixed top-0 left-0 h-screen w-72 bg-[#1e293b] border-r border-gray-700 flex flex-col transition-transform duration-300 z-50 pb-4 lg:pb-0
-                      ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-                      lg:translate-x-0`}        >
+          className={`
+            fixed top-0 left-0
+            min-h-screen w-72
+            bg-[#1e293b] border-r border-gray-700
+            flex flex-col
+            overflow-y-auto
+            transition-transform duration-300 z-50 pb-4 lg:pb-0
+            ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+            lg:translate-x-0
+          `}
+        >
           {/* Logo */}
           <div className="flex items-center justify-between py-6 border-b border-gray-700 px-6">
             <Link to="/" className="flex items-center gap-3">
