@@ -65,11 +65,10 @@ export const loginUser = async (req, res) => {
 
     res.cookie("accessToken", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // must be true in prod HTTPS
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", 
-      maxAge: 1000 * 60 * 60 * 24, // 1 day
+      secure: true,
+      sameSite: "none",
+      maxAge: 1000 * 60 * 60 * 24,
     });
-
 
     user.lastLogin = new Date();
     await user.save();
