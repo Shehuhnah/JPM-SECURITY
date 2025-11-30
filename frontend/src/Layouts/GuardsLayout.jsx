@@ -148,6 +148,16 @@ export default function GuardsLayout() {
                       <span>{label}</span>
                     </Link>
                   ))}
+                  {/* Logout */}
+                  <div className="px-6 py-4 border-t border-gray-700">
+                    <button
+                      onClick={() => handleLogout()}
+                      className="flex items-center gap-3 p-3 rounded-lg font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all w-full"
+                    >
+                      <LogOut size={18} />
+                      <span>Logout</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
