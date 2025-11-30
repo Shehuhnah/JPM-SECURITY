@@ -2,6 +2,7 @@ import Applicant from "../models/applicant.model.js";
 import Guard from "../models/guard.model.js";
 import { sendMail } from "../utils/mailer.js";
 import { generateHiredApplicantsPDF } from "../utils/hiredApplicantsPdfGenerator.js";
+import logo from "../assets/headerpdf/jpmlogo.png/
 
 // 🟢 Get all applicants (latest first)
 export const getApplicants = async (req, res) => {
@@ -163,7 +164,7 @@ export const sendInterviewEmail = async (req, res) => {
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
                 <tr>
                   <td align="center" style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#334155 100%);padding:36px 24px;">
-                    <img src="${logoUrl}" alt="JPM Security Agency" width="160" style="display:block;height:auto;margin:0 auto 12px auto;" />
+                    <img src="${logo}" alt="JPM Security Agency" width="160" style="display:block;height:auto;margin:0 auto 12px auto;" />
                     <div style="font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:.2px;">Interview Invitation</div>
                   </td>
                 </tr>
@@ -344,7 +345,7 @@ export const sendHireEmail = async (req, res) => {
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
                 <tr>
                   <td align="center" style="background:linear-gradient(135deg,#065f46 0%,#059669 50%,#10b981 100%);padding:36px 24px;">
-                    <img src="${logoUrl}" alt="JPM Security Agency" width="160" style="display:block;height:auto;margin:0 auto 12px auto;" />
+                    <img src="${logo}" alt="JPM Security Agency" width="160" style="display:block;height:auto;margin:0 auto 12px auto;" />
                     <div style="font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:.2px;">Congratulations</div>
                     <div style="font-family:Arial,Helvetica,sans-serif;color:rgba(255,255,255,.9);font-size:14px;margin-top:6px;">Offer of Employment</div>
                   </td>
