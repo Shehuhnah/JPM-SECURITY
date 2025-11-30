@@ -74,18 +74,19 @@ export default function GuardsLayout() {
         {/* ===== Sidebar ===== */}
         <aside
           className={`
-            fixed top-0 left-0
-            min-h-screen w-72
-            bg-[#1e293b] border-r border-gray-700
+            fixed top-0 left-0 
+            w-72
+            bg-[#1e293b] border-r border-gray-700 
             flex flex-col
-            overflow-y-auto
-            transition-transform duration-300 z-50 pb-4 lg:pb-0
+            h-full
+            overflow-hidden
+            transition-transform duration-300 z-50 
             ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
             lg:translate-x-0
           `}
         >
-          {/* Logo */}
-          <div className="flex items-center justify-between py-6 border-b border-gray-700 px-6">
+          {/* Header / Logo */}
+          <div className="flex items-center justify-between py-6 border-b border-gray-700 px-6 shrink-0">
             <Link to="/" className="flex items-center gap-3">
               <img src={logo} alt="logo" className="w-10 h-10" />
               <div className="hidden sm:block">
@@ -94,13 +95,17 @@ export default function GuardsLayout() {
               </div>
             </Link>
 
-            <button className="lg:hidden text-gray-400 hover:text-white transition" onClick={() => setSidebarOpen(false)}>
+            {/* Hide button (mobile) */}
+            <button
+              className="lg:hidden text-gray-400 hover:text-white transition"
+              onClick={() => setSidebarOpen(false)}
+            >
               <X size={24} />
             </button>
           </div>
 
-          {/* Profile */}
-          <div className="flex flex-col items-center py-6 px-6 border-b border-gray-700">
+          {/* Profile Section */}
+          <div className="flex flex-col items-center py-6 px-6 border-b border-gray-700 shrink-0">
             <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-500 to-blue-600 flex items-center justify-center shadow-lg mb-4">
               <UserRoundPen className="text-white w-8 h-8" />
             </div>
@@ -111,16 +116,16 @@ export default function GuardsLayout() {
             </div>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 px-4 pt-6 pb-4 space-y-2 text-gray-300 overflow-y-auto">
+          {/* Navigation (scrollable) */}
+          <nav className="flex-1 overflow-y-auto px-4 pt-6 pb-4 space-y-2 text-gray-300">
 
             {/* Attendance Dropdown */}
             <div>
               <button
                 onClick={() => setOpenAttendance(!openAttendance)}
                 className={`flex items-center justify-between w-full p-3 rounded-lg font-medium transition-all ${
-                  isActive("/guard/guard-attendance") 
-                    ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" 
+                  isActive("/guard/guard-attendance")
+                    ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                     : "hover:bg-gray-700/50 hover:text-white"
                 }`}
               >
@@ -159,8 +164,8 @@ export default function GuardsLayout() {
                 to={to}
                 onClick={() => setSidebarOpen(false)}
                 className={`flex items-center gap-3 p-3 rounded-lg font-medium transition-all ${
-                  isActive(to) 
-                    ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" 
+                  isActive(to)
+                    ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                     : "hover:bg-gray-700/50 hover:text-white"
                 }`}
               >
@@ -168,22 +173,12 @@ export default function GuardsLayout() {
                 <span>{label}</span>
               </Link>
             ))}
-            {/* Logout */}
-            <div className="px-6 py-4 border-t border-gray-700">
-              <button
-                onClick={() => handleLogout()}
-                className="flex items-center gap-3 p-3 rounded-lg font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all w-full"
-              >
-                <LogOut size={18} />
-                <span>Logout</span>
-              </button>
-            </div>
           </nav>
 
-          {/* Logout */}
-          <div className="px-6 py-4 border-t border-gray-700">
+          {/* Logout (ALWAYS visible + mobile safe) */}
+          <div className="px-6 py-4 border-t border-gray-700 shrink-0 bg-[#1e293b]">
             <button
-              onClick={() => handleLogout()}
+              onClick={handleLogout}
               className="flex items-center gap-3 p-3 rounded-lg font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all w-full"
             >
               <LogOut size={18} />
