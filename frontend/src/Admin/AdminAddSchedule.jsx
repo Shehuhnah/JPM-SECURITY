@@ -112,6 +112,21 @@ export default function AdminAddSchedule() {
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
+  const handleClientChange = (e) => {
+    const selectedClientName = e.target.value;
+    const selectedClient = clients.find(
+      (client) => client.clientName === selectedClientName
+    );
+
+    setForm((prevForm) => ({
+      ...prevForm,
+      client: selectedClientName,
+      deploymentLocation: selectedClient ? selectedClient.clientAddress : "", 
+    }));
+  };
+
+  console.log(clients)
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isEditMode) {
@@ -366,7 +381,7 @@ export default function AdminAddSchedule() {
                             id="client"
                             name="client"
                             value={form.client}
-                            onChange={handleChange}
+                            onChange={handleClientChange}
                             className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             required
                         >

@@ -335,6 +335,12 @@ export default function AdminDeployment() {
           <div className="flex gap-2">
             <button
               onClick={() => setShowClientModal(true)}
+              className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg text-sm font-medium"
+            >
+              <Building2 size={16} /> Manage CLients
+            </button>
+            <button
+              onClick={() => setShowClientModal(true)}
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-medium"
             >
               <PlusCircle size={16} /> Add Client

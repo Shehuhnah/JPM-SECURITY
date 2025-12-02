@@ -68,8 +68,8 @@ export const loginUser = async (req, res) => {
       secure: true,
       sameSite: "none",
       maxAge: 1000 * 60 * 60 * 24,
-      domain: process.env.DOMAIN_URL || "localhost",
-      path: "/",
+      // domain: process.env.DOMAIN_URL || "localhost",
+      // path: "/",
     });
 
     user.lastLogin = new Date();
@@ -87,8 +87,8 @@ export const logout = (req, res) => {
     httpOnly: true,
     secure: true,      
     sameSite: "none",
-    domain: process.env.DOMAIN_URL || "localhost",
-    path: "/",      
+    // domain: process.env.DOMAIN_URL || "localhost",
+    // path: "/",      
   });
 
   return res.json({ message: "Logged out successfully" });
@@ -129,8 +129,8 @@ export const loginGuard = async (req, res) => {
       secure: true,       
       sameSite: "none",  
       maxAge: 1000 * 60 * 60 * 24,
-      domain: process.env.DOMAIN_URL || "localhost",
-      path: "/",
+      // domain: process.env.DOMAIN_URL || "localhost",
+      // path: "/",
     });
 
     // update last login
