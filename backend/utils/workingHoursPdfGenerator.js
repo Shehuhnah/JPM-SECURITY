@@ -247,6 +247,8 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
       drawTableHeaders();
 
       const guards = Array.from(groupedAttendance.keys());
+      const isFirstHalf = periodCover.includes("1-15");
+
       for (let i = 0; i < guards.length; i++) {
         const guard = guards[i];
         const records = groupedAttendance.get(guard) || [];
@@ -257,12 +259,13 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
           drawTableHeaders();
         }
 
-        const amHoursMap = new Map();
-        const pmHoursMap = new Map();
+        const dayShiftHoursMap = new Map();
+        const nightShiftHoursMap = new Map();
         let totalMinutes = 0;
+        const workDays = new Set();
 
         records.forEach(rec => {
-          if (rec.timeIn && rec.timeOut) {
+          if (rec.timeIn && rec.timeOut && rec.scheduleId) {
             const t1 = new Date(rec.timeIn);
             const t2 = new Date(rec.timeOut);
             let diffMs = t2 - t1;
@@ -271,16 +274,18 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
             totalMinutes += diffMs / (1000 * 60);
 
             const day = t1.getDate();
-            if (rec.scheduleId?.shiftType === 'Day Shift') {
-              amHoursMap.set(day, (amHoursMap.get(day) || 0) + hours);
-            } else { // Assume Night Shift or other fallbacks go to PM
-              pmHoursMap.set(day, (pmHoursMap.get(day) || 0) + hours);
+            workDays.add(day);
+
+            if (rec.scheduleId.shiftType === 'Night Shift') {
+                nightShiftHoursMap.set(day, (nightShiftHoursMap.get(day) || 0) + hours);
+            } else { // Day Shift or other
+                dayShiftHoursMap.set(day, (dayShiftHoursMap.get(day) || 0) + hours);
             }
           }
         });
         
         const totalHours = (totalMinutes / 60).toFixed(2);
-        const totalDays = new Set([...amHoursMap.keys(), ...pmHoursMap.keys()]).size;
+        const totalDays = workDays.size;
 
         const rowY = currentY;
         let currentX = margin;
@@ -291,38 +296,39 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
         doc.rect(currentX, rowY, nameColW, guardRowHeight).stroke();
         doc.text(guard.fullName || "", currentX + 3, rowY + 12, { width: nameColW - 6, ellipsis: true });
         currentX += nameColW;
+
         doc.rect(currentX, rowY, ampmColW, rowHeight).stroke();
-        doc.text('AM', currentX, rowY + 6, { width: ampmColW, align: 'center' });
         doc.rect(currentX, rowY + rowHeight, ampmColW, rowHeight).fillAndStroke(pmShadeColor, 'black');
-        doc.fillColor('black').text('PM', currentX, rowY + rowHeight + 6, { width: ampmColW, align: 'center' });
+        doc.fillColor('black');
         currentX += ampmColW;
 
         const dateCellStartX = currentX;
+        const startDay = isFirstHalf ? 1 : 16;
         for (let col = 0; col < 16; col++) {
-          const thisColW = dateCellW;
-          const day1 = col + 1;
-          const day2 = col + 16;
-          const amHours1 = amHoursMap.get(day1);
-          const pmHours1 = pmHoursMap.get(day1);
-          const amHours2 = amHoursMap.get(day2);
-          const pmHours2 = pmHoursMap.get(day2);
+            const day = startDay + col;
+            const thisColW = dateCellW;
 
-          doc.rect(currentX, rowY, thisColW, rowHeight).stroke();
-          if (amHours1) doc.text(amHours1.toFixed(1), currentX, rowY + 6, { width: thisColW, align: 'center' });
-          if (pmHours1) doc.text(pmHours1.toFixed(1), currentX, rowY + rowHeight + 6, { width: thisColW, align: 'center' });
+            // AM Row (Day Shift)
+            doc.fillColor('black');
+            doc.rect(currentX, rowY, thisColW, rowHeight).stroke();
+            const dayShiftHours = dayShiftHoursMap.get(day);
+            if (dayShiftHours) {
+                doc.text(dayShiftHours.toFixed(1), currentX, rowY + 6, { width: thisColW, align: 'center' });
+            }
 
-          doc.rect(currentX, rowY + rowHeight, thisColW, rowHeight).fillAndStroke(pmShadeColor, 'black');
-          doc.fillColor('black');
-          if (day2 <= 31) {
-            if (amHours2) doc.text(amHours2.toFixed(1), currentX, rowY + 6, { width: thisColW, align: 'center' });
-            if (pmHours2) doc.text(pmHours2.toFixed(1), currentX, rowY + rowHeight + 6, { width: thisColW, align: 'center' });
-          }
-          currentX += thisColW;
+            // PM Row (Night Shift)
+            doc.rect(currentX, rowY + rowHeight, thisColW, rowHeight).fillAndStroke(pmShadeColor, 'black');
+            doc.fillColor('black');
+            const nightShiftHours = nightShiftHoursMap.get(day);
+            if (nightShiftHours) {
+                doc.text(nightShiftHours.toFixed(1), currentX, rowY + rowHeight + 6, { width: thisColW, align: 'center' });
+            }
+            currentX += thisColW;
         }
 
         currentX = dateCellStartX + dateCellW * 16;
         doc.rect(currentX, rowY, daysColW, guardRowHeight).stroke();
-        doc.text(totalDays.toString(), currentX, rowY + 12, { width: daysColW, align: 'center' });
+        doc.text(totalDays.toString(), currentX, rowY + 12, { width: daysColW, align: "center" });
         currentX += daysColW;
         doc.rect(currentX, rowY, hoursColW, guardRowHeight).stroke();
         doc.text(totalHours, currentX, rowY + 12, { width: hoursColW, align: 'center' });
