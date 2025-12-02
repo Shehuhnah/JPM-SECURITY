@@ -29,6 +29,7 @@ import AdminRequestID from "../Admin/AdminRequestID.jsx";
 import AdminAddSchedule from "../Admin/AdminAddSchedule.jsx";
 import SubAdminMessage from "../SubAdmin/SubAdminMessage.jsx";
 import SubadminApplicantMessage from "../SubAdmin/SubadminApplicantMessage.jsx";
+import AdminManageClients from "../Admin/AdminManageClients.jsx";
 
 // Guard pages
 import GuardLogin from "../Guard/GuardLogin.jsx";
@@ -101,7 +102,8 @@ const Router = () => {
                 { path: "deployment/add-schedule", element: <AdminAddSchedule /> },
                 { path: "deployment/add-schedule/:id", element: <AdminAddSchedule /> },
                 { path: "subadmin-message", element: <SubAdminMessage/>},
-                { path: "applicant-message", element: <SubadminApplicantMessage/>}
+                { path: "applicant-message", element: <SubadminApplicantMessage/>},
+                { path: "manage-clients", element: <AdminManageClients />}
               ],
             },
           ],

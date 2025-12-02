@@ -67,7 +67,6 @@ export default function AdminDeployment() {
       console.error("Error fetching data:", error);
     }
   };
-  console.log(schedules)
 
   useEffect(() => {
     if (user) fetchData();
@@ -333,18 +332,12 @@ export default function AdminDeployment() {
           <div className="flex flex-col sm:flex-row items-center gap-3">
           {/* Action Buttons */}
           <div className="flex gap-2">
-            <button
-              onClick={() => setShowClientModal(true)}
-              className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg text-sm font-medium"
-            >
-              <Building2 size={16} /> Manage CLients
-            </button>
-            <button
+            {/* <button
               onClick={() => setShowClientModal(true)}
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-medium"
             >
               <PlusCircle size={16} /> Add Client
-            </button>
+            </button> */}
             <button
               onClick={() => navigate("/admin/deployment/add-schedule")}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium"
