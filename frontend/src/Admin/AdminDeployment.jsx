@@ -3,54 +3,88 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { Dialog, Transition, Menu  } from "@headlessui/react";
+import { Dialog, Transition, Menu } from "@headlessui/react";
 import {
   CalendarDays,
   Building2,
   Filter,
-  PlusCircle,
   ClipboardList,
   Table,
   LayoutGrid,
   ChevronDown,
   Pencil,
   Trash,
-  RefreshCcw
+  RefreshCcw,
+  MapPin,
+  Clock,
+  User,
+  Shield,
+  X
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { Link, useNavigate } from "react-router-dom";
-import { ToastContainer, toast, Bounce } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { ToastContainer, toast, Bounce } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 const api = import.meta.env.VITE_API_URL;
+
+// --- Custom Calendar Styles ---
+const calendarStyles = `
+  .fc {
+    --fc-page-bg-color: transparent;
+    --fc-neutral-bg-color: #1e293b;
+    --fc-list-event-hover-bg-color: #334155;
+    --fc-today-bg-color: rgba(51, 65, 85, 0.3);
+    --fc-border-color: #334155;
+    --fc-button-text-color: #fff;
+    --fc-button-bg-color: #2563eb;
+    --fc-button-border-color: #2563eb;
+    --fc-button-hover-bg-color: #1d4ed8;
+    --fc-button-hover-border-color: #1d4ed8;
+    --fc-button-active-bg-color: #1e40af;
+    --fc-button-active-border-color: #1e40af;
+    color: #e2e8f0;
+    font-family: inherit;
+  }
+  .fc-theme-standard .fc-scrollgrid { border-color: #334155; }
+  .fc th { background-color: #0f172a; padding: 12px 0; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; color: #94a3b8; }
+  .fc-daygrid-day-number { color: #cbd5e1; font-weight: 500; padding: 8px; }
+  .fc-col-header-cell-cushion { color: #e2e8f0; }
+  .fc-event { cursor: pointer; border: none; padding: 2px 4px; font-size: 0.75rem; border-radius: 4px; }
+`;
 
 export default function AdminDeployment() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  
+  // Data State
   const [schedules, setSchedules] = useState([]);
   const [clients, setClients] = useState([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  // Filter State
   const [selectedClient, setSelectedClient] = useState("");
-  const [showClientModal, setShowClientModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("All");
   const [viewMode, setViewMode] = useState("calendar");
-  const [statusFilter, setStatusFilter] = useState("All"); 
-  const [deleteSchedModal, setDeleteSchedModal] = useState(false)
+
+  // Modal State
+  const [showClientModal, setShowClientModal] = useState(false);
+  const [deleteSchedModal, setDeleteSchedModal] = useState(false);
   const [batchToDelete, setBatchToDelete] = useState(null);
 
   useEffect(() => {
     if (!loading && !user) {
       navigate("/admin/login");
-    };
-    document.title = "Deployment | JPM Security Agency"
+    }
+    document.title = "Deployment | JPM Security Agency";
   }, [user, loading, navigate]);
 
   const fetchData = async () => {
+    setIsLoadingData(true);
     try {
       const [schedulesRes, clientsRes] = await Promise.all([
-        fetch(`${api}/api/schedules/get-schedules`, {
-          credentials: "include",
-        }),
-        fetch(`${api}/api/clients/get-clients`, {
-          credentials: "include",
-        }),
+        fetch(`${api}/api/schedules/get-schedules`, { credentials: "include" }),
+        fetch(`${api}/api/clients/get-clients`, { credentials: "include" }),
       ]);
 
       if (!schedulesRes.ok || !clientsRes.ok)
@@ -65,6 +99,9 @@ export default function AdminDeployment() {
       setClients(clientsData);
     } catch (error) {
       console.error("Error fetching data:", error);
+      toast.error("Failed to load data");
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
@@ -72,79 +109,53 @@ export default function AdminDeployment() {
     if (user) fetchData();
   }, [user]);
 
+  // --- Helpers ---
   const shiftColors = {
-    "Night Shift": "#ef4444", // red
-    "Day Shift": "#fde047", // yellow
+    "Night Shift": "#ef4444",
+    "Day Shift": "#eab308",
   };
 
   const filteredSchedules = schedules.filter((s) => {
-    const matchesClient =
-      !selectedClient || selectedClient === "All" || s.client === selectedClient;
-
-    const matchesStatus =
-      !statusFilter || statusFilter === "All" || s.isApproved === statusFilter;
-
+    const matchesClient = !selectedClient || selectedClient === "All" || s.client === selectedClient;
+    const matchesStatus = !statusFilter || statusFilter === "All" || s.isApproved === statusFilter;
     return matchesClient && matchesStatus;
   });
 
-  const filteredEvents = filteredSchedules.map((s, idx) => ({
+  const calendarEvents = filteredSchedules.map((s, idx) => ({
     id: String(idx),
-    title: `${s.guardId.fullName} (${s.shiftType})`, // Access from populated guardId
+    title: `${s.guardId?.fullName || "Unassigned"} (${s.shiftType})`,
     start: s.timeIn,
     end: s.timeOut,
     backgroundColor: shiftColors[s.shiftType] || "#3b82f6",
     borderColor: shiftColors[s.shiftType] || "#3b82f6",
-    textColor: s.shiftType === "Day Shift" ? "#000" : "#fff",
-    display: "block",
+    textColor: "#fff", // Always white text for contrast on dark bg
     extendedProps: {
       client: s.client,
       location: s.deploymentLocation,
-      status: s.isApproved, 
-      // Add guardId fullName to extendedProps for consistent access in calendar events
-      guardName: s.guardId.fullName,
+      status: s.isApproved,
+      guardName: s.guardId?.fullName,
     },
   }));
 
+  // --- Handlers ---
+
   const handleAddClient = async (newClient) => {
     try {
-      const res = await fetch(
-        `${api}/api/clients/create-client`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(newClient),
-        }
-      );
+      const res = await fetch(`${api}/api/clients/create-client`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newClient),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to add client");
-      toast.success("Client Created Successfully", {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
+      
+      toast.success("Client Created Successfully", { theme: "dark", transition: Bounce });
       setClients((prev) => [...prev, data.client]);
+      setShowClientModal(false);
     } catch (err) {
       console.error("Error adding client:", err.message);
-      toast.error("Failed to Add Client: ", err, {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
+      toast.error(`Failed to Add Client: ${err.message}`, { theme: "dark", transition: Bounce });
     }
   };
 
@@ -154,569 +165,417 @@ export default function AdminDeployment() {
   };
 
   const handleDeleteBatch = async () => {
-    if (!batchToDelete){ 
-      toast.error("Please Select a Schedule to Delete", err, {
-          position: "top-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "dark",
-          transition: Bounce,
-        });
-      return
-    };
+    if (!batchToDelete) return;
 
     try {
-        const id = batchToDelete[0]._id;
-        const res = await fetch(`${api}/api/schedules/batch/${id}`, {
-            method: 'DELETE',
-            credentials: 'include',
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-            throw new Error(data.message || 'Failed to delete batch');
-        }
-        toast.success("Schedule Deleted Succesfully", {
-          position: "top-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "dark",
-          transition: Bounce,
-        });
-        // Refetch data to update the list
-        await fetchData();
-        setDeleteSchedModal(false);
-        setBatchToDelete(null);
-
-    } catch (error) {
-        console.error('Error deleting batch:', error);
-        toast.error("Error deleting batch:: ", error, {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
+      const id = batchToDelete[0]._id;
+      const res = await fetch(`${api}/api/schedules/batch/${id}`, {
+        method: "DELETE",
+        credentials: "include",
       });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to delete batch");
+
+      toast.success("Schedule Deleted Successfully", { theme: "dark", transition: Bounce });
+      await fetchData();
+      setDeleteSchedModal(false);
+      setBatchToDelete(null);
+    } catch (error) {
+      console.error("Error deleting batch:", error);
+      toast.error(`Error deleting batch: ${error.message}`, { theme: "dark", transition: Bounce });
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white p-8">
+    <div className="min-h-screen bg-[#0f172a] text-white p-4 md:p-6 font-sans">
+      <style>{calendarStyles}</style>
+      <ToastContainer position="top-right" autoClose={5000} theme="dark" />
+
       {/* ===== HEADER ===== */}
-      <header className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+      <header className="flex flex-col xl:flex-row xl:items-center xl:justify-between mb-8 gap-6">
         <div className="flex items-center gap-3">
-          <CalendarDays className="w-8 h-8 text-blue-400" />
-          <h1 className="text-3xl font-bold text-center sm:text-left">
-            Deployment Schedule
-          </h1>
+            <div className="p-3 bg-blue-600/10 rounded-xl border border-blue-600/20">
+                <CalendarDays className="text-blue-500" size={28} />
+            </div>
+            <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Deployment Schedule</h1>
+                <p className="text-slate-400 text-sm mt-1">Manage guard shifts and locations.</p>
+            </div>
         </div>
-          {/* FILTERS */}
-          <div className="flex">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 ">
-              {/* Client Filter */}
+
+        <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+            {/* View Mode Toggle */}
+            <div className="relative">
+                <Menu>
+                    <Menu.Button className="w-full sm:w-auto flex items-center justify-between sm:justify-center gap-2 px-4 py-2.5 bg-[#1e293b] border border-gray-700 rounded-lg hover:bg-gray-800 transition text-sm text-gray-200">
+                        {viewMode === "calendar" ? <><LayoutGrid size={16} /> Calendar View</> : <><Table size={16} /> List View</>}
+                        <ChevronDown size={14} className="text-gray-500" />
+                    </Menu.Button>
+                    <Transition
+                        as={Fragment}
+                        enter="transition ease-out duration-100"
+                        enterFrom="transform opacity-0 scale-95"
+                        enterTo="transform opacity-100 scale-100"
+                        leave="transition ease-in duration-75"
+                        leaveFrom="transform opacity-100 scale-100"
+                        leaveTo="transform opacity-0 scale-95"
+                    >
+                        <Menu.Items className="absolute right-0 mt-2 w-48 bg-[#1e293b] border border-gray-700 rounded-xl shadow-xl z-20 focus:outline-none overflow-hidden">
+                            <Menu.Item>
+                                {({ active }) => (
+                                    <button onClick={() => setViewMode("calendar")} className={`${active ? "bg-blue-600 text-white" : "text-gray-300"} flex items-center gap-2 w-full px-4 py-3 text-sm`}>
+                                        <LayoutGrid size={16} /> Calendar View
+                                    </button>
+                                )}
+                            </Menu.Item>
+                            <Menu.Item>
+                                {({ active }) => (
+                                    <button onClick={() => setViewMode("table")} className={`${active ? "bg-blue-600 text-white" : "text-gray-300"} flex items-center gap-2 w-full px-4 py-3 text-sm`}>
+                                        <Table size={16} /> List View
+                                    </button>
+                                )}
+                            </Menu.Item>
+                        </Menu.Items>
+                    </Transition>
+                </Menu>
+            </div>
+
+            {/* Client Filter */}
+            <div className="relative flex-grow sm:flex-grow-0">
+                <select
+                    value={selectedClient}
+                    onChange={(e) => setSelectedClient(e.target.value)}
+                    className="w-full bg-[#1e293b] border border-gray-700 text-gray-200 text-sm rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+                >
+                    <option value="">All Clients</option>
+                    {clients.map((c) => (
+                        <option key={c._id} value={c.clientName}>{c.clientName}</option>
+                    ))}
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                    <Filter size={14} />
+                </div>
+            </div>
+
+            {/* Status Filter */}
+            <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full sm:w-auto bg-[#1e293b] border border-gray-700 text-gray-200 text-sm rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+                <option value="All">All Status</option>
+                <option value="Approved">Approved</option>
+                <option value="Pending">Pending</option>
+                <option value="Declined">Declined</option>
+            </select>
+
+            {/* Actions */}
+            <div className="flex gap-2">
                 <button
-                  onClick={() => fetchData()}
-                  className="flex items-center justify-center px-4 py-2 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-[#243046] transition-colors duration-200"
-                  title="Refresh List"
+                    onClick={fetchData}
+                    className="px-3 py-2 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-[#243046] transition flex items-center justify-center"
+                    title="Refresh Data"
                 >
-                  <RefreshCcw className="w-5 h-5" />
+                    <RefreshCcw size={20} />
                 </button>
-              <div className="flex items-center gap-2 bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2">
-                <Filter className="text-gray-400 w-4 h-4" />
-                <select
-                  value={selectedClient}
-                  onChange={(e) => setSelectedClient(e.target.value)}
-                  className="bg-[#1e293b] text-gray-200 text-sm focus:outline-none"
+                <button
+                    onClick={() => navigate("/admin/deployment/add-schedule")}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition whitespace-nowrap shadow-lg shadow-blue-900/20"
                 >
-                  <option value="">Select Client</option>
-                  {clients.map((client) => (
-                    <option key={client._id} value={client.clientName}>
-                      {client.clientName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {/* Right: Status Filter */}
-              <div className="flex items-center gap-2 bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2">
-                <Filter className="text-gray-400 w-4 h-4" />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="bg-[#1e293b]  text-gray-200 text-sm rounded-lg  focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="All">All</option>
-                  <option value="Approved">Approved</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Declined">Declined</option>
-                </select>
-              </div>
+                    <ClipboardList size={18} /> Add Schedule
+                </button>
             </div>
-            {/* View Mode Dropdown */}
-            <div className="flex items-center gap-2 ml-2">
-              <Menu as="div" className="relative inline-block text-left">
-                <Menu.Button
-                  className="flex items-center justify-center gap-2 bg-[#1e293b] border border-gray-600 text-gray-200 hover:bg-gray-700 px-3 py-3 rounded-lg text-sm font-medium"
-                >
-                  {viewMode === "calendar" ? (
-                    <LayoutGrid size={16} />
-                  ) : (
-                    <Table size={16} />
-                  )}
-                  <ChevronDown size={14} className="opacity-70" />
-                </Menu.Button>
-                <Menu.Items className="absolute right-1 mt-2 w-40 origin-top-left bg-[#1e293b] border border-gray-700 rounded-lg shadow-lg focus:outline-none z-50">
-                  <div className="py-1">
-                    <Menu.Item>
-                      {({ active }) => (
-                        <button
-                          onClick={() => setViewMode("calendar")}
-                          className={`flex items-center gap-2 w-full text-left px-3 py-2 text-sm rounded-md ${
-                            viewMode === "calendar"
-                              ? "bg-blue-600 text-white"
-                              : active
-                              ? "bg-gray-700 text-white"
-                              : "text-gray-300"
-                          }`}
-                        >
-                          <LayoutGrid size={16} /> Calendar View
-                        </button>
-                      )}
-                    </Menu.Item>
-                    <Menu.Item>
-                      {({ active }) => (
-                        <button
-                          onClick={() => setViewMode("table")}
-                          className={`flex items-center gap-2 w-full text-left px-3 py-2 text-sm rounded-md ${
-                            viewMode === "table"
-                              ? "bg-blue-600 text-white"
-                              : active
-                              ? "bg-gray-700 text-white"
-                              : "text-gray-300"
-                          }`}
-                        >
-                          <Table size={16} /> Table View
-                        </button>
-                      )}
-                    </Menu.Item>
-                  </div>
-                </Menu.Items>
-              </Menu>
-            </div>
-          </div>
+        </div>
       </header>
 
-      <div className="flex justify-between items-center gap-4 mb-4 text-sm ">
-        {/* ===== LEGEND ===== */}
-        <div className="items-center text-gray-400">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 bg-[#fde047] rounded-sm"></span> Day Shift
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 bg-[#ef4444] rounded-sm"></span> Night Shift
-          </div>
-        </div>
-        <div className="flex justify-between items-center">
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-          {/* Action Buttons */}
-          <div className="flex gap-2">
-            {/* <button
-              onClick={() => setShowClientModal(true)}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-medium"
-            >
-              <PlusCircle size={16} /> Add Client
-            </button> */}
-            <button
-              onClick={() => navigate("/admin/deployment/add-schedule")}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium"
-            >
-              <ClipboardList size={16} /> Add Schedule
-            </button>
-          </div>
-        </div>
-          
-        </div>
+      {/* ===== LEGEND (Mobile Only) ===== */}
+      <div className="md:hidden mb-4 flex gap-4 text-xs text-gray-400 justify-end">
+         <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-yellow-500"></span> Day</div>
+         <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500"></span> Night</div>
       </div>
 
-      {/* ===== VIEW RENDERING ===== */}
-      <div className="bg-[#1e293b] p-6 rounded-2xl shadow-lg border border-gray-700">
-        {viewMode === "calendar" ? (
-          selectedClient ? (
-            <FullCalendar
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-              initialView="dayGridMonth"
-              height="80vh"
-              events={filteredEvents}
-              eventContent={(eventInfo) => (
-                <div className="text-xs">
-                  <b>{eventInfo.event.title}</b>
-                </div>
-              )}
-              headerToolbar={{
-                left: "prev,next today",
-                center: "title",
-                right: "dayGridMonth,timeGridWeek,timeGridDay",
-              }}
-            />
-          ) : (
-            <div className="text-center py-20 text-gray-500">
-              <p className="text-lg">
-                <Filter className="inline-block w-5 h-5 mr-2" />
-                Please select a client to view deployment schedules.
-              </p>
-            </div>
-          )
+      {/* ===== CONTENT ===== */}
+      <div className="bg-[#1e293b]/50 backdrop-blur-sm border border-gray-800 rounded-2xl p-1 shadow-xl min-h-[600px]">
+        {isLoadingData ? (
+             <div className="flex flex-col items-center justify-center h-[600px] text-blue-400 animate-pulse">
+                <CalendarDays size={48} className="mb-4 opacity-50" />
+                <p>Loading schedules...</p>
+             </div>
         ) : (
-          <div className="space-y-10">
-            {Object.entries(
-              filteredSchedules.reduce((acc, schedule) => {
-                const client = schedule.client || "Unknown Client";
-                if (!acc[client]) acc[client] = [];
-                acc[client].push(schedule);
-                return acc;
-              }, {})
-            ).map(([clientName, clientSchedules]) => (
-              <div key={clientName}>
-                {/* Client Header */}
-                <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-white mb-3 border-l-4 border-teal-500 pl-3">
-                    {clientName}
-                  </h2>
-                </div>
+            <>
+                {viewMode === "calendar" ? (
+                    <div className="p-4 md:p-6 bg-[#1e293b] rounded-xl">
+                        {!selectedClient && (
+                            <div className="mb-6 p-4 bg-blue-900/20 border border-blue-900/50 text-blue-200 rounded-lg flex items-center gap-2 text-sm">
+                                <Filter size={16} /> 
+                                Tip: Select a specific <strong>Client</strong> from the dropdown above to filter the calendar view effectively.
+                            </div>
+                        )}
+                        <FullCalendar
+                            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                            initialView="dayGridMonth"
+                            height="auto"
+                            events={calendarEvents}
+                            headerToolbar={{
+                                left: "prev,next today",
+                                center: "title",
+                                right: "dayGridMonth,timeGridWeek"
+                            }}
+                        />
+                    </div>
+                ) : (
+                    // ===== LIST VIEW (Grouped) =====
+                    <div className="p-4 md:p-6 space-y-8">
+                        {filteredSchedules.length === 0 ? (
+                             <div className="text-center py-20 text-gray-500">No schedules found matching your filters.</div>
+                        ) : (
+                            // Group by Client
+                            Object.entries(filteredSchedules.reduce((acc, schedule) => {
+                                const client = schedule.client || "Unassigned Client";
+                                if (!acc[client]) acc[client] = [];
+                                acc[client].push(schedule);
+                                return acc;
+                            }, {})).map(([clientName, clientSchedules]) => (
+                                <div key={clientName} className="space-y-4">
+                                    {/* Client Header */}
+                                    <div className="flex items-center gap-3 pb-2 border-b border-gray-700">
+                                        <Building2 className="text-blue-500" size={24}/>
+                                        <h2 className="text-xl font-bold text-white">{clientName}</h2>
+                                    </div>
 
-                {Object.entries(
-                  clientSchedules.reduce((batchAcc, schedule) => {
-                    const batchKey = `${schedule.deploymentLocation}-${schedule.shiftType}-${schedule.isApproved}`;
-                    if (!batchAcc[batchKey]) batchAcc[batchKey] = [];
-                    batchAcc[batchKey].push(schedule);
-                    return batchAcc;
-                  }, {})
-                ).map(([batchKey, batchSchedules]) => (
-                  <div key={batchKey} className="mb-8">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-md font-semibold text-gray-300 mb-2 pl-3 border-l-2 border-blue-500">
-                        {batchSchedules[0].deploymentLocation} -{" "}
-                        {batchSchedules[0].shiftType}{" "}
-                        <span
-                          className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${
-                            batchSchedules[0].isApproved === "Approved"
-                              ? "bg-green-600/20 text-green-400 border border-green-500/50"
-                              : batchSchedules[0].isApproved === "Pending"
-                              ? "bg-yellow-600/20 text-yellow-400 border border-yellow-500/50"
-                              : "bg-red-600/20 text-red-400 border border-red-500/50"
-                          }`}
-                        >
-                          {batchSchedules[0].isApproved}
-                        </span>
-                      </h3>
-                      <div className="flex items-center justify-center gap-2">
-                        { batchSchedules[0].isApproved === "Declined" && (
-                          <>
-                            <Link 
-                              to={`/admin/deployment/add-schedule/${batchSchedules[0]._id}`}
-                              className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg text-sm font-medium">
-                              <Pencil size={16}/>
-                              Edit Schedule
-                            </Link>
-                            <button 
-                              onClick={() => openDeleteModal(batchSchedules)}
-                              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm font-medium">
-                              <Trash size={16}/>
-                              Delete Schedule
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="overflow-x-auto rounded-lg shadow-lg">
-                      <table className="min-w-full text-sm text-gray-300 border border-gray-700 rounded-lg overflow-hidden">
-                        <thead className="bg-[#0f172a] text-gray-400">
-                          <tr>
-                            <th className="py-3 px-4 text-left">Guard Name</th>
-                            <th className="py-3 px-4 text-left">Position</th>
-                            <th className="py-3 px-4 text-left">Location</th>
-                            <th className="py-3 px-4 text-left">Shift</th>
-                            <th className="py-3 px-4 text-left">Time In</th>
-                            <th className="py-3 px-3 text-left">Time Out</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {batchSchedules.map((s, i) => (
-                            <tr
-                              key={i}
-                              className={`${
-                                i % 2 === 0 ? "bg-[#1e293b]" : "bg-[#162033]"
-                              } hover:bg-[#2a3954]`}
-                            >
-                              <td className="py-3 px-4">{s.guardId.fullName}</td>
-                              <td className="py-3 px-4">{s.position}</td>
-                              <td className="py-3 px-4">
-                                {s.deploymentLocation}
-                              </td>
-                              <td
-                                className={`py-3 px-4 font-semibold ${
-                                  s.shiftType === "Night Shift"
-                                    ? "text-red-400"
-                                    : "text-yellow-400"
-                                }`}
-                              >
-                                {s.shiftType}
-                              </td>
-                              <td className="py-3 px-4">
-                                {new Date(s.timeIn).toLocaleString()}
-                              </td>
-                              <td className="py-3 px-3">
-                                {new Date(s.timeOut).toLocaleString()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        {batchSchedules[0]?.remarks && (
-                          <tfoot>
-                            <tr>
-                              <td colSpan={5} className="px-4 py-3 border-t border-gray-700 bg-red-500 rounded-2xl">
-                                <div className="max-h-24 overflow-y-auto overflow-x-auto px-2 py-1 whitespace-nowrap">
-                                  <span className="font-medium">Remarks: </span>
-                                  <span className="font-medium">
-                                    {batchSchedules[0]?.remarks || "No remarks available."}
-                                  </span>
+                                    {/* Group by Batch (Location/Shift/Status) */}
+                                    {Object.entries(clientSchedules.reduce((acc, schedule) => {
+                                        const batchKey = `${schedule.deploymentLocation}-${schedule.shiftType}-${schedule.isApproved}`;
+                                        if (!acc[batchKey]) acc[batchKey] = [];
+                                        acc[batchKey].push(schedule);
+                                        return acc;
+                                    }, {})).map(([batchKey, batchSchedules], idx) => (
+                                        <div key={idx} className="bg-[#1e293b] border border-gray-700 rounded-xl overflow-hidden shadow-md">
+                                            
+                                            {/* Batch Header */}
+                                            <div className="p-4 bg-slate-800/50 border-b border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-1 h-10 rounded-full ${batchSchedules[0].shiftType === 'Night Shift' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
+                                                    <div>
+                                                        <h3 className="font-semibold text-white">{batchSchedules[0].deploymentLocation}</h3>
+                                                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                                                            <span className={batchSchedules[0].shiftType === 'Night Shift' ? 'text-red-400' : 'text-yellow-400'}>{batchSchedules[0].shiftType}</span>
+                                                            <span>•</span>
+                                                            <span className={`px-2 py-0.5 rounded text-xs font-medium border ${
+                                                                batchSchedules[0].isApproved === "Approved" ? "bg-green-500/10 text-green-400 border-green-500/20" :
+                                                                batchSchedules[0].isApproved === "Declined" ? "bg-red-500/10 text-red-400 border-red-500/20" :
+                                                                "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
+                                                            }`}>
+                                                                {batchSchedules[0].isApproved}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Actions */}
+                                                <div className="flex gap-2">
+                                                    {batchSchedules[0].isApproved === "Declined" && (
+                                                        <Link 
+                                                            to={`/admin/deployment/add-schedule/${batchSchedules[0]._id}`}
+                                                            className="p-2 bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/30 rounded-lg transition"
+                                                            title="Edit"
+                                                        >
+                                                            <Pencil size={18}/>
+                                                        </Link>
+                                                    )}
+                                                    <button 
+                                                        onClick={() => openDeleteModal(batchSchedules)}
+                                                        className="p-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-lg transition"
+                                                        title="Delete Batch"
+                                                    >
+                                                        <Trash size={18}/>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Desktop Table */}
+                                            <div className="hidden md:block overflow-x-auto">
+                                                <table className="w-full text-left text-sm">
+                                                    <thead className="bg-[#0f172a] text-gray-400 border-b border-gray-700">
+                                                        <tr>
+                                                            <th className="py-3 px-6 font-medium">Guard Name</th>
+                                                            <th className="py-3 px-6 font-medium">Position</th>
+                                                            <th className="py-3 px-6 font-medium">Time In</th>
+                                                            <th className="py-3 px-6 font-medium">Time Out</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-700/50">
+                                                        {batchSchedules.map((s, i) => (
+                                                            <tr key={i} className="hover:bg-slate-800/30 transition">
+                                                                <td className="py-3 px-6 font-medium text-white flex items-center gap-2">
+                                                                    <Shield size={16} className="text-blue-500"/>
+                                                                    {s.guardId?.fullName || "Unassigned"}
+                                                                </td>
+                                                                <td className="py-3 px-6 text-gray-300">{s.position}</td>
+                                                                <td className="py-3 px-6 text-gray-300">{new Date(s.timeIn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                                                                <td className="py-3 px-6 text-gray-300">{new Date(s.timeOut).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            {/* Mobile Cards */}
+                                            <div className="md:hidden divide-y divide-gray-700/50">
+                                                {batchSchedules.map((s, i) => (
+                                                    <div key={i} className="p-4 flex flex-col gap-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="font-medium text-white flex items-center gap-2">
+                                                                <Shield size={16} className="text-blue-500"/>
+                                                                {s.guardId?.fullName}
+                                                            </div>
+                                                            <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">{s.position}</span>
+                                                        </div>
+                                                        <div className="text-sm text-gray-300 flex items-center gap-2 bg-slate-800/50 p-2 rounded mt-1">
+                                                            <Clock size={16} className="text-gray-500"/>
+                                                            <span>
+                                                                {new Date(s.timeIn).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} - {new Date(s.timeOut).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Remarks Footer */}
+                                            {batchSchedules[0]?.remarks && (
+                                                <div className="bg-red-900/20 p-3 border-t border-red-900/30 text-red-200 text-sm flex items-start gap-2">
+                                                    <span className="font-bold shrink-0">Note:</span>
+                                                    {batchSchedules[0].remarks}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
-                              </td>
-                            </tr>
-                          </tfoot>
+                            ))
                         )}
-                      </table>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-            {/* If no schedules at all */}
-            {filteredSchedules.length === 0 && (
-              <p className="text-center text-gray-500 italic py-10">
-                No schedules found for any client.
-              </p>
-            )}
-          </div>
+                )}
+            </>
         )}
       </div>
 
-      {/* ===== add CLIENT MODAL ===== */}
+      {/* ===== ADD CLIENT MODAL ===== */}
       <Transition appear show={showClientModal} as={Fragment}>
-        <Dialog
-          as="div"
-          className="relative z-50"
-          onClose={() => setShowClientModal(false)}
-        >
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black/50" />
-          </Transition.Child>
-
+        <Dialog as="div" className="relative z-50" onClose={() => setShowClientModal(false)}>
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-8 text-left align-middle shadow-xl border border-gray-700">
-                <Dialog.Title className="text-2xl font-bold text-white mb-6 flex items-center gap-x-3">
-                  <Building2 className="text-blue-400" size={32} /> Add New Client
-                </Dialog.Title>
+            <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-8 text-left shadow-xl border border-gray-700">
+              <div className="flex justify-between items-center mb-6">
+                  <Dialog.Title className="text-2xl font-bold text-white flex items-center gap-3">
+                    <Building2 className="text-blue-500" size={28} /> Add New Client
+                  </Dialog.Title>
+                  <button onClick={() => setShowClientModal(false)} className="text-gray-400 hover:text-white"><X size={24}/></button>
+              </div>
 
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const newClient = {
-                      clientName: e.target.clientName.value,
-                      clientContact: e.target.clientContact.value,
-                      clientTypeOfEstablishment:
-                        e.target.clientTypeOfEstablishment.value,
-                      clientAddress: e.target.clientAddress.value,
-                      clientContactPerson: e.target.clientContactPerson.value,
-                    };
-                    handleAddClient(newClient);
-                    e.target.reset();
-                    setShowClientModal(false);
-                  }}
-                  className="space-y-6"
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-gray-300 text-sm mb-1">
-                          Client Name
-                        </label>
-                        <input
-                          name="clientName"
-                          placeholder="e.g. Jollibee - Cavite"
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-gray-300 text-sm mb-1">
-                          Contact Number
-                        </label>
-                        <input
-                          name="clientContact"
-                          placeholder="09171234567"
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-gray-300 text-sm mb-1">
-                          Type of Establishment
-                        </label>
-                        <input
-                          name="clientTypeOfEstablishment"
-                          placeholder="e.g. Mall, Bank, Office"
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                          required
-                        />
-                      </div>
+              <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  handleAddClient(Object.fromEntries(formData.entries()));
+                }} 
+                className="space-y-6"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-gray-400 text-xs uppercase font-bold mb-1">Client Name</label>
+                      <input name="clientName" placeholder="e.g. Jollibee - Cavite" className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none" required />
                     </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-gray-300 text-sm mb-1">
-                          Address
-                        </label>
-                        <input
-                          name="clientAddress"
-                          placeholder="Enter Client Address"
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-gray-300 text-sm mb-1">
-                          Contact Person
-                        </label>
-                        <input
-                          name="clientContactPerson"
-                          placeholder="Enter Contact Person Name"
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                          required
-                        />
-                      </div>
+                    <div>
+                      <label className="block text-gray-400 text-xs uppercase font-bold mb-1">Contact Number</label>
+                      <input name="clientContact" placeholder="0917xxxxxxx" className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none" required />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-xs uppercase font-bold mb-1">Establishment Type</label>
+                      <input name="clientTypeOfEstablishment" placeholder="e.g. Mall, Bank" className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none" required />
                     </div>
                   </div>
-
-                  <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
-                    <button
-                      type="button"
-                      onClick={() => setShowClientModal(false)}
-                      className="bg-gray-600 hover:bg-gray-500 px-6 py-2 rounded-lg text-white"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-6 py-2 rounded-lg text-white font-medium"
-                    >
-                      Add Client
-                    </button>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-gray-400 text-xs uppercase font-bold mb-1">Address</label>
+                      <input name="clientAddress" placeholder="Enter Full Address" className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none" required />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-xs uppercase font-bold mb-1">Contact Person</label>
+                      <input name="clientContactPerson" placeholder="Full Name" className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none" required />
+                    </div>
                   </div>
-                </form>
-              </Dialog.Panel>
-            </Transition.Child>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-700">
+                  <button type="button" onClick={() => setShowClientModal(false)} className="bg-gray-700 hover:bg-gray-600 px-6 py-2.5 rounded-xl text-white transition">Cancel</button>
+                  <button type="submit" className="bg-blue-600 hover:bg-blue-500 px-6 py-2.5 rounded-xl text-white font-medium shadow-lg shadow-blue-900/20 transition">Add Client</button>
+                </div>
+              </form>
+            </Dialog.Panel>
           </div>
         </Dialog>
       </Transition>
 
-      {/* ===== Delete Batch MODAL ===== */}
+      {/* ===== DELETE BATCH MODAL ===== */}
       <Transition appear show={deleteSchedModal} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={() => setDeleteSchedModal(false)}>
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black/50" />
-          </Transition.Child>
-
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-[#1e293b] p-8 text-left align-middle shadow-xl border border-gray-700">
-                <Dialog.Title className="text-2xl font-bold text-red-400 mb-1 flex items-center gap-x-3">
-                  <Trash size={28} /> Confirm Deletion
-                </Dialog.Title>
-                
-                {batchToDelete && (
-                  <div className="text-gray-300 space-y-3">
-                    <p>Are you sure you want to delete this entire schedule batch?</p>
-                    <div className="bg-[#0f172a] p-4 rounded-lg border border-gray-600">
-                      <p>🏢 Client: <span className="font-medium text-white">{batchToDelete[0].client}</span></p>
-                      <p>👮 Guard: <span className="font-medium text-white">{batchToDelete[0].guardId.fullName}</span></p>
-                      <p>📌 Location: <span className="font-medium text-white">{batchToDelete[0].deploymentLocation}</span></p>
-                      <p>🕛 Shift: <span className="font-medium text-white">{batchToDelete[0].shiftType}</span></p>
-                      <p>⌛ Status: <span className="font-medium text-white">{batchToDelete[0].isApproved}</span></p>
-                      <p>📅 Schedules to be deleted: <span className="font-medium text-white">{batchToDelete.length}</span></p>
+            <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 text-left shadow-xl border border-gray-700">
+              <Dialog.Title className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <div className="p-2 bg-red-500/10 rounded-full"><Trash className="text-red-500" size={20} /></div>
+                Confirm Deletion
+              </Dialog.Title>
+              
+              {batchToDelete && (
+                <div className="space-y-4">
+                  <p className="text-gray-300 text-sm">
+                    Are you sure you want to delete this schedule batch? This will remove shifts for <span className="text-white font-bold">{batchToDelete.length} guards</span>.
+                  </p>
+                  
+                  <div className="bg-[#0f172a] p-4 rounded-xl border border-gray-700 text-sm space-y-2">
+                    <div className="flex justify-between border-b border-gray-700 pb-2 mb-2">
+                        <span className="text-gray-500">Client</span>
+                        <span className="text-white font-medium">{batchToDelete[0].client}</span>
                     </div>
-                    <p className="text-sm text-yellow-400">*This action cannot be undone.</p>
+                    <div className="flex justify-between">
+                        <span className="text-gray-500">Location</span>
+                        <span className="text-gray-300">{batchToDelete[0].deploymentLocation}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-500">Shift</span>
+                        <span className={batchToDelete[0].shiftType === 'Night Shift' ? 'text-red-400' : 'text-yellow-400'}>{batchToDelete[0].shiftType}</span>
+                    </div>
                   </div>
-                )}
 
-                <div className="flex justify-end gap-4 pt-6 mt-4 border-t border-gray-700">
-                  <button
-                    type="button"
-                    onClick={() => setDeleteSchedModal(false)}
-                    className="bg-gray-600 hover:bg-gray-500 px-6 py-2 rounded-lg text-white"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDeleteBatch}
-                    className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-lg text-white font-medium"
-                  >
-                    Confirm Delete
-                  </button>
+                  <p className="text-xs text-red-400 italic mt-2">
+                    * This action cannot be undone.
+                  </p>
                 </div>
-              </Dialog.Panel>
-            </Transition.Child>
+              )}
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setDeleteSchedModal(false)}
+                  className="bg-gray-700 hover:bg-gray-600 px-5 py-2.5 rounded-xl text-white text-sm font-medium transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteBatch}
+                  className="bg-red-600 hover:bg-red-500 px-5 py-2.5 rounded-xl text-white text-sm font-medium shadow-lg shadow-red-900/20 transition"
+                >
+                  Delete Batch
+                </button>
+              </div>
+            </Dialog.Panel>
           </div>
         </Dialog>
       </Transition>
 
-      <ToastContainer/>
     </div>
   );
 }

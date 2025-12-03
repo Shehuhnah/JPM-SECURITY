@@ -17,7 +17,9 @@ import {
   Phone,
   Save,
   RefreshCcw,
-  Shield
+  Shield,
+  ChevronLeft,
+  ChevronRight 
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -455,75 +457,182 @@ export default function ApplicantsList() {
     <>
       <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
         <ToastContainer theme="dark" />
-        <main className="flex-1 p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-            <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-              <User className="text-blue-500" size={32} />
-              Applicants List
-            </h1>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
-              <button
-                onClick={() => fetchApplicants()}
-                className="px-4 py-3 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-[#243046] transition"
-                title="Refresh List"
-              >
-                <RefreshCcw className="size-4" />
-              </button>
-              <button
-                onClick={() => setDownloadModalOpen(true)} 
-                className="flex items-center bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200">
-                <FileDown className="w-4 h-4 text-blue-400 mr-2" />
-                <p>Download List</p>
-              </button>
-              <div className="flex items-center bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200">
-                <Filter className="w-4 h-4 text-blue-400 mr-2" />
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-[#1e293b] text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded">
-                  <option value="All">All Status</option>
-                  <option value="Review">Review</option>
-                  <option value="Interview">Interview</option>
-                  <option value="Hired">Hired</option>
-                  <option value="Declined">Declined</option>
-                </select>
-              </div>
-              <div className="relative flex-1">
-                <input type="text" placeholder="Search applicant..." value={search} onChange={(e) => setSearch(e.target.value)} className="bg-[#1e293b] border border-gray-700 rounded-lg pl-10 pr-3 py-2 text-sm text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 w-full transition" />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><Search size={16} /></span>
-              </div>
+        <main className="flex-1 p-4 md:p-6 bg-slate-900/50 min-h-screen">
+            {/* --- Header Section --- */}
+            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between mb-8 gap-6">
+                
+                {/* Title */}
+                <div className="flex items-center gap-3">
+                    <div className="p-3 bg-blue-500/10 rounded-xl">
+                        <User className="text-blue-500" size={28} />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                            Applicants List
+                        </h1>
+                        <p className="text-slate-400 text-sm mt-1">
+                            Manage and track your recruitment pipeline.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Controls Toolbar */}
+                <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+                    
+                    {/* Search */}
+                    <div className="relative flex-grow sm:max-w-xs group">
+                        <input
+                            type="text"
+                            placeholder="Search by name or email..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full bg-[#1e293b] border border-gray-700 rounded-lg pl-10 pr-4 py-2.5 
+                            text-sm text-gray-100 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                        />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-400 transition" size={18} />
+                    </div>
+
+                    {/* Filter Dropdown */}
+                    <div className="relative">
+                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 z-10" size={16} />
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="w-full sm:w-auto bg-[#1e293b] border border-gray-700 rounded-lg pl-10 pr-8 py-2.5 
+                            text-sm text-gray-200 focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer hover:bg-[#243046] transition"
+                        >
+                            <option value="All">All Status</option>
+                            <option value="Review">Review</option>
+                            <option value="Interview">Interview</option>
+                            <option value="Hired">Hired</option>
+                            <option value="Declined">Declined</option>
+                        </select>
+                    </div>
+
+                    {/* Action Buttons Group */}
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setDownloadModalOpen(true)}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#1e293b] hover:bg-[#243046] 
+                            border border-gray-700 text-gray-200 px-4 py-2.5 rounded-lg text-sm transition"
+                        >
+                            <FileDown size={18} className="text-blue-400" />
+                            <span className="hidden sm:inline">Export</span>
+                        </button>
+                        
+                        <button
+                            onClick={fetchApplicants}
+                            className="bg-[#1e293b] hover:bg-[#243046] border border-gray-700 text-gray-300 p-2.5 rounded-lg transition"
+                            title="Refresh List"
+                        >
+                            <RefreshCcw size={18} />
+                        </button>
+                    </div>
+                </div>
             </div>
-          </div>
-          <div className="overflow-x-auto bg-[#1e293b]/90 backdrop-blur-md border border-gray-700 rounded-xl shadow-lg">
-            <table className="w-full text-left">
-              <thead className="bg-[#234C6A] text-white text-sm">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Name</th>
-                  <th className="px-4 py-3 font-semibold">Email</th>
-                  <th className="px-4 py-3 font-semibold">Phone</th>
-                  <th className="px-4 py-3 font-semibold">Position</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredApplicants.length === 0 ? (
-                  <tr><td colSpan="6" className="text-center py-6 text-gray-400 italic">No applicants found.</td></tr>
-                ) : (
-                  filteredApplicants.map((a) => (
-                    <tr key={a._id} className="border-t border-gray-700 hover:bg-[#2a3a4f]/40 transition">
-                      <td className="px-4 py-3 font-medium">{a.name}</td>
-                      <td className="px-4 py-3 text-gray-300">{a.email}</td>
-                      <td className="px-4 py-3 text-gray-300">{a.phone}</td>
-                      <td className="px-4 py-3 text-gray-200">{a.position || "—"}</td>
-                      <td className="px-4 py-3">{getStatusBadge(a.status)}</td>
-                      <td className="px-4 py-3 text-center">
-                        <button onClick={() => openPanel(a)} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-md text-sm w-full justify-center">Manage</button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          <footer className="mt-8 text-center text-gray-500 text-xs border-t border-gray-800 pt-4">© {new Date().getFullYear()} JPM Security Agency — Applicant Management Portal</footer>
+
+
+            {/* DESKTOP VIEW: Table */}
+            <div className="hidden md:block overflow-hidden bg-[#1e293b]/90 backdrop-blur-md border border-gray-700 rounded-xl shadow-xl">
+                <table className="w-full text-left">
+                    <thead className="bg-slate-800/50 border-b border-gray-700 text-gray-400 text-xs uppercase tracking-wider">
+                        <tr>
+                            <th className="px-6 py-4 font-semibold">Candidate</th>
+                            <th className="px-6 py-4 font-semibold">Contact Info</th>
+                            <th className="px-6 py-4 font-semibold">Position</th>
+                            <th className="px-6 py-4 font-semibold">Status</th>
+                            <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700/50">
+                        {filteredApplicants.length === 0 ? (
+                            <tr>
+                                <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                                    <div className="flex flex-col items-center gap-2">
+                                        <Search size={32} className="text-gray-600" />
+                                        <p>No applicants found matching your criteria.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        ) : (
+                            filteredApplicants.map((a) => (
+                                <tr key={a._id} className="group hover:bg-slate-800/50 transition duration-150">
+                                    <td className="px-6 py-4">
+                                        <div className="font-medium text-white">{a.name}</div>
+                                        <div className="text-xs text-gray-500">ID: {a._id.slice(-6)}</div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="text-sm text-gray-300">{a.email}</div>
+                                        <div className="text-xs text-gray-500 mt-0.5">{a.phone}</div>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-300">{a.position || "—"}</td>
+                                    <td className="px-6 py-4">{getStatusBadge(a.status)}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button
+                                            onClick={() => openPanel(a)}
+                                            className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 px-3 py-1.5 rounded-md text-sm font-medium transition"
+                                        >
+                                            Manage
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* MOBILE VIEW: Cards (Replaces table on small screens) */}
+            <div className="md:hidden grid gap-4">
+                {filteredApplicants.map((a) => (
+                    <div key={a._id} className="bg-[#1e293b] border border-gray-700 rounded-xl p-4 shadow-sm">
+                        <div className="flex justify-between items-start mb-3">
+                            <div>
+                                <h3 className="font-semibold text-white text-lg">{a.name}</h3>
+                                <p className="text-gray-400 text-sm">{a.position}</p>
+                            </div>
+                            {getStatusBadge(a.status)}
+                        </div>
+                        
+                        <div className="space-y-2 text-sm text-gray-300 mb-4 border-t border-gray-700/50 pt-3">
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-500">Email:</span> {a.email}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-500">Phone:</span> {a.phone}
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => openPanel(a)}
+                            className="w-full bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-sm font-medium transition"
+                        >
+                            Manage Application
+                        </button>
+                    </div>
+                ))}
+            </div>
+
+            {/* --- Pagination Footer --- */}
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-800 pt-6">
+                <p className="text-sm text-gray-500">
+                    Showing <span className="text-white font-medium">{filteredApplicants.length}</span> results
+                </p>
+                
+                {/* Placeholder Pagination Controls */}
+                <div className="flex items-center gap-2">
+                    <button className="p-2 rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 disabled:opacity-50">
+                        <ChevronLeft size={16} />
+                    </button>
+                    <button className="p-2 rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800">
+                        <ChevronRight size={16} />
+                    </button>
+                </div>
+            </div>
+
+            <footer className="mt-8 text-center text-gray-600 text-xs">
+                © {new Date().getFullYear()} JPM Security Agency — Portal
+            </footer>
         </main>
         
         {/* Side Panel */}

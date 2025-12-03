@@ -334,6 +334,30 @@ function GuardAttendanceTimeIn() {
   const formatTime = (date) => date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const formatDate = (date) => date.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
+  // Helper to format YYYY-MM-DDTHH:mm:ss.sssZ or YYYY-MM-DDTHH:mm string to readable time
+  const formatTimeDisplay = (timeString) => {
+    if (!timeString) return "N/A";
+    const dateObj = new Date(timeString); // Let Date object handle full ISO parsing
+    if (isNaN(dateObj.getTime())) return "Invalid Time"; // Check for invalid date
+
+    let h = dateObj.getHours();
+    const m = dateObj.getMinutes();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    h = h ? h : 12; // the hour '0' should be '12'
+
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${ampm}`;
+  };
+
+  // Helper to format YYYY-MM-DDTHH:mm:ss.sssZ or YYYY-MM-DDTHH:mm string to readable date
+  const formatDateDisplay = (dateString) => {
+    if (!dateString) return "N/A";
+    const dateObj = new Date(dateString); // Let Date object handle full ISO parsing
+    if (isNaN(dateObj.getTime())) return "Invalid Date"; // Check for invalid date
+
+    return dateObj.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  };
+
   return (
     <div className="min-h-screen bg-[#0f172a] text-gray-100 p-6">
       {/* Header */}
@@ -435,7 +459,7 @@ function GuardAttendanceTimeIn() {
                   {selectedSchedule ? (
                     <div className="flex flex-col items-start">
                       <span>{selectedSchedule.client} - {selectedSchedule.deploymentLocation}</span>
-                      <span className="text-xs text-gray-400">{selectedSchedule.shiftType} ({new Date(selectedSchedule.timeIn).toLocaleTimeString()} - {new Date(selectedSchedule.timeOut).toLocaleTimeString()})</span>
+                      <span className="text-xs text-gray-400">{selectedSchedule.shiftType} ({formatTimeDisplay(selectedSchedule.timeIn)} - {formatTimeDisplay(selectedSchedule.timeOut)})</span>
                     </div>
                   ) : (
                     "Choose a schedule"
@@ -466,7 +490,7 @@ function GuardAttendanceTimeIn() {
                               } flex flex-col items-start px-4 py-2 text-sm w-full`}
                             >
                               <span>{schedule.client} - {schedule.deploymentLocation}</span>
-                              <span className="text-xs text-gray-400">{schedule.shiftType} ({new Date(schedule.timeIn).toLocaleTimeString()} - {new Date(schedule.timeOut).toLocaleTimeString()})</span>
+                              <span className="text-xs text-gray-400">{schedule.shiftType} ({formatTimeDisplay(schedule.timeIn)} - {formatTimeDisplay(schedule.timeOut)})</span>
                             </button>
                           )}
                         </Menu.Item>
@@ -544,11 +568,11 @@ function GuardAttendanceTimeIn() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-400">Date:</span>
-                  <span className="text-gray-200">{new Date(attendanceData.timeIn).toLocaleDateString()}</span>
+                  <span className="text-gray-200">{formatDateDisplay(attendanceData.timeIn)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Time In:</span>
-                  <span className="text-gray-200">{new Date(attendanceData.timeIn).toLocaleTimeString()}</span>
+                  <span className="text-gray-200">{formatTimeDisplay(attendanceData.timeIn)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Location:</span>

@@ -14,8 +14,8 @@ const attendanceSchema = new mongoose.Schema(
       required: true,
     },
 
-    timeIn: { type: Date },
-    timeOut: { type: Date },
+    timeIn: { type: String },
+    timeOut: { type: String },
     status: {
       type: String,
       enum: ["On Duty", "Off Duty", "Absent"],

@@ -13,17 +13,81 @@ import {
   Table,
   LayoutGrid,
   ChevronDown,
-  Trash,
+  Clock,
+  MapPin,
+  User,
+  Shield,
+  X
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { ToastContainer, toast, Bounce } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 const api = import.meta.env.VITE_API_URL;
+
+// --- Custom Styles for Dark Mode FullCalendar ---
+const calendarStyles = `
+  .fc {
+    --fc-page-bg-color: transparent;
+    --fc-neutral-bg-color: #1e293b;
+    --fc-list-event-hover-bg-color: #334155;
+    --fc-today-bg-color: rgba(51, 65, 85, 0.3);
+    --fc-border-color: #334155;
+    --fc-button-text-color: #fff;
+    --fc-button-bg-color: #2563eb;
+    --fc-button-border-color: #2563eb;
+    --fc-button-hover-bg-color: #1d4ed8;
+    --fc-button-hover-border-color: #1d4ed8;
+    --fc-button-active-bg-color: #1e40af;
+    --fc-button-active-border-color: #1e40af;
+    color: #e2e8f0;
+    font-family: inherit;
+  }
+  .fc-theme-standard .fc-scrollgrid {
+    border-color: #334155;
+  }
+  .fc th {
+    background-color: #0f172a;
+    padding: 12px 0;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+  }
+  .fc-daygrid-day-number {
+    color: #cbd5e1;
+    font-weight: 500;
+    padding: 8px;
+  }
+  .fc-col-header-cell-cushion {
+    color: #e2e8f0;
+  }
+  .fc-event {
+    cursor: pointer;
+    border: none;
+    padding: 2px 4px;
+    font-size: 0.75rem;
+    border-radius: 4px;
+  }
+  .fc-popover {
+    background-color: #1e293b !important;
+    border-color: #475569 !important;
+  }
+  .fc-popover-header {
+    background-color: #0f172a !important;
+    color: #e2e8f0 !important;
+  }
+  .fc-popover-body {
+    color: #e2e8f0 !important;
+  }
+`;
 
 export default function AdminSchedApproval() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  
+  // State
   const [remarks, setRemarks] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [schedules, setSchedules] = useState([]);
@@ -32,6 +96,9 @@ export default function AdminSchedApproval() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [viewMode, setViewMode] = useState("calendar");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  // Modals
   const [showApproveBatchModal, setShowApproveBatchModal] = useState(false);
   const [batchToApprove, setBatchToApprove] = useState(null);
   const [showDeclineBatchModal, setShowDeclineBatchModal] = useState(false);
@@ -40,559 +107,465 @@ export default function AdminSchedApproval() {
   useEffect(() => {
     if (!user && !loading) {
       navigate("/admin/login");
-      return;
     }
-
   }, [user, loading, navigate]);
 
-  // Fetch all schedules 
   const fetchData = async () => {
     try {
+      setIsLoadingData(true);
       const [schedulesRes, clientsRes] = await Promise.all([
-        fetch(`${api}/api/schedules/get-schedules`, {
-          credentials: "include",
-        }),
-        fetch(`${api}/api/clients/get-clients`, {
-          credentials: "include",
-        }),
+        fetch(`${api}/api/schedules/get-schedules`, { credentials: "include" }),
+        fetch(`${api}/api/clients/get-clients`, { credentials: "include" }),
       ]);
+      
+      if (!schedulesRes.ok) throw new Error("Failed to fetch schedules");
+      if (!clientsRes.ok) throw new Error("Failed to fetch clients");
 
       const [schedulesData, clientsData] = await Promise.all([
         schedulesRes.json(),
         clientsRes.json(),
       ]);
 
-      if (!schedulesRes.ok) throw new Error(schedulesData.message);
-      if (!clientsRes.ok) throw new Error(clientsData.message);
-
       setSchedules(schedulesData);
       setClients(clientsData);
     } catch (err) {
       console.error("Failed to fetch data:", err);
+      toast.error("Failed to fetch data.");
+    } finally {
+      setIsLoadingData(false);
     }
   };
-  console.log(schedules)
 
   useEffect(() => {
     document.title = "Manage Schedules | JPM Security Agency";
     fetchData();
   }, []);
 
+  // --- Handlers ---
+
   const openApproveBatchModal = (batch) => {
-  console.log("openApproveBatchModal called with batch:", batch);
     setBatchToApprove(batch);
     setShowApproveBatchModal(true);
-    console.log("setShowApproveBatchModal(true) called.");
   };
 
   const openDeclineBatchModal = (batch) => {
-    console.log("openDeclineBatchModal called with batch:", batch);
     setBatchToDecline(batch);
     setShowDeclineBatchModal(true);
-    setRemarks(""); // Reset remarks
-    console.log("setShowDeclineBatchModal(true) called.");
+    setRemarks("");
   };
 
   const handleApproveBatch = async () => {
     if (!batchToApprove || batchToApprove.length === 0) return;
     setSubmitting(true);
-
     try {
-      const id = batchToApprove[0]; // ← FIX
-
+      const id = batchToApprove[0];
       const res = await fetch(`${api}/api/schedules/batch/approve/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
       });
-
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to approve batch');
+      if (!res.ok) throw new Error(data.message || "Failed to approve batch");
       
-      toast.success("Schedule Approved Successfully", {/* ... */});
-      
-      await refresh();
+      toast.success("Schedule Approved Successfully");
+      await fetchData();
       setShowApproveBatchModal(false);
       setBatchToApprove(null);
     } catch (error) {
-      toast.error(`Error Approving Schedule: ${error.message}`, {/* ... */});
-      console.error('Error approving batch:', error);
+      toast.error(`Error: ${error.message}`);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeclineBatch = async (declineRemarks) => {
-    if (!batchToDecline) return;
-    if (!declineRemarks) {
-      toast.error("Remarks are required to decline!", {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
+    if (!batchToDecline || !declineRemarks) {
+      toast.error("Remarks are required!");
       return;
     }
     setSubmitting(true);
     try {
       const id = batchToDecline[0];
       const res = await fetch(`${api}/api/schedules/batch/decline/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ remarks: declineRemarks }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to decline batch');
-
-      toast.success("Schedule Decline Successfully", {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
-      await refresh();
+      if (!res.ok) throw new Error(data.message || "Failed to decline batch");
+      
+      toast.success("Schedule Declined Successfully");
+      await fetchData();
       setShowDeclineBatchModal(false);
       setBatchToDecline(null);
       setRemarks("");
     } catch (error) {
-      toast.error("Error Declining Schedule: ", error, {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
-      console.error('Error declining batch:', error);
+      toast.error(`Error: ${error.message}`);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const refresh = async () => {
-    await fetchData();
-  };
+  // --- Data Processing ---
 
-  const shiftColors = {
-    "Night Shift": "#ef4444", // red
-    "Day Shift": "#fde047", // yellow
-  };
+  const shiftColors = { "Night Shift": "#ef4444", "Day Shift": "#eab308" };
 
-  // ===== Filter schedules by selected client and status =====
   const filteredSchedules = schedules.filter((s) => {
-    const matchesClient =
-      !selectedClient || selectedClient === "All" || s.client === selectedClient;
-    const matchesStatus =
-      !statusFilter || statusFilter === "All" || s.isApproved === statusFilter;
+    const matchesClient = !selectedClient || selectedClient === "All" || s.client === selectedClient;
+    const matchesStatus = !statusFilter || statusFilter === "All" || s.isApproved === statusFilter;
     return matchesClient && matchesStatus;
   });
 
-  // ===== Convert to FullCalendar format =====
-  const filteredEvents = filteredSchedules.map((s, idx) => ({
-    id: String(idx),
-    title: `${s.guardId.fullName} (${s.shiftType})`, // Access from populated guardId
+  const calendarEvents = filteredSchedules.map((s) => ({
+    id: s._id,
+    title: `${s.guardId?.fullName || "Unassigned"} (${s.shiftType})`,
     start: s.timeIn,
     end: s.timeOut,
-    backgroundColor: shiftColors[s.shiftType] || "#3b82f6",
-    borderColor: shiftColors[s.shiftType] || "#3b82f6",
-    textColor: s.shiftType === "Day Shift" ? "#000" : "#fff",
-    display: "block",
-    extendedProps: {
-      ...s,
-      guardName: s.guardId.fullName, // Add guardName to extendedProps for consistent access
-    },
+    backgroundColor: s.isApproved === "Approved" ? "#22c55e" : (shiftColors[s.shiftType] || "#3b82f6"),
+    borderColor: s.isApproved === "Approved" ? "#22c55e" : (shiftColors[s.shiftType] || "#3b82f6"),
+    textColor: "#fff",
+    extendedProps: s,
   }));
 
-
-  // Reopen a previously declined schedule (set status back to Pending)
-  const reopenSchedule = async (scheduleId) => {
-    try {
-      const res = await fetch(`${api}/api/schedules/update-status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ id: scheduleId, isApproved: "Pending" }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to reopen schedule");
-
-      setSchedules((prev) => prev.map((s) => (s._id === scheduleId ? { ...s, isApproved: "Pending" } : s)));
-      toast.success("Schedule reopened and set to Pending.", {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
-    } catch (err) {
-      console.error("Failed to reopen schedule:", err);
-      toast.error("Failed to reopen schedule:", err, {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-        transition: Bounce,
-      });
+  const groupedForTable = filteredSchedules.reduce((acc, schedule) => {
+    const key = `${schedule.client}-${schedule.shiftType}`;
+    if (!acc[key]) {
+      acc[key] = {
+        client: schedule.client,
+        shiftType: schedule.shiftType,
+        isApproved: schedule.isApproved,
+        schedules: [],
+      };
     }
-  };
+    acc[key].schedules.push(schedule);
+    return acc;
+  }, {});
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white p-8">
+    <div className="min-h-screen bg-[#0f172a] text-white p-4 md:p-6 font-sans">
+      <style>{calendarStyles}</style>
+      <ToastContainer theme="dark" position="top-right" autoClose={3000} />
+
       {/* ===== HEADER ===== */}
-      <header className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+      <header className="flex flex-col xl:flex-row xl:items-center xl:justify-between mb-8 gap-6">
         <div className="flex items-center gap-3">
-          <CalendarDays className="w-8 h-8 text-blue-400" />
-          <h1 className="text-3xl font-bold text-center sm:text-left">
-            Schedule Approval
-          </h1>
-        </div>
-        <div className="flex justify-between items-center">
-          {/* FILTERS */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 ">
-            {/* Client Filter */}
-            <button
-              onClick={refresh}
-              className="flex items-center justify-center px-4 py-2 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-[#243046] transition-colors duration-200"
-              title="Refresh List"
-            >
-              <RefreshCw className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-2 bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2">
-              <Filter className="text-gray-400 w-4 h-4" />
-              <select
-                value={selectedClient}
-                onChange={(e) => setSelectedClient(e.target.value)}
-                className="bg-[#1e293b] text-gray-200 text-sm focus:outline-none"
-              >
-                <option value="">Select Client</option>
-                <option value="All">All Clients</option>
-                {clients.map((client) => (
-                  <option key={client._id} value={client.clientName}>
-                    {client.clientName}
-                  </option>
-                ))}
-              </select>
+            <div className="p-3 bg-blue-600/10 rounded-xl border border-blue-600/20">
+                <CalendarDays className="text-blue-500" size={28} />
             </div>
-            {/* Right: Status Filter */}
-            <div className="flex items-center gap-2 bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2">
-              <Filter className="text-gray-400 w-4 h-4" />
-              <select
+            <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Schedule Approval</h1>
+                <p className="text-slate-400 text-sm mt-1">Review and manage guard shifts.</p>
+            </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+            {/* View Mode Toggle */}
+            <div className="relative">
+                <Menu>
+                    <Menu.Button className="w-full sm:w-auto flex items-center justify-between sm:justify-center gap-2 px-4 py-2.5 bg-[#1e293b] border border-gray-700 rounded-lg hover:bg-gray-800 transition text-sm text-gray-200">
+                        {viewMode === "calendar" ? <><LayoutGrid size={16} /> Calendar View</> : <><Table size={16} /> List View</>}
+                        <ChevronDown size={14} className="text-gray-500" />
+                    </Menu.Button>
+                    <Transition
+                        as={Fragment}
+                        enter="transition ease-out duration-100"
+                        enterFrom="transform opacity-0 scale-95"
+                        enterTo="transform opacity-100 scale-100"
+                        leave="transition ease-in duration-75"
+                        leaveFrom="transform opacity-100 scale-100"
+                        leaveTo="transform opacity-0 scale-95"
+                    >
+                        <Menu.Items className="absolute right-0 mt-2 w-48 bg-[#1e293b] border border-gray-700 rounded-xl shadow-xl z-20 focus:outline-none overflow-hidden">
+                            <Menu.Item>
+                                {({ active }) => (
+                                    <button onClick={() => setViewMode("calendar")} className={`${active ? "bg-blue-600 text-white" : "text-gray-300"} flex items-center gap-2 w-full px-4 py-3 text-sm`}>
+                                        <LayoutGrid size={16} /> Calendar View
+                                    </button>
+                                )}
+                            </Menu.Item>
+                            <Menu.Item>
+                                {({ active }) => (
+                                    <button onClick={() => setViewMode("table")} className={`${active ? "bg-blue-600 text-white" : "text-gray-300"} flex items-center gap-2 w-full px-4 py-3 text-sm`}>
+                                        <Table size={16} /> List View
+                                    </button>
+                                )}
+                            </Menu.Item>
+                        </Menu.Items>
+                    </Transition>
+                </Menu>
+            </div>
+
+            {/* Client Filter */}
+            <div className="relative flex-grow sm:flex-grow-0">
+                <select
+                    value={selectedClient}
+                    onChange={(e) => setSelectedClient(e.target.value)}
+                    className="w-full bg-[#1e293b] border border-gray-700 text-gray-200 text-sm rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+                >
+                    <option value="">All Clients</option>
+                    {clients.map((c) => (
+                        <option key={c._id} value={c.clientName}>{c.clientName}</option>
+                    ))}
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                    <Filter size={14} />
+                </div>
+            </div>
+
+            {/* Status Filter */}
+            <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-[#1e293b]  text-gray-200 text-sm rounded-lg  focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="All">All</option>
-                <option value="Approved">Approved</option>
+                className="w-full sm:w-auto bg-[#1e293b] border border-gray-700 text-gray-200 text-sm rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+                <option value="All">All Status</option>
                 <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
                 <option value="Declined">Declined</option>
-              </select>
-            </div>
-          </div>
-          {/* View Mode Dropdown */}
-          <div className="flex items-center gap-2 ml-2">
-            <Menu as="div" className="relative inline-block text-left">
-              <Menu.Button className="flex items-center justify-center gap-2 bg-[#1e293b] border border-gray-600 text-gray-200 hover:bg-gray-700 px-3 py-3 rounded-lg text-sm font-medium">
-                {viewMode === "calendar" ? (
-                  <LayoutGrid size={16} />
-                ) : (
-                  <Table size={16} />
-                )}
-                <ChevronDown size={14} className="opacity-70" />
-              </Menu.Button>
+            </select>
 
-              <Menu.Items className="absolute right-1 mt-2 w-40 origin-top-left bg-[#1e293b] border border-gray-700 rounded-lg shadow-lg focus:outline-none z-50">
-                <div className="py-1">
-                  <Menu.Item>
-                    {({ active }) => (
-                      <button
-                        onClick={() => setViewMode("calendar")}
-                        className={`flex items-center gap-2 w-full text-left px-3 py-2 text-sm rounded-md ${
-                          viewMode === "calendar"
-                            ? "bg-blue-600 text-white"
-                            : active
-                            ? "bg-gray-700 text-white"
-                            : "text-gray-300"
-                        }`}
-                      >
-                        <LayoutGrid size={16} /> Calendar View
-                      </button>
-                    )}
-                  </Menu.Item>
-                  <Menu.Item>
-                    {({ active }) => (
-                      <button
-                        onClick={() => setViewMode("table")}
-                        className={`flex items-center gap-2 w-full text-left px-3 py-2 text-sm rounded-md ${
-                          viewMode === "table"
-                            ? "bg-blue-600 text-white"
-                            : active
-                            ? "bg-gray-700 text-white"
-                            : "text-gray-300"
-                        }`}
-                      >
-                        <Table size={16} /> Table View
-                      </button>
-                    )}
-                  </Menu.Item>
-                </div>
-              </Menu.Items>
-            </Menu>
-          </div>
+            <button
+                onClick={fetchData}
+                className="px-3 py-2 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-[#243046] transition flex items-center justify-center"
+                title="Refresh Data"
+            >
+                <RefreshCw size={20} />
+            </button>
         </div>
       </header>
 
-      <div className="flex justify-between items-center gap-4 mb-4 text-sm ">
-        {/* ===== LEGEND ===== */}
-        <div className="items-center text-gray-400">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 bg-[#fde047] rounded-sm"></span> Day Shift
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 bg-[#ef4444] rounded-sm"></span> Night Shift
-          </div>
-        </div>
-      </div>
-
-      {/* ===== VIEW RENDERING ===== */}
-      <div className="bg-[#1e293b] p-6 rounded-2xl shadow-lg border border-gray-700">
-        {viewMode === "calendar" ? (
-          selectedClient ? (
-            <FullCalendar
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-              initialView="dayGridMonth"
-              height="80vh"
-              events={filteredEvents}
-              eventClick={(info) => {
-                setSelectedEvent(info.event.extendedProps);
-              }}
-              eventContent={(eventInfo) => (
-                <div className="text-xs p-1">
-                  <b>{eventInfo.event.title}</b>
-                  <p>{eventInfo.event.extendedProps.client}</p>
-                </div>
-              )}
-              headerToolbar={{
-                left: "prev,next today",
-                center: "title",
-                right: "dayGridMonth,timeGridWeek,timeGridDay",
-              }}
-            />
-          ) : (
-            <div className="text-center py-20 text-gray-500">
-              <p className="text-lg">
-                <Filter className="inline-block w-5 h-5 mr-2" />
-                Please select a client to view deployment schedules.
-              </p>
-            </div>
-          )
+      {/* ===== CONTENT ===== */}
+      <div className="bg-[#1e293b]/50 backdrop-blur-sm border border-gray-800 rounded-2xl p-1 shadow-xl min-h-[600px]">
+        {isLoadingData ? (
+             <div className="flex flex-col items-center justify-center h-[600px] text-blue-400 animate-pulse">
+                <CalendarDays size={48} className="mb-4 opacity-50" />
+                <p>Loading schedules...</p>
+             </div>
         ) : (
-          // ===== TABLE VIEW =====
-          <div className="space-y-10">
-            {Object.entries(
-              filteredSchedules.reduce((batchAcc, schedule) => {
-                const batchKey = `${schedule.client}-${schedule.deploymentLocation}-${schedule.shiftType}-${schedule.guardId._id}`;
-                if (!batchAcc[batchKey]) batchAcc[batchKey] = [];
-                batchAcc[batchKey].push(schedule);
-                return batchAcc;
-              }, {})
-            ).map(([batchKey, batchSchedules]) => (
-              <div key={batchKey} className="mb-8">
-                {/* Batch Header */}
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-md font-semibold text-gray-300 pl-3 border-l-2 border-blue-500">
-                    {batchSchedules[0].client} – {batchSchedules[0].deploymentLocation} – {batchSchedules[0].shiftType}
-                    <span
-                      className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${
-                        batchSchedules[0].isApproved === "Approved"
-                          ? "bg-green-600/20 text-green-400 border border-green-500/50"
-                          : batchSchedules[0].isApproved === "Pending"
-                          ? "bg-yellow-600/20 text-yellow-400 border border-yellow-500/50"
-                          : "bg-red-600/20 text-red-400 border border-red-500/50"
-                      }`}
-                    >
-                      {batchSchedules[0].isApproved}
-                      {console.log(batchSchedules[0])}
-                    </span>
-                  </h3>
-
-                  <div className="flex items-center justify-center gap-2">
-                    {batchSchedules[0].isApproved === "Pending" && (
-                      <>
-                        <button
-                          onClick={() => openApproveBatchModal(batchSchedules.map(s => s._id))}
-                          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-medium"
-                        >
-                          <ThumbsUp size={16} />
-                          Approve
-                        </button>
-
-                        <button
-                          onClick={() => openDeclineBatchModal(batchSchedules.map(s => s._id))}
-                          className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg text-sm font-medium"
-                        >
-                          <ThumbsDown size={16} />
-                          Decline
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto rounded-lg shadow-lg">
-                  <table className="min-w-full text-sm text-gray-300 border border-gray-700 rounded-lg overflow-hidden">
-                    <thead className="bg-[#0f172a] text-gray-400">
-                      <tr>
-                        <th className="py-3 px-4 text-left">Guard Name</th>
-                        <th className="py-3 px-4 text-left">Position</th>
-                        <th className="py-3 px-4 text-left">Location</th>
-                        <th className="py-3 px-4 text-left">Shift</th>
-                        <th className="py-3 px-4 text-left">Time In</th>
-                        <th className="py-3 px-4 text-left">Time Out</th>
-                        <th className="py-3 px-4 text-left">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {batchSchedules.map((s, i) => (
-                        <tr
-                          key={i}
-                          className={`${
-                            i % 2 === 0 ? "bg-[#1e293b]" : "bg-[#162033]"
-                          } hover:bg-[#2a3954]`}
-                        >
-                          <td className="py-3 px-4">{s.guardId.fullName}</td>
-                          <td className="py-3 px-4">{s.position}</td>
-                          <td className="py-3 px-4">{s.deploymentLocation}</td>
-                          <td
-                            className={`py-3 px-4 font-semibold ${
-                              s.shiftType === "Night Shift"
-                                ? "text-red-400"
-                                : "text-yellow-400"
-                            }`}
-                          >
-                            {s.shiftType}
-                          </td>
-                          <td className="py-3 px-4">
-                            {new Date(s.timeIn).toLocaleString()}
-                          </td>
-                          <td className="py-3 px-4">
-                            {new Date(s.timeOut).toLocaleString()}
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`px-2 py-1 rounded text-xs font-semibold ${
-                                  s.isApproved === "Approved"
-                                    ? "bg-green-600 text-white"
-                                    : s.isApproved === "Declined"
-                                    ? "bg-red-600 text-white"
-                                    : "bg-yellow-600 text-black"
-                                }`}
-                              >
-                                {s.isApproved || "Pending"}
-                              </span>
-                              {s.isApproved === "Declined" && (
-                                <button
-                                  onClick={() => reopenSchedule(s._id)}
-                                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded"
-                                >
-                                  Reopen
-                                </button>
-                              )}
+            <>
+                {viewMode === "calendar" ? (
+                    <div className="p-4 md:p-6 bg-[#1e293b] rounded-xl">
+                        {!selectedClient && (
+                            <div className="mb-6 p-4 bg-blue-900/20 border border-blue-900/50 text-blue-200 rounded-lg flex items-center gap-2 text-sm">
+                                <Filter size={16} /> 
+                                Tip: Select a specific <strong>Client</strong> from the dropdown above to filter the calendar view effectively.
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ))}
-          </div>
+                        )}
+                        <FullCalendar
+                            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                            initialView="dayGridMonth"
+                            height="auto"
+                            events={calendarEvents}
+                            eventClick={(info) => setSelectedEvent(info.event.extendedProps)}
+                            headerToolbar={{
+                                left: "prev,next today",
+                                center: "title",
+                                right: "dayGridMonth,timeGridWeek"
+                            }}
+                        />
+                    </div>
+                ) : (
+                    // ===== LIST VIEW (Grouped) =====
+                    <div className="p-4 md:p-6 space-y-8">
+                        {Object.values(groupedForTable).length === 0 ? (
+                             <div className="text-center py-20 text-gray-500">No schedules found matching your filters.</div>
+                        ) : (
+                            Object.values(groupedForTable).map((group, idx) => (
+                                <div key={idx} className="bg-[#1e293b] border border-gray-700 rounded-xl overflow-hidden shadow-md">
+                                    {/* Group Header */}
+                                    <div className="p-4 bg-slate-800/50 border-b border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-1 h-8 rounded-full ${group.shiftType === 'Night Shift' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
+                                            <div>
+                                                <h3 className="font-bold text-white text-lg">{group.client}</h3>
+                                                <div className="flex items-center gap-2 text-sm text-gray-400">
+                                                    <span className={group.shiftType === 'Night Shift' ? 'text-red-400' : 'text-yellow-400'}>{group.shiftType}</span>
+                                                    <span>•</span>
+                                                    <span className={`px-2 py-0.5 rounded text-xs font-medium border ${
+                                                        group.isApproved === "Approved" ? "bg-green-500/10 text-green-400 border-green-500/20" :
+                                                        group.isApproved === "Declined" ? "bg-red-500/10 text-red-400 border-red-500/20" :
+                                                        "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
+                                                    }`}>
+                                                        {group.isApproved}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
 
+                                        {group.isApproved === "Pending" && (
+                                            <div className="flex gap-2 w-full md:w-auto">
+                                                <button
+                                                    onClick={() => openApproveBatchModal(group.schedules.map(s => s._id))}
+                                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+                                                >
+                                                    <ThumbsUp size={16} /> Approve Batch
+                                                </button>
+                                                <button
+                                                    onClick={() => openDeclineBatchModal(group.schedules.map(s => s._id))}
+                                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-slate-700 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+                                                >
+                                                    <ThumbsDown size={16} /> Decline
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Desktop Table */}
+                                    <div className="hidden md:block overflow-x-auto">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-[#0f172a] text-gray-400 border-b border-gray-700">
+                                                <tr>
+                                                    <th className="py-3 px-6 font-medium">Guard Name</th>
+                                                    <th className="py-3 px-6 font-medium">Location & Position</th>
+                                                    <th className="py-3 px-6 font-medium">Schedule Time</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-700/50">
+                                                {group.schedules.map((s) => (
+                                                    <tr key={s._id} className="hover:bg-slate-800/30 transition">
+                                                        <td className="py-3 px-6 font-medium text-white flex items-center gap-2">
+                                                            <User size={16} className="text-gray-500"/>
+                                                            {s.guardId?.fullName || "Unassigned"}
+                                                        </td>
+                                                        <td className="py-3 px-6 text-gray-300">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-white">{s.deploymentLocation}</span>
+                                                                <span className="text-xs text-blue-400">{s.position}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-3 px-6">
+                                                            <div className="flex items-center gap-2 text-gray-300">
+                                                                <Clock size={14} className="text-gray-500"/>
+                                                                {new Date(s.timeIn).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} 
+                                                                <span className="text-gray-600">-</span>
+                                                                {new Date(s.timeOut).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                                            </div>
+                                                            <div className="text-xs text-gray-500 ml-6">
+                                                                {new Date(s.timeIn).toLocaleDateString()}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Mobile Cards */}
+                                    <div className="md:hidden divide-y divide-gray-700/50">
+                                        {group.schedules.map((s) => (
+                                            <div key={s._id} className="p-4 flex flex-col gap-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="font-medium text-white flex items-center gap-2">
+                                                        <Shield size={16} className="text-blue-500"/>
+                                                        {s.guardId?.fullName}
+                                                    </div>
+                                                    <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">{s.position}</span>
+                                                </div>
+                                                <div className="text-sm text-gray-400 flex items-start gap-2">
+                                                    <MapPin size={16} className="mt-0.5 text-gray-600 shrink-0"/>
+                                                    {s.deploymentLocation}
+                                                </div>
+                                                <div className="text-sm text-gray-300 flex items-center gap-2 bg-slate-800/50 p-2 rounded mt-1">
+                                                    <Clock size={16} className="text-gray-500"/>
+                                                    <span>
+                                                        {new Date(s.timeIn).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} - {new Date(s.timeOut).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
+            </>
         )}
       </div>
 
-      {/* ===== APPROVE BATCH MODAL ===== */}
+      {/* ===== MODALS ===== */}
+      
+      {/* Approve Modal */}
       <Transition appear show={showApproveBatchModal} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={() => setShowApproveBatchModal(false)}>
-      <div className="fixed inset-0 bg-black/50" />
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="bg-[#1e293b] border border-gray-700 rounded-2xl shadow-xl p-6 max-w-md w-full">
-            <Dialog.Title className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <ThumbsUp className="text-green-400" /> Approve Schedule Batch
-            </Dialog.Title>
-            {batchToApprove && (
-                <div className="text-gray-300 space-y-2">
-                    <div className="bg-green-600 p-3 rounded-lg border border-gray-600 font-medium text-center">
-                        <p>Are you sure you want to approve this schedule batch?</p>
-                    </div>
-                </div>
-            )}
-            <div className="flex justify-end gap-3 mt-6">
-                <button onClick={() => setShowApproveBatchModal(false)} className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-white">Cancel</button>
-                <button onClick={handleApproveBatch} className="bg-green-600 hover:bg-green-500 px-5 py-2 rounded-lg text-white font-medium">Confirm Approve</button>
-            </div>
-        </Dialog.Panel>
-      </div>
-      </Dialog>
-      </Transition>
-
-      {/* ===== DECLINE BATCH MODAL ===== */}
-      <Transition appear show={showDeclineBatchModal} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setShowDeclineBatchModal(false)}>
-          <div className="fixed inset-0 bg-black/50" />
+        <Dialog as="div" className="relative z-50" onClose={() => setShowApproveBatchModal(false)}>
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Dialog.Panel className="bg-[#1e293b] border border-gray-700 rounded-2xl shadow-xl p-6 max-w-md w-full">
-              <Dialog.Title className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <ThumbsDown className="text-red-400" /> Decline Schedule Batch
-              </Dialog.Title>
-              {batchToDecline && (
-                  <div className="text-gray-300 space-y-3">
-                      <div className="bg-red-600 p-3 rounded-lg border border-gray-600 font-medium text-center">
-                        <p>Are you sure you want to decline this schedule?</p>
-                      </div>
-                      <label className="block text-sm font-medium text-gray-300 pt-2">Reason for Declining:</label>
-                      <textarea
-                          rows="3"
-                          value={remarks}
-                          onChange={(e) => setRemarks(e.target.value)}
-                          placeholder="Enter detailed reason..."
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-red-500"
-                      />
-                  </div>
-              )}
-              <div className="flex justify-end gap-3 mt-6">
-                  <button onClick={() => setShowDeclineBatchModal(false)} className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-white">Cancel</button>
-                  <button onClick={() => handleDeclineBatch(remarks)} className="bg-red-600 hover:bg-red-500 px-5 py-2 rounded-lg text-white font-medium">Confirm Decline</button>
+            <Dialog.Panel className="bg-[#1e293b] border border-gray-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+              <div className="flex flex-col items-center text-center">
+                <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
+                    <ThumbsUp className="text-green-500" size={24}/>
+                </div>
+                <Dialog.Title className="text-xl font-bold text-white mb-2">Approve Schedule?</Dialog.Title>
+                <p className="text-gray-400 text-sm mb-6">
+                  You are about to approve this entire batch of shifts. This action will notify the guards.
+                </p>
+                <div className="flex gap-3 w-full">
+                  <button
+                    onClick={() => setShowApproveBatchModal(false)}
+                    className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl text-white text-sm font-medium transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleApproveBatch}
+                    disabled={submitting}
+                    className="flex-1 py-2.5 bg-green-600 hover:bg-green-500 rounded-xl text-white text-sm font-medium shadow-lg shadow-green-900/20 transition disabled:opacity-50"
+                  >
+                    {submitting ? "Approving..." : "Confirm"}
+                  </button>
+                </div>
               </div>
             </Dialog.Panel>
           </div>
         </Dialog>
       </Transition>
 
-      <ToastContainer/>
+      {/* Decline Modal */}
+      <Transition appear show={showDeclineBatchModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowDeclineBatchModal(false)}>
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <Dialog.Panel className="bg-[#1e293b] border border-gray-700 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+              <div className="flex justify-between items-center mb-4">
+                 <Dialog.Title className="text-xl font-bold text-white flex items-center gap-2">
+                    <ThumbsDown className="text-red-500" size={24}/> Decline Batch
+                 </Dialog.Title>
+                 <button onClick={() => setShowDeclineBatchModal(false)} className="text-gray-400 hover:text-white"><X size={20}/></button>
+              </div>
+              
+              <p className="text-gray-400 text-sm mb-4">
+                Please provide a reason for declining. This note will be sent to the admin/guards.
+              </p>
+              
+              <textarea
+                rows="4"
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                placeholder="Reason for rejection (e.g. Conflict in schedule)..."
+                className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-3 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-red-500 outline-none resize-none mb-6"
+              />
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowDeclineBatchModal(false)}
+                  className="px-5 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl text-white text-sm font-medium transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeclineBatch(remarks)}
+                  disabled={submitting}
+                  className="px-5 py-2.5 bg-red-600 hover:bg-red-500 rounded-xl text-white text-sm font-medium shadow-lg shadow-red-900/20 transition disabled:opacity-50"
+                >
+                  {submitting ? "Declining..." : "Decline Batch"}
+                </button>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+      </Transition>
+
     </div>
   );
 }

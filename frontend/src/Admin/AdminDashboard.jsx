@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -10,24 +10,29 @@ import {
   LineElement,
   Tooltip,
   Legend,
+  Filler,
 } from "chart.js";
-
+import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { DayPicker } from 'react-day-picker';
+import "react-day-picker/dist/style.css";
+import { Dialog, Transition, Menu } from "@headlessui/react";
 import {
   Shield,
-  UserCheck,
   Users,
   FileText,
   Clock,
-  Bell,
   AlertTriangle,
   TrendingUp,
   LayoutDashboard,
+  CalendarDays,
+  ChevronDown,
+  Activity
 } from "lucide-react";
-
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import CountUp from "../components/CountUp";
 
+// Register ChartJS components
 ChartJS.register(
   ArcElement,
   CategoryScale,
@@ -36,24 +41,49 @@ ChartJS.register(
   PointElement,
   LineElement,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 );
 
 const api = import.meta.env.VITE_API_URL;
+
+// --- Custom CSS for Dark Mode Date Picker ---
+const datePickerStyles = `
+  .rdp {
+    --rdp-cell-size: 40px;
+    --rdp-accent-color: #3b82f6;
+    --rdp-background-color: #1e293b;
+    margin: 0;
+  }
+  .rdp-day_selected:not([disabled]) { 
+    background-color: #3b82f6; 
+    color: white;
+    font-weight: bold;
+  }
+  .rdp-day:hover:not([disabled]) { 
+    background-color: #334155; 
+  }
+  .rdp-caption_label, .rdp-head_cell, .rdp-day {
+    color: #e2e8f0;
+  }
+  .rdp-button:hover:not([disabled]) {
+    background-color: #334155;
+  }
+  .rdp-nav_button { color: #94a3b8; }
+`;
 
 export default function AdminDashboard() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
-  const [startMonth, setStartMonth] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 5);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  // --- State ---
+  const [hiringDateRange, setHiringDateRange] = useState({
+    from: startOfMonth(new Date(new Date().setMonth(new Date().getMonth() - 5))),
+    to: endOfMonth(new Date()),
   });
-
-  const [endMonth, setEndMonth] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const [attendanceDateRange, setAttendanceDateRange] = useState({
+    from: startOfMonth(new Date(new Date().setMonth(new Date().getMonth() - 5))),
+    to: endOfMonth(new Date()),
   });
 
   const [stats, setStats] = useState({
@@ -65,33 +95,19 @@ export default function AdminDashboard() {
 
   const [error, setError] = useState(null);
   const [recentActivities, setRecentActivities] = useState([]);
-
-  // 🔥 IMPORTANT: Store applicants in state
   const [applicants, setApplicants] = useState([]);
-
+  const [rawAttendance, setRawAttendance] = useState([]);
   const [chartData, setChartData] = useState({
     guardStatus: [0, 0, 0],
-    attendance7d: { labels: [], data: [] },
     applicantsByStatus: { labels: [], data: [] },
   });
-  // Month range for Attendance Trend (reuse startMonth/endMonth UI below)
-  const [attStartMonth, setAttStartMonth] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 5);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  });
-  const [attEndMonth, setAttEndMonth] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  });
 
-  // Redirect if not logged in
+  // --- Effects ---
   useEffect(() => {
     if (!user && !loading) navigate("/admin/login");
-    document.title = "Dashboard | JPM Security Agency"
+    document.title = "Dashboard | JPM Security Agency";
   }, [user, loading, navigate]);
 
-  // Fetch dashboard data
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
@@ -109,18 +125,14 @@ export default function AdminDashboard() {
 
         const guards = guardsRes.ok ? await guardsRes.json() : [];
         const announcements = postsRes.ok ? await postsRes.json() : [];
-        const logs = logsRes.ok ? await logsRes.json() : []; // logs now has populated guard
-        const attendance = attendanceRes.ok ? await attendanceRes.json() : []; // attendance now has populated guard and scheduleId
-        // store raw attendance for dynamic trend
-        setRawAttendance(attendance);
-        const applicantsData = applicantsRes.ok
-          ? await applicantsRes.json()
-          : [];
+        const logs = logsRes.ok ? await logsRes.json() : [];
+        const attendance = attendanceRes.ok ? await attendanceRes.json() : [];
+        const applicantsData = applicantsRes.ok ? await applicantsRes.json() : [];
 
-        // Store applicants
+        setRawAttendance(attendance);
         setApplicants(applicantsData);
 
-        // ——— KPIs ———
+        // Update Stats
         setStats({
           totalGuards: guards.length,
           applicants: applicantsData.length,
@@ -128,551 +140,416 @@ export default function AdminDashboard() {
           logs: logs.length,
         });
 
-        // ——— Guard Status ———
-        const statusCounts = { "On Duty": 0, "Off Duty": 0, Absent: 0 };
-        attendance.forEach((a) => {
-          const key = a.status || "Off Duty"; // Status is directly on Attendance model
-          statusCounts[key] = (statusCounts[key] || 0) + 1;
+        // Guard Status Logic
+        const guardStatusMap = new Map();
+        [...attendance].sort((a,b) => new Date(b.timeIn) - new Date(a.timeIn)).forEach(a => {
+          if (!guardStatusMap.has(a.guard._id)) {
+            guardStatusMap.set(a.guard._id, a.status);
+          }
+        });
+        
+        const statusCounts = { "On Duty": 0, "Off Duty": guards.length, "Absent": 0 };
+        guardStatusMap.forEach(status => {
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+          if(status === "On Duty") statusCounts["Off Duty"]--;
         });
 
-        const guardStatus = [
-          statusCounts["On Duty"] || 0,
-          statusCounts["Off Duty"] || 0,
-          statusCounts["Absent"] || 0,
-        ];
-
-        // ——— Attendance 7 Days ———
-        const days = Array.from({ length: 7 }, (_, i) => {
-          const d = new Date();
-          d.setDate(d.getDate() - (6 - i));
-          return d;
-        });
-
-        const labels = days.map((d) =>
-          d.toLocaleDateString(undefined, { weekday: "short" })
-        );
-
-        const dayKeys = days.map((d) => d.toLocaleDateString());
-        const counts7d = dayKeys.map(() => 0);
-
-        attendance.forEach((a) => {
-          // Use a.timeIn for attendance records as it's the Date object now
-          const attendanceDate = a.timeIn 
-            ? new Date(a.timeIn).toLocaleDateString() 
-            : null;
-          const idx = dayKeys.indexOf(attendanceDate);
-          if (idx >= 0) counts7d[idx]++;
-        });
-
-        // ——— Applicant Status Breakdown ———
+        // Applicant Status Logic
         const aggStatus = {};
         applicantsData.forEach((a) => {
           const status = a.status || "Unknown";
           aggStatus[status] = (aggStatus[status] || 0) + 1;
         });
 
-        const applicantsLabels = Object.keys(aggStatus);
-        const applicantsBarData = Object.values(aggStatus);
-
-        // ——— Recent Logs ———
-        const logsSorted = logs
-          .slice()
-          .sort(
-            (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
-          )
-          .slice(0, 12);
-
-        const activities = logsSorted.map((l, idx) => ({
-          id: l._id || idx,
-          type: l.type || "Log",
-          remarks: l.remarks || "",
-          time: l.createdAt
-            ? new Date(l.createdAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "-",
-          guard: l.guard || {}, // guard object is populated here
-          post: l.post || "", // from logbook itself
-          shift: l.shift || "", // from logbook itself
-        }));
-
-        // Store chart data
         setChartData({
-          guardStatus,
-          attendance7d: { labels, data: counts7d },
-          applicantsByStatus: {
-            labels: applicantsLabels,
-            data: applicantsBarData,
-          },
+          guardStatus: [statusCounts["On Duty"], statusCounts["Off Duty"], statusCounts["Absent"]],
+          applicantsByStatus: { labels: Object.keys(aggStatus), data: Object.values(aggStatus) },
         });
 
+        // Recent Logs Logic
+        const activities = [...logs]
+          .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+          .slice(0, 8) // Limit to 8 for cleaner UI
+          .map((l, idx) => ({
+            id: l._id || idx,
+            type: l.type || "Log",
+            remarks: l.remarks || "",
+            time: l.createdAt ? new Date(l.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-",
+            date: l.createdAt ? new Date(l.createdAt).toLocaleDateString() : "-",
+            guard: l.guard || {},
+          }));
         setRecentActivities(activities);
+
       } catch (err) {
         console.error("Dashboard Error:", err);
         setError("Failed to load dashboard data.");
       }
     };
-
-    fetchDashboardData();
+    if (user) fetchDashboardData();
   }, [user]);
 
-  // hold raw attendance to compute dynamic trend
-  const [rawAttendance, setRawAttendance] = useState([]);
+  // --- Memoized Chart Data ---
 
-  // compute dynamic attendance trend by month (Time In records per month)
   const dynamicAttendanceTrend = useMemo(() => {
-    if (!rawAttendance.length || !attStartMonth || !attEndMonth)
-      return { labels: [], datasets: [] };
+    if (!rawAttendance.length || !attendanceDateRange.from) return { labels: [], datasets: [] };
+    
+    const filtered = rawAttendance.filter(a => {
+        if (!a.timeIn) return false;
+        const recordDate = new Date(a.timeIn);
+        const from = attendanceDateRange.from;
+        const to = attendanceDateRange.to || attendanceDateRange.from; 
+        return recordDate >= from && recordDate <= endOfMonth(to);
+    });
 
-    const start = new Date(attStartMonth + "-01");
-    const end = new Date(attEndMonth + "-01");
-    end.setMonth(end.getMonth() + 1);
+    const trend = {};
+    filtered.forEach(a => {
+      const monthKey = format(new Date(a.timeIn), 'yyyy-MM-dd'); // Group by day for more detail
+      trend[monthKey] = (trend[monthKey] || 0) + 1;
+    });
 
-    const labels = [];
-    const data = [];
-    const cursor = new Date(start);
-
-    while (cursor < end) {
-      const month = cursor.getMonth();
-      const year = cursor.getFullYear();
-      labels.push(cursor.toLocaleString("default", { month: "short", year: "numeric" }));
-
-      const count = rawAttendance.filter((rec) => {
-        const d = rec.timeIn ? new Date(rec.timeIn) : null; // Use timeIn for attendance trend
-        if (!d) return false;
-        return d.getFullYear() === year && d.getMonth() === month;
-      }).length;
-
-      data.push(count);
-      cursor.setMonth(cursor.getMonth() + 1);
-    }
-
+    // Sort dates
+    const sortedKeys = Object.keys(trend).sort();
+    
+    // Fill logic could go here to fill empty days with 0, simplified for now
+    
     return {
-      labels,
-      datasets: [
-        {
-          label: "Attendance Records",
-          data,
+      labels: sortedKeys.map(l => format(new Date(l), 'MMM dd')),
+      datasets: [{
+          label: "Attendance",
+          data: sortedKeys.map(key => trend[key]),
           borderColor: "#3b82f6",
-          backgroundColor: "rgba(59,130,246,0.2)",
+          backgroundColor: (context) => {
+            const ctx = context.chart.ctx;
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, "rgba(59, 130, 246, 0.5)");
+            gradient.addColorStop(1, "rgba(59, 130, 246, 0.0)");
+            return gradient;
+          },
           fill: true,
-          tension: 0.35,
-        },
-      ],
+          tension: 0.4,
+          pointRadius: 2,
+        }],
     };
-  }, [rawAttendance, attStartMonth, attEndMonth]);
-
+  }, [rawAttendance, attendanceDateRange]);
 
   const hiringTrendData = useMemo(() => {
-    if (!applicants.length || !startMonth || !endMonth)
-      return { labels: [], datasets: [] };
+    if (!applicants.length || !hiringDateRange.from) return { labels: [], datasets: [] };
 
-    const start = new Date(startMonth + "-01");
-    const end = new Date(endMonth + "-01");
-    end.setMonth(end.getMonth() + 1);
+    const filtered = applicants.filter(a => {
+        if (a.status !== "Hired" || !a.createdAt) return false;
+        const recordDate = new Date(a.createdAt);
+        const from = hiringDateRange.from;
+        const to = hiringDateRange.to || hiringDateRange.from;
+        return recordDate >= from && recordDate <= endOfMonth(to);
+    });
 
-    const labels = [];
-    const data = [];
+    const trend = {};
+    filtered.forEach(a => {
+      const monthKey = format(new Date(a.createdAt), 'yyyy-MM');
+      trend[monthKey] = (trend[monthKey] || 0) + 1;
+    });
 
-    const cursor = new Date(start);
-
-    while (cursor < end) {
-      const month = cursor.getMonth();
-      const year = cursor.getFullYear();
-
-      labels.push(
-        cursor.toLocaleString("default", { month: "short", year: "numeric" })
-      );
-
-      // Count HIRED applicants only
-      const count = applicants.filter((a) => {
-        if (a.status !== "Hired") return false;
-        const d = new Date(a.createdAt);
-        return d.getFullYear() === year && d.getMonth() === month;
-      }).length;
-
-      data.push(count);
-      cursor.setMonth(cursor.getMonth() + 1);
-    }
+    const labels = Object.keys(trend).sort();
 
     return {
-      labels,
-      datasets: [
-        {
-          label: "Hired Applicants",
-          data,
+      labels: labels.map(l => format(new Date(l), 'MMM yyyy')),
+      datasets: [{
+          label: "Hired",
+          data: labels.map(key => trend[key]),
           fill: true,
-          backgroundColor: "rgba(34,197,94,0.2)",
+          backgroundColor: (context) => {
+            const ctx = context.chart.ctx;
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, "rgba(34, 197, 94, 0.5)");
+            gradient.addColorStop(1, "rgba(34, 197, 94, 0.0)");
+            return gradient;
+          },
           borderColor: "#22c55e",
-          tension: 0.3,
-        },
-      ],
+          tension: 0.4,
+        }],
     };
-  }, [applicants, startMonth, endMonth]);
+  }, [applicants, hiringDateRange]);
 
-  // Chart configs
   const guardStatusData = {
     labels: ["On Duty", "Off Duty", "Absent"],
-    datasets: [
-      {
-        data: chartData.guardStatus,
-        backgroundColor: ["#3b82f6", "#64748b", "#f97316"],
-      },
-    ],
+    datasets: [{ 
+        data: chartData.guardStatus, 
+        backgroundColor: ["#3b82f6", "#1e293b", "#ef4444"],
+        borderColor: "#0f172a",
+        borderWidth: 5,
+        hoverOffset: 4
+    }],
   };
 
-  const statusColors = {
-    Review: "#eab308",
-    Interview: "#3b82f6",
-    Hired: "#22c55e",
-    Declined: "#ef4444",
-  };
-
+  const statusColors = { Review: "#eab308", Interview: "#3b82f6", Hired: "#22c55e", Declined: "#ef4444" };
+  
   const applicantBarData = {
     labels: chartData.applicantsByStatus.labels,
-    datasets: [
-      {
+    datasets: [{
         label: "Applicants",
         data: chartData.applicantsByStatus.data,
-        backgroundColor: chartData.applicantsByStatus.labels.map(
-          (s) => statusColors[s] || "#64748b"
-        ),
-      },
-    ],
+        backgroundColor: chartData.applicantsByStatus.labels.map(s => statusColors[s] || "#64748b"),
+        borderRadius: 6,
+        barThickness: 20,
+    }],
   };
 
-  const attendanceTrendData = useMemo(() => {
-    if (!chartData.attendance7d || !attStartMonth || !attEndMonth)
-      return { labels: [], datasets: [] };
-
-    return { labels: [], datasets: [] };
-  }, [chartData.attendance7d, attStartMonth, attEndMonth]);
-
   return (
-    <div className="min-h-screen bg-[#0f172a] text-gray-100 p-6 space-y-8">
+    <div className="min-h-screen bg-[#0f172a] text-gray-100 p-4 md:p-8 font-sans">
+      <style>{datePickerStyles}</style>
+      
       {/* Header */}
-      <header className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h1 className="flex items-center gap-2 text-3xl font-bold">
-          <LayoutDashboard className="w-8 h-8 text-blue-400" />
-          Admin Dashboard
-        </h1>
-
-        <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg">
-          <Bell size={20} />
-          View Alerts
-        </button>
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+            <h1 className="flex items-center gap-3 text-3xl font-bold text-white tracking-tight">
+                <LayoutDashboard className="text-blue-500" size={32} />
+                Dashboard
+            </h1>
+            <p className="text-gray-400 text-sm mt-1 ml-11">Welcome back, Admin. Here's your daily overview.</p>
+        </div>
       </header>
 
       {error && (
-        <div className="bg-red-500/20 border border-red-500 text-red-400 text-sm p-3 rounded-lg flex items-center gap-2">
-          <AlertTriangle size={16} />
-          {error}
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-center gap-3 mb-6">
+            <AlertTriangle size={20} /> {error}
         </div>
       )}
 
-      {/* KPIs */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Link to="/Admin/AdminGuardsProfile">
-          <KpiCard
-            icon={<Shield className="text-blue-400" />}
-            title="Total Guards"
-            value={stats.totalGuards}
-          />
-        </Link>
-
-        <Link to="/Admin/ApplicantList">
-          <KpiCard
-            icon={<Users className="text-yellow-400" />}
-            title="Applicants"
-            value={stats.applicants}
-          />
-        </Link>
-
-        <Link to="/Admin/AdminPosts">
-          <KpiCard
-            icon={<FileText className="text-green-400" />}
-            title="Announcements"
-            value={stats.announcements}
-          />
-        </Link>
-
-        <Link to="/Admin/AdminGuardUpdates">
-          <KpiCard
-            icon={<Clock className="text-orange-400" />}
-            title="Total Logs"
-            value={stats.logs}
-          />
-        </Link>
+      {/* KPI Cards */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <KpiCard 
+            icon={<Shield className="text-white" size={24} />} 
+            title="Total Guards" 
+            value={stats.totalGuards} 
+            link="/Admin/AdminGuardsProfile"
+            color="bg-blue-600"
+        />
+        <KpiCard 
+            icon={<Users className="text-white" size={24} />} 
+            title="Applicants" 
+            value={stats.applicants} 
+            link="/Admin/ApplicantList"
+            color="bg-purple-600"
+        />
+        <KpiCard 
+            icon={<FileText className="text-white" size={24} />} 
+            title="Announcements" 
+            value={stats.announcements} 
+            link="/Admin/AdminPosts"
+            color="bg-emerald-600"
+        />
+        <KpiCard 
+            icon={<Clock className="text-white" size={24} />} 
+            title="Total Logs" 
+            value={stats.logs} 
+            link="/Admin/AdminGuardUpdates"
+            color="bg-amber-600"
+        />
       </section>
 
-      {/* Charts */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Main Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        
         {/* Hiring Trend */}
-        <div className="">
-          {/* Header only */}
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <TrendingUp className="text-green-400" /> Hiring Trend
-            </h3>
-
-            <div className="flex gap-2 items-center">
-              <input
-                type="month"
-                value={startMonth}
-                onChange={(e) => setStartMonth(e.target.value)}
-                className="bg-[#0f172a] border border-gray-700 p-1 rounded-md w-37"
-              />
-
-              <span className="text-gray-400">to</span>
-
-              <input
-                type="month"
-                value={endMonth}
-                onChange={(e) => setEndMonth(e.target.value)}
-                className="bg-[#0f172a] border border-gray-700 p-1 rounded-md w-37"
-              />
+        <div className="bg-[#1e293b] rounded-2xl p-6 shadow-xl border border-gray-800">
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="font-semibold flex items-center gap-2">
+                    <div className="p-2 bg-green-500/10 rounded-lg"><TrendingUp className="text-green-500" size={18}/></div>
+                    Hiring Trend
+                </h3>
+                <DateRangeFilter dateRange={hiringDateRange} setDateRange={setHiringDateRange} />
             </div>
-          </div>
-
-          <ChartCard>
-            {/* Chart below header */}
-            <div className="h-64 w-full">
-              {hiringTrendData.labels.length ? (
-                <Line
-                  data={{
-                    ...hiringTrendData,
-                    datasets: hiringTrendData.datasets.map((ds) => ({
-                      ...ds,
-                      borderWidth: 2,
-                      pointRadius: 3,
-                      pointHoverRadius: 5,
-                      pointBackgroundColor: ds.borderColor || "#22c55e",
-                      pointBorderColor: "#0f172a",
-                      pointHoverBorderWidth: 2,
-                      fill: true,
-                      backgroundColor: (ctx) => {
-                        const { chart } = ctx;
-                        const { ctx: c } = chart;
-                        const gradient = c.createLinearGradient(0, 0, 0, chart.height || 256);
-                        gradient.addColorStop(0, "rgba(34,197,94,0.25)");
-                        gradient.addColorStop(1, "rgba(34,197,94,0.02)");
-                        return gradient;
-                      },
-                      tension: 0.35,
-                    })),
-                  }}
-                  options={{
-                    maintainAspectRatio: false,
-                    responsive: true,
-                    interaction: { mode: "index", intersect: false },
-                    plugins: {
-                      legend: {
-                        labels: { color: "#e5e7eb" },
-                      },
-                      tooltip: {
-                        backgroundColor: "#0b1220",
-                        borderColor: "#1f2937",
-                        borderWidth: 1,
-                        titleColor: "#e5e7eb",
-                        bodyColor: "#cbd5e1",
-                        padding: 10,
-                        callbacks: {
-                          label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y}`,
-                        },
-                      },
-                    },
-                    scales: {
-                      x: {
-                        ticks: { color: "#9ca3af" },
-                        grid: { color: "rgba(148,163,184,0.12)" },
-                      },
-                      y: {
-                        beginAtZero: true,
-                        ticks: { color: "#9ca3af", precision: 0 },
-                        grid: { color: "rgba(148,163,184,0.12)" },
-                      },
-                    },
-                  }}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">
-                  No data for selected range
-                </div>
-              )}
+            <div className="h-64">
+                {hiringTrendData.labels.length ? <Line data={hiringTrendData} options={chartOptions} /> : <NoDataMessage />}
             </div>
-          </ChartCard>
         </div>
-        {/* Attendance Trend (Dynamic) */}
-        <div className="">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <TrendingUp className="text-blue-400 " /> Attendance Trend
-            </h3>
-            <div className="flex gap-2 items-center">
-              <input
-                type="month"
-                value={attStartMonth}
-                onChange={(e) => setAttStartMonth(e.target.value)}
-                className="bg-[#0f172a] border border-gray-700 p-1 rounded-md w-37"
-              />
-              <span className="text-gray-400">to</span>
-              <input
-                type="month"
-                value={attEndMonth}
-                onChange={(e) => setAttEndMonth(e.target.value)}
-                className="bg-[#0f172a] border border-gray-700 p-1 rounded-md w-37"
-              />
+
+        {/* Attendance Trend */}
+        <div className="bg-[#1e293b] rounded-2xl p-6 shadow-xl border border-gray-800">
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="font-semibold flex items-center gap-2">
+                    <div className="p-2 bg-blue-500/10 rounded-lg"><Activity className="text-blue-500" size={18}/></div>
+                    Attendance
+                </h3>
+                <DateRangeFilter dateRange={attendanceDateRange} setDateRange={setAttendanceDateRange} />
             </div>
-          </div>
-          <ChartCard>
-            <div className="h-64 w-full">
-              {dynamicAttendanceTrend.labels.length ? (
-                <Line
-                  data={{
-                    ...dynamicAttendanceTrend,
-                    datasets: dynamicAttendanceTrend.datasets.map((ds) => ({
-                      ...ds,
-                      borderWidth: 2,
-                      pointRadius: 3,
-                      pointHoverRadius: 5,
-                      pointBackgroundColor: ds.borderColor || "#3b82f6",
-                      pointBorderColor: "#0f172a",
-                      pointHoverBorderWidth: 2,
-                      fill: true,
-                      backgroundColor: (ctx) => {
-                        const { chart } = ctx;
-                        const { ctx: c } = chart;
-                        const g = c.createLinearGradient(0, 0, 0, chart.height || 256);
-                        g.addColorStop(0, "rgba(59,130,246,0.25)");
-                        g.addColorStop(1, "rgba(59,130,246,0.02)");
-                        return g;
-                      },
-                      tension: 0.35,
-                    })),
-                  }}
-                  options={{
-                    maintainAspectRatio: false,
-                    responsive: true,
-                    interaction: { mode: "index", intersect: false },
-                    plugins: {
-                      legend: { labels: { color: "#e5e7eb" } },
-                      tooltip: {
-                        backgroundColor: "#0b1220",
-                        borderColor: "#1f2937",
-                        borderWidth: 1,
-                        titleColor: "#e5e7eb",
-                        bodyColor: "#cbd5e1",
-                        padding: 10,
-                        callbacks: {
-                          label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y}`,
-                        },
-                      },
-                    },
-                    scales: {
-                      x: { ticks: { color: "#9ca3af" }, grid: { color: "rgba(148,163,184,0.12)" } },
-                      y: { beginAtZero: true, ticks: { color: "#9ca3af", precision: 0 }, grid: { color: "rgba(148,163,184,0.12)" } },
-                    },
-                  }}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">
-                  No attendance data for selected range
-                </div>
-              )}
+            <div className="h-64">
+                {dynamicAttendanceTrend.labels.length ? <Line data={dynamicAttendanceTrend} options={chartOptions} /> : <NoDataMessage />}
             </div>
-          </ChartCard>
         </div>
 
         {/* Guard Status */}
-        <ChartCard title="Guard Status Overview">
-          <Doughnut data={guardStatusData} />
-        </ChartCard>
-      </section>
+        <div className="bg-[#1e293b] rounded-2xl p-6 shadow-xl border border-gray-800 flex flex-col">
+            <h3 className="font-semibold mb-6 flex items-center gap-2">
+                <div className="p-2 bg-indigo-500/10 rounded-lg"><Shield className="text-indigo-500" size={18}/></div>
+                Guard Status
+            </h3>
+            <div className="relative h-64 w-full flex items-center justify-center">
+                <Doughnut 
+                    data={guardStatusData} 
+                    options={{ 
+                        maintainAspectRatio: false, 
+                        cutout: '75%',
+                        plugins: { 
+                            legend: { position: 'bottom', labels: { color: "#9ca3af", padding: 20, usePointStyle: true } } 
+                        } 
+                    }} 
+                />
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
+                    <span className="text-3xl font-bold text-white">{stats.totalGuards}</span>
+                    <span className="text-xs text-gray-500">Total</span>
+                </div>
+            </div>
+        </div>
+      </div>
 
-      {/* Applicants + Activity */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <ChartCard title="Applicants by Status">
-          <Bar data={applicantBarData} />
-        </ChartCard>
+      {/* Bottom Grid: Applicants & Logs */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Applicant Funnel */}
+        <div className="bg-[#1e293b] rounded-2xl p-6 shadow-xl border border-gray-800">
+            <h3 className="font-semibold mb-6 flex items-center gap-2">
+                <div className="p-2 bg-purple-500/10 rounded-lg"><Users className="text-purple-500" size={18}/></div>
+                Applicant Pipeline
+            </h3>
+            <div className="h-64">
+                <Bar data={applicantBarData} options={{...chartOptions, indexAxis: 'y' }} />
+            </div>
+        </div>
 
         {/* Recent Logs */}
-        <div className="lg:col-span-2 bg-[#1e293b] rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <UserCheck className="text-blue-400" /> Recent Guard Logs
-          </h2>
-
-          <ul className="divide-y divide-gray-700 text-gray-300 overflow-y-auto max-h-64 pr-2">
-            {recentActivities.length ? (
-              recentActivities.map((a) => (
-                <li key={a.id} className="py-3">
-                  <Link to={`/admin/AdminGuardUpdates2/${a.guard._id}`}>
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-blue-400">
-                        {a.type}
-                      </span>
-                      <span className="text-gray-500 text-sm">{a.time}</span>
-                    </div>
-                    {a.remarks && (
-                      <p className="text-gray-300 text-sm mt-1">
-                        {a.remarks}
-                      </p>
-                    )}
-                    {a.guard && (
-                      <p className="text-gray-500 text-xs mt-1">
-                        {a.guard.fullName || "Unknown Guard"}{" "}
-                        {a.post
-                          ? `• ${a.post}`
-                          : ""}
-                      </p>
-                    )}
-                  </Link>
-                </li>
-              ))
-            ) : (
-              <li className="py-2 text-gray-500 italic">
-                No recent activities
-              </li>
-            )}
-          </ul>
+        <div className="lg:col-span-2 bg-[#1e293b] rounded-2xl shadow-xl border border-gray-800 flex flex-col">
+            <div className="p-6 border-b border-gray-700 flex justify-between items-center">
+                <h3 className="font-semibold flex items-center gap-2">
+                    <div className="p-2 bg-orange-500/10 rounded-lg"><Clock className="text-orange-500" size={18}/></div>
+                    Recent Activities
+                </h3>
+                <Link to="/Admin/AdminGuardUpdates" className="text-sm text-blue-400 hover:text-blue-300">View All</Link>
+            </div>
+            
+            <div className="p-0 overflow-y-auto max-h-[300px] custom-scrollbar">
+                {recentActivities.length > 0 ? (
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-[#0f172a] text-gray-400 sticky top-0">
+                            <tr>
+                                <th className="px-6 py-3 font-medium">Type</th>
+                                <th className="px-6 py-3 font-medium">Guard</th>
+                                <th className="px-6 py-3 font-medium">Remarks</th>
+                                <th className="px-6 py-3 font-medium text-right">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-700/50">
+                            {recentActivities.map((a) => (
+                                <tr key={a.id} className="hover:bg-slate-800/50 transition">
+                                    <td className="px-6 py-3 font-medium text-blue-400">{a.type}</td>
+                                    <td className="px-6 py-3 text-white">{a.guard.fullName || "Unknown"}</td>
+                                    <td className="px-6 py-3 text-gray-400 max-w-xs truncate">{a.remarks}</td>
+                                    <td className="px-6 py-3 text-right text-gray-500 text-xs">
+                                        <div>{a.date}</div>
+                                        <div>{a.time}</div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                ) : (
+                    <div className="p-10 text-center text-gray-500">No recent activities found.</div>
+                )}
+            </div>
         </div>
-      </section>
-    </div>
-  );
-}
-
-/* KPI CARD */
-function KpiCard({ icon, title, value }) {
-  return (
-    <div className="bg-[#1e293b] rounded-xl p-4 shadow-lg flex flex-col items-center justify-center">
-      <div className="mb-2">{icon}</div>
-      <h3 className="text-sm text-gray-400">{title}</h3>
-      <p className="text-2xl font-bold text-white">
-        <CountUp
-          from={0}
-          to={value}
-          separator=","
-          duration={1}
-          className="count-up-text"
-        />
-      </p>
-    </div>
-  );
-}
-
-/* CHART CARD */
-function ChartCard({ title, children }) {
-  return (
-    <div className="bg-[#1e293b] rounded-xl p-5 shadow-lg">
-      {title && (
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <TrendingUp className="text-green-400" />
-          {title}
-        </h3>
-      )}
-      <div className="w-full h-64 flex items-center justify-center">
-        {children}
       </div>
     </div>
   );
 }
+
+// --- Helper Components ---
+
+const KpiCard = ({ icon, title, value, link, color }) => (
+  <Link to={link} className="relative overflow-hidden bg-[#1e293b] rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-800 group">
+    <div className="flex justify-between items-start">
+        <div>
+            <p className="text-sm font-medium text-gray-400 mb-1">{title}</p>
+            <h3 className="text-3xl font-bold text-white tracking-tight">
+                <CountUp from={0} to={value} separator="," duration={1.5} />
+            </h3>
+        </div>
+        <div className={`p-3 rounded-xl shadow-lg ${color}`}>
+            {icon}
+        </div>
+    </div>
+    <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gray-700 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"/>
+  </Link>
+);
+
+const DateRangeFilter = ({ dateRange, setDateRange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+  
+    return (
+      <div className="relative">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex items-center gap-2 bg-[#0f172a] hover:bg-[#1e293b] border border-gray-700 text-gray-300 px-3 py-1.5 rounded-lg text-xs font-medium transition"
+        >
+          <CalendarDays size={14} />
+          {dateRange.from ? (
+             <>
+               {format(dateRange.from, "MMM d")} - {dateRange.to ? format(dateRange.to, "MMM d") : "..."}
+             </>
+          ) : "Select Date"}
+          <ChevronDown size={14} className="opacity-50"/>
+        </button>
+  
+        {isOpen && (
+          <div className="absolute top-full right-0 mt-2 bg-[#1e293b] border border-gray-700 rounded-xl p-4 shadow-2xl z-50">
+            <DayPicker
+              mode="range"
+              selected={dateRange}
+              onSelect={setDateRange}
+              className="text-sm"
+            />
+            <div className="flex justify-end gap-2 pt-4 border-t border-gray-700 mt-2">
+                <button onClick={() => setIsOpen(false)} className="text-xs text-gray-400 hover:text-white px-3 py-1">Close</button>
+                <button onClick={() => setIsOpen(false)} className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg">Apply</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+};
+
+const NoDataMessage = () => (
+    <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 gap-2">
+        <AlertTriangle size={24} className="opacity-20"/>
+        <span className="text-xs">No data available</span>
+    </div>
+);
+
+const chartOptions = {
+  maintainAspectRatio: false,
+  responsive: true,
+  interaction: { mode: "index", intersect: false },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: "#0f172a",
+      titleColor: "#f3f4f6",
+      bodyColor: "#d1d5db",
+      borderColor: "#374151",
+      borderWidth: 1,
+      padding: 10,
+      cornerRadius: 8,
+      displayColors: false,
+    },
+  },
+  scales: {
+    x: { 
+        ticks: { color: "#6b7280", font: { size: 10 } }, 
+        grid: { display: false } 
+    },
+    y: { 
+        beginAtZero: true, 
+        ticks: { color: "#6b7280", font: { size: 10 }, maxTicksLimit: 5 }, 
+        grid: { color: "rgba(255,255,255,0.05)" } 
+    },
+  },
+};

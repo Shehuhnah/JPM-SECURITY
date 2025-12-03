@@ -37,10 +37,9 @@ function GuardAttendanceTimeOut() {
           const data = await res.json().catch(() => []);
           if (!res.ok) throw new Error(data?.message || "Failed to fetch attendance");
 
-          // Find active duty: status "On Duty" and no timeOut for the current day
-          const todayISO = new Date().toISOString().split('T')[0];
+          // Find active duty: status "On Duty" and no timeOut
           const activeDuty = Array.isArray(data)
-            ? data.find(r => r.status === "On Duty" && !r.timeOut && new Date(r.timeIn).toISOString().split('T')[0] === todayISO)
+            ? data.find(r => r.status === "On Duty" && !r.timeOut)
             : null;
 
           if (activeDuty) setTimeInData(activeDuty);
@@ -54,11 +53,12 @@ function GuardAttendanceTimeOut() {
 
       loadActiveDuty();
     }, [guard?._id]);
+    console.log(timeInData);
 
     useEffect(() => {
       if (!timeInData) return;
 
-      const timeIn = new Date(timeInData.timeIn); 
+      const timeIn = new Date(`${timeInData.timeIn}:00`); 
       const timeOut = currentTime;
 
       let diffMs = timeOut - timeIn;
@@ -78,8 +78,14 @@ function GuardAttendanceTimeOut() {
       }
 
       try {
+        const year = currentTime.getFullYear();
+        const month = String(currentTime.getMonth() + 1).padStart(2, '0');
+        const day = String(currentTime.getDate()).padStart(2, '0');
+        const hours = String(currentTime.getHours()).padStart(2, '0');
+        const minutes = String(currentTime.getMinutes()).padStart(2, '0');
+
         const payload = {
-          timeOut: currentTime.toISOString(),
+          timeOut: `${year}-${month}-${day}T${hours}:${minutes}`,
           status: "Off Duty",
         };
 
@@ -116,6 +122,30 @@ function GuardAttendanceTimeOut() {
         month: "long",
         day: "numeric",
       });
+
+  // Helper to format YYYY-MM-DDTHH:mm:ss.sssZ or YYYY-MM-DDTHH:mm string to readable time
+  const formatTimeDisplay = (timeString) => {
+    if (!timeString) return "N/A";
+    const dateObj = new Date(timeString); // Let Date object handle full ISO parsing
+    if (isNaN(dateObj.getTime())) return "Invalid Time"; // Check for invalid date
+
+    let h = dateObj.getHours();
+    const m = dateObj.getMinutes();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    h = h ? h : 12; // the hour '0' should be '12'
+
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${ampm}`;
+  };
+
+  // Helper to format YYYY-MM-DDTHH:mm:ss.sssZ or YYYY-MM-DDTHH:mm string to readable date
+  const formatDateDisplay = (dateString) => {
+    if (!dateString) return "N/A";
+    const dateObj = new Date(dateString); // Let Date object handle full ISO parsing
+    if (isNaN(dateObj.getTime())) return "Invalid Date"; // Check for invalid date
+
+    return dateObj.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  };
 
 
   return (
@@ -172,11 +202,11 @@ function GuardAttendanceTimeOut() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-400">Date:</span>
-                  <span className="text-gray-200">{new Date(timeInData.timeIn).toLocaleDateString()}</span>
+                  <span className="text-gray-200">{formatDateDisplay(timeInData.timeIn)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Time In:</span>
-                  <span className="text-gray-200">{new Date(timeInData.timeIn).toLocaleTimeString()}</span>
+                  <span className="text-gray-200">{formatTimeDisplay(timeInData.timeIn)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Client:</span>
@@ -208,23 +238,23 @@ function GuardAttendanceTimeOut() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-400">Date:</span>
-                  <span className="text-gray-200">{new Date(attendanceData.timeIn).toLocaleDateString()}</span>
+                  <span className="text-gray-200">{formatDateDisplay(attendanceData.timeIn)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Time In:</span>
-                  <span className="text-gray-200">{new Date(attendanceData.timeIn).toLocaleTimeString()}</span>
+                  <span className="text-gray-200">{formatTimeDisplay(attendanceData.timeIn)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Time Out:</span>
-                  <span className="text-gray-200">{new Date(attendanceData.timeOut).toLocaleTimeString()}</span>
+                  <span className="text-gray-200">{formatTimeDisplay(attendanceData.timeOut)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Total Hours:</span>
                   <span className="text-green-400 font-medium">
                     {(() => {
                         if (attendanceData.timeIn && attendanceData.timeOut) {
-                            const start = new Date(attendanceData.timeIn);
-                            const end = new Date(attendanceData.timeOut);
+                            const start = new Date(`${attendanceData.timeIn}:00`);
+                            const end = new Date(`${attendanceData.timeOut}:00`);
                             const diffMs = end - start;
                             if (diffMs > 0) {
                                 const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));

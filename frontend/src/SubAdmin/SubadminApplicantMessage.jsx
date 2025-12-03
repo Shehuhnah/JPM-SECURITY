@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Paperclip, Send, CircleUserRound, Search, ArrowLeft } from "lucide-react";
+import { Paperclip, Send, CircleUserRound, Search, ArrowLeft, MessageSquare, Briefcase, MapPin, Clock, Calendar, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-
 import { io } from "socket.io-client";
+
 const api = import.meta.env.VITE_API_URL;
 export const socket = io(api, {
   withCredentials: true,
@@ -13,6 +13,11 @@ export const socket = io(api, {
 export default function SubadminApplicantMessage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const messagesEndRef = useRef(null);
+  const fileInputRef = useRef();
+  const hasNotifiedOnline = useRef(false);
+
+  // State
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -22,18 +27,20 @@ export default function SubadminApplicantMessage() {
   const [file, setFile] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
 
-  const messagesEndRef = useRef(null);
-  const fileInputRef = useRef();
-  const hasNotifiedOnline = useRef(false);
-
   useEffect(() => {
-    if (!user && !loading) {
-      navigate("/admin/login");
-      return;
-    }
     document.title = "Applicant Messages | JPM Security Agency";
-    
-  }, [user, loading, navigate]);
+  }, []);
+
+  // --- Helpers ---
+  const normalizeId = (id) => {
+    if (!id) return "";
+    if (typeof id === "string") return id;
+    if (typeof id === "object") {
+      if (id?._id) return id._id.toString();
+      if (typeof id.toString === "function") return id.toString();
+    }
+    return "";
+  };
 
   const sortConversations = (list) =>
     [...list].sort((a, b) => {
@@ -45,16 +52,6 @@ export default function SubadminApplicantMessage() {
   const isApplicantConversation = (conversation) =>
     conversation?.type === "subadmin-applicant" || conversation?.type === "applicant-subadmin";
 
-  const normalizeId = (id) => {
-    if (!id) return "";
-    if (typeof id === "string") return id;
-    if (typeof id === "object") {
-      if (id?._id) return id._id.toString();
-      if (typeof id.toString === "function") return id.toString();
-    }
-    return "";
-  };
-
   const sortApplicantConversations = (list) => sortConversations(list.filter(isApplicantConversation));
 
   const getApplicantParticipant = (conversation) =>
@@ -65,341 +62,48 @@ export default function SubadminApplicantMessage() {
   const getApplicantName = (conversation) => {
     if (conversation?.applicantDisplayName) return conversation.applicantDisplayName;
     const applicant = getApplicantParticipant(conversation);
-    const populated =
-      applicant?.user?.name ||
-      applicant?.user?.fullName ||
-      (applicant?.user?.firstName && applicant?.user?.lastName
-        ? `${applicant.user.firstName} ${applicant.user.lastName}`
-        : null) ||
-      applicant?.name ||
-      (typeof applicant?.userId === "object" ? (applicant?.userId?.name || applicant?.userId?.fullName) : null);
-    if (populated) return populated;
-    const lm = conversation?.lastMessage;
-    const lmName = lm?.senderUser?.name || lm?.senderUser?.fullName || lm?.sender?.name || lm?.sender?.fullName;
-    if (lmName) return lmName;
+    
+    // Check populated user object
+    if (applicant?.user?.firstName && applicant?.user?.lastName) return `${applicant.user.firstName} ${applicant.user.lastName}`;
+    if (applicant?.user?.name) return applicant.user.name;
+    if (applicant?.user?.fullName) return applicant.user.fullName;
+    
+    // Check direct name property
+    if (applicant?.name) return applicant.name;
+    
+    // Check nested userId object
+    if (typeof applicant?.userId === "object") {
+       return applicant?.userId?.name || applicant?.userId?.fullName || "Unknown Applicant";
+    }
+
     return "Unknown Applicant";
   };
 
   const isUserOnline = (userId) => onlineUsers.includes(normalizeId(userId));
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  useEffect(() => {
-    if (user && !hasNotifiedOnline.current) {
-      socket.emit("userOnline", user._id);
-      hasNotifiedOnline.current = true;
-    }
-    socket.on("onlineUsers", (users) => setOnlineUsers(users));
-    return () => socket.off("onlineUsers");
-  }, [user]);
-
-  const fetchConversations = useCallback(async () => {
-    try {
-      console.log("🔍 [SubadminApplicantMessage] Fetching conversations...");
-      
-      const res = await fetch(
-        `${api}/api/messages/conversations`, {
-          credentials: "include"
-        }
-      );
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("❌ [SubadminApplicantMessage] Response error:", errorText);
-        return;
-      }
-      
-      const data = await res.json();
-      
-      const filtered = (Array.isArray(data) ? data : []).filter(
-        (conv) => conv.type === "subadmin-applicant" || conv.type === "applicant-subadmin"
-      );
-      
-      const unique = filtered.filter((conv, index, self) => 
-        index === self.findIndex((c) => normalizeId(c._id) === normalizeId(conv._id))
-      ).map((conv) => ({
-        ...conv,
-        applicantDisplayName: getApplicantName(conv),
-      }));
-      
-      setConversations(sortApplicantConversations(unique));
-    } catch (err) {
-      console.error("❌ [SubadminApplicantMessage] Error fetching conversations:", err);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    fetchConversations();
-  }, [fetchConversations]);
-
-  useEffect(() => {
-    if (!selectedConversation) {
-      setMessages([]);
-      return;
-    }
-
-    if (selectedConversation.isTemp) {
-      setMessages([]);
-      return;
-    }
-
-    setMessages([]);
-
-    socket.emit("joinConversation", selectedConversation._id);
-    
-    // FIX 1: Mark messages as seen when opening conversation
-    socket.emit("mark_seen", {
-      conversationId: selectedConversation._id,
-      userId: user._id,
-    });
-
-    const fetchMessages = async () => {
-      try {
-        const res = await fetch(
-          `${api}/api/messages/${selectedConversation._id}`,{
-            credentials: "include"
-          }
-          
-        );
-        const data = await res.json();
-        setMessages(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Error loading messages:", err);
-      }
-    };
-    fetchMessages();
-
-    const handleReceiveMessage = (msg) => {
-      if (normalizeId(selectedConversation?._id) === normalizeId(msg.conversationId)) {
-        setMessages((prev) =>
-          prev.some((m) => normalizeId(m._id) === normalizeId(msg._id)) ? prev : [...prev, msg]
-        );
-        
-        // Auto-mark as seen if conversation is open
-        socket.emit("mark_seen", {
-          conversationId: msg.conversationId,
-          userId: user._id,
-        });
-      }
-    
-      // FIX: Preserve participant data when updating conversation
-      setConversations((prev) => {
-        const msgConvId = normalizeId(msg.conversationId);
-        const existingConv = prev.find((c) => normalizeId(c._id) === msgConvId);
-        
-        if (!existingConv) {
-          return prev; // Don't add new conversations here
-        }
-        
-        return sortApplicantConversations(
-          prev.map((conv) => {
-            if (normalizeId(conv._id) === msgConvId) {
-              const existingLM = conv.lastMessage || {};
-              const nextSender = msg.sender || msg.senderUser || existingLM.sender || existingLM.senderUser;
-              const merged = {
-                ...conv,
-                participants: conv.participants || existingConv.participants || [],
-                lastMessage: {
-                  ...existingLM,
-                  ...msg,
-                  sender: nextSender || existingLM.sender,
-                  senderUser: msg.senderUser || existingLM.senderUser || nextSender,
-                  seen: normalizeId(selectedConversation?._id) === msgConvId ? true : msg.seen,
-                },
-              };
-              return { ...merged, applicantDisplayName: conv.applicantDisplayName || getApplicantName(merged) };
-            }
-            return conv;
-          })
-        );
-      });
-    };
-
-    const handleMessageSeen = ({ conversationId }) => {
-      if (normalizeId(conversationId) === normalizeId(selectedConversation?._id)) {
-        setSelectedConversation((prev) => prev ? { ...prev, lastMessage: { ...prev.lastMessage, seen: true } } : prev);
-        setConversations((prev) =>
-          prev.map((conv) =>
-            normalizeId(conv._id) === normalizeId(conversationId)
-              ? { ...conv, lastMessage: { ...conv.lastMessage, seen: true } }
-              : conv
-          )
-        );
-      }
-    };
-
-    const handleConversationUpdated = (updatedConv) => {
-      if (!isApplicantConversation(updatedConv)) return;
-      
-      const updatedConvId = normalizeId(updatedConv._id);
-      
-      const applicantPart = (updatedConv?.participants || []).find((p) => p.role === "Applicant");
-      if (applicantPart && !applicantPart.user) {
-        fetchConversations();
-      }
-
-      if (normalizeId(selectedConversation?._id) === updatedConvId) {
-        // Merge into selected to preserve fields
-        setSelectedConversation((prev) => {
-          const mergedCore = { ...(prev || {}), ...(updatedConv || {}) };
-          const merged = {
-            ...mergedCore,
-            participants: (updatedConv?.participants && updatedConv.participants.length > 0) ? updatedConv.participants : prev?.participants,
-            lastMessage: { ...(prev?.lastMessage || {}), ...(updatedConv?.lastMessage || {}) },
-          };
-          return { ...merged, applicantDisplayName: prev?.applicantDisplayName || getApplicantName(merged) };
-        });
-      }
-      
-      setConversations((prev) => {
-        const unique = prev.filter((c, index, self) => 
-          index === self.findIndex((conv) => normalizeId(conv._id) === normalizeId(c._id))
-        );
-        
-        const exists = unique.some((c) => normalizeId(c._id) === updatedConvId);
-        if (exists) {
-          return sortApplicantConversations(
-            unique.map((c) => {
-              if (normalizeId(c._id) !== updatedConvId) return c;
-              const mergedCore = { ...c, ...updatedConv };
-              const merged = {
-                ...mergedCore,
-                participants: (updatedConv.participants && updatedConv.participants.length > 0) ? updatedConv.participants : c.participants,
-                lastMessage: { ...(c.lastMessage || {}), ...(updatedConv.lastMessage || {}) },
-              };
-              return { ...merged, applicantDisplayName: c.applicantDisplayName || getApplicantName(merged) };
-            })
-          );
-        }
-        const withName = { ...updatedConv, applicantDisplayName: getApplicantName(updatedConv) };
-        return sortApplicantConversations([withName, ...unique]);
-      });
-    };
-
-    socket.on("receiveMessage", handleReceiveMessage);
-    socket.on("conversationUpdated", handleConversationUpdated);
-    socket.on("messages_seen", handleMessageSeen);
-    
-    return () => {
-      socket.off("receiveMessage", handleReceiveMessage);
-      socket.off("conversationUpdated", handleConversationUpdated);
-      socket.off("messages_seen", handleMessageSeen);
-    };
-  }, [selectedConversation?._id, user, fetchConversations]);
-
-  useEffect(() => {
-    const handleConversationUpdated = (updatedConv) => {
-      if (!isApplicantConversation(updatedConv)) return;
-      
-      const updatedConvId = normalizeId(updatedConv._id);
-      
-      if (normalizeId(selectedConversation?._id) === updatedConvId) {
-        return;
-      }
-      
-      setConversations((prev) => {
-        const unique = prev.filter((c, index, self) => 
-          index === self.findIndex((conv) => normalizeId(conv._id) === normalizeId(c._id))
-        );
-        
-        const exists = unique.some((c) => normalizeId(c._id) === updatedConvId);
-        if (exists) {
-          return sortApplicantConversations(
-            unique.map((c) => (normalizeId(c._id) === updatedConvId ? updatedConv : c))
-          );
-        }
-        return sortApplicantConversations([updatedConv, ...unique]);
-      });
-    };
-    socket.on("conversationUpdated", handleConversationUpdated);
-    return () => socket.off("conversationUpdated", handleConversationUpdated);
-  }, [selectedConversation?._id]);
-
-  const handleSend = async () => {
-    if (!newMessage.trim() && !file) return;
-    if (!selectedConversation) return;
-
-    const applicant = selectedConversation.participants.find((p) => p.role === "Applicant");
-    if (!applicant) return;
-
-    const formData = new FormData();
-    formData.append("text", newMessage);
-    formData.append(
-      "receiverId",
-      typeof applicant.userId === "string" ? applicant.userId : applicant.userId?._id
-    );
-    formData.append("receiverRole", applicant.role);
-    const conversationType = selectedConversation.type === "applicant-subadmin" || selectedConversation.type === "subadmin-applicant" 
-      ? selectedConversation.type 
-      : "applicant-subadmin";
-    formData.append("type", conversationType);
-    if (file) formData.append("file", file);
-
-    try {
-      const res = await fetch(`${api}/api/messages`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-      if (!res.ok) return console.error(await res.text());
-      const { message, conversation } = await res.json();
-
-      setConversations((prev) => {
-        const convWithName = { ...conversation, applicantDisplayName: getApplicantName(conversation) };
-        if (selectedConversation?.isTemp) {
-          const exists = prev.some((c) => c._id === conversation._id);
-          const withoutTemp = prev.filter((c) => !c.isTemp);
-          const updated = exists
-            ? withoutTemp.map((c) => (c._id === conversation._id ? { ...convWithName, applicantDisplayName: c.applicantDisplayName || convWithName.applicantDisplayName } : c))
-            : [convWithName, ...withoutTemp];
-          return sortApplicantConversations(updated);
-        }
-        const exists = prev.some((c) => c._id === conversation._id);
-        const updated = exists
-          ? prev.map((c) => (c._id === conversation._id ? { ...convWithName, applicantDisplayName: c.applicantDisplayName || convWithName.applicantDisplayName } : c))
-          : [convWithName, ...prev];
-        return sortApplicantConversations(updated);
-      });
-
-      setSelectedConversation((prev) => {
-        if (prev && prev._id === conversation._id) return { ...prev, applicantDisplayName: prev.applicantDisplayName || getApplicantName(prev) };
-        return { ...conversation, applicantDisplayName: getApplicantName(conversation) };
-      });
-      setNewMessage("");
-      setFile(null);
-    } catch (err) {
-      console.error("Error sending message:", err);
-    }
+  const formatDateTime = (timestamp) => {
+    if (!timestamp) return "";
+    const date = new Date(timestamp);
+    const isToday = new Date().toDateString() === date.toDateString();
+    return isToday 
+      ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })
+      : date.toLocaleDateString([], { month: "short", day: "numeric" });
   };
 
-  const formatDateTime = (timestamp) =>
-    timestamp
-      ? new Date(timestamp).toLocaleString([], {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        })
-      : "";
-
+  // --- Parsing Forwarded Job Posts ---
   const renderForwardedPost = (text) => {
     if (!text || typeof text !== "string") return null;
     if (!text.startsWith("[Forwarded Job Post]")) return null;
 
-    // Separate forwarded block from any additional user text
     const parts = text.split(/\n\n+/);
     const forwardedBlock = parts[0] || "";
     const remaining = text.slice(forwardedBlock.length).trim();
 
-    // Parse key-value lines and optional Description section
-    const lines = forwardedBlock.split("\n").slice(1); // skip header line
+    const lines = forwardedBlock.split("\n").slice(1);
     const details = {};
     let inDescription = false;
-    const descLines = [];
+    let descLines = [];
+
     for (const line of lines) {
       if (line.trim().toLowerCase().startsWith("description:")) {
         inDescription = true;
@@ -417,291 +121,511 @@ export default function SubadminApplicantMessage() {
       }
     }
 
-    const title = details["Title"]; 
-    const position = details["Position"]; 
-    const location = details["Location"]; 
-    const employment = details["Employment"]; 
-    const posted = details["Posted"]; 
-    const ref = (text.match(/\nRef:\s*(.+)$/m) || [])[1];
-    const description = descLines.join("\n").trim();
-
     return (
-      <div>
-        <div className="mb-2 rounded-xl border border-blue-400/30 bg-blue-400/10 p-3 text-sm">
-          <div className="text-xs uppercase tracking-wide text-blue-200 mb-2">Forwarded Job Post</div>
-          {title && (
-            <div className="text-gray-100"><span className="text-blue-300">Title:</span> {title}</div>
-          )}
-          {position && (
-            <div className="text-gray-100"><span className="text-blue-300">Position:</span> {position}</div>
-          )}
-          {location && (
-            <div className="text-gray-100"><span className="text-blue-300">Location:</span> {location}</div>
-          )}
-          {employment && (
-            <div className="text-gray-100"><span className="text-blue-300">Employment:</span> {employment}</div>
-          )}
-          {posted && (
-            <div className="text-gray-100"><span className="text-blue-300">Posted:</span> {posted}</div>
-          )}
-          {description && (
-            <div className="mt-2 text-gray-200 whitespace-pre-line">{description}</div>
-          )}
-        </div>
-        {remaining && (
-          <div>
-            <div className="my-2 flex items-center gap-2">
-              <span className="flex-1 h-px bg-gray-600" />
-              <span className="text-[10px] uppercase tracking-wider text-gray-400">Applicant message</span>
-              <span className="flex-1 h-px bg-gray-600" />
+      <div className="w-full max-w-sm">
+        <div className="rounded-xl border border-blue-500/30 bg-gradient-to-br from-[#1e293b] to-[#0f172a] shadow-lg overflow-hidden">
+          <div className="bg-blue-600/20 px-4 py-2 border-b border-blue-500/20 flex items-center gap-2">
+            <Briefcase size={14} className="text-blue-400"/>
+            <span className="text-xs font-bold uppercase tracking-wider text-blue-200">Forwarded Job Opportunity</span>
+          </div>
+          
+          <div className="p-4 space-y-3">
+            {details["Title"] && (
+                <h4 className="text-white font-bold text-lg leading-tight">{details["Title"]}</h4>
+            )}
+            
+            <div className="space-y-2 text-sm">
+                {details["Position"] && (
+                    <div className="flex items-center gap-2 text-gray-300">
+                        <span className="font-semibold text-gray-500 min-w-[70px]">Position:</span> 
+                        {details["Position"]}
+                    </div>
+                )}
+                {details["Location"] && (
+                    <div className="flex items-center gap-2 text-gray-300">
+                        <MapPin size={14} className="text-red-400"/> 
+                        {details["Location"]}
+                    </div>
+                )}
+                {details["Employment"] && (
+                    <div className="flex items-center gap-2 text-gray-300">
+                        <Clock size={14} className="text-yellow-400"/> 
+                        {details["Employment"]}
+                    </div>
+                )}
+                {details["Posted"] && (
+                    <div className="flex items-center gap-2 text-gray-400 text-xs mt-2 pt-2 border-t border-gray-700">
+                        <Calendar size={12}/> 
+                        Posted: {details["Posted"]}
+                    </div>
+                )}
             </div>
-            <div className="mt-2 whitespace-pre-wrap break-words text-gray-100"> Applicant message: {remaining}</div>
+
+            {descLines.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-700">
+                    <p className="text-xs font-semibold text-gray-500 mb-1">Description</p>
+                    <p className="text-gray-300 text-xs line-clamp-3 italic">"{descLines.join(" ")}"</p>
+                </div>
+            )}
+          </div>
+        </div>
+        
+        {remaining && (
+          <div className="mt-2 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+            <p className="text-xs text-gray-300 italic">"{remaining}"</p>
           </div>
         )}
       </div>
     );
   };
 
+  // --- Effects ---
+
+  // Auth & Scroll
+  useEffect(() => {
+    if (!user && !loading) {
+      navigate("/admin/login");
+    }
+  }, [user, loading, navigate]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Socket: User Online
+  useEffect(() => {
+    if (user && !hasNotifiedOnline.current) {
+      socket.emit("userOnline", user._id);
+      hasNotifiedOnline.current = true;
+    }
+    socket.on("onlineUsers", (users) => setOnlineUsers(users));
+    return () => socket.off("onlineUsers");
+  }, [user]);
+
+  // Fetch Conversations
+  const fetchConversations = useCallback(async () => {
+    try {
+      const res = await fetch(`${api}/api/messages/conversations`, { credentials: "include" });
+      if (!res.ok) return;
+      
+      const data = await res.json();
+      const filtered = (Array.isArray(data) ? data : []).filter(
+        (conv) => conv.type === "subadmin-applicant" || conv.type === "applicant-subadmin"
+      );
+      
+      // Deduplicate and process
+      const unique = filtered.filter((conv, index, self) => 
+        index === self.findIndex((c) => normalizeId(c._id) === normalizeId(conv._id))
+      ).map((conv) => ({
+        ...conv,
+        applicantDisplayName: getApplicantName(conv),
+      }));
+      
+      setConversations(sortApplicantConversations(unique));
+    } catch (err) {
+      console.error("Error fetching conversations:", err);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // Active Chat Logic
+  useEffect(() => {
+    if (!selectedConversation || selectedConversation.isTemp) {
+      if(!selectedConversation?.isTemp) setMessages([]);
+      return;
+    }
+
+    setMessages([]);
+    socket.emit("joinConversation", selectedConversation._id);
+    socket.emit("mark_seen", { conversationId: selectedConversation._id, userId: user._id });
+
+    const fetchMessages = async () => {
+      try {
+        const res = await fetch(`${api}/api/messages/${selectedConversation._id}`, { credentials: "include" });
+        const data = await res.json();
+        setMessages(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Error loading messages:", err);
+      }
+    };
+    fetchMessages();
+
+    // Socket Listeners for Active Chat
+    const handleReceiveMessage = (msg) => {
+      // 1. Update Messages if current chat
+      if (normalizeId(selectedConversation?._id) === normalizeId(msg.conversationId)) {
+        setMessages((prev) => prev.some((m) => normalizeId(m._id) === normalizeId(msg._id)) ? prev : [...prev, msg]);
+        socket.emit("mark_seen", { conversationId: msg.conversationId, userId: user._id });
+      }
+    
+      // 2. Update Conversations List (Preview)
+      setConversations((prev) => {
+        const msgConvId = normalizeId(msg.conversationId);
+        const existingConv = prev.find((c) => normalizeId(c._id) === msgConvId);
+        
+        if (!existingConv) return prev; // If new convo, usually fetchConversations handles it or explicit add
+        
+        return sortApplicantConversations(
+          prev.map((conv) => {
+            if (normalizeId(conv._id) === msgConvId) {
+              const existingLM = conv.lastMessage || {};
+              const nextSender = msg.sender || msg.senderUser || existingLM.sender;
+              return {
+                ...conv,
+                lastMessage: {
+                  ...existingLM,
+                  ...msg,
+                  sender: nextSender,
+                  seen: normalizeId(selectedConversation?._id) === msgConvId ? true : msg.seen,
+                },
+                applicantDisplayName: conv.applicantDisplayName || getApplicantName(conv)
+              };
+            }
+            return conv;
+          })
+        );
+      });
+    };
+
+    const handleMessageSeen = ({ conversationId }) => {
+        if (normalizeId(conversationId) === normalizeId(selectedConversation?._id)) {
+            // Update UI inside active chat
+            setMessages(prev => prev.map(m => ({...m, seen: true}))); // simplified logic
+            
+            // Update Sidebar preview
+            setConversations((prev) =>
+                prev.map((conv) =>
+                normalizeId(conv._id) === normalizeId(conversationId)
+                    ? { ...conv, lastMessage: { ...conv.lastMessage, seen: true } }
+                    : conv
+                )
+            );
+        }
+    };
+
+    socket.on("receiveMessage", handleReceiveMessage);
+    socket.on("messages_seen", handleMessageSeen);
+    
+    return () => {
+      socket.off("receiveMessage", handleReceiveMessage);
+      socket.off("messages_seen", handleMessageSeen);
+    };
+  }, [selectedConversation?._id, user]);
+
+  // General Updates (New conversations, etc.)
+  useEffect(() => {
+    const handleConversationUpdated = (updatedConv) => {
+      if (!isApplicantConversation(updatedConv)) return;
+      const updatedConvId = normalizeId(updatedConv._id);
+
+      // If active chat updated, merge details
+      if (normalizeId(selectedConversation?._id) === updatedConvId) {
+         setSelectedConversation((prev) => ({
+             ...prev, 
+             ...updatedConv,
+             applicantDisplayName: prev?.applicantDisplayName || getApplicantName(updatedConv)
+         }));
+      }
+
+      // Update List
+      setConversations((prev) => {
+        const unique = prev.filter((c, index, self) => index === self.findIndex((conv) => normalizeId(conv._id) === normalizeId(c._id)));
+        const exists = unique.some((c) => normalizeId(c._id) === updatedConvId);
+        
+        if (exists) {
+          return sortApplicantConversations(
+            unique.map((c) => normalizeId(c._id) === updatedConvId ? { ...c, ...updatedConv, applicantDisplayName: c.applicantDisplayName || getApplicantName(updatedConv) } : c)
+          );
+        }
+        const withName = { ...updatedConv, applicantDisplayName: getApplicantName(updatedConv) };
+        return sortApplicantConversations([withName, ...unique]);
+      });
+    };
+
+    socket.on("conversationUpdated", handleConversationUpdated);
+    return () => socket.off("conversationUpdated", handleConversationUpdated);
+  }, [selectedConversation?._id]);
+
+
+  // --- Handlers ---
+
+  const handleSend = async () => {
+    if (!newMessage.trim() && !file) return;
+    if (!selectedConversation) return;
+
+    const applicant = selectedConversation.participants.find((p) => p.role === "Applicant");
+    if (!applicant) return;
+
+    const formData = new FormData();
+    formData.append("text", newMessage);
+    formData.append("receiverId", typeof applicant.userId === "string" ? applicant.userId : applicant.userId?._id);
+    formData.append("receiverRole", applicant.role);
+    formData.append("type", selectedConversation.type);
+    if (file) formData.append("file", file);
+
+    try {
+      const res = await fetch(`${api}/api/messages`, { method: "POST", credentials: "include", body: formData });
+      if (!res.ok) return console.error(await res.text());
+      const { conversation } = await res.json();
+
+      // Update state immediately
+      setConversations((prev) => {
+        const convWithName = { ...conversation, applicantDisplayName: getApplicantName(conversation) };
+        const exists = prev.some((c) => c._id === conversation._id);
+        const withoutTemp = prev.filter((c) => !c.isTemp);
+        
+        const updated = exists
+            ? withoutTemp.map((c) => c._id === conversation._id ? convWithName : c)
+            : [convWithName, ...withoutTemp];
+            
+        return sortApplicantConversations(updated);
+      });
+
+      setSelectedConversation((prev) => prev && prev._id === conversation._id ? { ...prev, ...conversation } : conversation);
+      setNewMessage("");
+      setFile(null);
+    } catch (err) {
+      console.error("Error sending message:", err);
+    }
+  };
+
   const filteredConversations = conversations.filter((conv) => {
-    const applicantName = getApplicantName(conv).toLowerCase();
+    const applicantName = (conv.applicantDisplayName || getApplicantName(conv)).toLowerCase();
     return applicantName.includes(search.trim().toLowerCase());
   });
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-[#0f172a] text-gray-100">
+    <div className="flex flex-col md:flex-row h-screen bg-[#0f172a] text-gray-100 font-sans overflow-hidden">
+      
       {/* Sidebar */}
-      <aside className="w-full md:w-72 bg-[#0b1220] border-r border-gray-800 flex flex-col">
-        <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Applicant Chats</h2>
-          <span className="text-xs text-gray-400">
-            {conversations.length} {conversations.length === 1 ? "Chat" : "Chats"}
-          </span>
+      <aside className={`w-full md:w-80 bg-[#0b1220] border-r border-gray-800 flex flex-col ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-5 bg-gradient-to-r from-[#1e293b] to-[#0f172a] border-b border-gray-800">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <MessageSquare className="text-blue-500" size={24}/> Inquiries
+            </h2>
+            <div className="text-xs text-blue-400 mt-1 flex items-center gap-1">
+                {conversations.length} Active Conversations
+            </div>
         </div>
 
-        <div className="p-2">
+        <div className="p-3">
           <div className="relative">
-            <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
             <input
               type="text"
               placeholder="Search applicants..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-[#0f172a] border border-gray-700 rounded-lg pl-9 pr-3 py-2 text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-[#1e293b] border border-gray-700 rounded-lg pl-9 pr-4 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
             />
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2 pb-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-[#0b1220]">
+        <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1 custom-scrollbar">
           {filteredConversations.length > 0 ? (
             filteredConversations.map((conv) => {
               const applicantName = conv.applicantDisplayName || getApplicantName(conv);
               const applicantId = getApplicantId(conv);
-              const lastMessage = conv.lastMessage;
-              const lastSenderId = normalizeId(lastMessage?.senderId);
-              const userId = normalizeId(user._id);
-              const hasUnread =
-                lastMessage && !lastMessage.seen && lastSenderId && lastSenderId !== userId;
-              const previewText = lastMessage?.text?.trim()
-                ? lastMessage.text
-                : lastMessage
-                ? "Sent a message"
-                : "No messages yet";
-              const timestamp = lastMessage?.createdAt ? formatDateTime(lastMessage.createdAt) : "";
-              const isSelected =
-                normalizeId(selectedConversation?._id) === normalizeId(conv._id);
+              const isOnline = isUserOnline(applicantId);
+              const isActive = normalizeId(selectedConversation?._id) === normalizeId(conv._id);
+              
+              const lastMsgText = conv.lastMessage?.text || (conv.lastMessage?.file ? "Sent an attachment" : "No messages");
+              const displayMsg = lastMsgText.startsWith("[Forwarded Job Post]") ? "Forwarded a Job Post" : lastMsgText;
+              
+              const time = formatDateTime(conv.lastMessage?.createdAt);
+              const senderId = normalizeId(conv.lastMessage?.senderId || conv.lastMessage?.sender?._id);
+              const isUnread = !conv.lastMessage?.seen && senderId !== normalizeId(user._id);
 
               return (
                 <div
                   key={conv._id}
                   onClick={() => setSelectedConversation(conv)}
-                  className={`p-3 mb-2 cursor-pointer transition-all rounded-xl border ${
-                    isSelected
-                      ? "bg-[#1e293b] border-blue-500 shadow-md"
-                      : "border-transparent hover:bg-[#162236] hover:border-[#1e3a5f]"
+                  className={`p-3 rounded-xl cursor-pointer transition-all border border-transparent ${
+                    isActive 
+                        ? "bg-blue-600/10 border-blue-500/50" 
+                        : "hover:bg-[#1e293b] border-transparent"
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <div className="relative">
-                      <CircleUserRound strokeWidth={1.5} size={36} className="text-gray-300" />
-                      <span
-                        className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-[#0b1220] ${
-                          isUserOnline(applicantId) ? "bg-green-500" : "bg-gray-500"
-                        }`}
-                      />
+                      <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-gray-300 font-bold border border-slate-600">
+                        {applicantName.charAt(0).toUpperCase()}
+                      </div>
+                      {isOnline && <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 ring-2 ring-[#0b1220]"/>}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium truncate text-gray-100">{applicantName}</p>
-                        {timestamp && (
-                          <span className="text-[10px] text-gray-500 whitespace-nowrap">
-                            {timestamp}
-                          </span>
-                        )}
+                      <div className="flex justify-between items-center mb-0.5">
+                        <h4 className={`text-sm font-medium truncate ${isUnread ? 'text-white' : 'text-gray-200'}`}>{applicantName}</h4>
+                        <span className="text-[10px] text-gray-500">{time}</span>
                       </div>
-                      <p
-                        className={`text-xs truncate mt-1 ${
-                          hasUnread ? "text-gray-100 font-semibold" : "text-gray-400"
-                        }`}
-                      >
-                        {previewText}
+                      <p className={`text-xs truncate ${isUnread ? 'text-blue-400 font-bold' : 'text-gray-500'}`}>
+                        {displayMsg}
                       </p>
                     </div>
-                    {hasUnread && <span className="w-2 h-2 rounded-full bg-blue-400" />}
+                    {isUnread && <span className="w-2 h-2 rounded-full bg-blue-500" />}
                   </div>
                 </div>
               );
             })
           ) : (
-            <p className="text-gray-500 text-sm text-center mt-4">No conversations yet</p>
+            <div className="text-center py-8 text-gray-500 text-sm">No conversations found.</div>
           )}
         </div>
       </aside>
 
-      {/* Chat Window */}
-      <main className="flex-1 flex flex-col bg-[#1e293b] border-l border-gray-700">
-        <div className="p-4 border-b border-gray-700 bg-[#0f172a] flex items-center gap-3">
-          <CircleUserRound size={38} />
-          <div className="flex-1">
-            <h3 className="font-semibold text-white mb-1">
-              {selectedConversation ? (selectedConversation.applicantDisplayName || getApplicantName(selectedConversation)) : "Select an applicant"}
-            </h3>
-            <span className={`text-xs ${selectedConversation && (() => {
-                const applicant = selectedConversation.participants?.find((p) => p.role === "Applicant");
-                const applicantId = (typeof applicant?.userId === "string" ? applicant?.userId : applicant?.userId?._id) || "";
-                return isUserOnline(applicantId);
-              })()
-                ? "text-green-400"
-                : "text-gray-500"
-            }`}>
-              {selectedConversation &&
-              (() => {
-                const applicant = selectedConversation.participants?.find((p) => p.role === "Applicant");
-                const applicantId = (typeof applicant?.userId === "string" ? applicant?.userId : applicant?.userId?._id) || "";
-                return isUserOnline(applicantId);
-              })()
-                ? "Online"
-                : "Offline"}
-            </span>
+      {/* Chat Area */}
+      <main className={`flex-1 flex flex-col bg-[#1e293b] ${!selectedConversation ? 'hidden md:flex' : 'flex'}`}>
+        {!selectedConversation ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-gray-500 bg-[#0f172a]/50">
+            <MessageSquare size={64} className="mb-4 opacity-20" />
+            <p className="text-lg font-medium">Select an applicant to view messages</p>
           </div>
-        </div>
-
-        {/* Messages */}
-        <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#0b1220]">
-          {messages.map((msg) => {
-            const isFromSubadmin =
-              msg?.sender?.role === "Subadmin" ||
-              msg?.senderUser?.role === "Subadmin" ||
-              normalizeId(msg?.senderId) === normalizeId(user._id);
-            const isImage = msg.file && /\.(png|jpg|jpeg|gif|webp)$/i.test(msg.file);
-            return (
-              <div
-                key={msg._id}
-                className={`flex items-end ${isFromSubadmin ? "justify-end" : "justify-start"}`}
-              >
-                <div
-                  className={`px-4 py-2 rounded-2xl max-w-xs break-words ${
-                    isFromSubadmin ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-200"
-                  }`}
-                >
-                  {renderForwardedPost(msg.text) || (
-                    msg.text && <div className="whitespace-pre-wrap break-words">{msg.text}</div>
-                  )}
-                  {msg.file && (
-                    isImage ? (
-                      <img
-                        src={`${api}${msg.file}`}
-                        alt={msg.fileName || "attachment"}
-                        className="mt-2 rounded border max-w-full max-h-60 object-contain cursor-pointer"
-                        onClick={() => setPreviewImage(`${api}${msg.file}`)}
-                      />
-                    ) : (
-                      <a
-                        href={`${api}${msg.file}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline text-blue-200 block mt-2"
-                      >
-                        📎 {msg.fileName || "View attachment"}
-                      </a>
-                    )
-                  )}
-                  <div className="text-[10px] text-gray-300 mt-1 text-right">
-                    {formatDateTime(msg.createdAt)}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Image Preview Modal */}
-        {previewImage && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-            <button
-              onClick={() => setPreviewImage(null)}
-              className="absolute top-4 left-4 text-white text-2xl"
-              aria-label="Back"
-            >
-              <ArrowLeft size={24} />
-            </button>
-            <img
-              src={previewImage}
-              alt="Preview"
-              className="max-h-full max-w-full object-contain rounded shadow-lg"
-            />
-          </div>
-        )}
-
-        {/* Input */}
-        <div className="p-4 border-t border-gray-700 bg-[#1e293b] flex flex-col gap-2">
-          {file && (
-            <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-2 max-w-xs">
-              {file.type?.startsWith("image/") ? (
-                <img
-                  src={URL.createObjectURL(file)}
-                  alt={file.name}
-                  className="w-16 h-16 object-contain rounded"
-                />
-              ) : (
-                <div className="flex-1 text-gray-200 truncate">{file.name}</div>
-              )}
-              <button
-                onClick={() => setFile(null)}
-                className="text-gray-400 hover:text-red-500"
-                title="Remove attachment"
-              >
-                ✕
+        ) : (
+          <>
+            {/* Header */}
+            <div className="px-6 py-4 bg-[#0f172a] border-b border-gray-800 flex items-center gap-4">
+              <button onClick={() => setSelectedConversation(null)} className="md:hidden text-gray-400 hover:text-white">
+                <ArrowLeft size={24} />
               </button>
+              
+              {(() => {
+                const name = selectedConversation.applicantDisplayName || getApplicantName(selectedConversation);
+                const id = getApplicantId(selectedConversation);
+                const online = isUserOnline(id);
+
+                return (
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-blue-700 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                        {name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-white leading-tight">{name}</h3>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-green-500" : "bg-gray-500"}`}/>
+                        <span className="text-xs text-gray-400">{online ? "Online" : "Offline"}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
-          )}
-          <div className="flex items-center gap-3">
-            <label onClick={() => fileInputRef.current.click()}>
-              <Paperclip size={20} className="text-gray-400 cursor-pointer hover:text-blue-400" />
-            </label>
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              onChange={(e) => setFile(e.target.files[0])}
-            />
-            <input
-              type="text"
-              placeholder="Type a message..."
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              className="flex-1 bg-[#0f172a] border border-gray-700 rounded-full px-4 py-2 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={handleSend}
-              className="bg-gradient-to-r from-[#1B3C53] to-[#456882] p-2 rounded-full hover:brightness-110 transition"
-            >
-              <Send size={18} />
-            </button>
-          </div>
-        </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-slate-900/50">
+              {messages.map((msg) => {
+                const senderId = normalizeId(msg.senderId || msg.sender?._id || msg.senderUser?._id);
+                const isMe = senderId === normalizeId(user._id);
+                const isSystem = msg.sender?.role === "System"; // If you have system messages
+
+                if (isSystem) return null; // Or render differently
+
+                const isImage = msg.file && /\.(png|jpg|jpeg|gif|webp)$/i.test(msg.file);
+                const isJobPost = msg.text && msg.text.startsWith("[Forwarded Job Post]");
+
+                return (
+                  <div key={msg._id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-3 shadow-sm ${
+                        isMe ? "bg-blue-600 text-white rounded-br-none" : "bg-[#1e293b] border border-gray-700 text-gray-200 rounded-bl-none"
+                    }`}>
+                      {/* Content */}
+                      {isJobPost ? (
+                          renderForwardedPost(msg.text)
+                      ) : (
+                          <>
+                            {msg.text && <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
+                          </>
+                      )}
+
+                      {/* File */}
+                      {msg.file && (
+                        <div className="mt-2">
+                            {isImage ? (
+                                <img
+                                    src={`${api}${msg.file}`}
+                                    alt="attachment"
+                                    className="rounded-lg max-h-60 w-auto object-cover cursor-pointer hover:opacity-90 transition border border-white/10"
+                                    onClick={() => setPreviewImage(`${api}${msg.file}`)}
+                                />
+                            ) : (
+                                <a href={`${api}${msg.file}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-2 bg-black/20 rounded-lg text-xs hover:bg-black/30 transition text-blue-200 underline">
+                                    <Paperclip size={14}/> {msg.fileName || "Download Attachment"}
+                                </a>
+                            )}
+                        </div>
+                      )}
+
+                      <div className={`text-[10px] mt-1 text-right ${isMe ? "text-blue-200" : "text-gray-500"}`}>
+                        {formatDateTime(msg.createdAt)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input */}
+            <div className="p-4 border-t border-gray-700 bg-[#1e293b]">
+                {file && (
+                    <div className="flex items-center gap-3 mb-3 p-2 bg-[#0f172a] rounded-lg border border-gray-600 w-fit">
+                        {file.type.startsWith("image/") ? (
+                            <img src={URL.createObjectURL(file)} alt="preview" className="w-10 h-10 object-cover rounded" />
+                        ) : (
+                            <div className="w-10 h-10 bg-gray-700 rounded flex items-center justify-center"><Paperclip size={18}/></div>
+                        )}
+                        <span className="text-xs text-gray-300 max-w-[150px] truncate">{file.name}</span>
+                        <button onClick={() => setFile(null)} className="text-gray-400 hover:text-red-400"><X size={16}/></button>
+                    </div>
+                )}
+
+                <div className="flex items-center gap-3">
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        onChange={(e) => setFile(e.target.files[0])}
+                    />
+                    <button 
+                        onClick={() => fileInputRef.current.click()} 
+                        className="p-2.5 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-blue-400 transition"
+                    >
+                        <Paperclip size={20} />
+                    </button>
+                    
+                    <div className="flex-1 relative">
+                        <input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                            placeholder="Type a message..."
+                            className="w-full bg-[#0f172a] border border-gray-600 text-white rounded-full pl-5 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition placeholder-gray-500"
+                        />
+                        <button 
+                            onClick={handleSend}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-full transition shadow-lg"
+                        >
+                            <Send size={16} className="ml-0.5" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+          </>
+        )}
       </main>
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+            <button onClick={() => setPreviewImage(null)} className="absolute top-5 right-5 p-2 bg-gray-800 rounded-full text-white hover:bg-gray-700">
+                <X size={24}/>
+            </button>
+            <img src={previewImage} alt="Full Preview" className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" />
+        </div>
+      )}
     </div>
   );
 }

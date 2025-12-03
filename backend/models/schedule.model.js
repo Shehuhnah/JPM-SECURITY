@@ -23,8 +23,8 @@ const scheduleSchema = new mongoose.Schema(
       enum: ["Day Shift", "Night Shift"],
     },
 
-    timeIn: Date,
-    timeOut: Date,
+    timeIn: String,
+    timeOut: String,
 
     status: {
       type: String,

@@ -163,6 +163,7 @@ export const getAttendances = async (req, res) => {
       .sort({ createdAt: -1 });
 
     res.json(attendances);
+    console.log(attendances);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -184,6 +185,7 @@ export const getGuardAttendance = async (req, res) => {
         .sort({ createdAt: -1 });
 
     res.json(attendance);
+    console.log(attendance);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

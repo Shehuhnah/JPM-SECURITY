@@ -1,24 +1,53 @@
 import { useState, useEffect } from "react";
-import { Shield, Clock, Search, CalendarCheck2, Pencil } from "lucide-react";
+import { Shield, Clock, Search, CalendarCheck2, Pencil, MapPin, Briefcase, User, Calendar as CalendarIcon, ChevronLeft } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import { useNavigate, useLocation, useParams } from "react-router-dom";
-import { parseISO, format } from "date-fns";
+import { useNavigate, useParams } from "react-router-dom";
+import { format } from "date-fns";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import { ToastContainer, toast, Bounce } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
 const api = import.meta.env.VITE_API_URL;
+
+// Custom CSS to force Dark Mode on React Day Picker
+const datePickerStyles = `
+  .rdp {
+    --rdp-cell-size: 40px;
+    --rdp-accent-color: #3b82f6;
+    --rdp-background-color: #1e293b;
+    margin: 0;
+  }
+  .rdp-day_selected:not([disabled]) { 
+    background-color: #3b82f6; 
+    color: white;
+    font-weight: bold;
+  }
+  .rdp-day:hover:not([disabled]) { 
+    background-color: #334155; 
+  }
+  .rdp-caption_label, .rdp-head_cell, .rdp-day {
+    color: #e2e8f0;
+  }
+  .rdp-button:hover:not([disabled]) {
+    background-color: #334155;
+  }
+`;
 
 export default function AdminAddSchedule() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams();
+  
+  // State
   const [isEditMode, setIsEditMode] = useState(false);
   const [guards, setGuards] = useState([]);
   const [clients, setClients] = useState([]);
   const [selectedGuard, setSelectedGuard] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDays, setSelectedDays] = useState([]);
+  const [loadingPage, setLoadingPage] = useState(false);
+  
   const [form, setForm] = useState({
     deploymentLocation: "",
     client: "",
@@ -28,24 +57,16 @@ export default function AdminAddSchedule() {
     timeOut: "",
   });
 
-  const [loadingpage, setLoadingpage] = useState(false);
-  const [message, setMessage] = useState("");
-
+  // --- Fetch Initial Data ---
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [guardsRes, clientsRes] = await Promise.all([
-          fetch(`${api}/api/guards`, {
-            credentials: "include",
-          }),
-          fetch(`${api}/api/clients/get-clients`, {
-            credentials: "include",
-          }),
+          fetch(`${api}/api/guards`, { credentials: "include" }),
+          fetch(`${api}/api/clients/get-clients`, { credentials: "include" }),
         ]);
 
-        if (!guardsRes.ok || !clientsRes.ok) {
-          throw new Error("Failed to fetch guards or clients");
-        }
+        if (!guardsRes.ok || !clientsRes.ok) throw new Error("Failed to fetch data");
 
         const [guardsData, clientsData] = await Promise.all([
           guardsRes.json(),
@@ -56,23 +77,23 @@ export default function AdminAddSchedule() {
         setClients(clientsData);
       } catch (error) {
         console.error("Error fetching data:", error);
+        toast.error("Failed to load initial data");
       }
     };
 
     if (user) fetchData();
   }, [user]);
 
+  // --- Fetch Edit Data ---
   useEffect(() => {
     if (id && guards.length > 0) {
       setIsEditMode(true);
       const fetchScheduleData = async () => {
         try {
-          setLoadingpage(true);
-          const res = await fetch(
-            `${api}/api/schedules/get-by-batch/${id}`,
-            { credentials: "include" }
-          );
-          if (!res.ok) throw new Error("Failed to fetch schedule batch for editing");
+          setLoadingPage(true);
+          const res = await fetch(`${api}/api/schedules/get-by-batch/${id}`, { credentials: "include" });
+          if (!res.ok) throw new Error("Failed to fetch schedule batch");
+          
           const batchData = await res.json();
 
           if (batchData.length > 0) {
@@ -86,64 +107,52 @@ export default function AdminAddSchedule() {
               timeOut: "",
             });
 
-            // Check if all schedules in the batch have the same guardId
-            const uniqueGuardIds = new Set(batchData.map(s => s.guardId.toString())); // Convert to string for comparison
+            // Handle Guard Selection logic
+            const uniqueGuardIds = new Set(batchData.map(s => s.guardId.toString()));
             if (uniqueGuardIds.size === 1) {
-                const guard = guards.find((g) => g._id === firstSched.guardId.toString()); // Convert to string for comparison
+                const guard = guards.find((g) => g._id === firstSched.guardId.toString());
                 setSelectedGuard(guard);
             } else {
-                setMessage("❌ This batch contains schedules for multiple guards and cannot be edited on this page.");
-                setSelectedGuard(null); // Clear selected guard if multiple guards
-                // Optionally, disable the form or other actions if multi-guard batch
+                toast.error("Batch contains multiple guards. Cannot edit here.");
             }
 
-            const days = batchData.map((s) => parseISO(s.timeIn));
+            const days = batchData.map((s) => new Date(s.timeIn));
             setSelectedDays(days);
           }
         } catch (err) {
-          setMessage(`❌ Error: ${err.message}`);
+          toast.error(`Error: ${err.message}`);
         } finally {
-          setLoadingpage(false);
+          setLoadingPage(false);
         }
       };
       fetchScheduleData();
     }
   }, [id, guards]);
 
+  // --- Handlers ---
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleClientChange = (e) => {
     const selectedClientName = e.target.value;
-    const selectedClient = clients.find(
-      (client) => client.clientName === selectedClientName
-    );
+    const clientData = clients.find((c) => c.clientName === selectedClientName);
 
-    setForm((prevForm) => ({
-      ...prevForm,
+    setForm((prev) => ({
+      ...prev,
       client: selectedClientName,
-      deploymentLocation: selectedClient ? selectedClient.clientAddress : "", 
+      deploymentLocation: clientData ? clientData.clientAddress : "", 
     }));
   };
 
-  console.log(clients)
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isEditMode) {
-      await handleUpdate();
-    } else {
-      await handleCreate();
-    }
-  };
+    if (!selectedGuard) return toast.error("Please select a guard first!");
+    if (selectedDays.length === 0) return toast.error("Please select at least one date!");
 
-  const handleCreate = async () => {
-    if (!selectedGuard) return alert("Please select a guard first!");
-    if (selectedDays.length === 0) return alert("Please select at least one date!");
+    setLoadingPage(true);
 
-    const shiftTimes =
-      form.shiftType === "Night Shift"
-        ? { timeIn: "19:00", timeOut: "07:00" }
-        : { timeIn: "07:00", timeOut: "19:00" };
+    const shiftTimes = form.shiftType === "Night Shift"
+      ? { timeIn: "19:00", timeOut: "07:00" }
+      : { timeIn: "07:00", timeOut: "19:00" };
 
     const schedules = selectedDays.map((day) => {
       const dateStr = format(day, "yyyy-MM-dd");
@@ -168,71 +177,35 @@ export default function AdminAddSchedule() {
     });
 
     try {
-      setLoadingpage(true);
-      const res = await fetch(`${api}/api/schedules/create-schedule`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ schedules }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Error adding schedules");
-
-      setMessage("✅ Schedules added successfully!");
-      navigate("/admin/deployment");
-    } catch (err) {
-      setMessage("❌ " + err.message);
-    } finally {
-      setLoadingpage(false);
-    }
-  };
-
-  const handleUpdate = async () => {
-    if (!selectedGuard) return alert("Please select a guard first!");
-    if (selectedDays.length === 0) return alert("Please select at least one date!");
-
-    const shiftTimes =
-      form.shiftType === "Night Shift"
-        ? { timeIn: "19:00", timeOut: "07:00" }
-        : { timeIn: "07:00", timeOut: "19:00" };
-
-    const schedules = selectedDays.map((day) => {
-      const dateStr = format(day, "yyyy-MM-dd");
-      const timeInFull = `${dateStr}T${shiftTimes.timeIn}`;
-      let timeOutFull = `${dateStr}T${shiftTimes.timeOut}`;
-      if (form.shiftType === "Night Shift") {
-        const nextDay = new Date(day);
-        nextDay.setDate(nextDay.getDate() + 1);
-        timeOutFull = `${format(nextDay, "yyyy-MM-dd")}T${shiftTimes.timeOut}`;
+      let res;
+      if (isEditMode) {
+        res = await fetch(`${api}/api/schedules/batch/${id}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ schedules }),
+        });
+      } else {
+        res = await fetch(`${api}/api/schedules/create-schedule`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ schedules }),
+        });
       }
-      return {
-        guardId: selectedGuard._id,
-        deploymentLocation: form.deploymentLocation,
-        client: form.client,
-        position: form.position,
-        shiftType: form.shiftType,
-        timeIn: timeInFull,
-        timeOut: timeOutFull,
-      };
-    });
-    
-    try {
-      setLoadingpage(true);
-      const res = await fetch(`${api}/api/schedules/batch/${id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ schedules }),
-      });
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Error updating schedules");
-      setMessage("✅ Schedules updated successfully!");
-      navigate("/admin/deployment");
+      if (!res.ok) throw new Error(data.message || "Operation failed");
+
+      toast.success(isEditMode ? "Schedule updated successfully!" : "Schedule assigned successfully!");
+      
+      // Delay navigation slightly to let toast show
+      setTimeout(() => navigate("/admin/deployment"), 1500);
+      
     } catch (err) {
-      setMessage("❌ " + err.message);
+      toast.error(err.message);
     } finally {
-      setLoadingpage(false);
+      setLoadingPage(false);
     }
   };
 
@@ -241,86 +214,77 @@ export default function AdminAddSchedule() {
   );
 
   return (
-    <section className="min-h-screen bg-[#0f172a] text-gray-100 px-10 py-12">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold  flex gap-x-3 items-center">
-          {isEditMode ? (
-            <Pencil className="text-yellow-400" size={28} />
-          ) : (
-            <CalendarCheck2 className="text-blue-400" size={28} />
-          )}
-          {isEditMode ? "Edit Guard Schedule" : "Add Guard Schedule"}
-        </h1>
-        <p
-          onClick={() => navigate("/admin/deployment")}
-          className="text-sm text-gray-400 cursor-pointer hover:text-gray-200"
-        >
-          ← Back to Deployment
-        </p>
+    <div className="min-h-screen bg-[#0f172a] text-gray-100 p-4 md:p-8 font-sans">
+      <style>{datePickerStyles}</style>
+      <ToastContainer theme="dark" position="top-right" autoClose={3000} />
+
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+        <div className="flex items-center gap-3">
+            <button onClick={() => navigate("/admin/deployment")} className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 transition">
+                <ChevronLeft size={20} className="text-gray-400"/>
+            </button>
+            <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3 text-white">
+                {isEditMode ? <Pencil className="text-yellow-400" size={28} /> : <CalendarCheck2 className="text-blue-400" size={28} />}
+                {isEditMode ? "Edit Schedule" : "New Deployment"}
+            </h1>
+        </div>
       </div>
 
-      <div className="flex gap-8">
-        {/* LEFT SIDE - Guard List */}
-        <div className={`w-1/2 bg-[#1e293b] rounded-2xl border border-gray-700 shadow-lg flex flex-col`}>
-          <div className="p-6 border-b border-gray-700 flex items-center gap-2 mb-2">
-            <Shield className="text-blue-400" />
-            <h2 className="text-xl font-semibold">Guard List</h2>
+      <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-140px)]">
+        
+        {/* --- LEFT SIDE: GUARD LIST --- */}
+        <div className="w-full lg:w-1/3 bg-[#1e293b] rounded-2xl border border-gray-700 shadow-xl flex flex-col overflow-hidden">
+          <div className="p-5 border-b border-gray-700 bg-slate-800/50">
+            <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                <Shield className="text-blue-400" size={20} /> Select Guard
+            </h2>
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                    type="text"
+                    placeholder="Search by name..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-[#0f172a] border border-gray-600 rounded-lg pl-9 pr-4 py-2.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                />
+            </div>
           </div>
 
-          <div className="px-6 py-4 flex items-center bg-[#0f172a] rounded-lg mx-6">
-            <Search className="text-gray-400 w-4 h-4 mr-2" />
-            <input
-              type="text"
-              placeholder="Search guard..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-transparent outline-none text-gray-100 placeholder-gray-500"
-            />
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2 max-h-[70vh]">
+          <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
             {filteredGuards.length === 0 ? (
-              <p className="text-gray-500 text-sm">No guards found.</p>
+              <div className="flex flex-col items-center justify-center h-40 text-gray-500">
+                  <User size={32} className="mb-2 opacity-50"/>
+                  <p className="text-sm">No guards found.</p>
+              </div>
             ) : (
               filteredGuards.map((guard) => (
                 <div
                   key={guard._id}
                   onClick={() => {
-                    if (guard.status === "Active") {
-                      setSelectedGuard(guard);
-                    } else {
-                      toast.error("Active guards only can be deploy", {
-                        position: "top-right",
-                        autoClose: 5000,
-                        hideProgressBar: false,
-                        closeOnClick: false,
-                        pauseOnHover: true,
-                        draggable: true,
-                        progress: undefined,
-                        theme: "dark",
-                        transition: Bounce,
-                      });
-                    }
+                    if (guard.status === "Active") setSelectedGuard(guard);
+                    else toast.warning("Only active guards can be deployed.");
                   }}
-                  className={`p-4 rounded-lg cursor-pointer transition ${
+                  className={`p-3 rounded-xl cursor-pointer transition-all border ${
                     selectedGuard?._id === guard._id
-                      ? "bg-blue-600/20 border-blue-500"
-                      : "hover:bg-[#0b2433] border-transparent"
+                      ? "bg-blue-600/20 border-blue-500 shadow-md shadow-blue-900/20"
+                      : "bg-[#0f172a]/50 hover:bg-[#0f172a] border-transparent hover:border-gray-600"
                   }`}
                 >
-                  <div className="flex justify-between items-center border-b-[1px] border-gray-500">
-                    <div>
-                      <p className="font-semibold">{guard.fullName}</p>
-                      <p className="text-sm text-gray-400">{guard.position}</p>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                        selectedGuard?._id === guard._id ? "bg-blue-500 text-white" : "bg-slate-700 text-gray-300"
+                    }`}>
+                        {guard.fullName.charAt(0)}
                     </div>
-                    <span
-                      className={`text-xs px-2 py-1 rounded ${
-                        guard.status === "Active"
-                          ? "bg-green-700/30 text-green-400"
-                          : "bg-gray-700/50 text-gray-400"
-                      }`}
-                    >
-                      {guard.status}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-white truncate">{guard.fullName}</p>
+                      <p className="text-xs text-gray-400 truncate">{guard.position}</p>
+                    </div>
+                    <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full ${
+                        guard.status === "Active" ? "bg-green-500/20 text-green-400" : "bg-gray-600/30 text-gray-500"
+                    }`}>
+                        {guard.status}
                     </span>
                   </div>
                 </div>
@@ -329,156 +293,128 @@ export default function AdminAddSchedule() {
           </div>
         </div>
 
-        {/* RIGHT SIDE - Add/Edit Schedule Form */}
-        <div className="w-1/2 bg-[#1e293b] rounded-2xl border border-gray-700 shadow-lg p-8">
-          <div className="flex items-center gap-2 mb-6">
-            <Clock className="text-blue-400" />
-            <h2 className="text-xl font-semibold">
-              {isEditMode ? "Update Schedule Details" : "Assign Schedule"}
-            </h2>
-          </div>
-
-          {selectedGuard ? (
-            <div className="mb-4 text-sm text-gray-300">
-              Selected Guard:{" "}
-              <span className="font-semibold text-blue-400">
-                {selectedGuard.fullName}
-              </span>
-            </div>
-          ) : (
-            <p className="text-gray-400 mb-4 italic">
-              Select a guard from the left to assign a schedule.
-            </p>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex flex-col w-full gap-y-2">
-                <div className="flex w-full gap-x-2">
-                    <div className="w-full">
-                        <label
-                            htmlFor="deploymentLocation"
-                            className="block text-sm font-medium text-gray-300 mb-1">
-                            Deployment Location
-                        </label>
-                        <input
-                            id="deploymentLocation"
-                            name="deploymentLocation"
-                            placeholder="Enter deployment location"
-                            value={form.deploymentLocation}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        />
-                    </div>
-                    <div className="w-full">
-                        <label
-                            htmlFor="client"
-                            className="block text-sm font-medium text-gray-300 mb-1"
-                        >
-                            Client
-                        </label>
-                        <select
-                            id="client"
-                            name="client"
-                            value={form.client}
-                            onChange={handleClientChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        >
-                            <option value="">Select Client</option>
-                            {clients.length > 0 ? (
-                            clients.map((client) => (
-                                <option key={client._id} value={client.clientName}>
-                                {client.clientName}
-                                </option>
-                            ))
-                            ) : (
-                            <option disabled>Loading clients...</option>
-                            )}
-                        </select>
-                    </div>
+        {/* --- RIGHT SIDE: FORM --- */}
+        <div className="w-full lg:w-2/3 bg-[#1e293b] rounded-2xl border border-gray-700 shadow-xl flex flex-col overflow-y-auto">
+            <div className="p-6 md:p-8">
+                <div className="mb-6 flex items-center justify-between pb-4 border-b border-gray-700">
+                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                        <Briefcase className="text-blue-400" size={22} /> Deployment Details
+                    </h2>
+                    {selectedGuard && (
+                        <div className="bg-blue-900/30 px-3 py-1.5 rounded-lg border border-blue-500/30 flex items-center gap-2">
+                            <span className="text-xs text-blue-300">Assigning to:</span>
+                            <span className="text-sm font-bold text-white">{selectedGuard.fullName}</span>
+                        </div>
+                    )}
                 </div>
-                <div className="flex w-full gap-x-2">
-                    <div className="w-full">
-                        <label
-                            htmlFor="position"
-                            className="block text-sm font-medium text-gray-300 mb-1">
-                            Position
-                        </label>
-                        <input
-                            id="position"
-                            name="position"
-                            placeholder="Enter assigned position"
-                            value={form.position}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        />
+
+                <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-10">
+                    
+                    {/* INPUTS COLUMN */}
+                    <div className="flex-1 space-y-5">
+                        {/* Client & Position Row */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1.5 ml-1">Client</label>
+                                <div className="relative">
+                                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
+                                    <select
+                                        name="client"
+                                        value={form.client}
+                                        onChange={handleClientChange}
+                                        className="w-full bg-[#0f172a] border border-gray-600 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none appearance-none cursor-pointer"
+                                        required
+                                    >
+                                        <option value="">Select Client</option>
+                                        {clients.map((client) => (
+                                            <option key={client._id} value={client.clientName}>{client.clientName}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1.5 ml-1">Position</label>
+                                <div className="relative">
+                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
+                                    <input
+                                        name="position"
+                                        value={form.position}
+                                        onChange={handleChange}
+                                        placeholder="e.g. Head Guard"
+                                        className="w-full bg-[#0f172a] border border-gray-600 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Location */}
+                        <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1.5 ml-1">Deployment Address</label>
+                            <div className="relative">
+                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
+                                <input
+                                    name="deploymentLocation"
+                                    value={form.deploymentLocation}
+                                    onChange={handleChange}
+                                    placeholder="Enter full address"
+                                    className="w-full bg-[#0f172a] border border-gray-600 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        {/* Shift Type */}
+                        <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1.5 ml-1">Shift Type</label>
+                            <div className="relative">
+                                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
+                                <select
+                                    name="shiftType"
+                                    value={form.shiftType}
+                                    onChange={handleChange}
+                                    className="w-full bg-[#0f172a] border border-gray-600 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none appearance-none cursor-pointer"
+                                    required
+                                >
+                                    <option value="">Select Shift</option>
+                                    <option value="Day Shift">Day Shift (7:00 AM - 7:00 PM)</option>
+                                    <option value="Night Shift">Night Shift (7:00 PM - 7:00 AM)</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
-                    <div className="w-full">
-                        <label
-                            htmlFor="shiftType"
-                            className="block text-sm font-medium text-gray-300 mb-1">
-                            Shift Type
+
+                    {/* CALENDAR COLUMN */}
+                    <div className="flex flex-col items-center justify-center bg-[#0f172a]/50 p-6 rounded-2xl border border-gray-700">
+                        <label className="mb-4 text-sm font-semibold text-blue-400 flex items-center gap-2">
+                            <CalendarIcon size={16}/> Select Duty Days
                         </label>
-                        <select
-                            id="shiftType"
-                            name="shiftType"
-                            value={form.shiftType}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        >
-                            <option value="">Select Shift</option>
-                            <option value="Day Shift">Day Shift</option>
-                            <option value="Night Shift">Night Shift</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
-                        Select Schedule Dates
-                    </label>
-                    <div className="bg-[#0f172a] border border-gray-700 rounded-lg p-4 flex items-center justify-center">
                         <DayPicker
                             mode="multiple"
                             selected={selectedDays}
                             onSelect={setSelectedDays}
-                            classNames={{
-                                caption: "text-gray-200",
-                                day_selected: "bg-blue-500 text-white",
-                                day_today: "text-blue-300",
-                            }}
+                            className="text-sm"
                         />
+                        <div className="mt-4 text-xs text-gray-400 bg-slate-800 px-3 py-1.5 rounded-lg">
+                            {selectedDays.length} day(s) selected
+                        </div>
                     </div>
-                    {selectedDays.length > 0 && (
-                        <p className="text-gray-400 text-sm mt-2">
-                        {selectedDays.length} day{selectedDays.length > 1 ? "s" : ""} selected
-                        </p>
-                    )}
-                </div>
+                </form>
             </div>
 
-            {message && (
-                <div className={`text-sm text-center py-2 ${message.startsWith('✅') ? 'text-green-400' : 'text-red-400'}`}>{message}</div>
-            )}
-
-            <div className="flex justify-end">
+            {/* Footer Actions */}
+            <div className="p-6 border-t border-gray-700 bg-slate-800/30 flex justify-end mt-auto">
                 <button
-                    type="submit"
-                    disabled={loadingpage}
-                    className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-8 py-2 rounded-lg text-white font-medium disabled:opacity-50"
+                    onClick={handleSubmit}
+                    disabled={loadingPage}
+                    className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-medium shadow-lg shadow-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition transform active:scale-95 flex items-center gap-2"
                 >
-                    {loadingpage ? "Saving..." : isEditMode ? "Update Schedule" : "Save Schedule"}
+                    {loadingPage ? <Clock className="animate-spin" size={18}/> : <CalendarCheck2 size={18}/>}
+                    {loadingPage ? "Processing..." : isEditMode ? "Update Schedule" : "Confirm Schedule"}
                 </button>
             </div>
-          </form>
         </div>
       </div>
-      <div className="text-center text-gray-500 text-xs mt-10">
-        © {new Date().getFullYear()} JPM Security Agency — Admin Dashboard
-      </div>
-      <ToastContainer />
-    </section>
+    </div>
   );
 }

@@ -56,7 +56,7 @@ export default function AdminLayout() {
   };
 
   const navItems = [
-    { to: "/Admin", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
+    { to: "/admin", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
     { to: "/Admin/deployment", label: "Deployment", icon: <Calendar size={18} /> },
     { to: "/Admin/schedule-approval", label: "Schedules Approval", icon: <Calendar size={18} /> },
     { to: "/Admin/manage-clients", label: "Clients", icon: <Building size={18} /> },
@@ -77,23 +77,25 @@ export default function AdminLayout() {
   ];
 
   return (
-    <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
-
-      {/* Mobile Hamburger */}
-      <div className="md:hidden fixed top-4 left-4 z-50">
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 bg-[#1B3C53] rounded-md">
+    <div className="flex flex-col min-h-screen bg-[#0f172a] text-gray-100">
+      {/* Mobile Top Navbar */}
+      <div className="md:hidden flex items-center justify-between bg-[#0f172a] p-4 border-b border-gray-800 sticky top-0 z-20">
+        <Link to="/Admin/dashboard" className="flex items-center gap-2" onClick={() => setSidebarOpen(false)}>
+          <img src={logo} alt="logo" className="w-8 h-8" />
+          <span className="font-bold text-white text-lg">JPM SECURITY</span>
+        </Link>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 text-white">
           {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
       {/* SIDEBAR */}
-      <aside
-        className={`fixed top-0 left-0 h-screen w-64 bg-[#0f172a] shadow-md flex flex-col
+      <aside className={`fixed top-0 left-0 h-screen w-64 bg-[#0f172a] shadow-md flex flex-col
           transition-transform duration-300 z-40
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
         {/* Logo */}
-        <div className="flex items-center justify-center py-6 border-b border-gray-800 px-4 gap-2">
+        <div className="flex items-center justify-center py-6 border-b border-gray-800 px-4 gap-2 md:flex">
           <Link to="/">
             <img src={logo} alt="logo" className="w-12 h-12" />
           </Link>
@@ -111,7 +113,6 @@ export default function AdminLayout() {
 
         {/* NAVIGATION */}
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-
           {navItems
             .filter(item => {
               if (user?.role === "Subadmin") {
@@ -152,6 +153,7 @@ export default function AdminLayout() {
                                 isActive ? "bg-[#142235] text-white" : "hover:bg-[#0b2433]"
                               }`
                             }
+                            onClick={() => setSidebarOpen(false)}
                           >
                             <Contact size={16} /> Staff Message
                           </NavLink>
@@ -164,6 +166,7 @@ export default function AdminLayout() {
                                 isActive ? "bg-[#142235] text-white" : "hover:bg-[#0b2433]"
                               }`
                             }
+                            onClick={() => setSidebarOpen(false)}
                           >
                             <ShieldUser size={16} /> Guards Message
                           </NavLink>
@@ -176,6 +179,7 @@ export default function AdminLayout() {
                                 isActive ? "bg-[#142235] text-white" : "hover:bg-[#0b2433]"
                               }`
                             }
+                            onClick={() => setSidebarOpen(false)}
                           >
                             <FileUser size={16} /> Applicants Message
                           </NavLink>
@@ -232,6 +236,7 @@ export default function AdminLayout() {
                           isActive ? "bg-[#142235] text-white" : "hover:bg-[#0b2433]"
                         }`
                       }
+                      onClick={() => setSidebarOpen(false)}
                     >
                       {item.icon}
                       {item.label}
@@ -256,14 +261,14 @@ export default function AdminLayout() {
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black opacity-40 z-30 md:hidden"
+          className="fixed inset-0 bg-black opacity-40 z-30 md:hidden lg:hidden"
           onClick={() => setSidebarOpen(false)}
         ></div>
       )}
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 md:ml-64 overflow-y-auto">
-        <Outlet />
+      <main className="flex-1 pt-5 md:pt-0 overflow-y-auto md:ml-64">
+        <Outlet/>
       </main>
     </div>
   );

@@ -4,8 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 const findConflict = async (scheduleData) => {
   const { timeIn, _id, shiftType, position, deploymentLocation, guardId } = scheduleData;
 
-  const start = new Date(timeIn);
-  const newScheduleDateOnly = start.toISOString().split("T")[0];
+  const newScheduleDateOnly = timeIn.split("T")[0];
 
   // Prevent another guard in SAME CLIENT with same Day + ShiftType + Position
   const clientConflictQuery = {
@@ -14,7 +13,7 @@ const findConflict = async (scheduleData) => {
     shiftType,
     $expr: {
       $eq: [
-        { $dateToString: { format: "%Y-%m-%d", date: "$timeIn" } },
+        { $substrCP: ["$timeIn", 0, 10] },
         newScheduleDateOnly,
       ],
     },
@@ -38,7 +37,7 @@ const findConflict = async (scheduleData) => {
     guardId,
     $expr: {
       $eq: [
-        { $dateToString: { format: "%Y-%m-%d", date: "$timeIn" } },
+        { $substrCP: ["$timeIn", 0, 10] },
         newScheduleDateOnly,
       ],
     },
@@ -149,15 +148,18 @@ export const getSchedulesByGuard = async (req, res) => {
 export const getTodayScheduleByGuard = async (req, res) => {
   try {
     const { id } = req.params;
-    const now = new Date();
-    const startOfDay = new Date(now.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(now.setHours(23, 59, 59, 999));
+    
+    // Get today's date in 'YYYY-MM-DD' format based on server's local time
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayDateStr = `${year}-${month}-${day}`;
 
     const schedules = await Schedule.find({
       guardId: id,
       isApproved: "Approved",
-      timeIn: { $lte: endOfDay }, // Schedule starts before end of today
-      timeOut: { $gte: startOfDay } // Schedule ends after start of today
+      timeIn: { $regex: `^${todayDateStr}` } // Find schedules where timeIn starts with today's date
     }).populate("guardId", "fullName email");
 
     res.status(200).json({ hasSchedule: schedules.length > 0, schedules });

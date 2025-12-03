@@ -18,11 +18,16 @@ import {
   IdCard,
   FileDown,
   FileImage,
-  RefreshCcw, } from "lucide-react";
+  RefreshCcw,
+  ChevronRight
+} from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { Dialog, Transition } from "@headlessui/react";
 import { ToastContainer, toast, Bounce } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { format } from 'date-fns';
+import { DayPicker } from 'react-day-picker';
+import "react-day-picker/dist/style.css";
 const api = import.meta.env.VITE_API_URL;
 
 export default function GuardAttendancePage() {
@@ -36,6 +41,8 @@ export default function GuardAttendancePage() {
   const [allAttendance, setAllAttendance] = useState([]);
   const [selectedGuardAttendance, setSelectedGuardAttendance] = useState([]);
   const [selectedClient, setSelectedClient] = useState(""); // New state for client filter
+  const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
+  const [selectedDateRange, setSelectedDateRange] = useState({ from: null, to: null });
   const navigate = useNavigate();
 
   const { user: admin, loading } = useAuth();
@@ -107,6 +114,33 @@ export default function GuardAttendancePage() {
 
   // Filter and search
   const filteredAttendance = allAttendance
+    .filter(a => {
+      if (!selectedDateRange.from) return true;
+      if (!a.timeIn) return false;
+
+      let recordDate;
+      try {
+        recordDate = new Date(a.timeIn);
+        if (isNaN(recordDate.getTime())) return false; // Invalid date
+      } catch (e) {
+        return false;
+      }
+      
+      // Normalize dates to midnight to compare just the date part
+      recordDate.setHours(0, 0, 0, 0);
+
+      const fromDate = new Date(selectedDateRange.from);
+      fromDate.setHours(0, 0, 0, 0);
+
+      if (selectedDateRange.to) {
+        const toDate = new Date(selectedDateRange.to);
+        toDate.setHours(0, 0, 0, 0);
+        return recordDate >= fromDate && recordDate <= toDate;
+      }
+      
+      // If only one day is selected, 'to' will be null, so check for equality
+      return recordDate.getTime() === fromDate.getTime();
+    })
     .filter(a => selectedClient === "" || (a.scheduleId?.client || "").toLowerCase() === selectedClient.toLowerCase())
     .filter(a => filter === "All" ? true : (a.status || "").toLowerCase() === filter.toLowerCase())
     .filter(a => (a.guard?.fullName || "").toLowerCase().includes(search.toLowerCase()));
@@ -205,137 +239,252 @@ export default function GuardAttendancePage() {
   const selectedGuardInfo = allAttendance.find(a => a.guard._id === selectedGuardId)?.guard;
   console.log("selected guard attendance: ", selectedGuardInfo)
 
+  const groupedAttendance = filteredAttendance.reduce((acc, rec) => {
+      const client = rec.scheduleId?.client || "Unassigned Client";
+      if (!acc[client]) acc[client] = [];
+      acc[client].push(rec);
+      return acc;
+  }, {});
+
+  const getStatusBadge = (status) => {
+      const styles = {
+          "On Duty": "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+          "Off Duty": "bg-slate-500/10 text-slate-400 border-slate-500/20",
+          "Late": "bg-amber-500/10 text-amber-400 border-amber-500/20",
+          "Absent": "bg-red-500/10 text-red-400 border-red-500/20",
+      };
+      return (
+          <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${styles[status] || styles["Off Duty"]}`}>
+              {status}
+          </span>
+      );
+  };
+
   return (
     <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
-      <main className="flex-1 flex flex-col p-4 md:p-6">
-        {/* ===== Header ===== */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-3">
-          <h2 className="text-3xl font-bold tracking-wide text-white flex items-center gap-2">
-            <Clock className="w-6 h-6 text-blue-400" />
-            Guards Attendance
-          </h2>
+      <main className="flex-1 flex flex-col p-4 md:p-6 bg-slate-900/50 min-h-screen">
+          {/* --- Header & Stats --- */}
+          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between mb-8 gap-6">
+              <div className="flex items-center gap-3">
+                  <div className="p-3 bg-blue-600/10 rounded-xl border border-blue-600/20">
+                      <Clock className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <div>
+                      <h2 className="text-2xl md:text-3xl font-bold tracking-wide text-white">
+                          Guards Attendance
+                      </h2>
+                      <div className="flex items-center gap-2 text-sm text-slate-400 mt-1">
+                          <span>Showing <span className="text-white font-semibold">{filteredAttendance.length}</span> records</span>
+                          <span>•</span>
+                          <span>{format(new Date(), "MMM dd, yyyy")}</span>
+                      </div>
+                  </div>
+              </div>
 
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <button
-              onClick={() => fetchAllAttendance()}
-              className="px-4 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-[#243046] transition"
-              title="Refresh List"
-            >
-              <RefreshCcw className="size-4" />
-            </button>
-            {/* client Filter Dropdown */}
-            <select
-              value={selectedClient}
-              onChange={(e) => setSelectedClient(e.target.value)}
-              className="border border-gray-700 bg-[#1e293b] text-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Client</option>
-              {clientList.map((clientName) => (
-                <option key={clientName} value={clientName}>
-                  {clientName}
-                </option>
-              ))}
-            </select>
-            {/* status Filter Dropdown */}
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="border border-gray-700 bg-[#1e293b] text-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="All">All Status</option>
-              <option value="On Duty">On Duty</option>
-              <option value="Off Duty">Off Duty</option>
-            </select>
+              {/* --- Controls Toolbar --- */}
+              <div className="grid grid-cols-2 sm:flex sm:flex-row flex-wrap gap-3 w-full xl:w-auto items-stretch">
+                  
+                  {/* Search */}
+                  <div className="relative flex-grow sm:w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                      <input
+                          type="text"
+                          placeholder="Search guard..."
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          className="w-full h-full bg-[#1e293b] border border-gray-700 rounded-lg pl-10 pr-4 py-2.5 
+                          text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                      />
+                  </div>
 
-            {/* Search Bar */}
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-              <input
-                type="text"
-                placeholder="Search guard..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-[#1e293b] border border-gray-700 rounded-md pl-9 pr-4 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-        </div>
+                  {/* Date Range Picker (Styled Wrapper) */}
+                  <div className="relative">
+                      <button
+                          onClick={() => setIsDateFilterOpen(!isDateFilterOpen)}
+                          className="h-full w-full sm:w-auto bg-[#1e293b] border border-gray-700 rounded-lg px-4 py-2.5 
+                          text-sm text-gray-200 hover:bg-[#243046] focus:ring-2 focus:ring-blue-500 flex items-center justify-between gap-3 transition"
+                      >
+                          <div className="flex items-center gap-2">
+                              <CalendarDays className="text-blue-400" size={18} />
+                              <span>
+                                  {selectedDateRange.from ? 
+                                      (selectedDateRange.to ? `${format(selectedDateRange.from, "MMM d")} - ${format(selectedDateRange.to, "MMM d")}` : format(selectedDateRange.from, "MMM d, yyyy")) 
+                                      : "Filter Date"}
+                              </span>
+                          </div>
+                      </button>
+                      {/* Popover */}
+                      {isDateFilterOpen && (
+                          <div className="absolute right-0 sm:left-auto top-full mt-2 bg-slate-800 border border-slate-700/70 rounded-xl p-4 shadow-2xl shadow-blue-900/40 z-50 w-80 max-h-[80vh] overflow-y-auto"
+                          >
+                              <DayPicker 
+                                  mode="range" 
+                                  selected={selectedDateRange} 
+                                  onSelect={setSelectedDateRange} 
+                                  className="text-sm w-full"
+                              />
+                              <div className="flex justify-end gap-2 pt-4 border-t border-slate-700 mt-2">
+                                  <button 
+                                      onClick={() => { setSelectedDateRange({ from: null, to: null }); setIsDateFilterOpen(false); }} 
+                                      className="text-xs text-gray-400 hover:text-white px-2 py-1 transition rounded hover:bg-slate-700"
+                                  >
+                                      Clear
+                                  </button>
+                                  <button 
+                                      onClick={() => setIsDateFilterOpen(false)} 
+                                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded font-medium transition"
+                                  >
+                                      Apply
+                                  </button>
+                              </div>
+                          </div>
+                      )}
+                  </div>
 
-        {/* Status messages */}
-        {loading && <div className="mb-4 text-sm text-blue-300">Loading attendance...</div>}
-        {error && <div className="mb-4 text-sm text-red-400">{error}</div>}
+                  {/* Filters */}
+                  <select
+                      value={selectedClient}
+                      onChange={(e) => setSelectedClient(e.target.value)}
+                      className="bg-[#1e293b] border border-gray-700 text-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  >
+                      <option value="">All Clients</option>
+                      {clientList.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
 
-        {/* ===== Table ===== */}
-        <div className="overflow-x-auto bg-[#1e293b]/60 backdrop-blur-md rounded-xl border border-gray-700 shadow-lg p-3">
-          {Object.entries(
-            filteredAttendance.reduce((acc, rec) => {
-              const client = rec.scheduleId?.client || "No Client";
-              if (!acc[client]) acc[client] = [];
-              acc[client].push(rec);
-              return acc;
-            }, {})
-          ).map(([clientName, clientAttendance]) => (
-            <div key={clientName} className="mb-8">
-              {/* Client Header */}
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="text-lg font-semibold text-white mb-3 border-l-4 border-teal-500 pl-3">
-                  {clientName}
-                </h2>
-                <div className="">
+                  <select
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value)}
+                      className="bg-[#1e293b] border border-gray-700 text-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  >
+                      <option value="All">All Status</option>
+                      <option value="On Duty">On Duty</option>
+                      <option value="Off Duty">Off Duty</option>
+                  </select>
+
                   <button
-                      onClick={() => handleDownloadWorkHoursByClient(clientName)}
-                      className="bg-[#0F172A] hover:bg-[#182544] text-white text-sm px-3 py-2 rounded-lg font-medium transition flex gap-2">
-                      <FileDown className="text-green-400 w-5 h-5"/>Download Working Hours
-                    </button>
-                </div>
+                      onClick={fetchAllAttendance}
+                      className="px-3 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-[#243046] transition flex items-center justify-center"
+                  >
+                      <RefreshCcw className="size-5" />
+                  </button>
               </div>
-              <div className="overflow-x-auto rounded-lg shadow-lg">
-                <table className="min-w-full text-sm text-gray-300 border border-gray-700 rounded-lg overflow-hidden">
-                  <thead className="bg-[#0f172a] text-gray-400">
-                    <tr>
-                      <th className="py-3 px-4 text-left">Guard Name</th>
-                      <th className="py-3 px-4 text-left">Duty Station</th>
-                      <th className="py-3 px-4 text-left">Position</th>
-                      <th className="py-3 px-4 text-left">Shift</th>
-                      <th className="py-3 px-4 text-left">Status</th>
-                      <th className="py-3 px-4 text-left">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {clientAttendance.length > 0 ? (
-                      clientAttendance.map((rec, i) => (
-                        <tr key={rec._id} className={`${i % 2 === 0 ? "bg-[#1e293b]" : "bg-[#162033]"} hover:bg-[#2a3954]`}>
-                          <td className="py-3 px-4">{rec.guard?.fullName || "-"}</td>
-                          <td className="py-3 px-4">{rec.scheduleId?.deploymentLocation || "-"}</td>
-                          <td className="py-3 px-4">{rec.scheduleId?.position || "-"}</td>
-                          <td className="py-3 px-4">{rec.scheduleId?.shiftType || "-"}</td>
-                          <td className="py-3 px-4">{rec.status}</td>
-                          <td className="py-3 px-4">
-                            <button
-                              onClick={() => setSelectedGuardId(rec.guard._id)}
-                              className=" bg-blue-500/20 px-3 py-2 rounded-lg hover:bg-blue-500/30 my-1"
-                            >
-                              View Attendance
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={6} className="text-gray-400 py-6 text-center italic">No attendance found for this client</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
-         </div>
-          <p>Total Records: {allAttendance.length}</p>
-          <p>
-            Showing <span className="text-blue-400">{filteredAttendance.length}</span> of{" "}
-            <span className="text-blue-400">{allAttendance.length}</span> entries
-          </p>
+          </div>
+
+          {/* Status Messages */}
+          {loading && <div className="p-4 mb-4 bg-blue-500/10 border border-blue-500/20 text-blue-300 rounded-lg text-sm flex items-center gap-2 animate-pulse"><RefreshCcw className="animate-spin size-4"/> Updating records...</div>}
+          {error && <div className="p-4 mb-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">{error}</div>}
+
+          {/* --- Content: Grouped by Client --- */}
+          <div className="space-y-8">
+              {Object.entries(groupedAttendance).length > 0 ? (
+                  Object.entries(groupedAttendance).map(([clientName, records]) => (
+                      <div key={clientName} className="bg-[#1e293b]/40 border border-gray-800 rounded-2xl overflow-hidden">
+                          
+                          {/* Client Group Header */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 md:p-5 bg-[#1e293b] border-b border-gray-700">
+                              <div className="flex items-center gap-3">
+                                  <div className="h-8 w-1 bg-blue-500 rounded-full"></div>
+                                  <h3 className="text-lg font-semibold text-white">{clientName}</h3>
+                                  <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded-full">{records.length} guards</span>
+                              </div>
+                              <button
+                                  onClick={() => handleDownloadWorkHoursByClient(clientName)}
+                                  className="mt-3 sm:mt-0 flex items-center gap-2 text-xs font-medium text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-2 rounded-lg transition"
+                              >
+                                  <FileDown size={16} />
+                                  Download Report
+                              </button>
+                          </div>
+
+                          {/* DESKTOP TABLE */}
+                          <div className="hidden md:block overflow-x-auto">
+                              <table className="w-full text-left text-sm">
+                                  <thead className="bg-[#0f172a]/50 text-gray-400 border-b border-gray-700/50">
+                                      <tr>
+                                          <th className="px-6 py-4 font-medium">Guard Name</th>
+                                          <th className="px-6 py-4 font-medium">Duty Station</th>
+                                          <th className="px-6 py-4 font-medium">Shift Info</th>
+                                          <th className="px-6 py-4 font-medium">Status</th>
+                                          <th className="px-6 py-4 font-medium text-right">Action</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-700/50">
+                                      {records.map((rec) => (
+                                          <tr key={rec._id} className="hover:bg-white/5 transition">
+                                              <td className="px-6 py-4">
+                                                  <div className="font-medium text-white flex items-center gap-2">
+                                                      <User size={16} className="text-gray-500" />
+                                                      {rec.guard?.fullName || "Unknown Guard"}
+                                                  </div>
+                                              </td>
+                                              <td className="px-6 py-4 text-gray-300">
+                                                  {rec.scheduleId?.deploymentLocation || "—"}
+                                              </td>
+                                              <td className="px-6 py-4">
+                                                  <div className="text-gray-300">{rec.scheduleId?.position}</div>
+                                                  <div className="text-xs text-gray-500">{rec.scheduleId?.shiftType}</div>
+                                              </td>
+                                              <td className="px-6 py-4">
+                                                  {getStatusBadge(rec.status)}
+                                              </td>
+                                              <td className="px-6 py-4 text-right">
+                                                  <button
+                                                      onClick={() => setSelectedGuardId(rec.guard._id)}
+                                                      className="text-blue-400 hover:text-blue-300 text-xs font-medium hover:underline"
+                                                  >
+                                                      View Details
+                                                  </button>
+                                              </td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                              </table>
+                          </div>
+
+                          {/* MOBILE CARDS */}
+                          <div className="md:hidden divide-y divide-gray-700/50">
+                              {records.map((rec) => (
+                                  <div key={rec._id} className="p-4 flex flex-col gap-3">
+                                      <div className="flex justify-between items-start">
+                                          <div className="flex items-center gap-3">
+                                              <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-gray-400">
+                                                  <User size={20} />
+                                              </div>
+                                              <div>
+                                                  <div className="font-medium text-white">{rec.guard?.fullName}</div>
+                                                  <div className="text-xs text-gray-500 flex items-center gap-1">
+                                                      <MapPin size={10} />
+                                                      {rec.scheduleId?.deploymentLocation}
+                                                  </div>
+                                              </div>
+                                          </div>
+                                          {getStatusBadge(rec.status)}
+                                      </div>
+                                      
+                                      <div className="flex items-center justify-between text-sm pl-12 pr-1">
+                                          <div className="text-gray-400">
+                                              <span className="text-gray-500 text-xs block">Shift</span>
+                                              {rec.scheduleId?.shiftType} ({rec.scheduleId?.position})
+                                          </div>
+                                          <button 
+                                              onClick={() => setSelectedGuardId(rec.guard._id)}
+                                              className="bg-slate-700 hover:bg-slate-600 p-2 rounded-lg text-gray-300 transition"
+                                          >
+                                              <ChevronRight size={18} />
+                                          </button>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  ))
+              ) : (
+                  <div className="flex flex-col items-center justify-center py-20 text-gray-500 bg-[#1e293b]/30 rounded-2xl border border-gray-800 border-dashed">
+                      <Clock size={48} className="mb-4 opacity-20" />
+                      <p>No attendance records found matching your filters.</p>
+                  </div>
+              )}
+          </div>
       </main>
 
       <Transition appear show={selectedGuardId !== null} as={Fragment}>

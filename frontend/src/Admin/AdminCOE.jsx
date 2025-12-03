@@ -1,36 +1,45 @@
 import React, { useState, useEffect } from "react";
-import { Filter, RefreshCw, CheckCircle, XCircle, Clock, IdCardLanyard, Eye, Download, FileText, Calendar, User, Phone, Mail, Shield, ReceiptText, X } from "lucide-react";
+import { 
+  Filter, RefreshCw, CheckCircle, XCircle, Clock, IdCardLanyard, 
+  Eye, Download, FileText, Calendar, User, Phone, Mail, Shield, 
+  ReceiptText, X, ChevronRight, Search 
+} from "lucide-react";
 import { generateAndDownloadCOE } from "../utils/pdfGenerator";
 import { useAuth } from "../hooks/useAuth";
-import header from "../assets/headerpdf/header.png"
+import header from "../assets/headerpdf/header.png";
+
 const api = import.meta.env.VITE_API_URL;
 
 export default function AdminCOE() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [requests, setRequests] = useState([]);
-  const [salaryModal, setSalaryModal] = useState(false)
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  
+  // Modal States
+  const [salaryModal, setSalaryModal] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  
+  // Selection States
   const [selectedAction, setSelectedAction] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [declineReason, setDeclineReason] = useState("");
+  const [salary, setSalary] = useState("");
+  
+  // UI States
   const [isFading, setIsFading] = useState(false);
   const [toasts, setToasts] = useState([]);
-  const [salary, setSalary] = useState("");
 
   const { user, loading } = useAuth();
 
   const fetchRequests = async () => {
     try {
-      const res = await fetch(`${api}/api/coe`, {
-        credentials: 'include'
-      });
+      setIsLoadingData(true);
+      const res = await fetch(`${api}/api/coe`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load requests');
 
       const data = await res.json();
-      console.log("datas:", data);
-
       const items = data.items || [];
       const mapped = items.map((req) => {
         const person = req.raw.requesterRole === 'guard' ? req.raw.guard : req.raw.subadmin;
@@ -44,7 +53,7 @@ export default function AdminCOE() {
           purpose: req.purpose,
           status: req.status,
           requesterRole: req.requesterRole,
-          requestedAt: new Date(req.requestedAt).toLocaleString(),
+          requestedAt: new Date(req.requestedAt).toLocaleDateString() + " " + new Date(req.requestedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
           processedAt: req.processedAt ? new Date(req.processedAt).toLocaleString() : null,
           processedBy: req.processedBy || null,
           declineReason: req.declineReason || null,
@@ -55,6 +64,8 @@ export default function AdminCOE() {
       setRequests(mapped);
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
@@ -78,12 +89,10 @@ export default function AdminCOE() {
       setSalaryModal(true);   
       return;                 
     }
-    setShowPopup(true);;           
+    setShowPopup(true);          
   };
 
-
   const handleViewDetails = (request) => {
-    console.log("request: ", request)
     setSelectedRequest(request);
     setShowDetailModal(true);
   };
@@ -108,11 +117,10 @@ export default function AdminCOE() {
   const handleConfirm = async () => {
     try {
       let body;
-
       if (selectedAction === "accept") {
         body = { 
           action: "accept", 
-          approvedCOE: { salary } // <-- send salary inside approvedCOE
+          approvedCOE: { salary } 
         };
       } else {
         body = { action: "decline", declineReason };
@@ -151,8 +159,8 @@ export default function AdminCOE() {
 
       showToast(
         selectedAction === "accept"
-          ? `✅ ${selectedRequest.name}'s request accepted`
-          : `❌ ${selectedRequest.name}'s request declined`,
+          ? `✅ Request accepted`
+          : `❌ Request declined`,
         selectedAction === "accept" ? "success" : "error"
       );
     } catch (err) {
@@ -160,21 +168,16 @@ export default function AdminCOE() {
       showToast("Error updating request", "error");
     } finally {
       closePopup();
+      setSalary("");
     }
   };
 
-  // Export COE function
   const handleExportCOE = async (requestId) => {
     try {
-      // Fetch the full request data from backend
-      const res = await fetch(`${api}/api/coe/${requestId}`, {
-        credentials: 'include',
-      });
+      const res = await fetch(`${api}/api/coe/${requestId}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch COE request');
       const data = await res.json();
-      console.log("exported data: " , data)
 
-      // Determine requester based on role
       const person = data.requesterRole === 'guard' ? data.guard : data.subadmin || {};
       const approvedCOE = data.approvedCOE || {};
 
@@ -194,9 +197,7 @@ export default function AdminCOE() {
           companyName: "JPM SECURITY AGENCY CORP",
           companyAddress: "Indang, Cavite, Philippines",
           issuedDate: new Date(approvedCOE.issuedDate || Date.now()).toLocaleDateString("en-US", {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
+            month: "long", day: "numeric", year: "numeric",
           }),
           location: "Indang, Cavite",
           signatory: "KYLE CHRISTOPHER E. PASTRANA",
@@ -212,498 +213,511 @@ export default function AdminCOE() {
     }
   };
 
-
   // Filtering
   const filtered = requests.filter((r) => {
-    const name = r.name || ""; // fallback if undefined
+    const name = r.name || ""; 
     return (statusFilter === "All" || r.status === statusFilter) &&
-          name.toLowerCase().includes(search.toLowerCase());
+           name.toLowerCase().includes(search.toLowerCase());
   });
 
-  // Badge
-  const getStatusBadge = (status) => {
-    const base = "px-3 py-1 text-xs font-semibold rounded-full flex items-center gap-1 justify-center";
-    if (status === "Accepted")
-      return (
-        <span className={`${base} bg-green-500/20 text-green-400 border border-green-400/30`}>
-          <CheckCircle className="w-3 h-3" /> Accepted
-        </span>
-      );
-    if (status === "Declined")
-      return (
-        <span className={`${base} bg-red-500/20 text-red-400 border border-red-400/30`}>
-          <XCircle className="w-3 h-3" /> Declined
-        </span>
-      );
-    return (
-      <span className={`${base} bg-yellow-500/20 text-yellow-300 border border-yellow-400/30`}>
-        <Clock className="w-3 h-3" /> Pending
-      </span>
-    );
-  };
-
   return (
-    <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
-      {/* Header */}
-      <main className="flex-1 p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-          <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-            <IdCardLanyard className="text-blue-500" size={30}/>
-            Certificate of Employment Requests
-          </h1>
+    <div className="flex min-h-screen bg-slate-900/50 text-gray-100 font-sans">
+      <main className="flex-1 flex flex-col p-4 md:p-6">
+        
+        {/* ===== Header ===== */}
+        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between mb-8 gap-6">
+          <div className="flex items-center gap-3">
+             <div className="p-3 bg-blue-600/10 rounded-xl border border-blue-600/20">
+                <IdCardLanyard className="text-blue-500" size={28}/> 
+             </div>
+             <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">COE Requests</h1>
+                <p className="text-slate-400 text-sm mt-1">Manage and issue Certificates of Employment.</p>
+             </div>
+          </div>
 
-          {/* Filter Dropdown */}
-          <div className="flex flex-col sm:flex-row gap-3 items-center">
-            {/* Refresh button (left of filter) */}
-            <button
-              onClick={fetchRequests}
-              title="Refresh"
-              className="p-2 bg-[#1e293b] border border-gray-700 rounded-lg text-blue-400 hover:bg-[#233444] transition"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-
-            <div className="flex items-center bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2">
-              <Filter className="w-4 h-4 text-blue-400 mr-2" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-transparent text-sm text-gray-200 focus:outline-none"
-              >
-                <option value="All" className="text-gray-900">All</option>
-                <option value="Pending" className="text-gray-900">Pending</option>
-                <option value="Accepted" className="text-gray-900">Accepted</option>
-                <option value="Declined" className="text-gray-900">Declined</option>
-              </select>
+          {/* Controls */}
+          <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+            {/* Search */}
+            <div className="relative flex-grow sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search guard name..."
+                className="w-full bg-[#1e293b] border border-gray-700 rounded-lg pl-10 pr-4 py-2.5 
+                text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              />
             </div>
 
-            {/* Search */}
-            <input
-              type="text"
-              placeholder="Search guard..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="bg-[#1e293b] border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-64"
-            />
+            {/* Filter */}
+            <div className="relative">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400" size={14} />
+                <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full sm:w-auto bg-[#1e293b] border border-gray-700 text-gray-200 rounded-lg pl-9 pr-8 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+                >
+                <option value="All">All Status</option>
+                <option value="Pending">Pending</option>
+                <option value="Accepted">Accepted</option>
+                <option value="Declined">Declined</option>
+                </select>
+            </div>
+
+            {/* Refresh */}
+            <button
+              onClick={fetchRequests}
+              className="px-3 py-2 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-[#243046] transition flex items-center justify-center"
+              title="Refresh List"
+            >
+              <RefreshCw className="size-5" />
+            </button>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto bg-[#1e293b]/90 backdrop-blur-md border border-gray-700 rounded-xl shadow-lg">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[#234C6A] text-white text-sm">
-              <tr>
-                <th className="px-4 py-3">Guard Information</th>
-                <th className="px-4 py-3">Purpose</th>
-                <th className="px-4 py-3">Request Date</th>
-                <th className="px-4 py-3 text-center">Status</th>
-                <th className="px-4 py-3 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-b border-gray-700 hover:bg-[#243447]/60 transition-all"
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <IdCardLanyard className="text-blue-400 w-10 h-10"/>
-                      <div>
-                        <div className="font-medium text-white">{r.name}</div> {/* Access from populated guard */}
-                        <div className="text-xs text-gray-400 font-medium">Position: {r.position}</div>
-                        <div className="text-xs text-gray-400 font-medium">Phone: {r.phone}</div> {/* Access from populated guard */}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-xs">
-                      <p className="text-gray-200 text-sm line-clamp-2">{r.purpose}</p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 text-gray-300">
-                      <Calendar size={14} />
-                      <span className="text-xs">{r.requestedAt}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-center">{getStatusBadge(r.status)}</td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex justify-center gap-2">
-                      <button
-                        onClick={() => handleViewDetails(r)}
-                        className="p-2 bg-blue-600/20 text-blue-400 rounded-md hover:bg-blue-600/30 transition"
-                        title="View Details"
-                      >
-                        <Eye size={14} />
-                      </button>
-                      
-                      {r.status === "Pending" && (
-                        <>
-                          <button
-                            onClick={() => handleActionClick("accept", r)}
-                            className="px-3 py-1.5 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-md hover:opacity-90 transition text-xs"
-                          >
-                            Accept
-                          </button>
-                          <button
-                            onClick={() => handleActionClick("decline", r)}
-                            className="px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-md hover:opacity-90 transition text-xs"
-                          >
-                            Decline
-                          </button>
-                        </>
-                      )}
-                      
-                      {r.status === "Accepted" && (
-                        <button
-                          onClick={() => handleExportCOE(r.id)}
-                          className="p-2 bg-green-600/20 text-green-400 rounded-md hover:bg-green-600/30 transition"
-                          title="Export COE"
-                        >
-                          <Download size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+        {/* ===== Data Display ===== */}
+        {isLoadingData ? (
+             <div className="flex flex-col items-center justify-center py-20 text-blue-400 animate-pulse">
+                <FileText size={40} className="mb-4 opacity-50" />
+                <p>Loading requests...</p>
+             </div>
+        ) : filtered.length === 0 ? (
+             <div className="flex flex-col items-center justify-center py-20 text-gray-500 bg-[#1e293b]/30 rounded-2xl border border-gray-800 border-dashed">
+                <FileText size={48} className="mb-4 opacity-20" />
+                <p>No COE requests found.</p>
+             </div>
+        ) : (
+            <>
+                {/* --- DESKTOP TABLE --- */}
+                <div className="hidden md:block overflow-hidden bg-[#1e293b]/90 backdrop-blur-md border border-gray-700 rounded-xl shadow-xl">
+                <table className="w-full text-left border-collapse">
+                    <thead className="bg-[#0f172a]/50 text-gray-400 border-b border-gray-700/50 text-xs uppercase tracking-wider">
+                    <tr>
+                        <th className="px-6 py-4 font-semibold">Requester Details</th>
+                        <th className="px-6 py-4 font-semibold">Purpose</th>
+                        <th className="px-6 py-4 font-semibold">Date Requested</th>
+                        <th className="px-6 py-4 font-semibold">Status</th>
+                        <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700/50">
+                    {filtered.map((r) => (
+                        <tr key={r.id} className="hover:bg-white/5 transition">
+                        <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-gray-300 border border-slate-600">
+                                    <User size={16} />
+                                </div>
+                                <div>
+                                    <div className="font-medium text-white">{r.name}</div>
+                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                        <span className="text-blue-400">{r.position}</span>
+                                        <span>•</span>
+                                        <span>{r.phone}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td className="px-6 py-4">
+                            <div className="max-w-[200px]">
+                                <p className="text-gray-300 text-sm truncate" title={r.purpose}>{r.purpose}</p>
+                            </div>
+                        </td>
+                        <td className="px-6 py-4">
+                            <div className="flex items-center gap-2 text-sm text-gray-400">
+                                <Calendar size={14} />
+                                {r.requestedAt}
+                            </div>
+                        </td>
+                        <td className="px-6 py-4">
+                            <StatusBadge status={r.status} />
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                                <button
+                                    onClick={() => handleViewDetails(r)}
+                                    className="p-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg transition"
+                                    title="View Details"
+                                >
+                                    <Eye size={18} />
+                                </button>
+                                
+                                {r.status === "Pending" && (
+                                    <>
+                                    <button
+                                        onClick={() => handleActionClick("accept", r)}
+                                        className="p-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition"
+                                        title="Accept"
+                                    >
+                                        <CheckCircle size={18} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleActionClick("decline", r)}
+                                        className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition"
+                                        title="Decline"
+                                    >
+                                        <XCircle size={18} />
+                                    </button>
+                                    </>
+                                )}
+                                
+                                {r.status === "Accepted" && (
+                                    <button
+                                        onClick={() => handleExportCOE(r.id)}
+                                        className="p-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-lg transition"
+                                        title="Download PDF"
+                                    >
+                                        <Download size={18} />
+                                    </button>
+                                )}
+                            </div>
+                        </td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+                </div>
 
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan="5" className="px-4 py-6 text-center text-gray-400 italic">
-                    <div className="flex flex-col items-center gap-2">
-                      <FileText className="w-8 h-8 text-gray-500" />
-                      No COE requests found.
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                {/* --- MOBILE CARDS --- */}
+                <div className="md:hidden grid gap-4">
+                {filtered.map((r) => (
+                    <div key={r.id} className="bg-[#1e293b] border border-gray-700 rounded-xl p-4 shadow-sm flex flex-col gap-4">
+                        <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-blue-500 border border-slate-700">
+                                    <User size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-white">{r.name}</h3>
+                                    <span className="text-xs text-blue-400">{r.position}</span>
+                                </div>
+                            </div>
+                            <StatusBadge status={r.status} />
+                        </div>
+                        
+                        <div className="bg-slate-900/50 rounded-lg p-3 space-y-2 text-sm border border-gray-800">
+                            <div className="flex justify-between">
+                                <span className="text-gray-500">Purpose</span>
+                                <span className="text-gray-200 truncate max-w-[150px]">{r.purpose}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500">Date</span>
+                                <span className="text-gray-200">{r.requestedAt}</span>
+                            </div>
+                        </div>
 
-        {/* Modal */}
+                        <div className="grid grid-cols-4 gap-2">
+                             <button
+                                onClick={() => handleViewDetails(r)}
+                                className="col-span-1 flex items-center justify-center py-2 bg-slate-700 hover:bg-slate-600 text-gray-200 rounded-lg transition"
+                            >
+                                <Eye size={18} />
+                            </button>
+
+                            {r.status === "Pending" ? (
+                                <>
+                                    <button
+                                        onClick={() => handleActionClick("accept", r)}
+                                        className="col-span-2 flex items-center justify-center gap-2 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-medium transition"
+                                    >
+                                        Accept
+                                    </button>
+                                    <button
+                                        onClick={() => handleActionClick("decline", r)}
+                                        className="col-span-1 flex items-center justify-center py-2 bg-red-900/40 hover:bg-red-600 text-red-200 hover:text-white rounded-lg transition"
+                                    >
+                                        <XCircle size={18} />
+                                    </button>
+                                </>
+                            ) : r.status === "Accepted" ? (
+                                <button
+                                    onClick={() => handleExportCOE(r.id)}
+                                    className="col-span-3 flex items-center justify-center gap-2 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition"
+                                >
+                                    <Download size={16} /> Download
+                                </button>
+                            ) : (
+                                <div className="col-span-3"></div>
+                            )}
+                        </div>
+                    </div>
+                ))}
+                </div>
+            </>
+        )}
+
+        {/* ================= MODALS ================= */}
+        
+        {/* 1. Confirmation / Decline Popup */}
         {showPopup && (
-          <div
-            className={`fixed inset-0 flex items-center justify-center bg-black/60 z-50 transition duration-300 ${
-              isFading ? "opacity-0" : "opacity-100"
-            }`}
-          >
-            <div
-              className={`bg-[#1e293b] text-white p-6 rounded-xl border border-gray-700 w-80 shadow-2xl transform transition-all duration-300 ${
-                isFading ? "scale-95 opacity-0" : "scale-100 opacity-100"
-              }`}
-            >
+          <div className={`fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50 transition-opacity duration-300 ${isFading ? "opacity-0" : "opacity-100"}`}>
+            <div className={`bg-[#1e293b] text-white p-6 rounded-2xl border border-gray-700 w-full max-w-sm mx-4 shadow-2xl transform transition-all duration-300 ${isFading ? "scale-95" : "scale-100"}`}>
               {selectedAction === "accept" ? (
-                <>
-                  <h2 className="text-lg font-semibold mb-4 text-center">
-                    Accept Request from{" "}
-                    <span className="text-green-400 font-bold">
-                      {selectedRequest?.name}
-                    </span>
-                    ?
-                  </h2>
-                  <div className="flex justify-center gap-3">
-                    <button
-                      onClick={handleConfirm}
-                      className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-500 rounded-md text-white hover:opacity-90"
-                    >
-                      Confirm
-                    </button>
-                    <button
-                      onClick={closePopup}
-                      className="px-4 py-2 bg-gray-600 rounded-md hover:bg-gray-500"
-                    >
-                      Cancel
-                    </button>
+                <div className="text-center">
+                   <div className="mx-auto bg-green-500/10 w-12 h-12 rounded-full flex items-center justify-center mb-4">
+                        <CheckCircle className="text-green-400" size={24} />
+                   </div>
+                  <h2 className="text-lg font-bold mb-2">Accept Request?</h2>
+                  <p className="text-gray-400 text-sm mb-6">
+                    You are about to issue a COE for <span className="text-white font-medium">{selectedRequest?.name}</span>.
+                  </p>
+                  <div className="flex gap-3">
+                    <button onClick={closePopup} className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm font-medium transition">Cancel</button>
+                    <button onClick={handleConfirm} className="flex-1 py-2.5 bg-green-600 hover:bg-green-500 rounded-xl text-white text-sm font-medium shadow-lg shadow-green-900/20 transition">Confirm</button>
                   </div>
-                </>
+                </div>
               ) : (
-                <>
-                  <h2 className="text-lg font-semibold mb-3 text-center">
-                    Decline Request for{" "}
-                    <span className="text-red-400">{selectedRequest?.name}</span>
-                  </h2>
+                <div>
+                   <div className="flex items-center gap-2 mb-4">
+                        <div className="bg-red-500/10 p-2 rounded-full"><XCircle className="text-red-400" size={20} /></div>
+                        <h2 className="text-lg font-bold">Decline Request</h2>
+                   </div>
+                  <p className="text-gray-400 text-sm mb-3">Please state why you are rejecting this request.</p>
                   <textarea
-                    placeholder="State your reason..."
+                    placeholder="Reason for rejection..."
                     value={declineReason}
                     onChange={(e) => setDeclineReason(e.target.value)}
-                    className="w-full bg-[#0f172a] border border-gray-600 rounded-md p-2 mb-4 text-sm text-gray-200 focus:ring-2 focus:ring-red-500"
-                    rows={3}
+                    className="w-full bg-[#0f172a] border border-gray-600 rounded-xl p-3 mb-4 text-sm text-gray-200 focus:ring-2 focus:ring-red-500 outline-none resize-none"
+                    rows={4}
                   />
-                  <div className="flex justify-center gap-3">
+                  <div className="flex gap-3">
+                    <button onClick={closePopup} className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm font-medium transition">Cancel</button>
                     <button
                       onClick={handleConfirm}
                       disabled={!declineReason.trim()}
-                      className={`px-4 py-2 rounded-md text-white ${
-                        declineReason.trim()
-                          ? "bg-gradient-to-r from-red-600 to-red-500 hover:opacity-90"
-                          : "bg-gray-500 cursor-not-allowed"
-                      }`}
+                      className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 rounded-xl text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-900/20 transition"
                     >
-                      Submit
-                    </button>
-                    <button
-                      onClick={closePopup}
-                      className="px-4 py-2 bg-gray-600 rounded-md hover:bg-gray-500"
-                    >
-                      Cancel
+                      Decline
                     </button>
                   </div>
-                </>
+                </div>
               )}
             </div>
           </div>
         )}
 
-        {/* Detail Modal */}
-        {showDetailModal && (
-          <div
-            className={`fixed inset-0 flex items-center justify-center bg-black/60 z-50 transition duration-300 ${
-              isFading ? "opacity-0" : "opacity-100"
-            }`}
-          >
-            <div
-              className={`bg-[#1e293b] text-white p-6 rounded-xl border border-gray-700 w-full max-w-2xl mx-4 shadow-2xl transform transition-all duration-300 ${
-                isFading ? "scale-95 opacity-0" : "scale-100 opacity-100"
-              }`}
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-blue-400 flex items-center gap-2">
-                  <FileText size={20} />
-                  COE Request Details
+        {/* 2. Detail View Modal */}
+        {showDetailModal && selectedRequest && (
+          <div className={`fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50 transition-opacity duration-300 ${isFading ? "opacity-0" : "opacity-100"}`}>
+            <div className={`bg-[#1e293b] flex flex-col max-h-[90vh] text-white rounded-2xl border border-gray-700 w-full max-w-2xl mx-4 shadow-2xl transform transition-all duration-300 ${isFading ? "scale-95" : "scale-100"}`}>
+              
+              {/* Modal Header */}
+              <div className="flex justify-between items-center p-6 border-b border-gray-700">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <FileText className="text-blue-500" size={24} />
+                  Request Details
                 </h2>
-                <button
-                  onClick={closeDetailModal}
-                  className="text-gray-400 hover:text-white transition"
-                >
-                  <XCircle size={20} />
-                </button>
+                <button onClick={closeDetailModal} className="text-gray-400 hover:text-white p-1 hover:bg-slate-700 rounded-full transition"><X size={20}/></button>
               </div>
 
-              {selectedRequest && (
-                <div className="space-y-6">
-                  {/* Guard Information */}
-                  <div className="bg-[#0f172a] rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-blue-400 mb-3 flex items-center gap-2">
-                      <User size={18} />
-                      Guard Information
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-center gap-3">
-                        <Shield className="text-blue-400 w-12 h-12"/>
+              {/* Modal Content - Scrollable */}
+              <div className="p-6 overflow-y-auto">
+                {/* Section: Employee */}
+                <div className="bg-[#0f172a] rounded-xl p-5 mb-6 border border-gray-800">
+                  <h3 className="text-sm uppercase tracking-wider text-gray-500 font-semibold mb-4 flex items-center gap-2">
+                    <User size={16}/> Employee Information
+                  </h3>
+                  <div className="flex flex-col sm:flex-row gap-6">
+                     <div className="flex-shrink-0">
+                        <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center border-2 border-slate-700">
+                            <Shield className="text-blue-500 w-10 h-10"/>
+                        </div>
+                     </div>
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 w-full text-sm">
                         <div>
-                          <div className="font-medium text-white">{selectedRequest.name}</div> {/* Access from populated guard */}
-                          <div className="text-sm text-gray-400">ID: {selectedRequest.guardId}</div> {/* Access from populated guard */}
+                            <span className="text-gray-500 block text-xs">Full Name</span>
+                            <span className="text-white font-medium text-base">{selectedRequest.name}</span>
                         </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Phone size={14} className="text-blue-400" />
-                          <span className="text-gray-300">{selectedRequest.phone}</span> {/* Access from populated guard */}
+                        <div>
+                            <span className="text-gray-500 block text-xs">Guard ID</span>
+                            <span className="font-mono text-blue-400">{selectedRequest.guardId}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Mail size={14} className="text-blue-400" />
-                          <span className="text-gray-300">{selectedRequest.email}</span> {/* Access from populated guard */}
+                        <div>
+                            <span className="text-gray-500 block text-xs">Position</span>
+                            <span className="text-gray-300">{selectedRequest.raw?.guard?.position || selectedRequest.position}</span>
                         </div>
-                      </div>
-                    </div>
+                         <div>
+                            <span className="text-gray-500 block text-xs">Contact</span>
+                            <span className="text-gray-300">{selectedRequest.phone}</span>
+                        </div>
+                     </div>
                   </div>
+                </div>
 
-                  {/* Request Details */}
-                  <div className="bg-[#0f172a] rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-blue-400 mb-3 flex items-center gap-2">
-                      <FileText size={18} />
-                      Request Details
-                    </h3>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-sm text-gray-400">Purpose</label>
-                        <p className="text-gray-200 mt-1 p-3 bg-[#1e293b] rounded-lg">
-                          {selectedRequest.purpose}
+                {/* Section: Request */}
+                <div className="bg-[#0f172a] rounded-xl p-5 border border-gray-800">
+                  <h3 className="text-sm uppercase tracking-wider text-gray-500 font-semibold mb-4 flex items-center gap-2">
+                    <ReceiptText size={16}/> Request Data
+                  </h3>
+                  <div className="space-y-4">
+                     <div>
+                        <span className="text-gray-500 text-xs block mb-1">Purpose of COE</span>
+                        <p className="p-3 bg-slate-800/50 rounded-lg text-gray-200 text-sm border border-slate-700/50">
+                            {selectedRequest.purpose}
                         </p>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     </div>
+                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="text-sm text-gray-400">Request Date</label>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Calendar size={14} className="text-blue-400" />
-                            <span className="text-gray-300">{selectedRequest.requestedAt}</span>
-                          </div>
+                            <span className="text-gray-500 text-xs block mb-1">Status</span>
+                            <StatusBadge status={selectedRequest.status} />
                         </div>
                         <div>
-                          <label className="text-sm text-gray-400">Status</label>
-                          <div className="mt-1">{getStatusBadge(selectedRequest.status)}</div>
+                            <span className="text-gray-500 text-xs block mb-1">Requested Date</span>
+                            <span className="text-gray-300 text-sm">{selectedRequest.requestedAt}</span>
                         </div>
-                      </div>
-                      
-                      {selectedRequest.processedAt && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-sm text-gray-400">Processed Date</label>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Clock size={14} className="text-blue-400" />
-                              <span className="text-gray-300">{selectedRequest.processedAt}</span>
+                     </div>
+                     {selectedRequest.processedBy && (
+                         <div className="pt-4 mt-4 border-t border-gray-800 grid grid-cols-2 gap-4">
+                            <div>
+                                <span className="text-gray-500 text-xs block mb-1">Processed By</span>
+                                <span className="text-gray-300 text-sm">{selectedRequest.processedBy}</span>
                             </div>
-                          </div>
-                          <div>
-                            <label className="text-sm text-gray-400">Processed By</label>
-                            <p className="text-gray-300 mt-1">{selectedRequest.processedBy}</p>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {selectedRequest.declineReason && (
-                        <div>
-                          <label className="text-sm text-gray-400">Decline Reason</label>
-                          <p className="text-red-300 mt-1 p-3 bg-red-500/10 rounded-lg border border-red-500/20">
-                            {selectedRequest.declineReason}
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                            <div>
+                                <span className="text-gray-500 text-xs block mb-1">Processed Date</span>
+                                <span className="text-gray-300 text-sm">{selectedRequest.processedAt}</span>
+                            </div>
+                         </div>
+                     )}
+                     {selectedRequest.declineReason && (
+                         <div className="pt-4 mt-4 border-t border-gray-800">
+                            <span className="text-red-400 text-xs block mb-1 font-bold">Rejection Reason</span>
+                            <p className="text-red-300 text-sm bg-red-900/20 p-3 rounded-lg border border-red-900/30">
+                                {selectedRequest.declineReason}
+                            </p>
+                         </div>
+                     )}
                   </div>
+                </div>
+              </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex justify-end gap-3">
-                    {selectedRequest.status === "Pending" && (
-                      <>
-                        <button
-                          onClick={() => {
-                            closeDetailModal();
-                            handleActionClick("accept", selectedRequest);
-                          }}
-                          className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-lg hover:opacity-90 transition"
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-gray-700 flex justify-end gap-3 bg-[#1e293b] rounded-b-2xl">
+                 <button onClick={closeDetailModal} className="px-5 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition">Close</button>
+                 
+                 {selectedRequest.status === "Pending" && (
+                     <>
+                        <button 
+                            onClick={() => { closeDetailModal(); handleActionClick("decline", selectedRequest); }}
+                            className="px-5 py-2.5 rounded-xl bg-red-900/30 hover:bg-red-600 text-red-200 hover:text-white border border-red-800 hover:border-transparent text-sm font-medium transition"
                         >
-                          Accept Request
+                            Decline
                         </button>
-                        <button
-                          onClick={() => {
-                            closeDetailModal();
-                            handleActionClick("decline", selectedRequest);
-                          }}
-                          className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-lg hover:opacity-90 transition"
+                        <button 
+                            onClick={() => { closeDetailModal(); handleActionClick("accept", selectedRequest); }}
+                            className="px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-white text-sm font-medium shadow-lg shadow-green-900/20 transition"
                         >
-                          Decline Request
+                            Accept Request
                         </button>
-                      </>
-                    )}
-                    
-                    {selectedRequest.status === "Accepted" && (
-                      <button
-                        onClick={() => {
-                          closeDetailModal();
-                          handleExportCOE(selectedRequest);
-                        }}
-                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg hover:opacity-90 transition flex items-center gap-2"
-                      >
-                        <Download size={16} />
-                        Export COE
-                      </button>
-                    )}
-                    
-                    <button
-                      onClick={closeDetailModal}
-                      className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition"
+                     </>
+                 )}
+                 {selectedRequest.status === "Accepted" && (
+                      <button 
+                        onClick={() => { closeDetailModal(); handleExportCOE(selectedRequest.id); }}
+                        className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium shadow-lg shadow-purple-900/20 transition flex items-center gap-2"
                     >
-                      Close
+                        <Download size={16}/> Export PDF
                     </button>
-                  </div>
-                </div>
-              )}
+                 )}
+              </div>
             </div>
           </div>
         )}
 
-        {/* Salary Modal */}
+        {/* 3. Salary Input Modal */}
         {salaryModal && selectedRequest && (
-          <div
-            className={`fixed inset-0 flex items-center justify-center bg-black/60 z-50 transition duration-300 ${
-              isFading ? "opacity-0" : "opacity-100"
-            }`}
-          >
-            <div
-              className={`bg-[#1e293b] text-white p-6 rounded-xl border border-gray-700 w-full max-w-xl mx-4 shadow-2xl transform transition-all duration-300 ${
-                isFading ? "scale-95 opacity-0" : "scale-100 opacity-100"
-              }`}
-            >
-              <div className="mb-6 flex items-center justify-between">
-                <div className="">
-                  <h2 className="text-xl font-semibold text-blue-400 flex items-center gap-2">
-                    <ReceiptText size={20} />
-                    Approving COE Request
+          <div className={`fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50 transition-opacity duration-300 ${isFading ? "opacity-0" : "opacity-100"}`}>
+            <div className={`bg-[#1e293b] text-white rounded-2xl border border-gray-700 w-full max-w-md mx-4 shadow-2xl transform transition-all duration-300 ${isFading ? "scale-95" : "scale-100"}`}>
+               <div className="p-6 border-b border-gray-700 flex justify-between items-center">
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <ReceiptText className="text-green-500" size={24} />
+                    Salary Verification
                   </h2>
-                  <p className="text-gray-300 text-sm mt-1">
-                    Please verify the details below before entering the salary.
-                  </p>
-                </div>
-                <div className="">
-                  <button onClick={() => setSalaryModal(false)}><X/></button>
-                </div>
-              </div>
+                  <button onClick={() => setSalaryModal(false)} className="text-gray-400 hover:text-white"><X size={20}/></button>
+               </div>
+               
+               <div className="p-6">
+                    <p className="text-sm text-gray-400 mb-6">
+                        Please enter the monthly salary for <span className="text-white font-semibold">{selectedRequest.name}</span> to appear on the Certificate.
+                    </p>
+                    
+                    <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-serif">₱</span>
+                        <input
+                            type="number"
+                            className="w-full pl-10 pr-4 py-3 bg-[#0f172a] border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-green-500 outline-none transition"
+                            placeholder="0.00"
+                            value={salary}
+                            onChange={(e) => setSalary(e.target.value)}
+                        />
+                    </div>
+               </div>
 
-              {/* Guard Information */}
-              <div className="bg-[#243447] p-4 rounded-lg border border-gray-700 mb-6">
-                <h3 className="text-lg font-semibold text-white mb-3 flex gap-2 items-center"><User className="text-blue-400 w-8 h-8"/> Employee Information</h3>
-
-                <div className="space-y-1 text-gray-300 text-sm font-medium">
-                  <p><span className="text-gray-400">Name:</span> {selectedRequest.name}</p>
-                  <p><span className="text-gray-400">Guard ID:</span> {selectedRequest.guardId}</p>
-                  <p><span className="text-gray-400">Position:</span> {selectedRequest.raw?.guard?.position}</p> 
-                  <p><span className="text-gray-400">Phone:</span> {selectedRequest.phone}</p>
-                  <p><span className="text-gray-400">Email:</span> {selectedRequest.email}</p>
-                  <p><span className="text-gray-400">Purpose:</span> {selectedRequest.purpose}</p>
-                  <p><span className="text-gray-400">Requested At:</span> {selectedRequest.requestedAt}</p>
-                </div>
-              </div>
-
-              {/* Salary Input */}
-              <div className="flex flex-col items-center">
-                <input
-                  type="text"
-                  className="w-full p-2 rounded bg-gray-800 border border-gray-600"
-                  placeholder="Enter salary"
-                  value={salary}
-                  onChange={(e) => setSalary(e.target.value)}
-                />
-
-                <button
-                  onClick={() => {
-                    if (!salary.trim()) {
-                      showToast("Please enter a salary amount first.", "error");
-                      return;
-                    }
-                    setSalaryModal(false);
-                    setShowPopup(true);
-                  }}
-                  className="mt-4 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
-                >
-                  Continue
-                </button>
-              </div>
+               <div className="p-6 pt-2 flex gap-3">
+                  <button onClick={() => setSalaryModal(false)} className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm font-medium transition">Cancel</button>
+                  <button
+                    onClick={() => {
+                        if (!salary.trim()) {
+                            showToast("Please enter a salary amount.", "error");
+                            return;
+                        }
+                        setSalaryModal(false);
+                        setShowPopup(true);
+                    }}
+                    className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-white text-sm font-medium shadow-lg shadow-blue-900/20 transition flex items-center justify-center gap-2"
+                  >
+                    Next <ChevronRight size={16}/>
+                  </button>
+               </div>
             </div>
           </div>
         )}
 
-        {/* Toast */}
-        <div className="fixed top-6 right-6 flex flex-col items-end gap-2 z-50">
+        {/* Toast Container */}
+        <div className="fixed top-6 right-6 flex flex-col items-end gap-3 z-[60]">
           {toasts.map((toast) => (
             <div
               key={toast.id}
-              className={`px-5 py-3 rounded-lg shadow-lg text-white transition-all duration-500 ${
-                toast.type === "success"
-                  ? "bg-green-600"
-                  : toast.type === "error"
-                  ? "bg-red-600"
-                  : "bg-gray-600"
+              className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-xl text-white font-medium text-sm animate-in slide-in-from-right-10 fade-in duration-300 ${
+                toast.type === "success" ? "bg-emerald-600 shadow-emerald-900/20" : 
+                toast.type === "error" ? "bg-red-600 shadow-red-900/20" : "bg-gray-700"
               }`}
             >
+              {toast.type === "success" && <CheckCircle size={18}/>}
+              {toast.type === "error" && <XCircle size={18}/>}
               {toast.message}
             </div>
           ))}
         </div>
+
       </main>
     </div>
   );
+}
+
+/* ---------- HELPER COMPONENTS ---------- */
+function StatusBadge({ status }) {
+  const base = "px-2.5 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5 w-fit";
+
+  switch (status) {
+    case "Accepted":
+      return (
+        <span className={`${base} text-emerald-400 border-emerald-500/30 bg-emerald-500/10`}>
+          <CheckCircle size={12} /> Accepted
+        </span>
+      );
+    case "Declined":
+      return (
+        <span className={`${base} text-red-400 border-red-500/30 bg-red-500/10`}>
+          <XCircle size={12} /> Declined
+        </span>
+      );
+    default:
+      return (
+        <span className={`${base} text-yellow-400 border-yellow-500/30 bg-yellow-500/10`}>
+          <Clock size={12} /> Pending
+        </span>
+      );
+  }
 }

@@ -1,7 +1,7 @@
 import { io } from "socket.io-client";
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Paperclip, Send, Search, CircleUserRound, ArrowLeft, MessageSquare  } from "lucide-react";
+import { Paperclip, Send, Search, CircleUserRound, ArrowLeft, MessageSquare, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 const api = import.meta.env.VITE_API_URL;
@@ -16,7 +16,9 @@ export default function MessagesPage() {
   const messagesEndRef = useRef(null);
   const hasNotifiedOnline = useRef(false);
   const fileInputRef = useRef();
-  const [previewImage, setPreviewImage] = useState(null)
+  
+  // State
+  const [previewImage, setPreviewImage] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [availableUsers, setAvailableUsers] = useState([]);
@@ -26,55 +28,53 @@ export default function MessagesPage() {
   const [search, setSearch] = useState("");
   const [file, setFile] = useState(null);
 
-  // Scroll to bottom on new messages
-
+  // --- Auth Check ---
   useEffect(() => {
     if (!user && !loading) {
       navigate("/admin/login");
-      return;
     }
   }, [user, loading, navigate]);
 
-  console.log(user)
-
+  // --- Scroll to Bottom ---
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
-    document.title = "Message | JPM Security Agency"
-  })
+    document.title = "Messages | JPM Security Agency";
+  }, []);
 
-  // Format timestamp
+  // --- Helpers ---
   const formatDateTime = (timestamp) => {
     if (!timestamp) return "";
     const date = new Date(timestamp);
-    return date.toLocaleString([], { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true });
+    // If today, show time only; else show date
+    const isToday = new Date().toDateString() === date.toDateString();
+    return isToday 
+      ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })
+      : date.toLocaleDateString([], { month: "short", day: "numeric" });
   };
 
   const isUserOnline = (userId) => onlineUsers.includes(userId);
 
   const getParticipantName = (p) => {
     if (!p) return "Unknown";
-    // If participant object has a populated user field (from backend)
-    if (p.user?.fullName) return p.user.fullName; // For Guards
-    if (p.user?.name) return p.user.name; // For Admin/Subadmin/Applicant
-    
-    // Fallback for cases where participant.userId might be directly the populated object.
+    if (p.user?.fullName) return p.user.fullName;
+    if (p.user?.name) return p.user.name;
     if (p.userId?.fullName) return p.userId.fullName;
     if (p.userId?.name) return p.userId.name;
 
-    // Fallback if trying to match with availableUsers (e.g., for starting new chats)
     const match = availableUsers.find(u => u._id === (typeof p.userId === "string" ? p.userId : p.userId?._id));
-    if (match) return match.fullName || match.name; // Use fullName for guards, name for others
+    if (match) return match.fullName || match.name;
 
-    // If it's the current user's entry in participants array
     if (p.userId === user._id) return user.fullName || user.name || "Me";
-
     return "Unknown";
   };
 
-  // Notify backend that user is online
+  const isAdminConversation = (conversation) =>
+    conversation?.type === "admin-subadmin" || conversation?.type === "subadmin-admin";
+
+  // --- Socket: User Online ---
   useEffect(() => {
     if (user && !hasNotifiedOnline.current) {
       socket.emit("userOnline", user._id);
@@ -84,28 +84,26 @@ export default function MessagesPage() {
     return () => socket.off("onlineUsers");
   }, [user]);
 
-  // Listen for seen messages
+  // --- Socket: Messages Seen ---
   useEffect(() => {
-    socket.on("messages_seen", ({ conversationId }) => {
+    const handleSeen = ({ conversationId }) => {
       setConversations(prev =>
         prev.map(conv =>
-          conv._id === conversationId ? { ...conv, lastMessage: { ...conv.lastMessage, seen: true } } : conv
+          conv._id === conversationId 
+            ? { ...conv, lastMessage: { ...conv.lastMessage, seen: true } } 
+            : conv
         )
       );
-    });
-    return () => socket.off("messages_seen");
+    };
+    socket.on("messages_seen", handleSeen);
+    return () => socket.off("messages_seen", handleSeen);
   }, []);
 
-  const isAdminConversation = (conversation) =>
-    conversation?.type === "admin-subadmin" || conversation?.type === "subadmin-admin";
-
-  // Fetch conversations (only Admin ↔ Subadmin)
+  // --- Fetch Data ---
   useEffect(() => {
     const fetchConversations = async () => {
       try {
-        const res = await fetch(`${api}/api/messages/conversations`, {
-          credentials: "include",
-        });
+        const res = await fetch(`${api}/api/messages/conversations`, { credentials: "include" });
         const data = await res.json();
         const filtered = (Array.isArray(data) ? data : []).filter(conv =>
           conv.type === "admin-subadmin" || conv.type === "subadmin-admin"
@@ -115,17 +113,14 @@ export default function MessagesPage() {
         console.error("Error fetching conversations:", err);
       }
     };
-    fetchConversations();
+    if (user) fetchConversations();
   }, [user]);
 
-  // Fetch users for starting new chats
   useEffect(() => {
     if (!user) return;
     const fetchUsers = async () => {
       try {
-        const endpoint = user.role === "Admin"
-          ? `${api}/api/auth/subadmins`
-          : `${api}/api/auth/admins`;
+        const endpoint = user.role === "Admin" ? `${api}/api/auth/subadmins` : `${api}/api/auth/admins`;
         const res = await fetch(endpoint, { credentials: "include" });
         const data = await res.json();
         setAvailableUsers(Array.isArray(data) ? data : []);
@@ -136,7 +131,7 @@ export default function MessagesPage() {
     fetchUsers();
   }, [user]);
 
-  // Load messages for selected conversation & listen for updates
+  // --- Active Conversation Logic ---
   useEffect(() => {
     if (!selectedConversation || selectedConversation.isTemp || !isAdminConversation(selectedConversation)) return;
 
@@ -145,9 +140,7 @@ export default function MessagesPage() {
 
     const fetchMessages = async () => {
       try {
-        const res = await fetch(`${api}/api/messages/${selectedConversation._id}`, {
-          credentials: "include",
-        });
+        const res = await fetch(`${api}/api/messages/${selectedConversation._id}`, { credentials: "include" });
         const data = await res.json();
         setMessages(Array.isArray(data) ? data : []);
       } catch (err) {
@@ -157,8 +150,9 @@ export default function MessagesPage() {
     fetchMessages();
 
     const handleReceiveMessage = (msg) => {
+      // Update sidebar preview
       setConversations(prev =>
-        prev.some(conv => conv._id === msg.conversationId && isAdminConversation(conv))
+        prev.some(conv => conv._id === msg.conversationId)
           ? prev.map(conv =>
               conv._id === msg.conversationId
                 ? {
@@ -175,101 +169,76 @@ export default function MessagesPage() {
           : prev
       );
 
-      setMessages(prev => {
-        if (
-          !selectedConversation ||
-          !isAdminConversation(selectedConversation) ||
-          selectedConversation._id !== msg.conversationId
-        ) {
-          return prev;
-        }
-        return prev.some(m => m._id === msg._id || m._tempId === msg._tempId) ? prev : [...prev, msg];
-      });
+      // Append to active chat if visible
+      if (selectedConversation._id === msg.conversationId) {
+        setMessages(prev => prev.some(m => m._id === msg._id || m._tempId === msg._tempId) ? prev : [...prev, msg]);
+      }
     };
 
     socket.on("receiveMessage", handleReceiveMessage);
     return () => socket.off("receiveMessage", handleReceiveMessage);
   }, [selectedConversation?._id, user]);
 
-  // Listen for conversation updates (other conversations)
+  // --- Conversation Updates ---
   useEffect(() => {
     const handleConversationUpdated = async (updatedConv) => {
       if (!isAdminConversation(updatedConv)) return;
 
       setConversations(prev => {
         const exists = prev.some(c => c._id === updatedConv._id);
-        if (exists) return prev.map(c => c._id === updatedConv._id ? updatedConv : c);
-        return [updatedConv, ...prev];
+        return exists 
+          ? prev.map(c => c._id === updatedConv._id ? updatedConv : c)
+          : [updatedConv, ...prev];
       });
 
       if (selectedConversation?._id === updatedConv._id) {
+        // Refresh messages if current conversation updated
         try {
           const res = await fetch(`${api}/api/messages/${updatedConv._id}`, { credentials: "include" });
           const data = await res.json();
           setMessages(Array.isArray(data) ? data : []);
-        } catch (err) {
-          console.error("Error refreshing active conversation:", err);
-        }
+        } catch (err) { console.error(err); }
       }
     };
     socket.on("conversationUpdated", handleConversationUpdated);
     return () => socket.off("conversationUpdated", handleConversationUpdated);
   }, [selectedConversation, user]);
 
+  // --- Handlers ---
   const getReceiver = () => {
     return selectedConversation?.participants?.find(p => {
-      const pid = p?.userId?._id || p?.userId; // object OR string
+      const pid = p?.userId?._id || p?.userId;
       return pid?.toString() !== user._id.toString();
     });
   };
-  
-  // Send message
+
   const handleSend = async () => {
     if (!newMessage.trim() && !file) return;
-    if (!selectedConversation) return;
-
-    if (!isAdminConversation(selectedConversation)) return;
-    console.log("selected convo: ", selectedConversation)
+    if (!selectedConversation || !isAdminConversation(selectedConversation)) return;
 
     const receiver = getReceiver();
     if (!receiver) return;
 
-    const receiverId =
-      receiver?.userId?._id ||
-      receiver?.userId;
-      
-    const tempId = Date.now();
-
+    const receiverId = receiver?.userId?._id || receiver?.userId;
     const formData = new FormData();
     formData.append("text", newMessage);
     formData.append("type", selectedConversation.type || "admin-subadmin");
-    formData.append("receiverId", receiverId); // Access _id from populated user
+    formData.append("receiverId", receiverId);
     formData.append("receiverRole", receiver.role);
     if (file) formData.append("file", file);
 
     try {
       const res = await fetch(`${api}/api/messages`, { method: "POST", credentials: "include", body: formData });
-      if (!res.ok) return console.error("Failed to send message:", await res.text());
+      if (!res.ok) return console.error("Failed to send message");
 
-      const { message, conversation: realConversation } = await res.json();
+      const { conversation: realConversation } = await res.json();
 
       setConversations(prev => {
-        if (selectedConversation?.isTemp) {
-          const exists = prev.some(conv => conv._id === realConversation._id);
-          const withoutTemp = prev.filter(conv => !conv.isTemp);
-          return exists
-            ? withoutTemp.map(conv => conv._id === realConversation._id ? realConversation : conv)
-            : [realConversation, ...withoutTemp];
-        }
-        const exists = prev.some(conv => conv._id === realConversation._id);
-        return exists
-          ? prev.map(conv => conv._id === realConversation._id ? realConversation : conv)
-          : [realConversation, ...prev];
+        const withoutTemp = prev.filter(conv => !conv.isTemp && conv._id !== realConversation._id);
+        return [realConversation, ...withoutTemp];
       });
 
-      setSelectedConversation(prev =>
-        prev && prev._id === realConversation._id ? prev : realConversation
-      );
+      setSelectedConversation(prev => prev?._id === realConversation._id ? prev : realConversation);
       setNewMessage("");
       setFile(null);
     } catch (err) {
@@ -277,34 +246,39 @@ export default function MessagesPage() {
     }
   };
 
-  // Start new chat
   const handleStartChat = (targetUser) => {
     if (!targetUser?.role) return;
-
+    
+    // Check existing
     const existing = conversations.find(conv =>
       (conv.participants ?? []).some(p => (typeof p.userId === "string" ? p.userId : p.userId?._id) === targetUser._id)
     );
-    if (existing) return setSelectedConversation(existing);
+    if (existing) {
+        setSelectedConversation(existing);
+        return;
+    }
 
+    // Create Temp
     let type = "";
     if (user.role === "Admin" && targetUser.role === "Subadmin") type = "admin-subadmin";
     else if (user.role === "Subadmin" && targetUser.role === "Admin") type = "subadmin-admin";
-    else return; // ignore other roles
+    else return;
 
     const tempConversation = {
       _id: `temp-${Date.now()}`,
       participants: [
-        { userId: user._id, role: user.role, user: { _id: user._id, name: user.name, fullName: user.fullName } },
-        { userId: targetUser._id, role: targetUser.role, user: { _id: targetUser._id, name: targetUser.name, fullName: targetUser.fullName } },
+        { userId: user._id, role: user.role, user: { ...user } },
+        { userId: targetUser._id, role: targetUser.role, user: { ...targetUser } },
       ],
       type,
       lastMessage: null,
       isTemp: true,
     };
     setSelectedConversation(tempConversation);
+    setMessages([]); // Clear messages for new chat
   };
 
-  // Merge conversations + available users for sidebar
+  // --- Filtering List ---
   const shownUsers = [
     ...conversations.map(c => ({ type: "conversation", id: c._id, data: c })),
     ...availableUsers.filter(u => !conversations.some(c => (c.participants ?? []).some(p => (typeof p.userId === "string" ? p.userId : p.userId?._id) === u._id)))
@@ -319,170 +293,170 @@ export default function MessagesPage() {
   });
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-[#0f172a] text-gray-100">
+    <div className="flex flex-col md:flex-row h-screen bg-[#0f172a] text-gray-100 font-sans overflow-hidden">
+      
       {/* Sidebar */}
-      <aside className="w-full md:w-72 bg-[#0b1220] border-r border-gray-800 flex flex-col">
-        <h2 className="p-4 text-lg font-bold text-gray-100 bg-gradient-to-r from-[#1e293b] to-[#243447] shadow-md tracking-wide">
-          <p className="flex gap-2"><MessageSquare/> Staff Messages</p>
-        </h2>
+      <aside className={`w-full md:w-80 bg-[#0b1220] border-r border-gray-800 flex flex-col ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-5 bg-gradient-to-r from-[#1e293b] to-[#0f172a] border-b border-gray-800">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <MessageSquare className="text-blue-500" size={24}/> Messages
+            </h2>
+        </div>
+        
         <div className="p-3">
-          <div className="flex items-center bg-[#111827] border border-gray-700 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500 transition-all">
-            <Search size={16} className="text-gray-400" />
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
             <input
               type="text"
-              placeholder="Search conversations..."
+              placeholder="Search staff..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="bg-transparent flex-1 ml-2 outline-none text-sm text-gray-200 placeholder-gray-500"
+              className="w-full bg-[#1e293b] border border-gray-700 rounded-lg pl-9 pr-4 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
             />
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-2 pb-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-[#0b1220]">
+
+        <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1 custom-scrollbar">
           {filteredUsers.length > 0 ? (
             filteredUsers.map((item) => {
               if (item.type === "conversation") {
-                const other = (item.data.participants ?? []).find(
-                  (p) => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id
-                );
+                const other = (item.data.participants ?? []).find(p => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id);
                 const otherId = typeof other?.userId === "string" ? other.userId : other?.userId?._id;
                 const otherName = getParticipantName(other);
-                const lastMsgText = item.data.lastMessage?.text || (item.data.isTemp ? "Start conversation" : "No messages yet");
-                const lastMsgTime = item.data.lastMessage?.createdAt
-                  ? formatDateTime(item.data.lastMessage.createdAt)
-                  : "";
+                const isOnline = isUserOnline(otherId);
+                const isActive = selectedConversation?._id === item.data._id;
+                
+                // Formatting Last Message
+                let lastMsg = "Start a conversation";
+                if(item.data.lastMessage?.text) lastMsg = item.data.lastMessage.text;
+                else if(item.data.lastMessage?.file) lastMsg = "Sent an attachment";
+
+                const time = item.data.lastMessage?.createdAt ? formatDateTime(item.data.lastMessage.createdAt) : "";
+                const isUnread = !item.data.lastMessage?.seen && item.data.lastMessage?.senderId !== user._id;
 
                 return (
                   <div
                     key={item.id}
                     onClick={() => setSelectedConversation(item.data)}
-                    className={`p-3 mb-2 cursor-pointer transition-all rounded-xl border border-transparent ${
-                      selectedConversation?._id === item.data._id
-                        ? "bg-[#1e293b] border-blue-500 shadow-md"
-                        : "hover:bg-[#162236] hover:border-[#1e3a5f]"
+                    className={`p-3 rounded-xl cursor-pointer transition-all border border-transparent ${
+                      isActive ? "bg-blue-600/10 border-blue-500/50" : "hover:bg-[#1e293b]"
                     }`}
                   >
-                    <div className="flex items-center gap-x-3 w-full">
+                    <div className="flex items-center gap-3">
                       <div className="relative">
-                        <CircleUserRound strokeWidth={1.5} size={36} className="text-gray-300" />
-                        <span
-                          className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-[#0b1220] ${
-                            isUserOnline(otherId) ? "bg-green-500" : "bg-gray-500"
-                          }`}
-                        />
+                        <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-gray-300">
+                            {otherName.charAt(0).toUpperCase()}
+                        </div>
+                        {isOnline && <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 ring-2 ring-[#0b1220]"/>}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-100 font-medium truncate">{otherName}</span>
-                          <span className="text-[10px] text-gray-500 whitespace-nowrap ml-2">{lastMsgTime}</span>
+                        <div className="flex justify-between items-center mb-0.5">
+                            <h4 className={`text-sm font-medium truncate ${isUnread ? 'text-white' : 'text-gray-300'}`}>{otherName}</h4>
+                            <span className="text-[10px] text-gray-500">{time}</span>
                         </div>
-                        <p
-                          className={`text-sm mt-1 truncate ${
-                            !item.data.lastMessage?.seen && item.data.lastMessage?.senderId !== user._id
-                              ? "text-gray-100 font-semibold"
-                              : "text-gray-400"
-                          }`}
-                        >
-                          {lastMsgText}
+                        <p className={`text-xs truncate ${isUnread ? 'text-blue-400 font-medium' : 'text-gray-500'}`}>
+                            {lastMsg}
                         </p>
                       </div>
                     </div>
                   </div>
                 );
               } else {
+                // Available User (New Chat)
                 const u = item.data;
+                const isOnline = isUserOnline(u._id);
                 return (
-                  <div
-                    key={u._id}
-                    onClick={() => handleStartChat(u)}
-                    className="p-3 mb-1 cursor-pointer hover:bg-[#162236] transition rounded-xl border border-transparent hover:border-[#1e3a5f]"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-100 font-medium truncate">{u.name}</span>
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full ${
-                          isUserOnline(u._id) ? "bg-green-500" : "bg-gray-500"
-                        }`}
-                      />
-                    </div>
-                    <p className="text-xs text-gray-400 mt-1 truncate">{u.role}</p>
+                  <div key={u._id} onClick={() => handleStartChat(u)} className="p-3 rounded-xl cursor-pointer hover:bg-[#1e293b] transition flex items-center gap-3 opacity-80 hover:opacity-100">
+                     <div className="relative">
+                        <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-gray-400">
+                            <CircleUserRound size={24}/>
+                        </div>
+                        {isOnline && <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 ring-2 ring-[#0b1220]"/>}
+                     </div>
+                     <div>
+                        <h4 className="text-sm font-medium text-gray-300">{u.name}</h4>
+                        <p className="text-xs text-gray-500">Click to message</p>
+                     </div>
                   </div>
                 );
               }
             })
           ) : (
-            <p className="text-center text-gray-500 mt-6 text-sm italic">No users found</p>
+            <div className="text-center py-8 text-gray-500 text-sm">No users found.</div>
           )}
         </div>
       </aside>
 
-      {/* Chat Window */}
-      <main className="flex-1 flex flex-col bg-[#1e293b] border-l border-gray-700">
+      {/* Main Chat Area */}
+      <main className={`flex-1 flex flex-col bg-[#1e293b] ${!selectedConversation ? 'hidden md:flex' : 'flex'}`}>
         {!selectedConversation ? (
-          <div className="flex-1 flex items-center justify-center text-gray-400">
-            Select a conversation to start messaging
+          <div className="flex-1 flex flex-col items-center justify-center text-gray-500 bg-[#0f172a]/50">
+            <MessageSquare size={64} className="mb-4 opacity-20" />
+            <p className="text-lg font-medium">Select a conversation to start chatting</p>
           </div>
         ) : (
           <>
-            <div className="p-4 border-b border-gray-700 bg-[#0f172a]">
+            {/* Chat Header */}
+            <div className="px-6 py-4 bg-[#0f172a] border-b border-gray-800 flex items-center gap-4">
+              <button onClick={() => setSelectedConversation(null)} className="md:hidden text-gray-400 hover:text-white">
+                <ArrowLeft size={24} />
+              </button>
+              
               {(() => {
-                const otherParticipant = (selectedConversation.participants ?? []).find(
-                  (p) => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id
-                );
-                const otherId = typeof otherParticipant?.userId === "string" ? otherParticipant.userId : otherParticipant?.userId?._id;
-                const otherName = getParticipantName(otherParticipant);
+                const other = (selectedConversation.participants ?? []).find(p => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id);
+                const otherId = typeof other?.userId === "string" ? other.userId : other?.userId?._id;
+                const name = getParticipantName(other);
                 const online = isUserOnline(otherId);
 
                 return (
                   <div className="flex items-center gap-3">
-                    <CircleUserRound size={38} />
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                        {name.charAt(0).toUpperCase()}
+                    </div>
                     <div>
-                      <h3 className="font-semibold text-white mb-1">{otherName}</h3>
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full inline-block ${online ? "bg-green-400" : "bg-gray-400"}`} />
-                        <span className={`text-xs ${online ? "text-green-400" : "text-gray-400"}`}>{online ? "Online" : "Offline"}</span>
+                      <h3 className="font-bold text-white leading-tight">{name}</h3>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-green-500" : "bg-gray-500"}`}/>
+                        <span className="text-xs text-gray-400">{online ? "Online" : "Offline"}</span>
                       </div>
                     </div>
                   </div>
                 );
               })()}
             </div>
-              
-            <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-3 bg-[#0b1220]">
-              {messages.map((msg) => {
-                const isSender = msg.senderId === user._id;
-               return (
-                  <div
-                    key={msg._id || msg._tempId}
-                    className={`flex ${isSender ? "justify-end" : "justify-start"} items-end gap-2`}
-                  >
-                    <div
-                      className={`px-4 py-2 rounded-2xl max-w-xs break-words relative ${
-                        isSender ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-200"
-                      }`}
-                    >
-                      {msg.text}
 
+            {/* Messages List */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-slate-900/50">
+              {messages.map((msg) => {
+                const isMe = msg.senderId === user._id;
+                return (
+                  <div key={msg._id || msg._tempId} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[75%] md:max-w-[60%] rounded-2xl px-4 py-3 shadow-sm ${
+                        isMe ? "bg-blue-600 text-white rounded-br-none" : "bg-[#1e293b] border border-gray-700 text-gray-200 rounded-bl-none"
+                    }`}>
+                      {/* Text Content */}
+                      {msg.text && <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
+
+                      {/* File Attachment */}
                       {msg.file && (
-                        msg.file.match(/\.(png|jpg|jpeg|gif)$/i) ? (
-                          <img
-                            src={`${api}${msg.file}`}
-                            alt={msg.fileName || "attachment"}
-                            className="mt-1 rounded border max-w-full max-h-60 object-contain cursor-pointer"
-                            onClick={() => setPreviewImage(`${api}${msg.file}`)}
-                          />
-                        ) : (
-                          <a
-                            href={`${api}${msg.file}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline text-blue-400 block mt-1"
-                          >
-                            📎 {msg.fileName || "View attachment"}
-                          </a>
-                        )
+                        <div className="mt-2">
+                            {msg.file.match(/\.(png|jpg|jpeg|gif)$/i) ? (
+                                <img
+                                    src={`${api}${msg.file}`}
+                                    alt="attachment"
+                                    className="rounded-lg max-h-60 w-auto object-cover cursor-pointer hover:opacity-90 transition border border-white/10"
+                                    onClick={() => setPreviewImage(`${api}${msg.file}`)}
+                                />
+                            ) : (
+                                <a href={`${api}${msg.file}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-2 bg-black/20 rounded-lg text-xs hover:bg-black/30 transition">
+                                    <Paperclip size={14}/> {msg.fileName || "Download Attachment"}
+                                </a>
+                            )}
+                        </div>
                       )}
 
-                      <div className="text-[10px] text-gray-300 mt-1 text-right">
+                      {/* Time */}
+                      <div className={`text-[10px] mt-1 text-right ${isMe ? "text-blue-200" : "text-gray-500"}`}>
                         {formatDateTime(msg.createdAt)}
                       </div>
                     </div>
@@ -491,80 +465,67 @@ export default function MessagesPage() {
               })}
               <div ref={messagesEndRef} />
             </div>
-            {/* Modal for Image Preview */}
-            {previewImage && (
-              <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-                <button
-                  onClick={() => setPreviewImage(null)}
-                  className="absolute top-4 right-4 text-white text-2xl"
-                >
-                  <ArrowLeft size={24} />
-                </button>
-                <img
-                  src={previewImage}
-                  alt="Preview"
-                  className="max-h-full max-w-full object-contain rounded shadow-lg"
-                />
-              </div>
-            )}
-            <div className="p-4 border-t border-gray-700 bg-[#1e293b] flex flex-col gap-2">
-              {/* Attachment Preview */}
-              {file && (
-                <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-2 max-w-xs">
-                  {file.type.startsWith("image/") ? (
-                    <img
-                      src={URL.createObjectURL(file)}
-                      alt={file.name}
-                      className="w-16 h-16 object-contain rounded"
+
+            {/* Input Area */}
+            <div className="p-4 bg-[#0f172a] border-t border-gray-800">
+                {/* File Preview before sending */}
+                {file && (
+                    <div className="flex items-center gap-3 mb-3 p-2 bg-[#1e293b] rounded-lg border border-gray-700 w-fit">
+                        {file.type.startsWith("image/") ? (
+                            <img src={URL.createObjectURL(file)} alt="preview" className="w-10 h-10 object-cover rounded" />
+                        ) : (
+                            <div className="w-10 h-10 bg-gray-700 rounded flex items-center justify-center"><Paperclip size={18}/></div>
+                        )}
+                        <span className="text-xs text-gray-300 max-w-[150px] truncate">{file.name}</span>
+                        <button onClick={() => setFile(null)} className="text-gray-400 hover:text-red-400"><X size={16}/></button>
+                    </div>
+                )}
+
+                <div className="flex items-center gap-3">
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        onChange={(e) => setFile(e.target.files[0])}
                     />
-                  ) : (
-                    <div className="flex-1 text-gray-200 truncate">{file.name}</div>
-                  )}
-                  <button
-                    onClick={() => setFile(null)}
-                    className="text-gray-400 hover:text-red-500"
-                    title="Remove attachment"
-                  >
-                    ✕
-                  </button>
+                    <button 
+                        onClick={() => fileInputRef.current.click()} 
+                        className="p-2.5 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-blue-400 transition"
+                    >
+                        <Paperclip size={20} />
+                    </button>
+                    
+                    <div className="flex-1 relative">
+                        <input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                            placeholder="Type a message..."
+                            className="w-full bg-[#1e293b] border border-gray-700 text-white rounded-full pl-5 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition placeholder-gray-500"
+                        />
+                        <button 
+                            onClick={handleSend}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-full transition shadow-lg"
+                        >
+                            <Send size={16} className="ml-0.5" />
+                        </button>
+                    </div>
                 </div>
-              )}
-
-              <div className="flex items-center gap-3">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  onChange={(e) => setFile(e.target.files[0])}
-                />
-                <label>
-                  <Paperclip
-                    size={20}
-                    onClick={() => fileInputRef.current.click()}
-                    className="text-gray-400 cursor-pointer hover:text-blue-400"
-                  />
-                </label>
-
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  className="flex-1 bg-[#0f172a] border border-gray-700 rounded-full px-4 py-2 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                />
-
-                <button
-                  onClick={handleSend}
-                  className="bg-gradient-to-r from-[#1B3C53] to-[#456882] p-2 rounded-full hover:brightness-110 transition"
-                >
-                  <Send size={18} />
-                </button>
-              </div>
             </div>
           </>
         )}
       </main>
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+            <button onClick={() => setPreviewImage(null)} className="absolute top-5 right-5 p-2 bg-gray-800 rounded-full text-white hover:bg-gray-700">
+                <X size={24}/>
+            </button>
+            <img src={previewImage} alt="Full Preview" className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" />
+        </div>
+      )}
     </div>
   );
 }

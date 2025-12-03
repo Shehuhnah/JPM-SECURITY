@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Send, Trash2, Edit, Save } from "lucide-react";
+import { Send, Trash2, Edit, Save, Megaphone, User, Calendar, X, CheckCircle, AlertCircle } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+
 const api = import.meta.env.VITE_API_URL;
 
 export default function AdminPosts() {
@@ -11,33 +12,43 @@ export default function AdminPosts() {
   const [editingPost, setEditingPost] = useState(null);
   const [expandedPosts, setExpandedPosts] = useState([]);
   const [loadingPage, setLoadingPage] = useState(false);
+  
+  // Toast State
+  const [toasts, setToasts] = useState([]);
 
-  const { user: admin, loading } = useAuth();
+  const { user: admin } = useAuth();
+  const API_URL = `${api}/api/posts`;
 
-  const API_URL = `${api}/api/posts`; // backend port
+  // Toast Helper
+  const showToast = (message, type = "success") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
+  };
 
-  // Fetch all posts 
+  // Fetch posts
+  const fetchPosts = async () => {
+    setLoadingPage(true);
+    try {
+      const res = await fetch(API_URL, { credentials: "include" });
+      const data = await res.json();
+      setPosts(Array.isArray(data) ? data.reverse() : []);
+    } catch (err) {
+      console.error("Error fetching posts:", err);
+      showToast("Failed to load posts", "error");
+    } finally {
+      setLoadingPage(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchPosts = async () => {
-      setLoadingPage(true);
-      try {
-        const res = await fetch(API_URL, { credentials: "include"} );
-        const data = await res.json();
-        setPosts(data.reverse()); // latest first
-      } catch (err) {
-        console.error("Error fetching posts:", err);
-      } finally {
-        setLoadingPage(false);
-      }
-    };
-
     fetchPosts();
   }, []);
 
-  // Handle post creation or update
+  // Handle Create/Update
   const handlePost = async () => {
     if (!title.trim() || !subject.trim() || !body.trim()) {
-      alert("Please fill in all fields before posting.");
+      showToast("Please fill in all fields.", "error");
       return;
     }
 
@@ -45,13 +56,12 @@ export default function AdminPosts() {
       title,
       subject,
       body,
-      author: admin?._id, // <-- use admin ID here
+      author: admin?._id,
     };
 
     try {
       let res;
       if (editingPost) {
-        // Update existing post
         res = await fetch(`${API_URL}/${editingPost._id}`, {
           method: "PUT",
           credentials: "include",
@@ -59,7 +69,6 @@ export default function AdminPosts() {
           body: JSON.stringify(newPost),
         });
       } else {
-        // Create new post
         res = await fetch(API_URL, {
           method: "POST",
           credentials: "include",
@@ -69,59 +78,60 @@ export default function AdminPosts() {
       }
 
       const data = await res.json();
-
       if (!res.ok) throw new Error(data.message || "Error saving post");
 
       if (editingPost) {
-        setPosts((prev) =>
-          prev.map((p) => (p._id === editingPost._id ? data : p))
-        );
+        setPosts((prev) => prev.map((p) => (p._id === editingPost._id ? data : p)));
         setEditingPost(null);
+        showToast("Announcement updated successfully");
       } else {
         setPosts((prev) => [data, ...prev]);
+        showToast("Announcement posted successfully");
       }
 
-      // Reset form
-      setTitle("");
-      setSubject("");
-      setBody("");
+      // Reset Form
+      resetForm();
     } catch (err) {
       console.error(err);
-      alert("Failed to save post.");
+      showToast("Failed to save post", "error");
     }
   };
 
-  // Edit existing post
-  const handleEdit = (post) => {
-    setEditingPost(post);
-    setTitle(post.title);
-    setSubject(post.subject);
-    setBody(post.body);
-  };
-
-  // Delete post
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this post?")) return;
 
     try {
-      const res = await fetch(`${API_URL}/${id}`, 
-        { 
-          method: "DELETE",
-          credentials: "include"
-        }
-      );
+      const res = await fetch(`${API_URL}/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.message || "Failed to delete");
 
       setPosts((prev) => prev.filter((p) => p._id !== id));
+      showToast("Post deleted successfully", "success");
     } catch (err) {
       console.error(err);
-      alert("Error deleting post.");
+      showToast("Error deleting post", "error");
     }
   };
 
-  // Expand / Collapse long posts
+  const handleEdit = (post) => {
+    setEditingPost(post);
+    setTitle(post.title);
+    setSubject(post.subject);
+    setBody(post.body);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const resetForm = () => {
+    setTitle("");
+    setSubject("");
+    setBody("");
+    setEditingPost(null);
+  };
+
   const toggleExpand = (id) => {
     setExpandedPosts((prev) =>
       prev.includes(id) ? prev.filter((pid) => pid !== id) : [...prev, id]
@@ -129,68 +139,103 @@ export default function AdminPosts() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
-      <main className="flex-1 p-6">
-        <h2 className="text-3xl font-bold mb-6 text-white flex items-center gap-2">
-          📢 Guard Announcements
-        </h2>
-
-        {/* Post Form */}
-        <div className="p-6 border border-gray-800 bg-[#1e293b]/80 backdrop-blur-md rounded-2xl shadow-xl space-y-4 mb-8">
-          <h3 className="text-lg font-semibold text-blue-400">
-            {editingPost ? "✏️ Edit Announcement" : "📝 Create New Announcement"}
-          </h3>
-
-          <div className="space-y-3">
-            <div className="flex flex-row gap-x-3">
-              <input
-                type="text"
-                placeholder="Enter title..."
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-blue-600 focus:outline-none"
-              />
-              <input
-                type="text"
-                placeholder="Enter subject..."
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-blue-600 focus:outline-none"
-              />
+    <div className="flex min-h-screen bg-slate-900/50 text-gray-100 font-sans">
+      <main className="flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full">
+        
+        {/* Page Header */}
+        <div className="flex items-center gap-3 mb-8">
+            <div className="p-3 bg-blue-600/10 rounded-xl border border-blue-600/20">
+                <Megaphone className="text-blue-500" size={28}/> 
             </div>
-            <textarea
-              placeholder="Write your announcement here..."
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              className="w-full h-32 bg-[#0f172a] border border-gray-700 text-gray-100 placeholder-gray-500 p-3 rounded-lg focus:ring-2 focus:ring-blue-600 resize-none"
-            />
+            <div>
+                <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Guard Announcements</h2>
+                <p className="text-slate-400 text-sm mt-1">Broadcast important updates to all security personnel.</p>
+            </div>
+        </div>
+
+        {/* --- Post Form Section --- */}
+        <div className={`p-6 border border-gray-700 bg-[#1e293b] rounded-2xl shadow-xl space-y-4 mb-10 transition-all duration-300 ${editingPost ? 'ring-2 ring-blue-500/50' : ''}`}>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+               {editingPost ? <Edit className="text-blue-400" size={20}/> : <Send className="text-blue-400" size={20}/>}
+               {editingPost ? "Edit Announcement" : "Create New Announcement"}
+            </h3>
+            {editingPost && (
+                <button onClick={resetForm} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 bg-red-500/10 px-2 py-1 rounded-md transition">
+                    <X size={14}/> Cancel Edit
+                </button>
+            )}
           </div>
 
-          {/* Action Button */}
-          <div className="flex justify-end">
+          <div className="space-y-4">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                 <label className="text-xs text-gray-400 font-medium ml-1 mb-1 block">Title</label>
+                 <input
+                    type="text"
+                    placeholder="e.g. Mandatory Meeting"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full bg-[#0f172a] border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-200 placeholder-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                />
+              </div>
+              <div className="flex-1">
+                 <label className="text-xs text-gray-400 font-medium ml-1 mb-1 block">Subject</label>
+                 <input
+                    type="text"
+                    placeholder="e.g. Policy Update"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    className="w-full bg-[#0f172a] border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-200 placeholder-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                />
+              </div>
+            </div>
+            <div>
+                 <label className="text-xs text-gray-400 font-medium ml-1 mb-1 block">Content</label>
+                 <textarea
+                    placeholder="Type your message here..."
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    className="w-full h-32 bg-[#0f172a] border border-gray-700 text-gray-200 placeholder-gray-600 p-4 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none transition"
+                 />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
             <button
               onClick={handlePost}
-              className={`flex items-center gap-2 ${
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium shadow-lg transition transform active:scale-95 ${
                 editingPost
-                  ? "bg-green-600 hover:bg-green-500"
-                  : "bg-blue-600 hover:bg-blue-500"
-              } text-white px-5 py-2 rounded-lg shadow-md transition`}
+                  ? "bg-green-600 hover:bg-green-500 shadow-green-900/20 text-white"
+                  : "bg-blue-600 hover:bg-blue-500 shadow-blue-900/20 text-white"
+              }`}
             >
-              {editingPost ? <Save size={16} /> : <Send size={16} />}
+              {editingPost ? <Save size={18} /> : <Send size={18} />}
               {editingPost ? "Save Changes" : "Post Announcement"}
             </button>
           </div>
         </div>
 
-        {/* Posts List */}
+        {/* --- Feed Section --- */}
+        <div className="mb-4 flex items-center gap-2">
+             <div className="h-px bg-gray-800 flex-1"></div>
+             <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Recent Posts</span>
+             <div className="h-px bg-gray-800 flex-1"></div>
+        </div>
+
         {loadingPage ? (
-          <p className="text-center text-gray-400">Loading posts...</p>
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1,2,3].map(i => (
+                  <div key={i} className="bg-[#1e293b] border border-gray-800 rounded-2xl h-64 animate-pulse"></div>
+              ))}
+           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {posts.length === 0 ? (
-              <p className="text-center text-gray-400 italic col-span-full">
-                No announcements yet.
-              </p>
+              <div className="col-span-full flex flex-col items-center justify-center py-20 bg-[#1e293b]/50 border border-gray-800 border-dashed rounded-2xl">
+                 <Megaphone size={48} className="text-gray-600 mb-4 opacity-50"/>
+                 <p className="text-gray-500">No announcements posted yet.</p>
+              </div>
             ) : (
               posts.map((p) => {
                 const isExpanded = expandedPosts.includes(p._id);
@@ -202,63 +247,54 @@ export default function AdminPosts() {
                 return (
                   <div
                     key={p._id}
-                    className="bg-[#1e293b] border border-gray-800 p-5 rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
+                    className="bg-[#1e293b] border border-gray-800 p-5 rounded-2xl shadow-sm hover:shadow-lg hover:border-gray-700 transition-all duration-300 flex flex-col h-full group"
                   >
-                    {/* Header */}
-                    <div>
-                      <div className="flex justify-between text-xs text-gray-400 mb-2">
-                        <span className="font-semibold text-blue-400">
-                          👤 {p.author?.name || p.author || 'ADMIN'}
-                        </span>
-                        <span>
-                          {new Date(p.createdAt).toLocaleDateString()} •{" "}
-                          {new Date(p.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
+                    {/* Card Header */}
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-blue-500 border border-slate-700">
+                            <User size={20} />
+                         </div>
+                         <div>
+                             <div className="text-sm font-semibold text-white">{p.author?.name || "Admin"}</div>
+                             <div className="text-xs text-gray-500 flex items-center gap-1">
+                                <Calendar size={10}/>
+                                {new Date(p.createdAt).toLocaleDateString()}
+                             </div>
+                         </div>
                       </div>
-
-                      <h3 className="text-lg font-semibold text-white mb-1">
-                        <span className="font-bold">Title: </span>
-                        {p.title}
-                      </h3>
-                      <p className="text-sm text-blue-300 mb-3 italic">
-                        <span className="font-bold">Subject: </span>
-                        {p.subject}
-                      </p>
-
-                      <p className="text-gray-100 mb-3 whitespace-pre-line break-words">
-                        {bodyPreview}
-                      </p>
-
-                      {p.body.length > 150 && (
-                        <button
-                          onClick={() => toggleExpand(p._id)}
-                          className="text-blue-400 text-sm hover:underline"
-                        >
-                          {isExpanded ? "See Less" : "See More"}
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                        <button onClick={() => handleEdit(p)} className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition" title="Edit">
+                            <Edit size={16} />
                         </button>
-                      )}
+                        <button onClick={() => handleDelete(p._id)} className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition" title="Delete">
+                            <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Footer */}
-                    <div className="flex justify-between items-center text-xs text-gray-400 mt-3">
-                      <span className="italic">For Guards Only</span>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEdit(p)}
-                          className="flex items-center gap-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 px-3 py-1 rounded-md"
-                        >
-                          <Edit size={14} /> Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(p._id)}
-                          className="flex items-center gap-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 px-3 py-1 rounded-md"
-                        >
-                          <Trash2 size={14} /> Delete
-                        </button>
-                      </div>
+                    {/* Card Body */}
+                    <div className="flex-1 mb-4">
+                         <h3 className="text-lg font-bold text-white mb-1 line-clamp-1" title={p.title}>{p.title}</h3>
+                         <div className="text-xs font-medium text-blue-400 mb-3 bg-blue-500/10 inline-block px-2 py-0.5 rounded border border-blue-500/20">
+                            {p.subject}
+                         </div>
+                         <p className="text-gray-300 text-sm whitespace-pre-line leading-relaxed">
+                            {bodyPreview}
+                         </p>
+                    </div>
+
+                    {/* Card Footer */}
+                    <div className="pt-4 border-t border-gray-700/50 flex justify-between items-center">
+                        <div className="text-xs text-gray-500 italic">Visible to all guards</div>
+                        {p.body.length > 150 && (
+                            <button
+                            onClick={() => toggleExpand(p._id)}
+                            className="text-xs font-medium text-blue-400 hover:text-blue-300 transition hover:underline"
+                            >
+                            {isExpanded ? "Show Less" : "Read More"}
+                            </button>
+                        )}
                     </div>
                   </div>
                 );
@@ -266,6 +302,24 @@ export default function AdminPosts() {
             )}
           </div>
         )}
+
+        {/* Toast Notifications */}
+        <div className="fixed top-6 right-6 flex flex-col items-end gap-3 z-50">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-xl text-white font-medium text-sm animate-in slide-in-from-right-10 fade-in duration-300 ${
+                toast.type === "success" ? "bg-emerald-600 shadow-emerald-900/20" : 
+                toast.type === "error" ? "bg-red-600 shadow-red-900/20" : "bg-gray-700"
+              }`}
+            >
+              {toast.type === "success" && <CheckCircle size={18}/>}
+              {toast.type === "error" && <AlertCircle size={18}/>}
+              {toast.message}
+            </div>
+          ))}
+        </div>
+
       </main>
     </div>
   );
