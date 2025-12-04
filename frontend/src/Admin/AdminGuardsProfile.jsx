@@ -20,6 +20,7 @@ import DeleteUserModal from "../components/DeleteUserModal";
 import { useAuth } from "../hooks/useAuth.js"
 import { Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
 const api = import.meta.env.VITE_API_URL;
 
 export default function GuardTable() {
@@ -482,7 +483,7 @@ export default function GuardTable() {
 
                                   {/* Actions */}
                                   <td className="px-6 py-4 text-right">
-                                      <div className="flex items-center justify-end gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <div className="flex items-center justify-end gap-2">
                                           <button onClick={() => handleView(g)} className="p-2 hover:bg-slate-700 rounded-lg text-gray-400 hover:text-blue-400 transition" title="View Profile">
                                               <Eye size={18} />
                                           </button>

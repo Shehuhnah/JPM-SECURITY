@@ -127,12 +127,18 @@ export const getCurrentScheduleInfo = async (req, res) => {
   try {
     const guardId = req.user._id;
     const now = new Date();
-    // Find a schedule that is approved and currently active for the guard
-    const schedule = await Schedule.findOne({
+
+    // Find all approved schedules for the guard
+    const allApprovedSchedules = await Schedule.find({
       guardId: guardId,
       isApproved: "Approved",
-      timeIn: { $lte: now },
-      timeOut: { $gte: now },
+    });
+
+    // Find the currently active schedule by comparing dates in JavaScript
+    const schedule = allApprovedSchedules.find(sched => {
+      const timeInDate = new Date(sched.timeIn);
+      const timeOutDate = new Date(sched.timeOut);
+      return timeInDate <= now && timeOutDate >= now;
     });
 
     if (!schedule) {

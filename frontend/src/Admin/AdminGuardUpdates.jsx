@@ -139,13 +139,13 @@ export default function AdminGuardUpdates() {
                 {guard.fullName}
               </h3>
               
-              <div className="flex items-center gap-1 text-xs text-gray-500 mb-1 bg-slate-900/50 px-2 py-1 rounded border border-slate-800">
+              <div className="flex items-center gap-1 text-xs text-white mb-1 bg-slate-900/50 px-2 py-1 rounded border border-slate-800">
                  <Hash size={10}/> {guard.guardId || "N/A"}
               </div>
 
               <div className="mt-3 w-full space-y-2">
                 
-                 <div className="text-xs text-gray-500 truncate">{guard.position || "Security Guard"}</div>
+                 <div className="text-xs text-white truncate">{guard.position || "Security Guard"}</div>
               </div>
 
               {/* Status Badge */}

@@ -327,7 +327,7 @@ export default function UserAccounts() {
       return;
     }
 
-    // Prevent deleting the last Subadmin (New Logic)
+    // Prevent deleting the last Subadmin
     if (target?.role === "Subadmin" && users.filter((u) => u.role === "Subadmin").length <= 1) {
         toast.error("Cannot delete the last Subadmin!", { theme: "dark", transition: Bounce });
         setUserToDelete(null);
@@ -476,7 +476,7 @@ export default function UserAccounts() {
                                     </td>
                                     {canEdit && (
                                         <td className="px-6 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex items-center justify-end gap-2">
                                                 <button 
                                                     onClick={() => { setUserToEdit(u); setIsEditOpen(true); }} 
                                                     className="p-2 hover:bg-yellow-500/10 text-gray-400 hover:text-yellow-400 rounded-lg transition"
