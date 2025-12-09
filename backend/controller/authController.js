@@ -63,13 +63,12 @@ export const loginUser = async (req, res) => {
       expiresIn: "15d",
     });
 
+    // FIX FOR iOS: Change sameSite to 'lax'
     res.cookie("accessToken", token, {
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 1000 * 60 * 60 * 24,
-      // domain: process.env.DOMAIN_URL || "localhost",
-      // path: "/",
+      secure: true,        // Required for Vercel/HTTPS
+      sameSite: "lax",     // CRITICAL: Must be 'lax' for the proxy to work on iOS
+      maxAge: 1000 * 60 * 60 * 24 * 15, // Adjusted to 15 days to match your token
     });
 
     user.lastLogin = new Date();
@@ -83,17 +82,49 @@ export const loginUser = async (req, res) => {
 };
 
 export const logout = (req, res) => {
+  // Logout must match Login settings exactly to clear the cookie
   res.clearCookie("accessToken", {
     httpOnly: true,
     secure: true,      
-    sameSite: "none",
-    // domain: process.env.DOMAIN_URL || "localhost",
-    // path: "/",      
+    sameSite: "lax",   // CRITICAL: Must match the login setting
   });
 
   return res.json({ message: "Logged out successfully" });
 };
 
+
+// LOGIN GUARD
+export const loginGuard = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const guard = await Guard.findOne({ email, role: "Guard" });
+    if (!guard) return res.status(400).json({ message: "Invalid Email Address" });
+
+    const isMatch = await guard.matchPassword(password);
+    if (!isMatch) return res.status(400).json({ message: "Incorrect password" });
+
+    const token = generateToken(guard._id, guard.role);
+    
+    // FIX FOR iOS: Change sameSite to 'lax'
+    res.cookie("accessToken", token, {
+      httpOnly: true,
+      secure: true,       
+      sameSite: "lax",   // CRITICAL: Must be 'lax'
+      maxAge: 1000 * 60 * 60 * 24 * 15, 
+    });
+
+    guard.lastLogin = new Date();
+    await guard.save();
+    res.json({ guard: guard.toJSON() });
+
+  } catch (err) {
+    console.error("Guard login error:", err.message);
+    res.status(500).json({ message: "Server error logging in guard." });
+  }
+};
+
+// GUARD CHANGE PASSWORD
 export const guardChangePassword = async (req, res) => {
   const { guardId, newPassword } = req.body;
 
@@ -109,38 +140,6 @@ export const guardChangePassword = async (req, res) => {
   } catch (err) {
     console.error("Error changing guard password:", err);
     res.status(500).json({ message: "Server error changing password" });
-  }
-};
-
-// LOGIN GUARD
-export const loginGuard = async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    const guard = await Guard.findOne({ email, role: "Guard" });
-    if (!guard) return res.status(400).json({ message: "Invalid Email Address" });
-
-    const isMatch = await guard.matchPassword(password);
-    if (!isMatch) return res.status(400).json({ message: "Incorrect password" });
-
-    const token = generateToken(guard._id, guard.role);
-    res.cookie("accessToken", token, {
-      httpOnly: true,
-      secure: true,       
-      sameSite: "none",  
-      maxAge: 1000 * 60 * 60 * 24,
-      // domain: process.env.DOMAIN_URL || "localhost",
-      // path: "/",
-    });
-
-    // update last login
-    guard.lastLogin = new Date();
-    await guard.save();
-    res.json({ guard: guard.toJSON() });
-
-  } catch (err) {
-    console.error("Guard login error:", err.message);
-    res.status(500).json({ message: "Server error logging in guard." });
   }
 };
 
