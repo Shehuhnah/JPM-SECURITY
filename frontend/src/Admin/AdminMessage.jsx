@@ -5,7 +5,9 @@ import { Paperclip, Send, Search, CircleUserRound, ArrowLeft, MessageSquare, X }
 import { useAuth } from "../hooks/useAuth";
 
 const api = import.meta.env.VITE_API_URL;
-export const socket = io(api, {
+const socketUrl = import.meta.env.VITE_SOCKET_URL || "https://jpm-security.onrender.com";
+
+export const socket = io(socketUrl, {
   withCredentials: true,
   transports: ["websocket", "polling"], 
 });

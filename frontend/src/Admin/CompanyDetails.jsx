@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import Navbar from "../components/navbar";
 
 export default function CompanyDetails() {
   const [posts, setPosts] = useState([]);

@@ -10,7 +10,6 @@ import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 const api = import.meta.env.VITE_API_URL;
 
-
 export default function GuardAnnouncement() {
   const {user: guard, loading} = useAuth();
   const navigate = useNavigate();
