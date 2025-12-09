@@ -237,13 +237,30 @@ export default function GuardAttendancePage() {
   };
 
   const selectedGuardInfo = allAttendance.find(a => a.guard._id === selectedGuardId)?.guard;
-  console.log("selected guard attendance: ", selectedGuardInfo)
 
-  const groupedAttendance = filteredAttendance.reduce((acc, rec) => {
-      const client = rec.scheduleId?.client || "Unassigned Client";
-      if (!acc[client]) acc[client] = [];
+  const sortedAttendance = [...filteredAttendance].sort((a, b) => 
+    new Date(b.timeIn) - new Date(a.timeIn)
+  );
+
+  // 2. Group by Client, but ensure unique Guard IDs per client
+  const groupedAttendance = sortedAttendance.reduce((acc, rec) => {
+    const client = rec.scheduleId?.client || "Unassigned Client";
+    
+    if (!acc[client]) {
+      acc[client] = [];
+    }
+
+    // Check if this guard is already in the list for this client
+    const isGuardExists = acc[client].some(
+      (existingRec) => existingRec.guard?._id === rec.guard?._id
+    );
+
+    // Only add if not already added
+    if (!isGuardExists) {
       acc[client].push(rec);
-      return acc;
+    }
+    
+    return acc;
   }, {});
 
   const getStatusBadge = (status) => {
