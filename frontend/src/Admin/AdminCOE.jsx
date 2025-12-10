@@ -193,7 +193,9 @@ export default function AdminCOE() {
           position: approvedCOE.position || person.position || "Undefined",
           employmentStart: approvedCOE.employmentStartDate || "Undefined",
           employmentEnd: approvedCOE.employmentEndDate || "Present",
-          salary: approvedCOE.salary || "Undefined",
+          salary: approvedCOE.salary 
+            ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(approvedCOE.salary) 
+            : "Undefined",
           companyName: "JPM SECURITY AGENCY CORP",
           companyAddress: "Indang, Cavite, Philippines",
           issuedDate: new Date(approvedCOE.issuedDate || Date.now()).toLocaleDateString("en-US", {
@@ -643,22 +645,42 @@ export default function AdminCOE() {
                     </p>
                     
                     <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-serif">₱</span>
-                        <input
-                            type="number"
-                            className="w-full pl-10 pr-4 py-3 bg-[#0f172a] border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-green-500 outline-none transition"
-                            placeholder="0.00"
-                            value={salary}
-                            onChange={(e) => setSalary(e.target.value)}
-                        />
-                    </div>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-serif">₱</span>
+                      <input
+                          type="text"  
+                          className="w-full pl-10 pr-4 py-3 bg-[#0f172a] border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-green-500 outline-none transition"
+                          placeholder="0.00"
+                          value={salary}
+                          onChange={(e) => {
+                              // 1. Get raw value
+                              const val = e.target.value;
+
+                              // 2. Allow only numbers, commas, and one decimal point
+                              if (/^[0-9,]*\.?[0-9]*$/.test(val)) {
+                                  
+                                  // 3. Remove existing commas to get the raw number
+                                  const rawValue = val.replace(/,/g, '');
+                                  
+                                  // 4. Split integer and decimal parts (to prevent deleting the "." while typing)
+                                  const parts = rawValue.split('.');
+                                  
+                                  // 5. Add commas to the integer part
+                                  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                                  
+                                  // 6. Update state
+                                  setSalary(parts.join('.'));
+                              }
+                          }}
+                      />
+                  </div>
                </div>
 
                <div className="p-6 pt-2 flex gap-3">
                   <button onClick={() => setSalaryModal(false)} className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm font-medium transition">Cancel</button>
-                  <button
+                 <button
                     onClick={() => {
-                        if (!salary.trim()) {
+                        // Remove commas before checking if it's empty
+                        if (!salary.replace(/,/g, '').trim()) {
                             showToast("Please enter a salary amount.", "error");
                             return;
                         }
@@ -666,9 +688,9 @@ export default function AdminCOE() {
                         setShowPopup(true);
                     }}
                     className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-white text-sm font-medium shadow-lg shadow-blue-900/20 transition flex items-center justify-center gap-2"
-                  >
+                >
                     Next <ChevronRight size={16}/>
-                  </button>
+                </button>
                </div>
             </div>
           </div>
