@@ -129,6 +129,14 @@ export const sendInterviewEmail = async (req, res) => {
       return res.status(400).json({ message: "Applicant email is missing." });
     }
 
+    const dateToSave = type === "range" ? startDate : date;
+
+    if (dateToSave) {
+      applicant.dateOfInterview = dateToSave;
+      applicant.status = "Interview"; 
+      await applicant.save();
+    }
+    
     const dateSummary =
       type === "range"
         ? `Date Range: ${formatDate(startDate)} - ${formatDate(endDate)}`
@@ -207,17 +215,17 @@ export const sendInterviewEmail = async (req, res) => {
                 ${
                   message?.trim()
                     ? `<tr>
-                         <td style="padding:18px 24px 0 24px;">
-                           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;">
-                             <tr>
-                               <td style="padding:14px 16px 6px 16px;font-family:Arial,Helvetica,sans-serif;color:#9a3412;font-size:13px;font-weight:700;">Additional Information</td>
-                             </tr>
-                             <tr>
-                               <td style="padding:0 16px 16px 16px;font-family:Arial,Helvetica,sans-serif;color:#7c2d12;font-size:14px;line-height:1.7;">${message.trim().replace(/\n/g, '<br />')}</td>
-                             </tr>
-                           </table>
-                         </td>
-                       </tr>`
+                          <td style="padding:18px 24px 0 24px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;">
+                              <tr>
+                                <td style="padding:14px 16px 6px 16px;font-family:Arial,Helvetica,sans-serif;color:#9a3412;font-size:13px;font-weight:700;">Additional Information</td>
+                              </tr>
+                              <tr>
+                                <td style="padding:0 16px 16px 16px;font-family:Arial,Helvetica,sans-serif;color:#7c2d12;font-size:14px;line-height:1.7;">${message.trim().replace(/\n/g, '<br />')}</td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>`
                     : ""
                 }
                 <tr>
@@ -261,7 +269,7 @@ export const sendInterviewEmail = async (req, res) => {
       html: htmlMessage,
     });
 
-    res.status(200).json({ success: true });
+    res.status(200).json({ success: true, message: "Interview scheduled and email sent." });
   } catch (error) {
     console.error("Error sending interview email:", error);
     res.status(500).json({ message: "Failed to send interview email." });
@@ -272,7 +280,7 @@ export const sendInterviewEmail = async (req, res) => {
 export const sendHireEmail = async (req, res) => {
   try {
     const { id } = req.params;
-    const { message, credentials } = req.body; // Expect credentials
+    const { message, credentials } = req.body; 
 
     if (!["Admin", "Subadmin"].includes(req.user?.role)) {
       return res.status(403).json({ message: "You are not authorized to perform this action." });
@@ -290,11 +298,15 @@ export const sendHireEmail = async (req, res) => {
     const defaultMessage =
       "We are pleased to inform you that you have been selected for the position at JPM Security Agency. Welcome to our team!";
     
+    // --- 1. Updated Plain Text Block with Link ---
     const credentialsBlock = credentials 
       ? `
           Your login credentials are:
           Email: ${credentials.email}
           Password: ${credentials.password}
+          
+          Access the Guard Portal here:
+          https://www.jpmsecurityagency.com/guard/login
 
           Please log in and change your password immediately.
         ` 
@@ -318,6 +330,7 @@ export const sendHireEmail = async (req, res) => {
       .join("\n");
 
 
+    // --- 2. Updated HTML Block with Button ---
     const htmlCredentialsBlock = credentials 
       ? `<tr>
            <td style="padding:18px 24px 0 24px;">
@@ -329,6 +342,11 @@ export const sendHireEmail = async (req, res) => {
                  <td style="padding:0 16px 16px 16px;font-family:Arial,Helvetica,sans-serif;color:#a16207;font-size:14px;line-height:1.7;">
                    <strong>Email:</strong> ${credentials.email}<br/>
                    <strong>Password:</strong> ${credentials.password}<br/><br/>
+                   
+                   <div style="margin-bottom: 12px;">
+                     <a href="https://www.jpmsecurityagency.com/guard/login" style="background-color:#ca8a04; color:#ffffff; padding:10px 20px; text-decoration:none; border-radius:6px; font-weight:bold; font-size:14px; display:inline-block;">Login to Guard Portal</a>
+                   </div>
+
                    <em>For your security, please log in to the guard portal and change your password immediately.</em>
                  </td>
                </tr>
@@ -360,33 +378,33 @@ export const sendHireEmail = async (req, res) => {
                 ${
                   applicant.position
                     ? `<tr>
-                         <td style="padding:18px 24px 0 24px;">
-                           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;">
-                             <tr>
-                               <td style="padding:14px 16px 6px 16px;font-family:Arial,Helvetica,sans-serif;color:#166534;font-size:13px;font-weight:700;">Position</td>
-                             </tr>
-                             <tr>
-                               <td style="padding:0 16px 16px 16px;font-family:Arial,Helvetica,sans-serif;color:#15803d;font-size:16px;font-weight:700;">${applicant.position}</td>
-                             </tr>
-                           </table>
-                         </td>
-                       </tr>`
+                          <td style="padding:18px 24px 0 24px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;">
+                              <tr>
+                                <td style="padding:14px 16px 6px 16px;font-family:Arial,Helvetica,sans-serif;color:#166534;font-size:13px;font-weight:700;">Position</td>
+                              </tr>
+                              <tr>
+                                <td style="padding:0 16px 16px 16px;font-family:Arial,Helvetica,sans-serif;color:#15803d;font-size:16px;font-weight:700;">${applicant.position}</td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>`
                     : ""
                 }
                 ${
                   message?.trim()
                     ? `<tr>
-                         <td style="padding:18px 24px 0 24px;">
-                           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;">
-                             <tr>
-                               <td style="padding:14px 16px 6px 16px;font-family:Arial,Helvetica,sans-serif;color:#1e40af;font-size:13px;font-weight:700;">Additional Details</td>
-                             </tr>
-                             <tr>
-                               <td style="padding:0 16px 16px 16px;font-family:Arial,Helvetica,sans-serif;color:#1e3a8a;font-size:14px;line-height:1.7;">${message.trim().replace(/\n/g, '<br />')}</td>
-                             </tr>
-                           </table>
-                         </td>
-                       </tr>`
+                          <td style="padding:18px 24px 0 24px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;">
+                              <tr>
+                                <td style="padding:14px 16px 6px 16px;font-family:Arial,Helvetica,sans-serif;color:#1e40af;font-size:13px;font-weight:700;">Additional Details</td>
+                              </tr>
+                              <tr>
+                                <td style="padding:0 16px 16px 16px;font-family:Arial,Helvetica,sans-serif;color:#1e3a8a;font-size:14px;line-height:1.7;">${message.trim().replace(/\n/g, '<br />')}</td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>`
                     : ""
                 }
                 <tr>

@@ -43,8 +43,8 @@ export const listRequests = async (req, res) => {
     const skip = (page - 1) * limit;
     const [items, total] = await Promise.all([
       COERequest.find(filter)
-        .populate('guard', 'fullName email guardId phoneNumber position')
-        .populate('subadmin', 'name email position contactNumber') // populate subadmin if needed
+        .populate('guard', 'fullName email guardId phoneNumber position createdAt')
+        .populate('subadmin', 'name email position contactNumber createdAt') // populate subadmin if needed
         .sort({ requestedAt: -1 })
         .skip(Number(skip))
         .limit(Number(limit)),
@@ -62,6 +62,7 @@ export const listRequests = async (req, res) => {
         phone: isGuard ? item.guard?.phoneNumber || "N/A" : item.subadmin?.contactNumber || "N/A",
         email: person?.email || "N/A",
         position: person?.position || "Undefined",
+        createdAt: person?.createdAt,
         purpose: item.purpose,
         status: item.status,
         requesterRole: item.requesterRole,
@@ -104,8 +105,8 @@ export const getMyRequests = async (req, res) => {
     }
 
     const items = await COERequest.find(filter)
-      .populate('guard', 'fullName email guardId')
-      .populate('subadmin', 'name email position contactNumber')
+      .populate('guard', 'fullName email guardId createdAt')
+      .populate('subadmin', 'name email position contactNumber createdAt')
       .sort({ requestedAt: -1 });
 
     res.json({ items });
@@ -121,8 +122,8 @@ export const getRequest = async (req, res) => {
     const id = req.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: "Invalid id" });
     const reqObj = await COERequest.findById(id)
-    .populate('guard', 'fullName email guardId phoneNumber position')
-    .populate('subadmin', 'name email position contactNumber'); // <-- add this
+    .populate('guard', 'fullName email guardId phoneNumber position createdAt')
+    .populate('subadmin', 'name email position contactNumber createdAt'); // <-- add this
 
     if (!reqObj) return res.status(404).json({ message: "Not found" });
     res.json(reqObj);
@@ -143,8 +144,8 @@ export const updateStatus = async (req, res) => {
 
     // Populate both guard and subadmin
     const reqObj = await COERequest.findById(id)
-      .populate('guard', 'fullName email guardId phoneNumber position')
-      .populate('subadmin', 'name email position contactNumber');
+      .populate('guard', 'fullName email guardId phoneNumber position createdAt')
+      .populate('subadmin', 'name email position contactNumber createdAt');
 
     if (!reqObj) return res.status(404).json({ message: "Request not found" });
 
@@ -159,6 +160,8 @@ export const updateStatus = async (req, res) => {
 
       // Determine the requester (guard or subadmin)
       const person = reqObj.requesterRole === "guard" ? reqObj.guard : reqObj.subadmin;
+      
+      const empStartDate = approved.employmentStartDate || (person?.createdAt ? new Date(person.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : "November 2023");
 
       reqObj.approvedCOE = {
         documentNumber: approved.documentNumber || `COE-${reqObj._id}-${new Date().getFullYear()}`,
@@ -166,7 +169,7 @@ export const updateStatus = async (req, res) => {
         issuedBy: approved.issuedBy || processedBy,
         validUntil: approved.validUntil || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         position: approved.position || person?.position || "Undefined",
-        employmentStartDate: approved.employmentStartDate || "",
+        employmentStartDate: empStartDate,
         employmentEndDate: approved.employmentEndDate || "Present",
         salary: approved.salary || "",
         workSchedule: approved.workSchedule || "",

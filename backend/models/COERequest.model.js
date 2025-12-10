@@ -7,7 +7,7 @@ const ApprovedCOESchema = new mongoose.Schema(
     issuedBy: { type: String },
     validUntil: { type: Date },
     position: { type: String },
-    salary: { type: String },
+    salary: { type: Number },
     pdfUrl: { type: String },
   },
   { _id: false }

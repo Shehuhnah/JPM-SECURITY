@@ -118,9 +118,14 @@ export default function AdminCOE() {
     try {
       let body;
       if (selectedAction === "accept") {
+        
+        // 1. SANITIZE: Remove commas before sending to backend
+        // "50,000" becomes "50000"
+        const cleanSalary = salary.replace(/,/g, ""); 
+
         body = { 
           action: "accept", 
-          approvedCOE: { salary } 
+          approvedCOE: { salary: cleanSalary } 
         };
       } else {
         body = { action: "decline", declineReason };
@@ -181,6 +186,8 @@ export default function AdminCOE() {
       const person = data.requesterRole === 'guard' ? data.guard : data.subadmin || {};
       const approvedCOE = data.approvedCOE || {};
 
+      const empStartDate = approvedCOE.employmentStartDate || (person.createdAt ? new Date(person.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : "Undefined");
+
       generateAndDownloadCOE(
         {
           name: (person.fullName || person.name || "UNDEFINED").toUpperCase(),
@@ -191,11 +198,11 @@ export default function AdminCOE() {
         {
           headerImage: header,
           position: approvedCOE.position || person.position || "Undefined",
-          employmentStart: approvedCOE.employmentStartDate || "Undefined",
+          employmentStart: empStartDate,
           employmentEnd: approvedCOE.employmentEndDate || "Present",
           salary: approvedCOE.salary 
-            ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(approvedCOE.salary) 
-            : "Undefined",
+              ? `PHP ${Number(approvedCOE.salary).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              : "Undefined",
           companyName: "JPM SECURITY AGENCY CORP",
           companyAddress: "Indang, Cavite, Philippines",
           issuedDate: new Date(approvedCOE.issuedDate || Date.now()).toLocaleDateString("en-US", {

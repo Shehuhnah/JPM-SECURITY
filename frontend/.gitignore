@@ -1,1 +1,14 @@
+# Dependencies
 node_modules/
+
+# Environment Variables (CRITICAL to ignore)
+.env
+.env.local
+.env.*
+
+# Build Outputs
+dist/
+build/
+
+# System Files
+.DS_Store

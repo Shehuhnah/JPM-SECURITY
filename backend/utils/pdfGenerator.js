@@ -41,9 +41,22 @@ export const generateAndSaveCOE = async (requestObj, opts = {}) => {
       const guardName = requestObj.guardName || 'Employee Name';
       const position = approved.position || 'Security Guard';
       const purpose = requestObj.purpose || 'employment verification purposes';
-      const salary = approved.salary || '₱0,000'; // put formatted salary here
-      const salaryWords = approved.salaryWords || ''; // optional words e.g. "Twenty-Four Thousand Pesos"
-      const startDate = approved.employmentStartDate || 'November 2023';
+      const rawSalary = String(approved.salary || "0").replace(/,/g, "");
+      const salaryNum = parseFloat(rawSalary);
+      const salary = !isNaN(salaryNum) 
+        ? `PHP ${salaryNum.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
+        : 'PHP 0.00';
+      const salaryWords = approved.salaryWords || ''; 
+      
+      // Determine person and default start date from createdAt
+      const isGuard = requestObj.requesterRole === 'guard';
+      const person = isGuard ? requestObj.guard : requestObj.subadmin;
+      const createdAtVal = person?.createdAt || person?._doc?.createdAt; // handle potential mongoose doc structure
+      const defaultStart = createdAtVal 
+        ? new Date(createdAtVal).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) 
+        : 'November 2023';
+
+      const startDate = approved.employmentStartDate || defaultStart;
       const endDate = approved.employmentEndDate || 'Present';
       const issuedBy = approved.issuedBy || 'HR and Head Administrator';
       const issuedDate = approved.issuedDate

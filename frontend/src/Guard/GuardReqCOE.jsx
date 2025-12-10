@@ -54,6 +54,7 @@ export default function GuardReqCOE() {
               guardId: userObj.guardId || userObj._id || "",
               phone: userObj.phoneNumber || userObj.contactNumber || "",
               email: userObj.email || "",
+              createdAt: userObj.createdAt,
             },
           };
         });
@@ -104,6 +105,7 @@ export default function GuardReqCOE() {
             guardId: userObj.guardId || userObj._id || "",
             phone: userObj.phoneNumber || userObj.contactNumber || "",
             email: userObj.email || "",
+            createdAt: userObj.createdAt,
           },
         };
       });
@@ -122,6 +124,8 @@ export default function GuardReqCOE() {
 
   const handleClientGenerateAndDownload = (coe) => {
     try {
+      const empStartDate = coe.approvedCOE?.employmentStartDate || (coe.user?.createdAt ? new Date(coe.user.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "November 2023");
+
       const payload = {
         name: coe.user?.name || "Employee Name",
         guardId: coe.user?.guardId || "",
@@ -132,20 +136,20 @@ export default function GuardReqCOE() {
       const options = {
         headerImage: header,
         position: coe.approvedCOE?.position || "Security Officer",
-        employmentStart: coe.approvedCOE?.employmentStartDate || "November 2023",
+        employmentStart: empStartDate,
         employmentEnd: coe.approvedCOE?.employmentEndDate || "Present",
-        salary: coe.approvedCOE?.salary || "Twenty-Four Thousand Pesos (P24,000)",
+        salary: coe.approvedCOE?.salary 
+          ? `PHP ${Number(coe.approvedCOE.salary).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          : "Undefined",
         companyName: "JPM SECURITY AGENCY CORP",
         companyAddress: "Indang, Cavite, Philippines",
-        issuedDate:
-          coe.approvedCOE?.issuedDate ||
-          new Date().toLocaleDateString("en-US", {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
+        issuedDate: new Date(coe.approvedCOE?.issuedDate || Date.now()).toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
           }),
         location: "Indang, Cavite",
-        signatory: coe.approvedCOE?.issuedBy || "KYLE CHRISTOPHER E. PASTRANA",
+        signatory: "KYLE CHRISTOPHER E. PASTRANA",
         signatoryTitle: "HR and Head Administrator",
         companyShort: "JPMSA Corp.",
       };
@@ -336,10 +340,6 @@ export default function GuardReqCOE() {
                         Issued:{" "}
                         {new Date(request.approvedCOE.issuedDate).toLocaleDateString()}
                       </p>
-                      <p>
-                        <User className="inline w-4 h-4 mr-1" />
-                        Issued by: {request.approvedCOE.issuedBy}
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -393,7 +393,7 @@ export default function GuardReqCOE() {
                     {selectedCOE.user?.guardId}) has been employed with{" "}
                     <strong>{selectedCOE.approvedCOE.companyName || "JPM SECURITY AGENCY CORP"}</strong> as a{" "}
                     <strong>{selectedCOE.approvedCOE.position}</strong> from{" "}
-                    <strong>{selectedCOE.approvedCOE.employmentStartDate || "Undefined"}</strong> to{" "}
+                    <strong>{selectedCOE.approvedCOE.employmentStartDate || (selectedCOE.user?.createdAt ? new Date(selectedCOE.user.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "Undefined")}</strong> to{" "}
                     <strong>{selectedCOE.approvedCOE.employmentEndDate || "Present"}</strong>.
                   </p>
                   <p>

@@ -128,7 +128,7 @@ export default function ApplicantsList() {
 
   const openConfirmHireModal = () => {
     setErrorMsg("")
-    if(!form.fullName || !form.email || !form.guardId || !form.address || !form.position || !form.phoneNumber || !form.SSSID || !form.PhilHealthID || !form.PagibigID || !form.EmergencyPerson || !form.EmergencyContact){
+    if(!form.fullName || !form.email || !form.guardId || !form.address || !form.position || !form.phoneNumber || !form.EmergencyPerson || !form.EmergencyContact){
       return setErrorMsg("Please fill out all required fields.")
     } else {
       setErrorMsg("")
@@ -221,6 +221,7 @@ export default function ApplicantsList() {
 
   const closeConfirmModal = () => setConfirmModal({ open: false, applicant: null, status: null });
 
+  //FOR DECLINE STATUS
   const confirmStatusChange = async () => {
     const { applicant, status } = confirmModal;
     if (!applicant || !status) return;
@@ -260,47 +261,6 @@ export default function ApplicantsList() {
   };
 
   const closeInterviewModal = () => setInterviewModal({ open: false, applicant: null });
-
-  const openHireModal = (applicant) => {
-    setHireModal({ open: true, applicant });
-    setHireMessage("");
-  };
-
-  // const closeHireModal = () => setHireModal({ open: false, applicant: null });
-
-  // const sendHireNotification = async () => {
-  //   if (!hireModal.applicant) return;
-  //   const applicant = hireModal.applicant;
-
-  //   try {
-  //     setSendingHire(true);
-
-  //     // 1. Update applicant status to "Hired"
-  //     await updateStatus(applicant._id, "Hired");
-
-  //     // 2. Send the hire email with an optional message
-  //     const emailBody = { message: hireMessage };
-
-  //     const res = await fetch(`${api}/api/applicants/${applicant._id}/hire-email`, {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       credentials: "include",
-  //       body: JSON.stringify(emailBody),
-  //     });
-
-  //     if (!res.ok) {
-  //       throw new Error('Failed to send hire email.');
-  //     }
-
-  //     toast.success(`Hire notification sent to ${applicant.name}`);
-  //     closeHireModal();
-  //   } catch (err) {
-  //     console.error("Failed to send hire notification:", err);
-  //     toast.error("❌ Failed to send hire notification.");
-  //   } finally {
-  //     setSendingHire(false);
-  //   }
-  // };
 
   const formatDate = (val) => {
     if (!val) return "N/A";
