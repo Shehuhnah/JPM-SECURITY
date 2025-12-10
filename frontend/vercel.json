@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/uploads/:match*",
+      "destination": "https://jpm-security.onrender.com/uploads/:match*"
+    },
+    {
       "source": "/api/:match*",
       "destination": "https://jpm-security.onrender.com/api/:match*"
     },

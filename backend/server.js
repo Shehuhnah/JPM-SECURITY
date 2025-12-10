@@ -35,16 +35,14 @@ app.set("trust proxy", 1);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// --- START OF UPDATED CORS SECTION ---
 
-// Define all allowed domains here
 const allowedOrigins = [
-  "https://jpm-security.vercel.app",        // Old Vercel URL (Keep this for safety)
-  "https://www.jpmsecurityagency.com",      // New .com Domain
-  "https://jpmsecurityagency.com",          // New .com (Root)
-  "http://localhost:5173",                  // Local Frontend
-  "http://localhost:5000",                  // Local Backend
-  process.env.CLIENT_ORIGIN                 // Fallback from env
+  "https://jpm-security.vercel.app",       
+  "https://www.jpmsecurityagency.com",      
+  "https://jpmsecurityagency.com",          
+  "http://localhost:5173",                  
+  "http://localhost:5000",                  
+  process.env.CLIENT_ORIGIN                 
 ];
 
 const corsOptions = {
@@ -60,9 +58,8 @@ const corsOptions = {
   credentials: true,
 };
 
-// 1. Socket.io Setup with CORS
 const io = new Server(httpServer, {
-  cors: corsOptions, // Re-use the same options
+  cors: corsOptions, 
 });
 
 export const onlineUsersMap = {};
@@ -75,7 +72,7 @@ app.use((req, res, next) => {
 });
 
 // 2. Express CORS Setup
-app.use(cors(corsOptions)); // Re-use the same options
+app.use(cors(corsOptions)); 
 
 
 app.use(cookieParser());
