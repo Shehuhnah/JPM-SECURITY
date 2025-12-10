@@ -10,6 +10,7 @@ import cookieParser from "cookie-parser";
 
 dotenv.config();
 
+// ... (Keep your existing route imports here) ...
 import attendanceRoutes from "./routes/attendanceRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
@@ -25,6 +26,7 @@ import userRoutes from "./routes/authRoutes.js";
 import applicantMessageRoutes from "./routes/applicantMessageRoutes.js";
 import applicantRoutes from "./routes/applicantRoutes.js";
 
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -33,12 +35,34 @@ app.set("trust proxy", 1);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const io = new Server(httpServer, {
-  cors: {
-    origin: process.env.CLIENT_ORIGIN,
-    methods: ["GET", "POST"],
-    credentials: true,
+// --- START OF UPDATED CORS SECTION ---
+
+// Define all allowed domains here
+const allowedOrigins = [
+  "https://jpm-security.vercel.app",        // Old Vercel URL (Keep this for safety)
+  "https://www.jpmsecurityagency.com",      // New .com Domain
+  "https://jpmsecurityagency.com",          // New .com (Root)
+  "http://localhost:5173",                  // Local Frontend
+  "http://localhost:5000",                  // Local Backend
+  process.env.CLIENT_ORIGIN                 // Fallback from env
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, or Postman)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
   },
+  credentials: true,
+};
+
+// 1. Socket.io Setup with CORS
+const io = new Server(httpServer, {
+  cors: corsOptions, // Re-use the same options
 });
 
 export const onlineUsersMap = {};
@@ -50,12 +74,9 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(
-  cors({
-    origin: process.env.CLIENT_ORIGIN,
-    credentials: true,
-  })
-);
+// 2. Express CORS Setup
+app.use(cors(corsOptions)); // Re-use the same options
+
 
 app.use(cookieParser());
 app.use(express.json({ limit: "20mb" }));
