@@ -1,37 +1,23 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Shield, Eye, EyeOff } from "lucide-react";
 import bg from "../Home/assets/home-bg.jpg";
 import { useAuth } from "../hooks/useAuth";
-import { el } from "date-fns/locale/el";
 
 export default function LoginForm() {
     const api = import.meta.env.VITE_API_URL;
     const { user: guard, loading } = useAuth();
     const navigate = useNavigate();
+    
     const [loadingPage, setLoadingPage] = useState(false);
-    const [formData, setFormData] = useState({ email: "", password: "", newpassword: "" });
+    const [formData, setFormData] = useState({ email: "", password: "" });
     const [showPassword, setShowPassword] = useState(false);
     const [message, setMessage] = useState("");
-    const [isFirstLogin, setIsFirstLogin] = useState(false);
 
     useEffect(() => {
         document.title = "Guard Login | JPM Security Agency";
-
-        if (loading) return;
-
-        if (guard) {
-            if (guard.isFirstLogin) {
-                setIsFirstLogin(true);
-                setMessage("✅ First time login detected. Please change your password below.");
-                setFormData(prev => ({
-                    ...prev,
-                    guardId: guard._id,
-                    email: guard.email || "",
-                }));
-            } else {
-                navigate("/guard/announcements");
-            }
+        if (!loading && guard) {
+            navigate("/guard/announcements");
         }
     }, [guard, loading, navigate]);
 
@@ -51,31 +37,19 @@ export default function LoginForm() {
         setMessage("");
 
         try {
-            const res = await fetch(
-                `${api}/api/auth/login-guard`,{
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  credentials: "include",
-                  body: JSON.stringify(formData),
-                }
-            );
+            const res = await fetch(`${api}/api/auth/login-guard`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(formData),
+            });
 
             const data = await res.json();
 
             if (!res.ok) throw new Error(data.message || "Invalid email or password");
-            console.log(data.isFirstLogin)
 
-           if (data.guard.isFirstLogin) {
-              setIsFirstLogin(true);
-              setMessage("✅ First time login detected. Please change your password below.");
-              setFormData(prev => ({
-                  ...prev,
-                  guardId: data.guard._id
-              }));
-            }else{
-              setMessage("✅ Login successful! Redirecting...");
-              setTimeout(() => navigate("/Guard/announcements"), 1500);
-            }
+            setMessage("✅ Login successful! Redirecting...");
+            setTimeout(() => navigate("/guard/announcements"), 1500);
 
         } catch (error) {
             console.error("Login error:", error);
@@ -84,58 +58,6 @@ export default function LoginForm() {
             setLoadingPage(false);
         }
     };
-
-    const changePasswordandLogin = async (e) => {
-      e.preventDefault();
-
-      // Basic empty-field check
-      if (!formData.email || !formData.newpassword) {
-          setMessage("❌ Please fill in all fields.");
-          return;
-      }
-
-      // Password strength check
-      const strongPassRegex = /^(?=.*[A-Z]).{8,}$/;
-
-      if (!strongPassRegex.test(formData.newpassword)) {
-          setMessage("❌ Password must be at least 8 characters, contain one uppercase letter.");
-          return;
-      }
-
-      setLoadingPage(true);
-      setMessage("");
-
-      const payload = {
-          guardId: formData.guardId,
-          newPassword: formData.newpassword
-      };
-
-      try {
-          const res = await fetch(
-              `${api}/api/auth/change-password-guard`,
-              {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  credentials: "include",
-                  body: JSON.stringify(payload),
-              }
-          );
-
-          const data = await res.json();
-
-          if (!res.ok) throw new Error(data.message || "Error changing password");
-
-          setMessage("✅ Password changed and login successful! Redirecting...");
-          setTimeout(() => navigate("/Guard/announcements"), 1500);
-
-      } catch (error) {
-          console.error("Change password error:", error);
-          setMessage(`❌ ${error.message}`);
-      } finally {
-          setLoadingPage(false);
-      }
-    };
-
 
     return (
         <section
@@ -151,37 +73,28 @@ export default function LoginForm() {
 
             {/* Login Card */}
             <div className="relative z-10 w-full max-w-md bg-[#1e293b]/90 backdrop-blur-md border border-gray-700 rounded-2xl shadow-2xl p-6 sm:p-8 text-gray-100 transition-all duration-300 mx-auto">
+                
                 {/* Header */}
                 <div className="flex flex-col items-center mb-6 sm:mb-8 text-center">
                     <div className="bg-blue-600/20 p-3 sm:p-4 rounded-full mb-3">
                         <Shield size={36} className="text-blue-400" />
                     </div>
-                    <h2 className="text-2xl sm:text-3xl font-bold text-white">
-                        Guard Login
-                    </h2>
-                    <p className="text-gray-400 text-xs sm:text-sm mt-1">
-                        Secure access for authorized guards only
-                    </p>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-white">Guard Login</h2>
+                    <p className="text-gray-400 text-xs sm:text-sm mt-1">Secure access for authorized guards only</p>
                 </div>
 
                 {message && (
-                    <div
-                        className={`mb-4 p-2 text-xs sm:text-sm text-center rounded-md ${
-                            message.includes("✅")
-                                ? "bg-green-500/20 text-green-400 border border-green-500"
-                                : "bg-red-500/20 text-red-400 border border-red-500"
-                        }`}
-                    >
+                    <div className={`mb-4 p-2 text-xs sm:text-sm text-center rounded-md ${
+                        message.includes("✅") ? "bg-green-500/20 text-green-400 border border-green-500" : "bg-red-500/20 text-red-400 border border-red-500"
+                    }`}>
                         {message}
                     </div>
                 )}
 
-                <form onSubmit={isFirstLogin ? changePasswordandLogin : handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Email */}
                     <div>
-                        <label className="block mb-1 text-sm font-medium text-gray-300">
-                            Email Address
-                        </label>
+                        <label className="block mb-1 text-sm font-medium text-gray-300">Email Address</label>
                         <input
                             type="email"
                             name="email"
@@ -193,78 +106,40 @@ export default function LoginForm() {
                     </div>
 
                     {/* Password */}
-                    {!isFirstLogin && (
-                        <div className="relative">
-                            <label className="block mb-1 text-sm font-medium text-gray-300">
-                                Password
-                            </label>
+                    <div className="relative">
+                        <label className="block mb-1 text-sm font-medium text-gray-300">Password</label>
+                        <input
+                            type={showPassword ? "text" : "password"}
+                            name="password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            className="w-full px-4 py-2 pr-10 bg-[#0f172a] border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm sm:text-base"
+                            placeholder="••••••••"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute inset-y-0 right-3 top-6 flex items-center text-gray-400 hover:text-gray-200"
+                        >
+                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                    </div>
 
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                name="password"
-                                value={formData.password}
-                                onChange={handleChange}
-                                className="w-full px-4 py-2 pr-10 bg-[#0f172a] border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm sm:text-base"
-                                placeholder="••••••••"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute inset-y-0 right-3 top-6 flex items-center text-gray-400 hover:text-gray-200"
-                            >
-                                {showPassword ? (
-                                    <EyeOff size={18} />
-                                ) : (
-                                    <Eye size={18} />
-                                )}
-                            </button>
-                        </div>
-                    )}
-                    {isFirstLogin && (
-                        <div className="">
-                            <div className="relative">
-                                <label className="block mb-1 text-sm font-medium text-gray-300">
-                                    New Password
-                                </label>
-
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    name="newpassword"
-                                    value={formData.newpassword}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2 pr-10 bg-[#0f172a] border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm sm:text-base"
-                                    placeholder="••••••••"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setShowPassword(!showPassword)
-                                    }
-                                    className="absolute inset-y-0 right-3 top-6 flex items-center text-gray-400 hover:text-gray-200"
-                                >
-                                    {showPassword ? (
-                                        <EyeOff size={18} />
-                                    ) : (
-                                        <Eye size={18} />
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                    {/* Login Button */}
-                    <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white py-2 sm:py-2.5 rounded-lg font-semibold transition-all duration-300 shadow-md hover:shadow-blue-500/20 text-sm sm:text-base" disabled={loadingPage}>
-                      {isFirstLogin ? "Change Password & Continue" : "Login"}
+                    {/* Submit Button */}
+                    <button 
+                        type="submit" 
+                        className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white py-2 sm:py-2.5 rounded-lg font-semibold transition-all duration-300 shadow-md hover:shadow-blue-500/20 text-sm sm:text-base" 
+                        disabled={loadingPage}
+                    >
+                        {loadingPage ? "Logging in..." : "Login"}
                     </button>
                 </form>
 
                 {/* Footer */}
                 <p className="text-center text-xs text-gray-500 mt-6 border-t border-gray-700 pt-4">
-                    © {new Date().getFullYear()} JPM Security Agency. All rights
-                    reserved.
+                    © {new Date().getFullYear()} JPM Security Agency. All rights reserved.
                 </p>
             </div>
-
-            {/* modal here */}
         </section>
     );
 }

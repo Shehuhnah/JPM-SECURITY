@@ -75,10 +75,6 @@ const guardSchema = new mongoose.Schema(
       enum: ["On Duty", "Off Duty"],
       default: "Off Duty",
     },
-    isFirstLogin: {
-      type: Boolean,
-      default: true,
-    },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
   },

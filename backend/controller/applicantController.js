@@ -281,7 +281,6 @@ export const sendInterviewEmail = async (req, res) => {
 export const sendHireEmail = async (req, res) => {
   try {
     const { id } = req.params;
-    // We don't need credentials in body anymore, we will find the user via email
     const { message } = req.body; 
 
     if (!["Admin", "Subadmin"].includes(req.user?.role)) {
@@ -299,7 +298,6 @@ export const sendHireEmail = async (req, res) => {
     const resetToken = crypto.randomBytes(32).toString("hex");
 
     // 3. Hash the token and save it to the database
-    // (We hash it for security in case the DB is leaked)
     guard.resetPasswordToken = crypto
       .createHash("sha256")
       .update(resetToken)
@@ -311,15 +309,15 @@ export const sendHireEmail = async (req, res) => {
     await guard.save();
 
     // 5. Create the Activation URL
-    // NOTE: This must match your FRONTEND route
     const activationUrl = `https://www.jpmsecurityagency.com/set-password/${resetToken}`;
 
     // --- EMAIL CONTENT ---
     const subject = `Action Required: Activate Your Account - ${applicant.position}`;
-    const defaultMessage = "Welcome to JPM Security Agency! Your account has been created.";
+    const defaultMessage = "We are pleased to inform you that you have been officially selected for the position at JPM Security Agency.";
 
+    // Plain Text Version
     const plainMessage = `
-      Dear ${applicant.name},
+      Hello ${applicant.name || "Applicant"},
       
       ${defaultMessage}
       
@@ -328,35 +326,115 @@ export const sendHireEmail = async (req, res) => {
       Click here: ${activationUrl}
       
       This link is valid for 48 hours.
+      
+      Best regards,
+      JPM Security Agency Recruitment Team
     `;
 
+    // Professional HTML Version (Copied Layout from Interview Email)
     const htmlMessage = `
-      <div style="background-color:#f5f7fb; padding:40px 0; font-family:Arial, sans-serif;">
-        <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
-          
-          <div style="background:#0f172a; padding:30px; text-align:center;">
-             <div style="color:#ffffff; font-size:24px; font-weight:bold;">Welcome to the Team</div>
-          </div>
+      <div style="margin:0;padding:0;background:#f5f7fb;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f5f7fb;">
+          <tr>
+            <td align="center" style="padding:24px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+                
+                <tr>
+                  <td align="center" style="background:linear-gradient(135deg,#065f46 0%,#059669 50%,#10b981 100%);padding:36px 24px;">
+                    <img src="${logoUrl}" alt="JPM Security Agency" width="160" style="display:block;height:auto;margin:0 auto 12px auto;" />
+                    <div style="font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:.2px;">Welcome Aboard</div>
+                    <div style="font-family:Arial,Helvetica,sans-serif;color:rgba(255,255,255,0.9);font-size:14px;margin-top:5px;">Account Activation Required</div>
+                  </td>
+                </tr>
 
-          <div style="padding:40px 30px; color:#334155; line-height:1.6;">
-            <p style="margin-top:0;">Dear <strong>${applicant.name}</strong>,</p>
-            <p>${defaultMessage}</p>
-            <p>To finalize your onboarding and access the Guard Portal, please click the button below to verify your email and set your password.</p>
-            
-            <div style="text-align:center; margin:30px 0;">
-              <a href="${activationUrl}" style="background-color:#ca8a04; color:#ffffff; padding:14px 28px; text-decoration:none; border-radius:6px; font-weight:bold; font-size:16px; display:inline-block;">Activate Account & Set Password</a>
-            </div>
+                <tr>
+                  <td style="padding:28px 24px 8px 24px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:15px;line-height:1.7;">
+                    <p style="margin:0 0 12px 0;">Hello <strong>${applicant.name || "Applicant"}</strong>,</p>
+                    <p style="margin:0 0 16px 0;">${defaultMessage}</p>
+                  </td>
+                </tr>
 
-            <p style="font-size:14px; color:#64748b;">Or copy this link: <br> <a href="${activationUrl}" style="color:#ca8a04;">${activationUrl}</a></p>
-            
-            ${message?.trim() ? `<div style="background:#f0f9ff; padding:15px; border-radius:6px; margin-top:20px; font-size:14px;"><strong>Note:</strong> ${message}</div>` : ''}
-          </div>
+                <tr>
+                  <td style="padding:0 24px 20px 24px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+                      <tr>
+                        <td colspan="2" style="padding:14px 16px;border-bottom:1px solid #e2e8f0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:14px;font-weight:700;">Hiring Details</td>
+                      </tr>
+                      <tr>
+                        <td style="width:36%;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;font-weight:600;">Position</td>
+                        <td style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:14px;">${applicant.position || "Security Guard"}</td>
+                      </tr>
+                      <tr>
+                        <td style="width:36%;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;font-weight:600;">Account Status</td>
+                        <td style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#ea580c;font-size:14px;font-weight:bold;">Pending Activation</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
 
-          <div style="background:#f8fafc; padding:20px; text-align:center; font-size:12px; color:#94a3b8; border-top:1px solid #e2e8f0;">
-            This link expires in 48 hours.<br>
-            © ${new Date().getFullYear()} JPM Security Agency.
-          </div>
-        </div>
+                ${
+                  message?.trim()
+                    ? `<tr>
+                          <td style="padding:0 24px 20px 24px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;">
+                              <tr>
+                                <td style="padding:14px 16px 6px 16px;font-family:Arial,Helvetica,sans-serif;color:#9a3412;font-size:13px;font-weight:700;">Note from Admin</td>
+                              </tr>
+                              <tr>
+                                <td style="padding:0 16px 16px 16px;font-family:Arial,Helvetica,sans-serif;color:#7c2d12;font-size:14px;line-height:1.7;">${message.trim().replace(/\n/g, '<br />')}</td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>`
+                    : ""
+                }
+
+                <tr>
+                  <td align="center" style="padding:0 24px 28px 24px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                            <td style="border-radius:8px;background:#ca8a04;">
+                                <a href="${activationUrl}" target="_blank" style="display:inline-block;padding:14px 28px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:8px;">Activate Account & Set Password</a>
+                            </td>
+                        </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:0 24px 10px 24px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;">
+                      <tr>
+                        <td style="padding:14px 16px;font-family:Arial,Helvetica,sans-serif;color:#1e3a8a;font-size:13px;line-height:1.7;">
+                          <strong>Trouble clicking the button?</strong><br>
+                          Copy and paste this link into your browser:<br>
+                          <a href="${activationUrl}" style="color:#2563eb;word-break:break-all;">${activationUrl}</a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:22px 24px 26px 24px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:15px;line-height:1.7;">
+                    Welcome to the team. We look forward to working with you.
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:22px 24px 26px 24px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;border-top:1px solid #e2e8f0;">
+                    Best regards,<br />
+                    <strong>JPM Security Agency Recruitment Team</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="background:#f8fafc;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;font-size:12px;padding:14px;">
+                    © ${new Date().getFullYear()} JPM Security Agency. All rights reserved.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
       </div>
     `;
 
