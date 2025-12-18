@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.model.js";
 import Guard from "../models/guard.model.js";
+import crypto from 'crypto';
 
 // Generate JWT token
 const generateToken = (id, role) => {
@@ -205,38 +206,38 @@ export const getGuards = async (req, res) => {
 export const setPassword = async (req, res) => {
   try {
     const { token } = req.params;
-    const { password } = req.body; // The new password user typed
+    const { password } = req.body;
 
-    // 1. Hash the incoming token to match what is in the DB
+    // 1. Hash the incoming URL token to compare with the Database version
     const resetPasswordToken = crypto
       .createHash("sha256")
       .update(token)
       .digest("hex");
 
-    // 2. Find the guard with this token AND ensure it hasn't expired
+    // 2. Find Guard with this token AND ensure it hasn't expired
     const guard = await Guard.findOne({
       resetPasswordToken,
-      resetPasswordExpire: { $gt: Date.now() }, // Expiration must be greater than "now"
+      resetPasswordExpire: { $gt: Date.now() },
     });
 
     if (!guard) {
       return res.status(400).json({ success: false, message: "Invalid or expired activation link." });
     }
 
-    // 3. Set the new password
-    // (Mongoose usually handles hashing via a .pre('save') hook. 
-    // If you don't have a hook, you must hash it here using bcrypt!)
+    // 3. SET PLAIN TEXT PASSWORD
+    // Your Guard model's "pre-save" hook will detect this change and hash it automatically.
     guard.password = password; 
-    
-    // 4. Clear the token fields so the link cannot be used again
+
+    // 4. Clear the reset token fields
     guard.resetPasswordToken = undefined;
     guard.resetPasswordExpire = undefined;
 
+    // 5. This triggers the pre('save') hook -> Hashing happens now
     await guard.save();
 
     res.status(200).json({ success: true, message: "Password set successfully. You can now login." });
   } catch (error) {
-    console.error(error);
+    console.error("Set Password Error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

@@ -75,9 +75,9 @@ const Router = () => {
             { path: "clients", element: <ClientPage /> },
             { path: "services", element: <ServicesPage /> },
             { path: "gallery", element: <Gallery /> },
-            { path: "set-password/:token", element: <SetPassword /> }, 
           ],
         },
+        { path: "set-password/:token", element: <SetPassword /> }, 
         {
           path: "admin",
           children: [

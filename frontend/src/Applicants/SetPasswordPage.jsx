@@ -1,28 +1,38 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Lock, CheckCircle, AlertCircle, ShieldCheck } from "lucide-react";
-import { toast, ToastContainer } from "react-toastify"; // Import react-toastify
-import "react-toastify/dist/ReactToastify.css"; // Import the CSS
+import { Eye, EyeOff, Lock, CheckCircle, AlertCircle, ShieldCheck, KeyRound } from "lucide-react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
-// Change this to your actual API base URL import
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function SetPassword() {
-  const { token } = useParams(); // Get the secure token from the URL
+  const { token } = useParams();
   const navigate = useNavigate();
   
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [status, setStatus] = useState("idle"); // idle, success, error
+  const [status, setStatus] = useState("idle"); 
   const [errorMessage, setErrorMessage] = useState("");
+  
+  // Password Strength Logic
+  const [strength, setStrength] = useState(0);
+  useEffect(() => {
+    let score = 0;
+    if (password.length > 5) score += 1;
+    if (password.length > 9) score += 1;
+    if (/[A-Z]/.test(password)) score += 1;
+    if (/[0-9]/.test(password)) score += 1;
+    if (/[^A-Za-z0-9]/.test(password)) score += 1;
+    setStrength(score);
+  }, [password]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage("");
 
-    // --- Validation ---
     if (password.length < 6) {
       setErrorMessage("Password must be at least 6 characters long.");
       return;
@@ -34,8 +44,6 @@ export default function SetPassword() {
 
     try {
       setIsLoading(true);
-
-      // Call your backend API
       const res = await fetch(`${API_URL}/api/auth/set-password/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -44,36 +52,20 @@ export default function SetPassword() {
 
       const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to set password.");
-      }
+      if (!res.ok) throw new Error(data.message || "Failed to set password.");
 
-      // Success!
       setStatus("success");
-      
-      // Toastify Success Notification
-      toast.success("Password set successfully! Redirecting...", {
+      toast.success("Account activated successfully!", {
         position: "top-center",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark", // Using dark theme to match your UI
+        theme: "dark",
       });
       
-      // Redirect to login after 3 seconds
-      setTimeout(() => {
-        navigate("/guard/login");
-      }, 3000);
+      setTimeout(() => navigate("/guard/login"), 3000);
 
     } catch (err) {
       console.error(err);
       setStatus("error");
       setErrorMessage(err.message || "Invalid or expired link.");
-      
-      // Toastify Error Notification (Optional, since you also have inline error)
       toast.error(err.message || "Failed to set password.", {
          position: "top-center",
          theme: "dark"
@@ -86,21 +78,25 @@ export default function SetPassword() {
   // --- Success View ---
   if (status === "success") {
     return (
-      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4">
-        <ToastContainer /> {/* Container for toasts */}
-        <div className="bg-[#1e293b] border border-green-500/30 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
-          <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="text-green-400" size={32} />
+      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-6 relative overflow-hidden">
+        {/* Background Gradients */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[100px]"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/20 rounded-full blur-[100px]"></div>
+        
+        <ToastContainer />
+        <div className="bg-[#1e293b]/80 backdrop-blur-xl border border-green-500/30 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate-in fade-in zoom-in duration-300">
+          <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-green-500/5">
+            <CheckCircle className="text-green-400" size={40} />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Password Set!</h2>
-          <p className="text-gray-400 mb-6">
-            Your account has been activated and your password is secure. You are being redirected to the login page...
+          <h2 className="text-2xl font-bold text-white mb-2">You're All Set!</h2>
+          <p className="text-gray-400 mb-8 text-sm leading-relaxed">
+            Your account has been successfully activated. You are being redirected to the portal...
           </p>
           <button 
             onClick={() => navigate("/guard/login")}
-            className="w-full py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl font-semibold transition shadow-lg shadow-green-900/20"
+            className="w-full py-3.5 bg-green-600 hover:bg-green-500 text-white rounded-xl font-semibold transition shadow-lg shadow-green-900/20 flex items-center justify-center gap-2"
           >
-            Go to Login Now
+            Login Now
           </button>
         </div>
       </div>
@@ -109,95 +105,113 @@ export default function SetPassword() {
 
   // --- Form View ---
   return (
-    <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-4 font-sans">
-      <ToastContainer /> {/* Container for toasts */}
+    <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-4 font-sans relative">
+      <ToastContainer />
       
-      {/* Brand Header */}
-      <div className="mb-8 text-center">
-        <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-900/40">
-           <ShieldCheck className="text-white" size={24} />
+      {/* Background Ambience */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px]"></div>
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-[120px]"></div>
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
+        {/* Brand Header */}
+        <div className="mb-8 text-center">
+          <div className="inline-flex p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-xl shadow-blue-900/30 mb-4">
+             <ShieldCheck className="text-white" size={32} />
+          </div>
+          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">JPM Security</h1>
+          <p className="text-blue-200/60 text-sm mt-1">Secure Employee Portal</p>
         </div>
-        <h1 className="text-2xl font-bold text-white tracking-tight">JPM Security Agency</h1>
-        <p className="text-gray-500 text-sm">Employee Portal Activation</p>
-      </div>
 
-      <div className="bg-[#1e293b] border border-gray-700 rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl relative overflow-hidden">
-        
-        {/* Top Decorative Line */}
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500"></div>
-
-        <h2 className="text-xl font-bold text-white mb-6">Set Your Password</h2>
-
-        {/* Error Message Alert */}
-        {errorMessage && (
-          <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex gap-3 items-start animate-in fade-in slide-in-from-top-2">
-            <AlertCircle className="text-red-400 shrink-0 mt-0.5" size={18} />
-            <p className="text-sm text-red-200">{errorMessage}</p>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="bg-[#1e293b]/90 backdrop-blur-lg border border-gray-700/50 rounded-3xl p-6 md:p-8 shadow-2xl">
           
-          {/* New Password Field */}
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-gray-400 uppercase tracking-wider ml-1">New Password</label>
-            <div className="relative group">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-400 transition" size={18} />
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-[#0f172a] border border-gray-600 rounded-xl py-3 pl-12 pr-12 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                placeholder="Enter new password"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-blue-500/10 rounded-lg">
+                <KeyRound className="text-blue-400" size={20} />
+            </div>
+            <div>
+                <h2 className="text-lg font-bold text-white">Activate Account</h2>
+                <p className="text-xs text-gray-400">Create your new secure password</p>
             </div>
           </div>
 
-          {/* Confirm Password Field */}
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-gray-400 uppercase tracking-wider ml-1">Confirm Password</label>
-            <div className="relative group">
-              <CheckCircle className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-400 transition" size={18} />
-              <input
-                type={showPassword ? "text" : "password"}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-[#0f172a] border border-gray-600 rounded-xl py-3 pl-12 pr-12 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                placeholder="Confirm password"
-                required
-              />
+          {errorMessage && (
+            <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex gap-3 items-start animate-in fade-in slide-in-from-top-2">
+              <AlertCircle className="text-red-400 shrink-0 mt-0.5" size={18} />
+              <p className="text-sm text-red-200 leading-snug">{errorMessage}</p>
             </div>
-          </div>
+          )}
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 disabled:cursor-not-allowed rounded-xl text-white font-semibold shadow-lg shadow-blue-900/20 transition-all flex items-center justify-center gap-2 mt-2"
-          >
-            {isLoading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Setting Password...
-              </>
-            ) : (
-              "Activate Account"
-            )}
-          </button>
-        </form>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            
+            {/* Password Field */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider ml-1">New Password</label>
+              <div className="relative group">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-400 transition" size={18} />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-[#0f172a] border border-gray-600 rounded-xl py-3.5 pl-12 pr-12 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-sm md:text-base"
+                  placeholder="Create password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white p-1"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              
+              {/* Strength Indicator */}
+              <div className="flex gap-1 h-1 mt-2 px-1">
+                 {[...Array(5)].map((_, i) => (
+                    <div key={i} className={`h-full w-full rounded-full transition-all duration-300 ${i < strength ? (strength < 3 ? 'bg-red-500' : strength < 4 ? 'bg-yellow-500' : 'bg-green-500') : 'bg-gray-700'}`}></div>
+                 ))}
+              </div>
+            </div>
+
+            {/* Confirm Field */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider ml-1">Confirm Password</label>
+              <div className="relative group">
+                <CheckCircle className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-400 transition" size={18} />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full bg-[#0f172a] border border-gray-600 rounded-xl py-3.5 pl-12 pr-12 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-sm md:text-base"
+                  placeholder="Repeat password"
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-70 disabled:cursor-not-allowed rounded-xl text-white font-bold shadow-lg shadow-blue-900/30 transition-all flex items-center justify-center gap-2 mt-4 text-sm md:text-base"
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Activating...
+                </>
+              ) : (
+                "Complete Activation"
+              )}
+            </button>
+          </form>
+        </div>
+
+        <p className="mt-8 text-center text-gray-500 text-xs">
+          © {new Date().getFullYear()} JPM Security Agency
+        </p>
       </div>
-
-      <p className="mt-8 text-gray-500 text-xs">
-        © {new Date().getFullYear()} JPM Security Agency. Secure Portal.
-      </p>
     </div>
   );
 }

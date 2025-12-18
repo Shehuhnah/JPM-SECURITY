@@ -379,58 +379,59 @@ export const sendHireEmail = async (req, res) => {
 export const finalizeHiring = async (req, res) => {
   try {
     const { id } = req.params;
-    // We don't rely on the frontend sending a password anymore
-    // We generate a random temp one or use the one sent, 
-    // but the USER will overwrite it via the email link anyway.
+    // We assume the body contains the guard details (fullName, address, etc.)
     const { ...guardData } = req.body; 
 
     const applicant = await Applicant.findById(id);
     if (!applicant) return res.status(404).json({ message: "Applicant not found." });
-    if (applicant.status === 'Hired') return res.status(400).json({ message: "Already hired." });
 
-    // 1. Create Guard (Password will be reset by user via email)
-    // If your Guard model requires a password, give it a random strong one for now
+    // 1. Generate a random placeholder password
+    // This satisfies the "required: true" in your model.
+    // The user will overwrite this immediately via the email link.
     if (!guardData.password) {
         guardData.password = crypto.randomBytes(16).toString("hex");
     }
 
+    // 2. Create Guard
+    // Your model's pre-save hook will hash this random password automatically.
     const newGuard = new Guard(guardData);
-    await newGuard.save();
+    await newGuard.save(); 
 
-    // 2. Update Applicant
+    // 3. Update Applicant Status
     applicant.status = "Hired";
     applicant.dateOfHired = new Date();
     applicant.processedBy = req.user.id;
     await applicant.save();
 
-    // 3. Trigger the Activation Email
-    // We use a mock request to reuse the logic we wrote in Step 2
+    // 4. Send Activation Email (Magic Link)
     const mockReq = {
       params: { id },
       user: req.user,
       body: {
-        message: "Congratulations on your new role!",
-        // No credentials passed here!
+        message: "Congratulations! Please activate your account.",
+        // We do NOT send the random password. We send the Magic Link.
       }
     };
     
-    // Simple mock response to catch the output
+    // Mock response to catch logging
     const mockRes = {
       status: (code) => ({
-        json: (data) => console.log(`Email trigger status: ${code}`, data)
+        json: (data) => console.log(`Activation email status: ${code}`, data)
       }),
     };
     
-    // Call the email function
     await sendHireEmail(mockReq, mockRes);
     
     res.status(201).json({ 
-      message: "Hired successfully. Activation email sent.",
+      message: "Applicant hired. Activation email sent.",
       guard: newGuard
     });
 
   } catch (error) {
     console.error("Error finalizing hiring:", error);
+    if (error.code === 11000) {
+        return res.status(409).json({ message: "Email or Guard ID already exists." });
+    }
     res.status(500).json({ message: "Server error." });
   }
 };
