@@ -1,5 +1,6 @@
 import Applicant from "../models/applicant.model.js";
 import Guard from "../models/guard.model.js";
+import crypto from 'crypto';
 import { sendMail } from "../utils/mailer.js";
 import { generateHiredApplicantsPDF } from "../utils/hiredApplicantsPdfGenerator.js";
 
@@ -280,164 +281,82 @@ export const sendInterviewEmail = async (req, res) => {
 export const sendHireEmail = async (req, res) => {
   try {
     const { id } = req.params;
-    const { message, credentials } = req.body; 
+    // We don't need credentials in body anymore, we will find the user via email
+    const { message } = req.body; 
 
     if (!["Admin", "Subadmin"].includes(req.user?.role)) {
-      return res.status(403).json({ message: "You are not authorized to perform this action." });
+      return res.status(403).json({ message: "You are not authorized." });
     }
 
     const applicant = await Applicant.findById(id);
-    if (!applicant) {
-      return res.status(404).json({ message: "Applicant not found." });
-    }
-    if (!applicant.email) {
-      return res.status(400).json({ message: "Applicant email is missing." });
-    }
+    if (!applicant) return res.status(404).json({ message: "Applicant not found." });
 
-    const subject = `Congratulations! You've Been Hired - ${applicant.position || 'Security Personnel'}`;
-    const defaultMessage =
-      "We are pleased to inform you that you have been selected for the position at JPM Security Agency. Welcome to our team!";
-    
-    // --- 1. Updated Plain Text Block with Link ---
-    const credentialsBlock = credentials 
-      ? `
-          Your login credentials are:
-          Email: ${credentials.email}
-          Password: ${credentials.password}
-          
-          Access the Guard Portal here:
-          https://www.jpmsecurityagency.com/guard/login
+    // 1. Find the Guard account associated with this applicant
+    const guard = await Guard.findOne({ email: applicant.email });
+    if (!guard) return res.status(404).json({ message: "Guard account not found. Finalize hiring first." });
 
-          Please log in and change your password immediately.
-        ` 
-      : "";
+    // 2. Generate a secure random token
+    const resetToken = crypto.randomBytes(32).toString("hex");
 
-    const plainMessage = [
-      `Dear ${applicant.name || "Applicant"},`,
-      "",
-      "🎉 Congratulations!",
-      "",
-      defaultMessage,
-      "",
-      credentialsBlock,
-      message?.trim() ? `${message.trim()}\n` : undefined,
-      "We will be in touch soon with further details regarding your onboarding process.",
-      "",
-      "Best regards,",
-      "JPM Security Agency Recruitment Team",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    // 3. Hash the token and save it to the database
+    // (We hash it for security in case the DB is leaked)
+    guard.resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
 
+    // 4. Set expiration (Link valid for 48 hours)
+    guard.resetPasswordExpire = Date.now() + 48 * 60 * 60 * 1000;
 
-    // --- 2. Updated HTML Block with Button ---
-    const htmlCredentialsBlock = credentials 
-      ? `<tr>
-           <td style="padding:18px 24px 0 24px;">
-             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde047;border-radius:10px;">
-               <tr>
-                 <td style="padding:14px 16px 6px 16px;font-family:Arial,Helvetica,sans-serif;color:#854d0e;font-size:13px;font-weight:700;">Your Account Credentials</td>
-               </tr>
-               <tr>
-                 <td style="padding:0 16px 16px 16px;font-family:Arial,Helvetica,sans-serif;color:#a16207;font-size:14px;line-height:1.7;">
-                   <strong>Email:</strong> ${credentials.email}<br/>
-                   <strong>Password:</strong> ${credentials.password}<br/><br/>
-                   
-                   <div style="margin-bottom: 12px;">
-                     <a href="https://www.jpmsecurityagency.com/guard/login" style="background-color:#ca8a04; color:#ffffff; padding:10px 20px; text-decoration:none; border-radius:6px; font-weight:bold; font-size:14px; display:inline-block;">Login to Guard Portal</a>
-                   </div>
+    await guard.save();
 
-                   <em>For your security, please log in to the guard portal and change your password immediately.</em>
-                 </td>
-               </tr>
-             </table>
-           </td>
-         </tr>`
-      : "";
+    // 5. Create the Activation URL
+    // NOTE: This must match your FRONTEND route
+    const activationUrl = `https://www.jpmsecurityagency.com/set-password/${resetToken}`;
+
+    // --- EMAIL CONTENT ---
+    const subject = `Action Required: Activate Your Account - ${applicant.position}`;
+    const defaultMessage = "Welcome to JPM Security Agency! Your account has been created.";
+
+    const plainMessage = `
+      Dear ${applicant.name},
+      
+      ${defaultMessage}
+      
+      To access the Guard Portal, you must activate your account and set your own secure password.
+      
+      Click here: ${activationUrl}
+      
+      This link is valid for 48 hours.
+    `;
 
     const htmlMessage = `
-      <div style="margin:0;padding:0;background:#f5f7fb;">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f5f7fb;">
-          <tr>
-            <td align="center" style="padding:24px;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
-                <tr>
-                  <td align="center" style="background:linear-gradient(135deg,#065f46 0%,#059669 50%,#10b981 100%);padding:36px 24px;">
-                    <img src="${logoUrl}" alt="JPM Security Agency" width="160" style="display:block;height:auto;margin:0 auto 12px auto;" />
-                    <div style="font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:.2px;">Congratulations</div>
-                    <div style="font-family:Arial,Helvetica,sans-serif;color:rgba(255,255,255,.9);font-size:14px;margin-top:6px;">Offer of Employment</div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:28px 24px 8px 24px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:15px;line-height:1.7;">
-                    <p style="margin:0 0 12px 0;">Dear <strong>${applicant.name || "Applicant"}</strong>,</p>
-                    <p style="margin:0 0 16px 0;">${defaultMessage}</p>
-                  </td>
-                </tr>
-                ${htmlCredentialsBlock}
-                ${
-                  applicant.position
-                    ? `<tr>
-                          <td style="padding:18px 24px 0 24px;">
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;">
-                              <tr>
-                                <td style="padding:14px 16px 6px 16px;font-family:Arial,Helvetica,sans-serif;color:#166534;font-size:13px;font-weight:700;">Position</td>
-                              </tr>
-                              <tr>
-                                <td style="padding:0 16px 16px 16px;font-family:Arial,Helvetica,sans-serif;color:#15803d;font-size:16px;font-weight:700;">${applicant.position}</td>
-                              </tr>
-                            </table>
-                          </td>
-                        </tr>`
-                    : ""
-                }
-                ${
-                  message?.trim()
-                    ? `<tr>
-                          <td style="padding:18px 24px 0 24px;">
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;">
-                              <tr>
-                                <td style="padding:14px 16px 6px 16px;font-family:Arial,Helvetica,sans-serif;color:#1e40af;font-size:13px;font-weight:700;">Additional Details</td>
-                              </tr>
-                              <tr>
-                                <td style="padding:0 16px 16px 16px;font-family:Arial,Helvetica,sans-serif;color:#1e3a8a;font-size:14px;line-height:1.7;">${message.trim().replace(/\n/g, '<br />')}</td>
-                              </tr>
-                            </table>
-                          </td>
-                        </tr>`
-                    : ""
-                }
-                <tr>
-                  <td style="padding:18px 24px 0 24px;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:10px;">
-                      <tr>
-                        <td style="padding:14px 16px;font-family:Arial,Helvetica,sans-serif;color:#155e75;font-size:13px;line-height:1.7;">
-                          Our team will contact you shortly with onboarding steps including start date, required documents, and training schedule.
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:18px 24px 0 24px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:15px;line-height:1.7;">
-                    Welcome aboard. We’re excited to have you join us.
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:22px 24px 26px 24px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;border-top:1px solid #e2e8f0;">
-                    Sincerely,<br />
-                    <strong>JPM Security Agency Recruitment Team</strong>
-                  </td>
-                </tr>
-                <tr>
-                  <td align="center" style="background:#f8fafc;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;font-size:12px;padding:14px;">
-                    © ${new Date().getFullYear()} JPM Security Agency. All rights reserved.
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
+      <div style="background-color:#f5f7fb; padding:40px 0; font-family:Arial, sans-serif;">
+        <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+          
+          <div style="background:#0f172a; padding:30px; text-align:center;">
+             <div style="color:#ffffff; font-size:24px; font-weight:bold;">Welcome to the Team</div>
+          </div>
+
+          <div style="padding:40px 30px; color:#334155; line-height:1.6;">
+            <p style="margin-top:0;">Dear <strong>${applicant.name}</strong>,</p>
+            <p>${defaultMessage}</p>
+            <p>To finalize your onboarding and access the Guard Portal, please click the button below to verify your email and set your password.</p>
+            
+            <div style="text-align:center; margin:30px 0;">
+              <a href="${activationUrl}" style="background-color:#ca8a04; color:#ffffff; padding:14px 28px; text-decoration:none; border-radius:6px; font-weight:bold; font-size:16px; display:inline-block;">Activate Account & Set Password</a>
+            </div>
+
+            <p style="font-size:14px; color:#64748b;">Or copy this link: <br> <a href="${activationUrl}" style="color:#ca8a04;">${activationUrl}</a></p>
+            
+            ${message?.trim() ? `<div style="background:#f0f9ff; padding:15px; border-radius:6px; margin-top:20px; font-size:14px;"><strong>Note:</strong> ${message}</div>` : ''}
+          </div>
+
+          <div style="background:#f8fafc; padding:20px; text-align:center; font-size:12px; color:#94a3b8; border-top:1px solid #e2e8f0;">
+            This link expires in 48 hours.<br>
+            © ${new Date().getFullYear()} JPM Security Agency.
+          </div>
+        </div>
       </div>
     `;
 
@@ -448,10 +367,71 @@ export const sendHireEmail = async (req, res) => {
       html: htmlMessage,
     });
 
-    res.status(200).json({ success: true });
+    res.status(200).json({ success: true, message: "Activation email sent." });
+
   } catch (error) {
     console.error("Error sending hire email:", error);
     res.status(500).json({ message: "Failed to send hire email." });
+  }
+};
+
+// 🎉 Finalize hire email
+export const finalizeHiring = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // We don't rely on the frontend sending a password anymore
+    // We generate a random temp one or use the one sent, 
+    // but the USER will overwrite it via the email link anyway.
+    const { ...guardData } = req.body; 
+
+    const applicant = await Applicant.findById(id);
+    if (!applicant) return res.status(404).json({ message: "Applicant not found." });
+    if (applicant.status === 'Hired') return res.status(400).json({ message: "Already hired." });
+
+    // 1. Create Guard (Password will be reset by user via email)
+    // If your Guard model requires a password, give it a random strong one for now
+    if (!guardData.password) {
+        guardData.password = crypto.randomBytes(16).toString("hex");
+    }
+
+    const newGuard = new Guard(guardData);
+    await newGuard.save();
+
+    // 2. Update Applicant
+    applicant.status = "Hired";
+    applicant.dateOfHired = new Date();
+    applicant.processedBy = req.user.id;
+    await applicant.save();
+
+    // 3. Trigger the Activation Email
+    // We use a mock request to reuse the logic we wrote in Step 2
+    const mockReq = {
+      params: { id },
+      user: req.user,
+      body: {
+        message: "Congratulations on your new role!",
+        // No credentials passed here!
+      }
+    };
+    
+    // Simple mock response to catch the output
+    const mockRes = {
+      status: (code) => ({
+        json: (data) => console.log(`Email trigger status: ${code}`, data)
+      }),
+    };
+    
+    // Call the email function
+    await sendHireEmail(mockReq, mockRes);
+    
+    res.status(201).json({ 
+      message: "Hired successfully. Activation email sent.",
+      guard: newGuard
+    });
+
+  } catch (error) {
+    console.error("Error finalizing hiring:", error);
+    res.status(500).json({ message: "Server error." });
   }
 };
 
@@ -527,74 +507,4 @@ export const downloadHiredList = async (req, res) => {
 };
 
 
-export const finalizeHiring = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const guardData = req.body;
 
-    // 1. Find the applicant
-    const applicant = await Applicant.findById(id);
-    if (!applicant) {
-      return res.status(404).json({ message: "Applicant not found." });
-    }
-    if (applicant.status === 'Hired') {
-      return res.status(400).json({ message: "Applicant has already been hired." });
-    }
-
-    // 2. Create the new Guard
-    const newGuard = new Guard(guardData);
-    const savedGuard = await newGuard.save();
-
-    // 3. Update the applicant's status
-    applicant.status = "Hired";
-    const now = new Date();
-    const localDate = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      now.getMinutes(),
-      now.getSeconds(),
-      now.getMilliseconds()
-    );
-    applicant.dateOfHired = localDate;
-    applicant.processedBy = req.user.id;
-    await applicant.save();
-
-    // 4. Send the hiring email with credentials
-    // We are calling sendHireEmail internally, so we create a mock req/res
-    const mockReq = {
-      params: { id },
-      user: req.user,
-      body: {
-        message: "Congratulations on your new role!",
-        credentials: {
-          email: savedGuard.email,
-          password: guardData.password, // The raw password before it gets hashed
-        }
-      }
-    };
-    const mockRes = {
-      status: (code) => ({
-        json: (data) => {
-          console.log(`Hire email sent with status ${code}:`, data);
-        }
-      }),
-    };
-    
-    await sendHireEmail(mockReq, mockRes);
-    
-    res.status(201).json({ 
-      message: "Applicant successfully hired and guard account created.",
-      guard: savedGuard,
-      applicant: applicant
-    });
-
-  } catch (error) {
-    console.error("Error during finalize hiring process:", error);
-    if (error.code === 11000) { // Handle duplicate key errors (e.g., email or guardId)
-      return res.status(409).json({ message: "A guard with this email or Guard ID already exists." });
-    }
-    res.status(500).json({ message: "Server error during hiring process." });
-  }
-};

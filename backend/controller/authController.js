@@ -201,3 +201,42 @@ export const getGuards = async (req, res) => {
     res.status(500).json({ message: "Server error fetching guards" });
   }
 };
+
+export const setPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body; // The new password user typed
+
+    // 1. Hash the incoming token to match what is in the DB
+    const resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    // 2. Find the guard with this token AND ensure it hasn't expired
+    const guard = await Guard.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() }, // Expiration must be greater than "now"
+    });
+
+    if (!guard) {
+      return res.status(400).json({ success: false, message: "Invalid or expired activation link." });
+    }
+
+    // 3. Set the new password
+    // (Mongoose usually handles hashing via a .pre('save') hook. 
+    // If you don't have a hook, you must hash it here using bcrypt!)
+    guard.password = password; 
+    
+    // 4. Clear the token fields so the link cannot be used again
+    guard.resetPasswordToken = undefined;
+    guard.resetPasswordExpire = undefined;
+
+    await guard.save();
+
+    res.status(200).json({ success: true, message: "Password set successfully. You can now login." });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};

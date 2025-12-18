@@ -9,7 +9,8 @@ import {
     getGuards,
     getMe,
     logout,
-    guardChangePassword
+    guardChangePassword,
+    setPassword
 } from "../controller/authController.js";
 import { 
     getUsers,
@@ -38,5 +39,8 @@ router.get("/me", protect, getMe); // get current logged in user
 router.get("/subadmins", protect, getSubadmins);
 router.get("/admins", protect, getAdmins);
 router.get("/guards", protect, getGuards);
+
+// PASSWORD RESET FOR GUARDS WHEN NEWLY HIRED/REGISTERED
+router.post('/set-password/:token', setPassword);
 
 export default router;

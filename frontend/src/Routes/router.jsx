@@ -47,6 +47,7 @@ import GuardMessage from "../Guard/GuardMessage.jsx";
 // Applicants pages
 import ApplicantsHiringDetails from "../Applicants/ApplicantsHiringDetails.jsx";
 import ApplicantsMessages from "../Applicants/ApplicantsMessages.jsx";
+import SetPassword from "../Applicants/SetPasswordPage.jsx";
 
 // Public pages
 import HomePage from "../Home/homePage.jsx";
@@ -74,6 +75,7 @@ const Router = () => {
             { path: "clients", element: <ClientPage /> },
             { path: "services", element: <ServicesPage /> },
             { path: "gallery", element: <Gallery /> },
+            { path: "set-password/:token", element: <SetPassword /> }, 
           ],
         },
         {
