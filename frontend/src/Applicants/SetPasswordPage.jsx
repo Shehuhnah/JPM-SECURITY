@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Lock, CheckCircle, AlertCircle, ShieldCheck } from "lucide-react";
-import { toast } from "react-hot-toast"; // Assuming you use react-hot-toast, or use your own toast function
+import { toast, ToastContainer } from "react-toastify"; // Import react-toastify
+import "react-toastify/dist/ReactToastify.css"; // Import the CSS
 
 // Change this to your actual API base URL import
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -49,7 +50,18 @@ export default function SetPassword() {
 
       // Success!
       setStatus("success");
-      toast.success("Password set successfully!");
+      
+      // Toastify Success Notification
+      toast.success("Password set successfully! Redirecting...", {
+        position: "top-center",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark", // Using dark theme to match your UI
+      });
       
       // Redirect to login after 3 seconds
       setTimeout(() => {
@@ -60,6 +72,12 @@ export default function SetPassword() {
       console.error(err);
       setStatus("error");
       setErrorMessage(err.message || "Invalid or expired link.");
+      
+      // Toastify Error Notification (Optional, since you also have inline error)
+      toast.error(err.message || "Failed to set password.", {
+         position: "top-center",
+         theme: "dark"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -69,6 +87,7 @@ export default function SetPassword() {
   if (status === "success") {
     return (
       <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4">
+        <ToastContainer /> {/* Container for toasts */}
         <div className="bg-[#1e293b] border border-green-500/30 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
           <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="text-green-400" size={32} />
@@ -91,6 +110,7 @@ export default function SetPassword() {
   // --- Form View ---
   return (
     <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-4 font-sans">
+      <ToastContainer /> {/* Container for toasts */}
       
       {/* Brand Header */}
       <div className="mb-8 text-center">
