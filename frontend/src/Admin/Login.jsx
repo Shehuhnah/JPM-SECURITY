@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lock, User, Eye, EyeOff } from "lucide-react";
+import { Lock, User, Eye, EyeOff, Loader2, ShieldCheck, AlertCircle } from "lucide-react";
 import logo from "../assets/jpmlogo.png";
-import { ToastContainer, toast, Bounce } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { useEffect } from "react";
-import { useAuth } from "../hooks/useAuth.js"
+import { useAuth } from "../hooks/useAuth.js";
+import bg from "../Home/assets/home-bg.jpg"; // Assuming you have this bg available
+
 const api = import.meta.env.VITE_API_URL;
 
 export default function Login() {
@@ -19,10 +20,10 @@ export default function Login() {
 
   useEffect(() => { 
     document.title = "Admin Login | JPM Security Agency";
-    if(!admin && !loading){
-      navigate("/admin/login")
+    if(admin && !loading){
+      navigate("/admin/deployment");
     };
-  }, [admin , loading, navigate]);
+  }, [admin, loading, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -39,7 +40,8 @@ export default function Login() {
   
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Invalid credentials");
-      console.log(data)
+      
+      // Navigate on success
       navigate("/admin/deployment");
     } catch (err) {
       setError(err.message);
@@ -49,82 +51,116 @@ export default function Login() {
   };
 
   return (
-    <>
-      <div className="min-h-screen flex items-center justify-center bg-[#0f172a] px-4">
-        <div className="bg-[#1e293b]/90 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-700 w-full max-w-md p-8 text-gray-100">
-          {/* Logo + Header */}
-          <div className="flex flex-col items-center mb-6">
-          <img src={logo} alt="JPM Security Logo" className="w-20 h-20 mb-3" />
-          <h1 className="text-2xl font-bold text-white">Admin Login</h1>
-          <p className="text-sm text-gray-400 mt-1 text-center">
-              Secure access to JPM Security Agency Dashboard
-          </p>
-          <div className="w-24 h-1 bg-blue-500 mt-3 rounded-full"></div>
-          </div>
+    <section
+        className="min-h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden px-4 sm:px-6 lg:px-8 font-sans"
+        style={{
+            backgroundImage: `url(${bg})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+        }}
+    >
+      {/* Dark Overlay with Gradient */}
+      <div className="absolute inset-0 bg-slate-950/90 bg-gradient-to-tr from-slate-950/95 via-slate-900/80 to-blue-950/40 backdrop-blur-[2px]"></div>
 
-          {/* Error Message */}
-          {error && (
-          <div className="bg-red-600/20 border border-red-600 text-red-400 text-sm rounded-md px-4 py-2 mb-4">
-              {error}
-          </div>
-          )}
+      {/* Ambient Background Blobs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-[120px] pointer-events-none"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none"></div>
 
-          {/* Login Form */}
-          <form onSubmit={handleLogin} className="space-y-5">
-          <div>
-              <label className="block text-sm text-gray-300 mb-1">Email</label>
-              <div className="relative">
-              <User className="absolute left-3 top-2.5 text-gray-400 w-5 h-5" />
-              <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@jpm.com"
-                  required
-                  className="w-full bg-[#0f172a] border border-gray-700 rounded-lg pl-10 pr-3 py-2.5 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-              />
-              </div>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-2.5 text-gray-400 w-5 h-5" />
-              <input
-                type={showPassword ? "text" : "password"}  // 👈 dynamic type here
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full bg-[#0f172a] border border-gray-700 rounded-lg pl-10 pr-3 py-2.5 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-200"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+      {/* Login Card */}
+      <div className="relative z-10 w-full max-w-md bg-slate-900/70 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl p-8 transition-all duration-300 mx-auto animate-in fade-in zoom-in-95 duration-500">
+        
+        {/* Header */}
+        <div className="flex flex-col items-center mb-8 text-center">
+            <div className="bg-gradient-to-br from-blue-600/20 to-indigo-600/20 p-4 rounded-2xl mb-4 border border-blue-500/20 shadow-lg shadow-blue-500/10 ring-1 ring-white/10">
+                 {/* Use Logo or Icon */}
+                 {logo ? (
+                     <img src={logo} alt="JPM Logo" className="w-12 h-12 object-contain drop-shadow-md" />
+                 ) : (
+                     <ShieldCheck size={40} className="text-blue-400 drop-shadow-md" />
+                 )}
             </div>
-          </div>
+            <h1 className="text-3xl font-bold text-white tracking-tight">Admin Portal</h1>
+            <p className="text-slate-400 text-sm mt-2 font-medium">JPM Security Agency • Administrative Access</p>
+        </div>
 
+        {/* Error Message */}
+        {error && (
+            <div className="mb-6 p-3 text-sm flex items-center gap-3 rounded-xl border bg-red-500/10 text-red-300 border-red-500/20 animate-in slide-in-from-top-2">
+                <AlertCircle size={18} className="shrink-0" />
+                <span className="font-medium">{error}</span>
+            </div>
+        )}
 
-          <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold py-2.5 rounded-lg shadow-md transition-transform transform hover:-translate-y-0.5 disabled:opacity-60"
-          >
-              {loading ? "Signing in..." : "Sign In"}
-          </button>
-          </form>
+        {/* Login Form */}
+        <form onSubmit={handleLogin} className="space-y-5">
+            
+            {/* Email Field */}
+            <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider ml-1">Email Address</label>
+                <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <User size={18} className="text-slate-500 group-focus-within:text-blue-400 transition-colors" />
+                    </div>
+                    <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="admin@example.com"
+                        required
+                        className="w-full pl-11 pr-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all shadow-sm hover:border-slate-600"
+                    />
+                </div>
+            </div>
 
-          {/* Footer */}
-          <p className="text-xs text-center text-gray-500 mt-6">
-          © {new Date().getFullYear()} JPM Security Agency — Admin Portal
-          </p>
+            {/* Password Field */}
+            <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider ml-1">Password</label>
+                <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Lock size={18} className="text-slate-500 group-focus-within:text-blue-400 transition-colors" />
+                    </div>
+                    <input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        className="w-full pl-11 pr-11 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all shadow-sm hover:border-slate-600"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-slate-300 transition-colors focus:outline-none"
+                    >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                </div>
+            </div>
+
+            <button
+                type="submit"
+                disabled={loadingPage}
+                className="w-full mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 transition-all duration-300 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+                {loadingPage ? (
+                    <>
+                        <Loader2 size={20} className="animate-spin" />
+                        <span>Verifying...</span>
+                    </>
+                ) : (
+                    "Sign In"
+                )}
+            </button>
+        </form>
+
+        {/* Footer */}
+        <div className="mt-8 pt-6 border-t border-slate-700/50 text-center">
+            <p className="text-xs text-slate-500">
+                © {new Date().getFullYear()} JPM Security Agency. All rights reserved.
+            </p>
         </div>
       </div>
       <ToastContainer />
-    </>
+    </section>
   );
 }
