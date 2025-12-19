@@ -4,7 +4,7 @@ import { Eye, EyeOff, Lock, CheckCircle, AlertCircle, ShieldCheck, KeyRound } fr
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 export default function SetPassword() {
   const { token } = useParams();
