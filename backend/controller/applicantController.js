@@ -457,58 +457,71 @@ export const sendHireEmail = async (req, res) => {
 export const finalizeHiring = async (req, res) => {
   try {
     const { id } = req.params;
-    // We assume the body contains the guard details (fullName, address, etc.)
-    const { ...guardData } = req.body; 
+    const { ...guardData } = req.body;
 
+    // 1. Check if Applicant exists
     const applicant = await Applicant.findById(id);
     if (!applicant) return res.status(404).json({ message: "Applicant not found." });
 
-    // 1. Generate a random placeholder password
-    // This satisfies the "required: true" in your model.
-    // The user will overwrite this immediately via the email link.
-    if (!guardData.password) {
-        guardData.password = crypto.randomBytes(16).toString("hex");
+    // 2. Prevent Re-hiring (Safety Check)
+    if (applicant.status === "Hired") {
+      return res.status(400).json({ message: "This applicant is already marked as Hired." });
     }
 
-    // 2. Create Guard
-    // Your model's pre-save hook will hash this random password automatically.
-    const newGuard = new Guard(guardData);
-    await newGuard.save(); 
+    // 3. PRE-CHECK: Check if Guard Email or ID already exists manually
+    // This prevents the code from running further if a duplicate is found
+    const existingGuard = await Guard.findOne({
+      $or: [{ email: guardData.email }, { guardId: guardData.guardId }]
+    });
 
-    // 3. Update Applicant Status
+    if (existingGuard) {
+      return res.status(409).json({ 
+        message: `A guard with this Email (${guardData.email}) or ID (${guardData.guardId}) already exists.` 
+      });
+    }
+
+    // 4. Generate placeholder password if missing
+    if (!guardData.password) {
+      guardData.password = crypto.randomBytes(16).toString("hex");
+    }
+
+    // 5. Create Guard (Safe to save now)
+    const newGuard = new Guard(guardData);
+    await newGuard.save();
+
+    // 6. Update Applicant Status
     applicant.status = "Hired";
     applicant.dateOfHired = new Date();
     applicant.processedBy = req.user.id;
     await applicant.save();
 
-    // 4. Send Activation Email (Magic Link)
+    // 7. Send Activation Email
     const mockReq = {
       params: { id },
       user: req.user,
       body: {
         message: "Congratulations! Please activate your account.",
-        // We do NOT send the random password. We send the Magic Link.
       }
     };
-    
-    // Mock response to catch logging
+
     const mockRes = {
       status: (code) => ({
         json: (data) => console.log(`Activation email status: ${code}`, data)
       }),
     };
-    
+
     await sendHireEmail(mockReq, mockRes);
-    
-    res.status(201).json({ 
+
+    res.status(201).json({
       message: "Applicant hired. Activation email sent.",
       guard: newGuard
     });
 
   } catch (error) {
     console.error("Error finalizing hiring:", error);
+    // Keep this as a backup, but the pre-check above should catch it first
     if (error.code === 11000) {
-        return res.status(409).json({ message: "Email or Guard ID already exists." });
+      return res.status(409).json({ message: "Email or Guard ID already exists." });
     }
     res.status(500).json({ message: "Server error." });
   }

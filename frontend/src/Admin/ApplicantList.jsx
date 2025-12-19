@@ -1140,10 +1140,11 @@ export default function ApplicantsList() {
               leaveFrom="opacity-100"
               leaveTo="opacity-0"
             >
-              <div className="fixed inset-0 bg-black/50" />
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
             </Transition.Child>
 
             <div className="fixed inset-0 overflow-y-auto">
+              {/* Changed p-4 to p-4 sm:p-6 to give breathing room on mobile */}
               <div className="flex min-h-full items-center justify-center p-4 text-center">
                 <Transition.Child
                   as={Fragment}
@@ -1154,18 +1155,20 @@ export default function ApplicantsList() {
                   leaveFrom="opacity-100 scale-100"
                   leaveTo="opacity-0 scale-95"
                 >
-                  <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-8 text-left align-middle shadow-xl border border-gray-700">
+                  {/* Changed p-8 to p-6 sm:p-8 for better mobile spacing */}
+                  <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 sm:p-8 text-left align-middle shadow-xl border border-gray-700">
                     
                     {/* Header */}
-                    <div className="flex gap-x-3">
-                      <div className="flex justify-center mb-6">
-                        <div className="w-20 h-20 bg-[#0f172a] rounded-full flex items-center justify-center border-2 border-gray-600">
-                          <Shield className="text-blue-400 w-8 h-8" />
+                    <div className="flex flex-col sm:flex-row gap-x-3 items-center sm:items-start">
+                      <div className="flex justify-center mb-4 sm:mb-6">
+                        {/* Responsive Icon Size: w-16 mobile, w-20 desktop */}
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#0f172a] rounded-full flex items-center justify-center border-2 border-gray-600">
+                          <Shield className="text-blue-400 w-6 h-6 sm:w-8 sm:h-8" />
                         </div>
                       </div>
 
-                      <div className="mt-3">
-                        <Dialog.Title className="text-2xl font-bold text-white">
+                      <div className="mt-0 sm:mt-3 text-center sm:text-left">
+                        <Dialog.Title className="text-xl sm:text-2xl font-bold text-white">
                           Add New Guard
                         </Dialog.Title>
                         <p className="text-gray-400 text-sm mb-6">
@@ -1180,7 +1183,7 @@ export default function ApplicantsList() {
                       </div>
                     )}
 
-                    {/* Form */}
+                    {/* Form - Grid handles responsiveness automatically (cols-1 to cols-2) */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Left Column */}
                       <div className="space-y-3">
@@ -1192,7 +1195,7 @@ export default function ApplicantsList() {
                             required
                             value={form.fullName}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                           />
                         </div>
 
@@ -1204,7 +1207,7 @@ export default function ApplicantsList() {
                             required
                             value={form.guardId}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                           />
                         </div>
 
@@ -1216,7 +1219,7 @@ export default function ApplicantsList() {
                             required
                             value={form.email}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                           />
                         </div>
 
@@ -1229,7 +1232,7 @@ export default function ApplicantsList() {
                               required
                               value={form.password}
                               onChange={handleChange}
-                              className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 pr-10"
+                              className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 pr-10 text-sm sm:text-base"
                             />
                             <button
                               type="button"
@@ -1249,7 +1252,7 @@ export default function ApplicantsList() {
                             required
                             value={form.position}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                           />
                         </div>
 
@@ -1261,7 +1264,7 @@ export default function ApplicantsList() {
                             required
                             value={form.address}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                           />
                         </div>
                       </div>
@@ -1271,7 +1274,7 @@ export default function ApplicantsList() {
                         <div>
                           <label className="text-gray-300 text-sm mb-1 block">Phone Number</label>
                           <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
-                            <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none">+63</span>
+                            <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none text-sm sm:text-base">+63</span>
                             <input
                               type="tel"
                               name="phoneNumber"
@@ -1282,7 +1285,7 @@ export default function ApplicantsList() {
                                 if (value.length > 10) value = value.slice(0, 10);
                                 setForm({ ...form, phoneNumber: "+63" + value });
                               }}
-                              className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none"
+                              className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none text-sm sm:text-base"
                             />
                           </div>
                         </div>
@@ -1295,7 +1298,7 @@ export default function ApplicantsList() {
                             required
                             value={form.SSSID}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                           />
                         </div>
 
@@ -1307,7 +1310,7 @@ export default function ApplicantsList() {
                             required
                             value={form.PhilHealthID}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                           />
                         </div>
 
@@ -1319,7 +1322,7 @@ export default function ApplicantsList() {
                             required
                             value={form.PagibigID}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                           />
                         </div>
 
@@ -1331,7 +1334,7 @@ export default function ApplicantsList() {
                             required
                             value={form.EmergencyPerson}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                           />
                         </div>
 
@@ -1343,28 +1346,32 @@ export default function ApplicantsList() {
                             required
                             value={form.EmergencyContact}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                           />
                         </div>
                       </div>
                     </div>
 
                     {/* Footer */}
-                    <div className="mt-8 flex justify-end gap-4">
+                    {/* Changed flex layout: flex-col-reverse for mobile (Cancel at bottom), row for desktop */}
+                    <div className="mt-8 flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4">
                       <button
                         onClick={() => setGuardConfirmModalOpen(false)}
-                        className="bg-gray-600 hover:bg-gray-500 px-6 py-2 rounded-lg text-white w-1/4"
+                        // Changed w-1/4 to w-full sm:w-auto
+                        className="bg-gray-600 hover:bg-gray-500 px-6 py-2.5 rounded-lg text-white w-full sm:w-auto font-medium transition-colors"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={() => openConfirmHireModal()}
                         disabled={loading}
-                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-8 py-2 rounded-lg shadow text-white font-medium w-1/4 disabled:opacity-50"
+                        // Changed w-1/4 to w-full sm:w-auto
+                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-8 py-2.5 rounded-lg shadow text-white font-medium w-full sm:w-auto disabled:opacity-50 transition-all"
                       >
                         {loading ? "Saving..." : "Save Guard"}
                       </button>
                     </div>
+
                   </Dialog.Panel>
                 </Transition.Child>
               </div>

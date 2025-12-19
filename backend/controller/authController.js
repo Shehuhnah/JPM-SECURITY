@@ -93,7 +93,6 @@ export const logout = (req, res) => {
   return res.json({ message: "Logged out successfully" });
 };
 
-
 // LOGIN GUARD
 export const loginGuard = async (req, res) => {
   const { email, password } = req.body;
