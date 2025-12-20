@@ -451,7 +451,7 @@ function PasswordField({ label, name, value, onChange, show, setShow }) {
         onClick={() => setShow(!show)}
         className="absolute right-4 bottom-5 text-gray-400 hover:text-white"
       >
-        {show ? <EyeOff size={16} /> : <Eye size={16} />}
+        {show ? <Eye size={16} /> : <EyeOff size={16} />}
       </button>
     </div>
   );
