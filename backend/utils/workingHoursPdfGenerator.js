@@ -139,6 +139,8 @@ export const generateWorkHoursPDF = (guard, attendanceRecords, periodCover) => {
  * @param {string} periodCover - A string describing the pay period (e.g., "November 1-15, 2025").
  * @returns {Promise<Buffer>} - A promise that resolves with the PDF buffer.
  */
+
+
 export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, periodCover) => {
   return new Promise((resolve, reject) => {
     try {
@@ -153,6 +155,21 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
       doc.on("end", () => resolve(Buffer.concat(buffers)));
       doc.on("error", (err) => reject(err));
 
+      // --- 1. PARSE PERIOD FOR DATA MAPPING ---
+      // We need to know if we are in the "1st Half" (1-15) or "2nd Half" (16-31)
+      // based on the start date of the selection.
+      let isFirstHalf = true;
+      if (periodCover.includes(" - ")) {
+          const parts = periodCover.split(" - ");
+          const startDate = new Date(parts[0]);
+          if (startDate.getDate() > 15) {
+              isFirstHalf = false;
+          }
+      } else if (periodCover.includes("16-")) {
+          isFirstHalf = false;
+      }
+
+      // --- 2. LAYOUT CONFIGURATION ---
       const pageW = doc.page.width;
       const pageH = doc.page.height;
       const margin = 30;
@@ -193,18 +210,22 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
         currentY += 35;
       };
 
+      // --- DRAW HEADERS (EXACT LEGACY FORMAT) ---
       const drawTableHeaders = () => {
         doc.font("Helvetica-Bold").fontSize(8);
         const headerY1 = currentY;
         const headerY2 = headerY1 + headerRowHeight;
         let currentX = margin;
 
+        // Static Columns
         doc.rect(currentX, headerY1, noColW, headerRowHeight * 2).stroke();
         doc.text("No.", currentX, headerY1 + 10, { width: noColW, align: "center" });
         currentX += noColW;
+        
         doc.rect(currentX, headerY1, nameColW, headerRowHeight * 2).stroke();
         doc.text("Name of Guard", currentX, headerY1 + 10, { width: nameColW, align: "center" });
         currentX += nameColW;
+        
         doc.rect(currentX, headerY1, ampmColW, headerRowHeight).stroke();
         doc.text("AM", currentX, headerY1 + 6, { width: ampmColW, align: 'center' });
         doc.rect(currentX, headerY2, ampmColW, headerRowHeight).fillAndStroke(pmShadeColor, 'black');
@@ -212,20 +233,28 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
         currentX += ampmColW;
 
         const dateHeaderStartX = currentX;
+        
+        // Loop 16 times to create the header grid
         for (let col = 0; col < 16; col++) {
           const thisColW = dateCellW;
-          const topDay = col + 1;
-          const bottomDay = col + 16;
+          const topDay = col + 1;  // 1 to 16
+          const bottomDay = col + 16; // 16 to 31
+          
+          // TOP ROW (1-15)
           if (topDay <= 15) {
             doc.rect(currentX, headerY1, thisColW, headerRowHeight).stroke();
             doc.text(String(topDay), currentX, headerY1 + 6, { width: thisColW, align: "center" });
           } else {
+            // For column 16 (empty top)
             doc.rect(currentX, headerY1, thisColW, headerRowHeight).stroke();
           }
+
+          // BOTTOM ROW (16-31) - THIS IS THE RESTORED PART
           if (bottomDay <= 31) {
             doc.rect(currentX, headerY2, thisColW, headerRowHeight).fillAndStroke(pmShadeColor, 'black');
             doc.fillColor('black').text(String(bottomDay), currentX, headerY2 + 6, { width: thisColW, align: "center" });
           } else {
+             // For Empty days after 31
             doc.rect(currentX, headerY2, thisColW, headerRowHeight).stroke();
           }
           currentX += thisColW;
@@ -247,7 +276,6 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
       drawTableHeaders();
 
       const guards = Array.from(groupedAttendance.keys());
-      const isFirstHalf = periodCover.includes("1-15");
 
       for (let i = 0; i < guards.length; i++) {
         const guard = guards[i];
@@ -273,12 +301,13 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
             const hours = diffMs / (1000 * 60 * 60);
             totalMinutes += diffMs / (1000 * 60);
 
+            // Use the actual Date (1-31)
             const day = t1.getDate();
             workDays.add(day);
 
             if (rec.scheduleId.shiftType === 'Night Shift') {
                 nightShiftHoursMap.set(day, (nightShiftHoursMap.get(day) || 0) + hours);
-            } else { // Day Shift or other
+            } else {
                 dayShiftHoursMap.set(day, (dayShiftHoursMap.get(day) || 0) + hours);
             }
           }
@@ -290,25 +319,33 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
         const rowY = currentY;
         let currentX = margin;
         
+        // 1. No.
         doc.rect(currentX, rowY, noColW, guardRowHeight).stroke();
         doc.font("Helvetica").fontSize(9).text(String(i + 1), currentX, rowY + 12, { width: noColW, align: "center" });
         currentX += noColW;
+        
+        // 2. Name
         doc.rect(currentX, rowY, nameColW, guardRowHeight).stroke();
         doc.text(guard.fullName || "", currentX + 3, rowY + 12, { width: nameColW - 6, ellipsis: true });
         currentX += nameColW;
 
+        // 3. AM/PM
         doc.rect(currentX, rowY, ampmColW, rowHeight).stroke();
         doc.rect(currentX, rowY + rowHeight, ampmColW, rowHeight).fillAndStroke(pmShadeColor, 'black');
         doc.fillColor('black');
         currentX += ampmColW;
 
         const dateCellStartX = currentX;
+        
+        // Determine Start Day for Data Filling based on "isFirstHalf"
+        // If 1st half: start at 1. If 2nd half: start at 16.
         const startDay = isFirstHalf ? 1 : 16;
+
         for (let col = 0; col < 16; col++) {
             const day = startDay + col;
             const thisColW = dateCellW;
 
-            // AM Row (Day Shift)
+            // AM Row
             doc.fillColor('black');
             doc.rect(currentX, rowY, thisColW, rowHeight).stroke();
             const dayShiftHours = dayShiftHoursMap.get(day);
@@ -316,7 +353,7 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
                 doc.text(dayShiftHours.toFixed(1), currentX, rowY + 6, { width: thisColW, align: 'center' });
             }
 
-            // PM Row (Night Shift)
+            // PM Row
             doc.rect(currentX, rowY + rowHeight, thisColW, rowHeight).fillAndStroke(pmShadeColor, 'black');
             doc.fillColor('black');
             const nightShiftHours = nightShiftHoursMap.get(day);
@@ -326,6 +363,7 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
             currentX += thisColW;
         }
 
+        // Totals & Sig
         currentX = dateCellStartX + dateCellW * 16;
         doc.rect(currentX, rowY, daysColW, guardRowHeight).stroke();
         doc.text(totalDays.toString(), currentX, rowY + 12, { width: daysColW, align: "center" });
@@ -337,11 +375,11 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
         currentY += guardRowHeight;
       }
 
+      // Footer
       if (currentY + signatureBlockHeight > pageH - margin) {
         doc.addPage();
         currentY = margin + 20;
       }
-      
       currentY = pageH - margin - signatureBlockHeight;
       doc.font("Helvetica-Bold").fontSize(9);
       const signatureY = pageH - margin - 80;
@@ -371,4 +409,3 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
     }
   });
 };
-

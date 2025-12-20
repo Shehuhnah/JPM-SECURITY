@@ -1144,7 +1144,6 @@ export default function ApplicantsList() {
             </Transition.Child>
 
             <div className="fixed inset-0 overflow-y-auto">
-              {/* Changed p-4 to p-4 sm:p-6 to give breathing room on mobile */}
               <div className="flex min-h-full items-center justify-center p-4 text-center">
                 <Transition.Child
                   as={Fragment}
@@ -1155,13 +1154,11 @@ export default function ApplicantsList() {
                   leaveFrom="opacity-100 scale-100"
                   leaveTo="opacity-0 scale-95"
                 >
-                  {/* Changed p-8 to p-6 sm:p-8 for better mobile spacing */}
                   <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 sm:p-8 text-left align-middle shadow-xl border border-gray-700">
                     
                     {/* Header */}
                     <div className="flex flex-col sm:flex-row gap-x-3 items-center sm:items-start">
                       <div className="flex justify-center mb-4 sm:mb-6">
-                        {/* Responsive Icon Size: w-16 mobile, w-20 desktop */}
                         <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#0f172a] rounded-full flex items-center justify-center border-2 border-gray-600">
                           <Shield className="text-blue-400 w-6 h-6 sm:w-8 sm:h-8" />
                         </div>
@@ -1183,8 +1180,9 @@ export default function ApplicantsList() {
                       </div>
                     )}
 
-                    {/* Form - Grid handles responsiveness automatically (cols-1 to cols-2) */}
+                    {/* Form */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      
                       {/* Left Column */}
                       <div className="space-y-3">
                         <div>
@@ -1193,9 +1191,10 @@ export default function ApplicantsList() {
                             type="text"
                             name="fullName"
                             required
+                            placeholder="e.g. Juan Dela Cruz"
                             value={form.fullName}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
                           />
                         </div>
 
@@ -1205,9 +1204,10 @@ export default function ApplicantsList() {
                             type="text"
                             name="guardId"
                             required
+                            placeholder="e.g. G-2025-001"
                             value={form.guardId}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
                           />
                         </div>
 
@@ -1217,9 +1217,10 @@ export default function ApplicantsList() {
                             type="email"
                             name="email"
                             required
+                            placeholder="jpm@example.com" 
                             value={form.email}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
                           />
                         </div>
 
@@ -1230,9 +1231,10 @@ export default function ApplicantsList() {
                               type={showPassword ? "text" : "password"}
                               name="password"
                               required
+                              placeholder="••••••••"
                               value={form.password}
                               onChange={handleChange}
-                              className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 pr-10 text-sm sm:text-base"
+                              className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 pr-10 text-sm sm:text-base placeholder-gray-600"
                             />
                             <button
                               type="button"
@@ -1250,9 +1252,10 @@ export default function ApplicantsList() {
                             type="text"
                             name="position"
                             required
+                            placeholder="e.g. Security Guard"
                             value={form.position}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
                           />
                         </div>
 
@@ -1262,9 +1265,10 @@ export default function ApplicantsList() {
                             type="text"
                             name="address"
                             required
+                            placeholder="e.g. Brgy. 1, Tanza, Cavite"
                             value={form.address}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
                           />
                         </div>
                       </div>
@@ -1279,50 +1283,63 @@ export default function ApplicantsList() {
                               type="tel"
                               name="phoneNumber"
                               required
+                              placeholder="9123456789"
                               value={form.phoneNumber.replace(/^\+63/, "")}
                               onChange={(e) => {
                                 let value = e.target.value.replace(/\D/g, "");
                                 if (value.length > 10) value = value.slice(0, 10);
                                 setForm({ ...form, phoneNumber: "+63" + value });
                               }}
-                              className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none text-sm sm:text-base"
+                              className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-600 focus:outline-none text-sm sm:text-base"
                             />
                           </div>
                         </div>
 
+                        {/* --- SSS (Optional) --- */}
                         <div>
-                          <label className="text-gray-300 text-sm mb-1 block">SSS ID</label>
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="text-gray-300 text-sm block">SSS ID</label>
+                            <span className="text-xs text-gray-500 italic">(Optional)</span>
+                          </div>
                           <input
                             type="text"
                             name="SSSID"
-                            required
+                            placeholder="Enter SSS ID (Optional)"
                             value={form.SSSID}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
                           />
                         </div>
 
+                        {/* --- PhilHealth (Optional) --- */}
                         <div>
-                          <label className="text-gray-300 text-sm mb-1 block">PhilHealth ID</label>
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="text-gray-300 text-sm block">PhilHealth ID</label>
+                            <span className="text-xs text-gray-500 italic">(Optional)</span>
+                          </div>
                           <input
                             type="text"
                             name="PhilHealthID"
-                            required
+                            placeholder="Enter PhilHealth ID (Optional)"
                             value={form.PhilHealthID}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
                           />
                         </div>
 
+                        {/* --- Pag-IBIG (Optional) --- */}
                         <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Pag-IBIG ID</label>
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="text-gray-300 text-sm block">Pag-IBIG ID</label>
+                            <span className="text-xs text-gray-500 italic">(Optional)</span>
+                          </div>
                           <input
                             type="text"
                             name="PagibigID"
-                            required
+                            placeholder="Enter Pag-IBIG ID (Optional)"
                             value={form.PagibigID}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
                           />
                         </div>
 
@@ -1332,32 +1349,39 @@ export default function ApplicantsList() {
                             type="text"
                             name="EmergencyPerson"
                             required
+                            placeholder="e.g. Maria Dela Cruz"
                             value={form.EmergencyPerson}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
                           />
                         </div>
 
                         <div>
                           <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Number</label>
-                          <input
-                            type="tel"
-                            name="EmergencyContact"
-                            required
-                            value={form.EmergencyContact}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                          />
+                          <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                            <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none text-sm sm:text-base">+63</span>
+                            <input
+                              type="tel"
+                              name="EmergencyContact"
+                              required
+                              placeholder="9123456789"
+                              value={form.EmergencyContact.replace(/^\+63/, "")}
+                              onChange={(e) => {
+                                let value = e.target.value.replace(/\D/g, "");
+                                if (value.length > 10) value = value.slice(0, 10);
+                                setForm({ ...form, EmergencyContact: "+63" + value });
+                              }}
+                              className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-600 focus:outline-none text-sm sm:text-base"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
 
                     {/* Footer */}
-                    {/* Changed flex layout: flex-col-reverse for mobile (Cancel at bottom), row for desktop */}
                     <div className="mt-8 flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4">
                       <button
                         onClick={() => setGuardConfirmModalOpen(false)}
-                        // Changed w-1/4 to w-full sm:w-auto
                         className="bg-gray-600 hover:bg-gray-500 px-6 py-2.5 rounded-lg text-white w-full sm:w-auto font-medium transition-colors"
                       >
                         Cancel
@@ -1365,10 +1389,16 @@ export default function ApplicantsList() {
                       <button
                         onClick={() => openConfirmHireModal()}
                         disabled={loading}
-                        // Changed w-1/4 to w-full sm:w-auto
-                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-8 py-2.5 rounded-lg shadow text-white font-medium w-full sm:w-auto disabled:opacity-50 transition-all"
+                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-8 py-2.5 rounded-lg shadow text-white font-medium w-full sm:w-auto disabled:opacity-50 transition-all flex justify-center items-center gap-2"
                       >
-                        {loading ? "Saving..." : "Save Guard"}
+                        {loading ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          "Save Guard"
+                        )}
                       </button>
                     </div>
 
