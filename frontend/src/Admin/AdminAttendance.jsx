@@ -64,7 +64,6 @@ export default function GuardAttendancePage() {
       setLoadingPage(false);
     }
   };
-  console.log("All Attendance Data:", allAttendance)
 
   useEffect(() => {
     if (!admin && !loading) { navigate("/admin/Login"); return; }
