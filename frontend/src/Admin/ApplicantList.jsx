@@ -290,10 +290,11 @@ export default function ApplicantsList() {
     try {
       setSendingInvite(true);
 
-      // 1. Update applicant status to "Interview"
-      await updateStatus(applicant._id, "Interview");
+      // REMOVED: await updateStatus(applicant._id, "Interview");
+      // REASON: Your backend `interview-email` endpoint already updates the status to "Interview".
+      // Calling this separately causes a race condition and redundant DB writes.
 
-      // 2. Send the interview email with all details
+      // 1. Prepare Payload
       const emailBody = {
         type: interviewType,
         date: interviewDate || null,
@@ -303,6 +304,7 @@ export default function ApplicantsList() {
         message: interviewMessage,
       };
 
+      // 2. Send Request
       const res = await fetch(`${api}/api/applicants/${applicant._id}/interview-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -315,6 +317,28 @@ export default function ApplicantsList() {
       }
 
       toast.success(`Interview invitation sent to ${applicant.name}`);
+
+      // --- CRITICAL FIX: Update Local State Manually ---
+      // We assume the backend succeeded, so we update the UI to reflect the changes immediately.
+      
+      const newInterviewDate = interviewType === "range" ? interviewStart : interviewDate;
+
+      const updatedApplicant = {
+        ...applicant,
+        status: "Interview",
+        dateOfInterview: newInterviewDate, // This ensures the Side Panel sees the date immediately
+      };
+
+      // 1. Update the Main Table List
+      setApplicants((prev) => 
+        prev.map((app) => (app._id === applicant._id ? updatedApplicant : app))
+      );
+
+      // 2. Update the Side Panel (if it's currently open for this applicant)
+      if (selectedApplicant && selectedApplicant._id === applicant._id) {
+        setSelectedApplicant(updatedApplicant);
+      }
+
       closeInterviewModal();
     } catch (err) {
       console.error("Failed to send interview invite:", err);
