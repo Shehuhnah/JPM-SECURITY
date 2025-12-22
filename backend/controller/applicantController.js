@@ -131,9 +131,13 @@ export const sendInterviewEmail = async (req, res) => {
     }
 
     let dateToSave = type === "range" ? startDate : date;
-    
-    if (dateToSave && time) {
-        dateToSave = `${dateToSave}T${time}`; 
+
+    if (dateToSave) {
+      if (time) {
+          dateToSave = `${dateToSave}T${time}:00+08:00`; 
+      } else {
+          dateToSave = `${dateToSave}T00:00:00+08:00`;
+      }
     }
 
     if (dateToSave) {
