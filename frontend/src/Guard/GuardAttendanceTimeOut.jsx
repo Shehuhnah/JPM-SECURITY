@@ -53,7 +53,6 @@ function GuardAttendanceTimeOut() {
 
       loadActiveDuty();
     }, [guard?._id]);
-    console.log(timeInData);
 
     useEffect(() => {
       if (!timeInData) return;

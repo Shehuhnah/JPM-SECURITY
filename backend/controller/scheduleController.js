@@ -149,21 +149,50 @@ export const getTodayScheduleByGuard = async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Get today's date in 'YYYY-MM-DD' format based on server's local time
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    const todayDateStr = `${year}-${month}-${day}`;
+   
+    const now = new Date();
+    const phTime = new Date(now.getTime() + (8 * 60 * 60 * 1000)); 
+    
+    const getDateStr = (date) => {
+      return date.toISOString().split('T')[0];
+    };
 
-    const schedules = await Schedule.find({
+    const todayDateStr = getDateStr(phTime); 
+    
+    const yesterday = new Date(phTime);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayDateStr = getDateStr(yesterday);
+
+    const currentPHTimeString = phTime.toISOString().slice(0, 16); 
+
+    const allPotentialSchedules = await Schedule.find({
       guardId: id,
       isApproved: "Approved",
-      timeIn: { $regex: `^${todayDateStr}` } // Find schedules where timeIn starts with today's date
+      $or: [
+        { timeIn: { $regex: `^${todayDateStr}` } },    // Starts Today
+        { timeIn: { $regex: `^${yesterdayDateStr}` } } // Starts Yesterday
+      ]
     }).populate("guardId", "fullName email");
 
-    res.status(200).json({ hasSchedule: schedules.length > 0, schedules });
+    
+    const validSchedules = allPotentialSchedules.filter(schedule => {
+      const startsToday = schedule.timeIn.startsWith(todayDateStr);
+      
+      
+      const isActiveOvernight = 
+        schedule.timeIn.startsWith(yesterdayDateStr) && 
+        schedule.timeOut > currentPHTimeString;
+
+      return startsToday || isActiveOvernight;
+    });
+
+    res.status(200).json({ 
+      hasSchedule: validSchedules.length > 0, 
+      schedules: validSchedules 
+    });
+
   } catch (error) {
+    console.error("Error fetching schedule:", error);
     res.status(500).json({ message: "Error fetching today's schedule", error: error.message });
   }
 };
