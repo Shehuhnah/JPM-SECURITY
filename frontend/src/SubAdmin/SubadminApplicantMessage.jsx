@@ -400,11 +400,11 @@ export default function SubadminApplicantMessage() {
   });
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-[#0f172a] text-gray-100 font-sans overflow-hidden">
+    <div className="flex flex-col md:flex-row h-[100dvh] w-full bg-[#0f172a] text-gray-100 font-sans overflow-hidden">
       
       {/* Sidebar */}
-      <aside className={`w-full md:w-80 bg-[#0b1220] border-r border-gray-800 flex flex-col ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
-        <div className="p-5 bg-gradient-to-r from-[#1e293b] to-[#0f172a] border-b border-gray-800">
+      <aside className={`w-full md:w-80 bg-[#0b1220] border-r border-gray-800 flex flex-col h-full ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-5 bg-gradient-to-r from-[#1e293b] to-[#0f172a] border-b border-gray-800 flex-none">
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <MessageSquare className="text-blue-500" size={24}/> Inquiries
             </h2>
@@ -413,7 +413,7 @@ export default function SubadminApplicantMessage() {
             </div>
         </div>
 
-        <div className="p-3">
+        <div className="p-3 flex-none">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
             <input
@@ -479,7 +479,7 @@ export default function SubadminApplicantMessage() {
       </aside>
 
       {/* Chat Area */}
-      <main className={`flex-1 flex flex-col bg-[#1e293b] ${!selectedConversation ? 'hidden md:flex' : 'flex'}`}>
+      <main className={`flex-1 flex flex-col h-full w-full bg-[#1e293b] relative  ${!selectedConversation ? 'hidden md:flex' : 'flex'}`}>
         {!selectedConversation ? (
           <div className="flex-1 flex flex-col items-center justify-center text-gray-500 bg-[#0f172a]/50">
             <MessageSquare size={64} className="mb-4 opacity-20" />
@@ -488,8 +488,8 @@ export default function SubadminApplicantMessage() {
         ) : (
           <>
             {/* Header */}
-            <div className="px-6 py-4 bg-[#0f172a] border-b border-gray-800 flex items-center gap-4">
-              <button onClick={() => setSelectedConversation(null)} className="md:hidden text-gray-400 hover:text-white">
+            <div className="flex-none w-full px-4 py-3 md:px-6 md:py-4 bg-[#0f172a] border-b border-gray-800 flex items-center gap-3 z-20 shadow-sm sticky top-0">
+              <button onClick={() => setSelectedConversation(null)} className="md:hidden p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition">
                 <ArrowLeft size={24} />
               </button>
               
@@ -499,8 +499,8 @@ export default function SubadminApplicantMessage() {
                 const online = isUserOnline(id);
 
                 return (
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-blue-700 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 flex-shrink-0 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-bold text-lg shadow-lg relative">
                         {name.charAt(0).toUpperCase()}
                     </div>
                     <div>
@@ -516,7 +516,7 @@ export default function SubadminApplicantMessage() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-slate-900/50">
+            <div className="flex-1 w-full overflow-y-auto overscroll-contain p-4 md:p-6 space-y-4 bg-slate-900/50 scroll-smooth">
               {messages.map((msg) => {
                 const senderId = normalizeId(msg.senderId || msg.sender?._id || msg.senderUser?._id);
                 const isMe = senderId === normalizeId(user._id);
@@ -570,9 +570,9 @@ export default function SubadminApplicantMessage() {
             </div>
 
             {/* Input */}
-            <div className="p-4 border-t border-gray-700 bg-[#1e293b]">
+            <div className="flex-none w-full p-3 md:p-4 bg-[#0f172a] border-t border-gray-800 z-20">
                 {file && (
-                    <div className="flex items-center gap-3 mb-3 p-2 bg-[#0f172a] rounded-lg border border-gray-600 w-fit">
+                    <div className="flex items-center gap-3 mb-3 p-2 bg-[#1e293b] rounded-lg border border-gray-700 w-fit animate-in slide-in-from-bottom-2 fade-in">
                         {file.type.startsWith("image/") ? (
                             <img src={URL.createObjectURL(file)} alt="preview" className="w-10 h-10 object-cover rounded" />
                         ) : (
@@ -583,7 +583,7 @@ export default function SubadminApplicantMessage() {
                     </div>
                 )}
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-end gap-2 md:gap-3">
                     <input 
                         type="file" 
                         ref={fileInputRef} 

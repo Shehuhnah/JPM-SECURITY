@@ -70,16 +70,7 @@ export default function ApplicantsLayout() {
             Messages
           </Link>
 
-          <div className="pt-4 border-t border-gray-800 mt-4">
-            <Link
-              to="/"
-              onClick={() => setSidebarOpen(false)}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-red-600/20 text-red-400 hover:text-red-300 font-medium transition-all"
-            >
-              <LogOut size={18} />
-              Logout
-            </Link>
-          </div>
+         
         </nav>
       </aside>
 

@@ -13,6 +13,14 @@ const navItems = [
 export default function Footer() {
   const location = useLocation();
 
+  // --- ADDED: Function to scroll to top ---
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth", // or "auto" if you want it to snap instantly
+    });
+  };
+
   return (
     <footer className="bg-[#03060c] text-gray-300 py-12 border-t border-gray-700">
       <div className="max-w-7xl mx-auto px-6">
@@ -24,7 +32,8 @@ export default function Footer() {
               JPM Security Agency
             </h2>
             <p className="text-sm text-gray-400 leading-relaxed">
-              "Prepared with Discipline. Professional with EveryDetail. Protected Without Compromise."
+              "Prepared with Discipline. Professional with EveryDetail. Protected
+              Without Compromise."
             </p>
           </div>
 
@@ -38,6 +47,8 @@ export default function Footer() {
                 <li key={item.name}>
                   <Link
                     to={item.path}
+                    // --- ADDED: The onClick handler here ---
+                    onClick={scrollToTop} 
                     className={`text-sm hover:text-white transition-colors ${
                       location.pathname === item.path
                         ? "text-white underline"
@@ -60,8 +71,10 @@ export default function Footer() {
               <li className="flex items-start gap-2">
                 <MapPin size={16} className="text-gray-400 mt-[2px]" />
                 <span>
-                  <strong>Main Office: </strong>Checkpoint, Purok 4, Brgy. Mataas na Lupa, Indang, Cavite 4122 <br/>
-                  <strong>Sattelite Office: </strong>RGDM Bldg., Brgy.Galicia2, Mendez-Nunez, Cavite 4121
+                  <strong>Main Office: </strong>Checkpoint, Purok 4, Brgy.
+                  Mataas na Lupa, Indang, Cavite 4122 <br />
+                  <strong>Sattelite Office: </strong>RGDM Bldg., Brgy.Galicia2,
+                  Mendez-Nunez, Cavite 4121
                 </span>
               </li>
               <li className="flex items-center gap-2">
