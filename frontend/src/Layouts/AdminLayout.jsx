@@ -90,7 +90,7 @@ export default function AdminLayout() {
       </div>
 
       {/* SIDEBAR */}
-      <aside className={`fixed top-0 left-0 h-screen w-64 bg-[#0f172a] shadow-md flex flex-col
+      <aside className={`fixed top-0 left-0 h-[100dvh] w-64 bg-[#0f172a] shadow-md flex flex-col
           transition-transform duration-300 z-40
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
@@ -246,16 +246,18 @@ export default function AdminLayout() {
               </ul>
             )}
           </div>
+        </nav>
 
-          {/* Logout */}
+        {/* Logout */}
+        <div className="p-4 border-t border-gray-800">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 p-2 rounded hover:bg-[#0b2433] text-red-400 mt-4 w-full"
+            className="flex items-center gap-3 p-2 rounded hover:bg-[#0b2433] text-red-400 w-full transition-colors"
           >
             <LogOut size={18} />
             Logout
           </button>
-        </nav>
+        </div>
       </aside>
 
       {/* Mobile Overlay */}

@@ -325,7 +325,7 @@ export default function AdminAddSchedule() {
                     )}
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex flex-col xl:flex-row gap-8">
+                <form onSubmit={handleSubmit} className="flex flex-col 2xl:flex-row gap-8">
                     
                     {/* INPUTS COLUMN */}
                     <div className="flex-1 space-y-5">

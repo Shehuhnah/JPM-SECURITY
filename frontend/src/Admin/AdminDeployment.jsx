@@ -51,6 +51,28 @@ const calendarStyles = `
   .fc-daygrid-day-number { color: #cbd5e1; font-weight: 500; padding: 8px; }
   .fc-col-header-cell-cushion { color: #e2e8f0; }
   .fc-event { cursor: pointer; border: none; padding: 2px 4px; font-size: 0.75rem; border-radius: 4px; }
+
+  @media (max-width: 640px) {
+    .fc-header-toolbar {
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem !important;
+    }
+    .fc-toolbar-chunk:nth-child(2) {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      order: -1;
+      margin-bottom: 0.25rem;
+    }
+    .fc-toolbar-title {
+      font-size: 1.1rem !important;
+    }
+    .fc-button {
+      padding: 0.25rem 0.5rem !important;
+      font-size: 0.75rem !important;
+    }
+  }
 `;
 
 export default function AdminDeployment() {
@@ -188,7 +210,7 @@ export default function AdminDeployment() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white p-4 md:p-6 font-sans">
+    <div className="min-h-screen bg-[#0f172a] text-white p-2 md:p-6 font-sans">
       <style>{calendarStyles}</style>
       <ToastContainer position="top-right" autoClose={5000} theme="dark" />
 
@@ -305,12 +327,16 @@ export default function AdminDeployment() {
         ) : (
             <>
                 {viewMode === "calendar" ? (
-                    <div className="p-4 md:p-6 bg-[#1e293b] rounded-xl">
+                    <div className="p-2 md:p-6 bg-[#1e293b] rounded-xl">
                         {!selectedClient && (
-                            <div className="mb-6 p-4 bg-blue-900/20 border border-blue-900/50 text-blue-200 rounded-lg flex items-center gap-2 text-sm">
-                                <Filter size={16} /> 
-                                Tip: Select a specific <strong>Client</strong> from the dropdown above to filter the calendar view effectively.
-                            </div>
+                           <div className="mb-4 md:mb-6 p-3 md:p-4 bg-blue-900/20 border border-blue-900/50 text-blue-200 rounded-xl flex items-start gap-3 text-xs md:text-sm shadow-sm">
+                              <div className="bg-blue-500/20 p-1.5 rounded-lg shrink-0">
+                                  <Filter size={16} className="text-blue-400" />
+                              </div>
+                              <p className="leading-relaxed pt-0.5">
+                                  <span className="font-bold text-blue-100">Tip:</span> Select a specific <strong className="text-white">Client</strong> from the dropdown above to filter the calendar view effectively.
+                              </p>
+                          </div>
                         )}
                         <FullCalendar
                             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -326,7 +352,7 @@ export default function AdminDeployment() {
                     </div>
                 ) : (
                     // ===== LIST VIEW (Grouped) =====
-                    <div className="p-4 md:p-6 space-y-8">
+                    <div className="p-2 md:p-6 space-y-8">
                         {filteredSchedules.length === 0 ? (
                              <div className="text-center py-20 text-gray-500">No schedules found matching your filters.</div>
                         ) : (
@@ -354,15 +380,22 @@ export default function AdminDeployment() {
                                         <div key={idx} className="bg-[#1e293b] border border-gray-700 rounded-xl overflow-hidden shadow-md">
                                             
                                             {/* Batch Header */}
-                                            <div className="p-4 bg-slate-800/50 border-b border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-1 h-10 rounded-full ${batchSchedules[0].shiftType === 'Night Shift' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
-                                                    <div>
-                                                        <h3 className="font-semibold text-white">{batchSchedules[0].deploymentLocation}</h3>
-                                                        <div className="flex items-center gap-2 text-sm text-gray-400">
-                                                            <span className={batchSchedules[0].shiftType === 'Night Shift' ? 'text-red-400' : 'text-yellow-400'}>{batchSchedules[0].shiftType}</span>
-                                                            <span>•</span>
-                                                            <span className={`px-2 py-0.5 rounded text-xs font-medium border ${
+                                            <div className="p-4 bg-slate-800/50 border-b border-gray-700 flex flex-col xs:flex-row xs:items-center justify-between gap-4">
+                                                
+                                                {/* Left Side: Info */}
+                                                <div className="flex items-start gap-3">
+                                                    {/* Shift Indicator Bar */}
+                                                    <div className={`w-1 self-stretch rounded-full ${batchSchedules[0].shiftType === 'Night Shift' ? 'bg-red-500' : 'bg-yellow-500'} min-h-[40px] md:min-h-0`}></div>
+                                                    
+                                                    <div className="flex-1">
+                                                        <h3 className="font-semibold text-white text-base md:text-lg leading-tight mb-1">{batchSchedules[0].deploymentLocation}</h3>
+                                                        
+                                                        <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm text-gray-400">
+                                                            <span className={`font-medium ${batchSchedules[0].shiftType === 'Night Shift' ? 'text-red-400' : 'text-yellow-400'}`}>
+                                                                {batchSchedules[0].shiftType}
+                                                            </span>
+                                                            <span className="hidden md:inline">•</span>
+                                                            <span className={`px-2.5 py-0.5 rounded-md text-[10px] md:text-xs font-bold uppercase tracking-wider border ${
                                                                 batchSchedules[0].isApproved === "Approved" ? "bg-green-500/10 text-green-400 border-green-500/20" :
                                                                 batchSchedules[0].isApproved === "Declined" ? "bg-red-500/10 text-red-400 border-red-500/20" :
                                                                 "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
@@ -373,12 +406,12 @@ export default function AdminDeployment() {
                                                     </div>
                                                 </div>
 
-                                                {/* Actions */}
-                                                <div className="flex gap-2">
+                                                {/* Right Side: Actions */}
+                                                <div className="flex items-center justify-end gap-2 mt-2 md:mt-0">
                                                     {batchSchedules[0].isApproved === "Declined" && (
                                                         <Link 
                                                             to={`/admin/deployment/add-schedule/${batchSchedules[0]._id}`}
-                                                            className="p-2 bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/30 rounded-lg transition"
+                                                            className="p-2 md:p-2.5 bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/30 rounded-lg transition active:scale-95"
                                                             title="Edit"
                                                         >
                                                             <Pencil size={18}/>
@@ -386,7 +419,7 @@ export default function AdminDeployment() {
                                                     )}
                                                     <button 
                                                         onClick={() => openDeleteModal(batchSchedules)}
-                                                        className="p-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-lg transition"
+                                                        className="p-2 md:p-2.5 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-lg transition active:scale-95"
                                                         title="Delete Batch"
                                                     >
                                                         <Trash size={18}/>
