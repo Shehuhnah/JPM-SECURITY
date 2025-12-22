@@ -130,7 +130,11 @@ export const sendInterviewEmail = async (req, res) => {
       return res.status(400).json({ message: "Applicant email is missing." });
     }
 
-    const dateToSave = type === "range" ? startDate : date;
+    let dateToSave = type === "range" ? startDate : date;
+    
+    if (dateToSave && time) {
+        dateToSave = `${dateToSave}T${time}`; 
+    }
 
     if (dateToSave) {
       applicant.dateOfInterview = dateToSave;
