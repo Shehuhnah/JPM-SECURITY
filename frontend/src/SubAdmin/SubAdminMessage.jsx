@@ -140,15 +140,37 @@ export default function SubAdminMessagePage() {
   }, [user]);
 
   // Active Chat Logic
-  useEffect(() => {
+ useEffect(() => {
     if (!selectedConversation || selectedConversation.isTemp) {
-      if(!selectedConversation?.isTemp) setMessages([]);
+      if (!selectedConversation?.isTemp) setMessages([]);
       return;
     }
 
     setMessages([]); // Clear previous messages
+    
+    // 1. Join Room
     socket.emit("joinConversation", selectedConversation._id);
+    
+    // 2. Tell Server we saw it
     socket.emit("mark_seen", { conversationId: selectedConversation._id, userId: user._id });
+
+    // 3. OPTIMISTIC UPDATE (Instant UI Change)
+    // Immediately remove the "blue dot" from the sidebar without waiting for the server
+    setConversations((prev) => 
+      prev.map((conv) => {
+        if (normalizeId(conv._id) === normalizeId(selectedConversation._id)) {
+          // Keep existing conversation data, but force lastMessage.seen to true
+          return {
+            ...conv,
+            lastMessage: {
+              ...conv.lastMessage,
+              seen: true
+            }
+          };
+        }
+        return conv;
+      })
+    );
 
     const fetchMessages = async () => {
       try {
@@ -160,6 +182,8 @@ export default function SubAdminMessagePage() {
       }
     };
     fetchMessages();
+
+    // --- SOCKET LISTENERS ---
 
     const handleReceiveMessage = (msg) => {
       // Update sidebar list
@@ -176,6 +200,8 @@ export default function SubAdminMessagePage() {
       // Add to current chat if active
       if (normalizeId(selectedConversation?._id) === normalizeId(msg.conversationId)) {
         setMessages((prev) => (prev.some((m) => m._id === msg._id) ? prev : [...prev, msg]));
+        // If we are looking at this chat, mark the new message as seen immediately
+        socket.emit("mark_seen", { conversationId: msg.conversationId, userId: user._id });
       }
     };
 
@@ -191,11 +217,32 @@ export default function SubAdminMessagePage() {
       });
     };
 
+    // 4. LISTEN FOR SEEN EVENT (Server Confirmation)
+    // This ensures that if another subadmin reads it, or the server confirms it, the UI updates
+    const handleMessagesSeen = ({ conversationId }) => {
+      // Update Sidebar
+      setConversations((prev) => 
+        prev.map((conv) => 
+          normalizeId(conv._id) === normalizeId(conversationId)
+            ? { ...conv, lastMessage: { ...conv.lastMessage, seen: true } }
+            : conv
+        )
+      );
+
+      // Update Messages inside the chat (optional, if you want checkmarks)
+      if (normalizeId(selectedConversation._id) === normalizeId(conversationId)) {
+        setMessages((prev) => prev.map((m) => ({ ...m, seen: true })));
+      }
+    };
+
     socket.on("receiveMessage", handleReceiveMessage);
     socket.on("conversationUpdated", handleConversationUpdated);
+    socket.on("messages_seen", handleMessagesSeen); // <--- Add this listener
+
     return () => {
       socket.off("receiveMessage", handleReceiveMessage);
       socket.off("conversationUpdated", handleConversationUpdated);
+      socket.off("messages_seen", handleMessagesSeen); // <--- Cleanup this listener
     };
   }, [selectedConversation?._id, user]);
 
