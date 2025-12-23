@@ -214,11 +214,24 @@ export default function ApplicantsMessages() {
   useEffect(() => {
     if (!session?.conversationId || !session?.applicantId) return;
 
+    // 1. Mark as seen immediately upon loading the conversation
+    socket.emit("mark_seen", { 
+      conversationId: session.conversationId, 
+      userId: session.applicantId 
+    });
+
     const handleReceiveMessage = (msg) => {
       if (normalizeId(msg.conversationId) !== normalizeId(session.conversationId)) return;
+      
       setMessages((prev) =>
         prev.some((m) => m._id === msg._id) ? prev : [...prev, msg]
       );
+
+      // 2. If a new message arrives while we are on this page, mark it seen immediately
+      socket.emit("mark_seen", { 
+        conversationId: session.conversationId, 
+        userId: session.applicantId 
+      });
     };
 
     const handleConversationUpdated = (conv) => {
@@ -226,12 +239,22 @@ export default function ApplicantsMessages() {
       setConversation(conv);
     };
 
+    // 3. Listen for "messages_seen" to update local state (syncs with backend)
+    const handleMessagesSeen = ({ conversationId }) => {
+      if (normalizeId(conversationId) !== normalizeId(session.conversationId)) return;
+      
+      // Update all local messages to seen: true
+      setMessages(prev => prev.map(m => ({ ...m, seen: true })));
+    };
+
     socket.on("receiveMessage", handleReceiveMessage);
     socket.on("conversationUpdated", handleConversationUpdated);
+    socket.on("messages_seen", handleMessagesSeen); // <--- Add listener
 
     return () => {
       socket.off("receiveMessage", handleReceiveMessage);
       socket.off("conversationUpdated", handleConversationUpdated);
+      socket.off("messages_seen", handleMessagesSeen); // <--- Cleanup
     };
   }, [session?.conversationId, session?.applicantId]);
 
