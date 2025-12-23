@@ -135,8 +135,25 @@ export default function MessagesPage() {
       return;
     }
 
+    // 1. Join the socket room
     socket.emit("joinConversation", selectedConversation._id);
+    
+    // 2. Tell Server we saw it
     socket.emit("mark_seen", { conversationId: selectedConversation._id, userId: user._id });
+
+    // 3. OPTIMISTIC UPDATE: Update the sidebar immediately (Don't wait for socket response)
+    setConversations(prev => 
+      prev.map(conv => {
+        if (normalizeId(conv._id) === normalizeId(selectedConversation._id)) {
+          // Force the last message to be seen visually immediately
+          return { 
+            ...conv, 
+            lastMessage: { ...conv.lastMessage, seen: true } 
+          };
+        }
+        return conv;
+      })
+    );
 
     const fetchMessages = async () => {
       try {

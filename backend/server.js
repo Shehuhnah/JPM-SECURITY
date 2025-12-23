@@ -26,6 +26,11 @@ import userRoutes from "./routes/authRoutes.js";
 import applicantMessageRoutes from "./routes/applicantMessageRoutes.js";
 import applicantRoutes from "./routes/applicantRoutes.js";
 
+// message models
+import Message from "./models/message.model.js";
+import Conversation from "./models/conversation.model.js";
+
+
 
 const app = express();
 const httpServer = createServer(app);
@@ -121,12 +126,46 @@ io.on("connection", (socket) => {
     socket.join(conversationId);
   });
 
-  socket.on("mark_seen", ({ conversationId, userId }) => {
-    io.to(conversationId).emit("messages_seen", {
-      conversationId,
-      seenBy: userId,
-    });
+  // --- FIXED MARK SEEN LOGIC ---
+  socket.on("mark_seen", async ({ conversationId, userId }) => {
+    try {
+      // 1. Update Messages in MongoDB
+      // "Find messages in this conversation where I am NOT the sender, and mark them seen"
+      await Message.updateMany(
+        { 
+          conversationId: conversationId, 
+          senderId: { $ne: userId }, 
+          seen: false 
+        },
+        { $set: { seen: true } }
+      );
+
+      // 2. Update the Conversation's "lastMessage" preview
+      // This ensures the blue dot disappears on the sidebar even after refresh
+      const conversation = await Conversation.findById(conversationId);
+      
+      if (
+        conversation && 
+        conversation.lastMessage && 
+        conversation.lastMessage.senderId && // Safety check
+        conversation.lastMessage.senderId.toString() !== userId
+      ) {
+        conversation.lastMessage.seen = true;
+        conversation.markModified('lastMessage'); // Important for mixed types/subdocs
+        await conversation.save();
+      }
+
+      // 3. Broadcast to Frontends to update UI instantly
+      io.to(conversationId).emit("messages_seen", {
+        conversationId,
+        seenBy: userId,
+      });
+
+    } catch (error) {
+      console.error("Socket mark_seen error:", error);
+    }
   });
+  // -----------------------------
 
   socket.on("disconnect", () => {
     const userId = Object.keys(onlineUsersMap).find(
