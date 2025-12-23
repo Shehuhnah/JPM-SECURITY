@@ -96,21 +96,6 @@ export default function MessagesPage() {
     return () => socket.off("onlineUsers");
   }, [user]);
 
-  // --- Socket: Messages Seen ---
-  useEffect(() => {
-    const handleSeen = ({ conversationId }) => {
-      setConversations(prev =>
-        prev.map(conv =>
-          conv._id === conversationId 
-            ? { ...conv, lastMessage: { ...conv.lastMessage, seen: true } } 
-            : conv
-        )
-      );
-    };
-    socket.on("messages_seen", handleSeen);
-    return () => socket.off("messages_seen", handleSeen);
-  }, []);
-
   // --- Fetch Data ---
   useEffect(() => {
     const fetchConversations = async () => {
@@ -145,7 +130,10 @@ export default function MessagesPage() {
 
   // --- Active Conversation Logic ---
   useEffect(() => {
-    if (!selectedConversation || selectedConversation.isTemp || !isAdminConversation(selectedConversation)) return;
+    if (!selectedConversation || selectedConversation.isTemp || !isAdminConversation(selectedConversation)) {
+      setMessages([]);
+      return;
+    }
 
     socket.emit("joinConversation", selectedConversation._id);
     socket.emit("mark_seen", { conversationId: selectedConversation._id, userId: user._id });
@@ -184,11 +172,32 @@ export default function MessagesPage() {
       // Append to active chat if visible
       if (selectedConversation._id === msg.conversationId) {
         setMessages(prev => prev.some(m => m._id === msg._id || m._tempId === msg._tempId) ? prev : [...prev, msg]);
+        socket.emit("mark_seen", { conversationId: msg.conversationId, userId: user._id });
+      }
+    };
+
+    const handleMessageSeen = ({ conversationId }) => {
+      if (normalizeId(conversationId) === normalizeId(selectedConversation?._id)) {
+        // Update UI inside active chat
+        setMessages(prev => prev.map(m => ({ ...m, seen: true })));
+        
+        // Update Sidebar preview
+        setConversations((prev) =>
+          prev.map((conv) =>
+            normalizeId(conv._id) === normalizeId(conversationId)
+              ? { ...conv, lastMessage: { ...conv.lastMessage, seen: true } }
+              : conv
+          )
+        );
       }
     };
 
     socket.on("receiveMessage", handleReceiveMessage);
-    return () => socket.off("receiveMessage", handleReceiveMessage);
+    socket.on("messages_seen", handleMessageSeen);
+    return () => {
+      socket.off("receiveMessage", handleReceiveMessage);
+      socket.off("messages_seen", handleMessageSeen);
+    };
   }, [selectedConversation?._id, user]);
 
   // --- Conversation Updates ---
