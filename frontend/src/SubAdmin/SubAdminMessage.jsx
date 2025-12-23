@@ -337,6 +337,8 @@ export default function SubAdminMessagePage() {
               const isActive = normalizeId(selectedConversation?._id) === normalizeId(conv._id);
               const lastMsgText = conv.lastMessage?.text || (conv.lastMessage?.file ? "Sent an attachment" : "No messages");
               const time = formatDateTime(conv.lastMessage?.createdAt);
+              const senderId = normalizeId(conv.lastMessage?.senderId || conv.lastMessage?.sender?._id);
+              const isUnread = !conv.lastMessage?.seen && senderId !== normalizeId(user._id);
 
               return (
                 <div
@@ -355,11 +357,14 @@ export default function SubAdminMessagePage() {
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-center mb-0.5">
-                            <h4 className="text-sm font-medium text-gray-200 truncate">{guardName}</h4>
+                            <h4 className={`text-sm font-medium truncate ${isUnread ? 'text-white' : 'text-gray-200'}`}>{guardName}</h4>
                             <span className="text-[10px] text-gray-500">{time}</span>
                         </div>
-                        <p className="text-xs text-gray-500 truncate">{lastMsgText}</p>
+                        <p className={`text-xs truncate ${isUnread ? 'text-blue-400 font-bold' : 'text-gray-500'}`}>
+                            {lastMsgText}
+                        </p>
                     </div>
+                    {isUnread && <span className="w-2 h-2 rounded-full bg-blue-500" />}
                   </div>
                 </div>
               );
