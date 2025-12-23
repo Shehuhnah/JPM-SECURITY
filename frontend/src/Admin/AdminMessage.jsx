@@ -47,6 +47,16 @@ export default function MessagesPage() {
   }, []);
 
   // --- Helpers ---
+  const normalizeId = (id) => {
+    if (!id) return "";
+    if (typeof id === "string") return id;
+    if (typeof id === "object") {
+      if (id?._id) return id._id.toString();
+      if (typeof id.toString === "function") return id.toString();
+    }
+    return "";
+  };
+
   const formatDateTime = (timestamp) => {
     if (!timestamp) return "";
     const date = new Date(timestamp);
@@ -331,7 +341,8 @@ export default function MessagesPage() {
                  if(item.data.lastMessage?.text) lastMsg = item.data.lastMessage.text;
                  else if(item.data.lastMessage?.file) lastMsg = "Sent an attachment";
                  const time = item.data.lastMessage?.createdAt ? formatDateTime(item.data.lastMessage.createdAt) : "";
-                 const isUnread = !item.data.lastMessage?.seen && item.data.lastMessage?.senderId !== user._id;
+                 const senderId = normalizeId(item.data.lastMessage?.senderId || item.data.lastMessage?.sender?._id);
+                 const isUnread = !item.data.lastMessage?.seen && senderId !== normalizeId(user._id);
 
                  return (
                   <div
@@ -357,6 +368,7 @@ export default function MessagesPage() {
                             {lastMsg}
                         </p>
                       </div>
+                      {isUnread && <span className="w-2 h-2 rounded-full bg-blue-500" />}
                     </div>
                   </div>
                  );

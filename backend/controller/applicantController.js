@@ -152,7 +152,7 @@ export const sendInterviewEmail = async (req, res) => {
         : `Date: ${formatDate(date)}`;
     const timeSummary = time ? `Time: ${formatTime(time)}` : null;
 
-    const subject = `Interview Invitation${applicant.position ? ` - ${applicant.position}` : ""}`;
+    const subject = `Interview Invitation`;
     const defaultMessage =
       "We would like to invite you for an interview with JPM Security Agency. Please see the details below.";
 
@@ -207,14 +207,6 @@ export const sendInterviewEmail = async (req, res) => {
                           ? `<tr>
                                <td style="width:36%;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;font-weight:600;">Time</td>
                                <td style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:14px;">${formatTime(time)}</td>
-                             </tr>`
-                          : ""
-                      }
-                      ${
-                        applicant.position
-                          ? `<tr>
-                               <td style="width:36%;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;font-weight:600;">Position</td>
-                               <td style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:14px;">${applicant.position}</td>
                              </tr>`
                           : ""
                       }
@@ -289,7 +281,7 @@ export const sendInterviewEmail = async (req, res) => {
 export const sendHireEmail = async (req, res) => {
   try {
     const { id } = req.params;
-    const { message } = req.body; 
+    const { message, guardId } = req.body; 
 
     if (!["Admin", "Subadmin"].includes(req.user?.role)) {
       return res.status(403).json({ message: "You are not authorized." });
@@ -299,7 +291,12 @@ export const sendHireEmail = async (req, res) => {
     if (!applicant) return res.status(404).json({ message: "Applicant not found." });
 
     // 1. Find the Guard account associated with this applicant
-    const guard = await Guard.findOne({ email: applicant.email });
+    let guard;
+    if (guardId) {
+      guard = await Guard.findById(guardId);
+    } else {
+      guard = await Guard.findOne({ email: applicant.email });
+    }
     if (!guard) return res.status(404).json({ message: "Guard account not found. Finalize hiring first." });
 
     // 2. Generate a secure random token
@@ -320,7 +317,7 @@ export const sendHireEmail = async (req, res) => {
     const activationUrl = `https://www.jpmsecurityagency.com/set-password/${resetToken}`;
 
     // --- EMAIL CONTENT ---
-    const subject = `Action Required: Activate Your Account - ${applicant.position}`;
+    const subject = `Action Required: Activate Your Account`;
     const defaultMessage = "We are pleased to inform you that you have been officially selected for the position at JPM Security Agency.";
 
     // Plain Text Version
@@ -370,7 +367,7 @@ export const sendHireEmail = async (req, res) => {
                       </tr>
                       <tr>
                         <td style="width:36%;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;font-weight:600;">Position</td>
-                        <td style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:14px;">${applicant.position || "Security Guard"}</td>
+                        <td style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:14px;">${guard.position || "Security Guard"}</td>
                       </tr>
                       <tr>
                         <td style="width:36%;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;font-weight:600;">Account Status</td>
@@ -447,7 +444,7 @@ export const sendHireEmail = async (req, res) => {
     `;
 
     await sendMail({
-      to: applicant.email,
+      to: guard.email,
       subject,
       text: plainMessage,
       html: htmlMessage,
@@ -509,6 +506,7 @@ export const finalizeHiring = async (req, res) => {
       user: req.user,
       body: {
         message: "Congratulations! Please activate your account.",
+        guardId: newGuard._id,
       }
     };
 
@@ -605,6 +603,3 @@ export const downloadHiredList = async (req, res) => {
     res.status(500).json({ message: "Failed to generate PDF." });
   }
 };
-
-
-

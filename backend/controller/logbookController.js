@@ -128,35 +128,58 @@ export const getCurrentScheduleInfo = async (req, res) => {
     const guardId = req.user._id;
     const now = new Date();
 
-    // Find all approved schedules for the guard
+    // 1. Check for active attendance first (Priority)
+    // This ensures that if a guard is timed in, they can log even if outside strict schedule hours (e.g. overtime)
+    const activeAttendance = await Attendance.findOne({
+      guard: guardId,
+      status: "On Duty",
+    }).populate("scheduleId");
+
+    if (activeAttendance && activeAttendance.scheduleId) {
+      const schedule = activeAttendance.scheduleId;
+      return res.status(200).json({
+        scheduleId: schedule._id,
+        client: schedule.client,
+        deploymentLocation: schedule.deploymentLocation,
+        shiftType: schedule.shiftType,
+        hasTimedIn: true,
+      });
+    }
+
+    // 2. Fallback: Check for schedule within time range (for Time-In prompt)
     const allApprovedSchedules = await Schedule.find({
       guardId: guardId,
       isApproved: "Approved",
     });
 
-    // Find the currently active schedule by comparing dates in JavaScript
     const schedule = allApprovedSchedules.find(sched => {
-      const timeInDate = new Date(sched.timeIn);
-      const timeOutDate = new Date(sched.timeOut);
-      return timeInDate <= now && timeOutDate >= now;
+      const timeZoneOffset = "+08:00"; 
+      const timeInString = sched.timeIn.endsWith("Z") || sched.timeIn.includes("+") 
+        ? sched.timeIn 
+        : `${sched.timeIn}${timeZoneOffset}`;
+      const timeOutString = sched.timeOut.endsWith("Z") || sched.timeOut.includes("+") 
+        ? sched.timeOut 
+        : `${sched.timeOut}${timeZoneOffset}`;
+
+      const scheduledTimeIn = new Date(timeInString);
+      const scheduledTimeOut = new Date(timeOutString);
+
+      const validTimeInStart = new Date(scheduledTimeIn);
+      validTimeInStart.setHours(validTimeInStart.getHours() - 2); 
+
+      return now >= validTimeInStart && now <= scheduledTimeOut;
     });
 
     if (!schedule) {
       return res.status(404).json({ message: "No active schedule found for the current time." });
     }
 
-    // Check for an active attendance record for this schedule
-    const activeAttendance = await Attendance.findOne({
-      scheduleId: schedule._id,
-      status: "On Duty",
-    });
-
     res.status(200).json({
       scheduleId: schedule._id,
       client: schedule.client,
       deploymentLocation: schedule.deploymentLocation,
       shiftType: schedule.shiftType,
-      hasTimedIn: !!activeAttendance, // Convert to boolean
+      hasTimedIn: false,
     });
   } catch (error) {
     console.error("Error fetching current schedule info:", error);

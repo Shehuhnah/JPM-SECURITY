@@ -408,7 +408,7 @@ function GuardAttendanceTimeIn() {
               )}
             </div>
             {/* Controls */}
-            <div className="absolute bottom-8 left-0 right-0 px-4 flex justify-center gap-4">
+            <div className="absolute bottom-8 xl:bottom-47 left-0 right-0 px-4 flex justify-center gap-4">
               <button onClick={stopCamera} className="bg-red-600 hover:bg-red-500 text-white px-6 py-3 rounded-full font-semibold">
                 Cancel
               </button>
