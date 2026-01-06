@@ -190,7 +190,7 @@ export default function AdminCOE() {
 
       generateAndDownloadCOE(
         {
-          name: (person.fullName || person.name || "UNDEFINED").toUpperCase(),
+          name: (person.fullName || person.name || "UNDEFINED"),
           guardId: person.guardId || person._id || "UNDEFINED",
           purpose: data.purpose,
           id: data._id,

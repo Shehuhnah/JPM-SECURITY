@@ -11,7 +11,8 @@ import {
   FileX,
   User,
   FileText,
-  Lock
+  Lock,
+  MessageSquare
 } from "lucide-react";
 import { Dialog, Transition } from "@headlessui/react";
 import { useAuth } from "../hooks/useAuth";
@@ -20,7 +21,7 @@ import { useNavigate } from "react-router-dom";
 const api = import.meta.env.VITE_API_URL;
 
 export default function RequestedIDs() {
-  const { user, loading } = useAuth(); // Changed 'admin' to 'user' for clarity
+  const { user, loading } = useAuth(); 
   const navigate = useNavigate();
 
   const [requests, setRequests] = useState([]);
@@ -46,7 +47,6 @@ export default function RequestedIDs() {
   // Fetch Requests
   const fetchRequests = async () => {
     try {
-      // Basic auth check
       if (!loading && !user) {
         navigate("/admin/login");
         return;
@@ -87,6 +87,7 @@ export default function RequestedIDs() {
       filtered = filtered.filter(
         (r) =>
           r.guard?.fullName?.toLowerCase().includes(search.toLowerCase()) ||
+          r.admin?.name?.toLowerCase().includes(search.toLowerCase()) || // Added Admin search
           r.requestType?.toLowerCase().includes(search.toLowerCase())
       );
     }
@@ -95,7 +96,7 @@ export default function RequestedIDs() {
 
   // Handlers
   const handleApproveID = (id) => {
-    if (!canManage) return; // Security check
+    if (!canManage) return; 
     setSelectedId(id);
     setPickupDate("");
     setApproveNotes("");
@@ -103,7 +104,7 @@ export default function RequestedIDs() {
   };
 
   const handleDeclineID = (id) => {
-    if (!canManage) return; // Security check
+    if (!canManage) return; 
     setSelectedId(id);
     setDeclineReason("");
     setDeclineModal(true);
@@ -199,7 +200,7 @@ export default function RequestedIDs() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search guard..."
+                placeholder="Search name..."
                 className="w-full bg-[#1e293b] border border-gray-700 rounded-lg pl-10 pr-4 py-2.5 
                 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
               />
@@ -246,46 +247,72 @@ export default function RequestedIDs() {
               <table className="w-full text-left border-collapse">
                 <thead className="bg-[#0f172a]/50 text-gray-400 border-b border-gray-700/50 text-xs uppercase tracking-wider">
                   <tr>
-                    <th className="px-6 py-4 font-semibold">Guard Details</th>
-                    <th className="px-6 py-4 font-semibold">Request Info</th>
-                    <th className="px-6 py-4 font-semibold">Date</th>
+                    <th className="px-6 py-4 font-semibold">User Details</th>
+                    <th className="px-6 py-4 font-semibold">Request Type</th>
+                    <th className="px-6 py-4 font-semibold">Date Requested</th>
+                    <th className="px-6 py-4 font-semibold">Pickup Date</th> {/* NEW COLUMN */}
+                    <th className="px-6 py-4 font-semibold">Admin Notes</th> {/* NEW COLUMN */}
                     <th className="px-6 py-4 font-semibold">Status</th>
-                    {/* Only show Actions column header if Admin */}
                     <th className="px-6 py-4 font-semibold text-right">{canManage ? "Actions" : ""}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700/50">
                   {filteredRequests.map((req) => (
                     <tr key={req._id} className="hover:bg-white/5 transition">
-                     <td className="px-6 py-4">
+                      <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-gray-300 border border-slate-600">
-                            <User size={16} />
+                             <User size={16} />
                           </div>
                           <div>
-                            {/* FIX START: Check both Guard and Admin fields */}
-                            <div className="font-medium text-white">
-                              {req.guard?.fullName || req.admin?.name || "Unknown"}
-                            </div>
-                            <div className="text-xs text-blue-400">
-                              {req.guard?.position || req.admin?.role || "N/A"}
-                            </div>
-                            {/* FIX END */}
+                             {/* Support both Guard and Subadmin names */}
+                             <div className="font-medium text-white">
+                                {req.guard?.fullName || req.admin?.name || "Unknown"}
+                             </div>
+                             <div className="text-xs text-blue-400">
+                                {req.guard?.position || req.admin?.role || "N/A"}
+                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-200">{req.requestType}</div>
-                        <div className="text-xs text-gray-500 italic max-w-[200px] truncate">{req.requestReason}</div>
+                        <div className="text-xs text-gray-500 italic max-w-[150px] truncate" title={req.requestReason}>
+                            {req.requestReason}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-400">
                         {new Date(req.createdAt).toLocaleDateString()}
                       </td>
+                      
+                      {/* PICKUP DATE COLUMN */}
+                      <td className="px-6 py-4 text-sm text-gray-300">
+                        {req.pickupDate ? (
+                            <div className="flex items-center gap-1.5 text-green-400">
+                                <Calendar size={14}/>
+                                {new Date(req.pickupDate).toLocaleDateString()}
+                            </div>
+                        ) : (
+                            <span className="text-gray-600 italic text-xs">--</span>
+                        )}
+                      </td>
+
+                      {/* ADMIN NOTES COLUMN */}
+                      <td className="px-6 py-4 text-sm text-gray-300">
+                        {req.adminRemarks ? (
+                            <div className="flex items-start gap-1.5 max-w-[200px]" title={req.adminRemarks}>
+                                <MessageSquare size={14} className="mt-0.5 text-blue-400 shrink-0"/>
+                                <span className="truncate text-xs text-gray-400">{req.adminRemarks}</span>
+                            </div>
+                        ) : (
+                            <span className="text-gray-600 italic text-xs">--</span>
+                        )}
+                      </td>
+
                       <td className="px-6 py-4">
                         <StatusBadge status={req.status} />
                       </td>
                       <td className="px-6 py-4 text-right">
-                         {/* Only show buttons if Admin */}
                          {canManage ? (
                            <div className="flex items-center justify-end gap-2">
                              <button
@@ -325,8 +352,12 @@ export default function RequestedIDs() {
                             <User size={20} />
                          </div>
                          <div>
-                            <h3 className="font-semibold text-white">{req.guard?.fullName || "Unknown"}</h3>
-                            <span className="text-xs text-blue-400">{req.guard?.position}</span>
+                            <h3 className="font-semibold text-white">
+                                {req.guard?.fullName || req.admin?.name || "Unknown"}
+                            </h3>
+                            <span className="text-xs text-blue-400">
+                                {req.guard?.position || req.admin?.role}
+                            </span>
                          </div>
                       </div>
                       <StatusBadge status={req.status} />
@@ -338,18 +369,33 @@ export default function RequestedIDs() {
                          <span className="text-gray-200">{req.requestType}</span>
                       </div>
                       <div className="flex justify-between">
-                         <span className="text-gray-500">Date</span>
+                         <span className="text-gray-500">Requested</span>
                          <span className="text-gray-200">{new Date(req.createdAt).toLocaleDateString()}</span>
                       </div>
+                      
+                      {/* Mobile View of New Fields */}
+                      {req.pickupDate && (
+                          <div className="flex justify-between text-green-400">
+                             <span className="text-gray-500">Pickup Date</span>
+                             <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(req.pickupDate).toLocaleDateString()}</span>
+                          </div>
+                      )}
+                      
+                      {req.adminRemarks && (
+                         <div className="pt-2 mt-2 border-t border-gray-800">
+                            <span className="text-gray-500 text-xs block mb-1">Admin Notes:</span>
+                            <p className="text-gray-300 italic text-xs">{req.adminRemarks}</p>
+                         </div>
+                      )}
+
                       {req.requestReason && (
                          <div className="pt-2 mt-2 border-t border-gray-800">
-                            <span className="text-gray-500 text-xs block mb-1">Reason:</span>
-                            <p className="text-gray-300 italic">{req.requestReason}</p>
+                            <span className="text-gray-500 text-xs block mb-1">User Reason:</span>
+                            <p className="text-gray-300 italic text-xs">{req.requestReason}</p>
                          </div>
                       )}
                    </div>
 
-                   {/* Role Check for Mobile Buttons */}
                    {canManage && req.status === "Pending" && (
                       <div className="grid grid-cols-2 gap-3">
                          <button
@@ -378,7 +424,7 @@ export default function RequestedIDs() {
           </>
         )}
 
-        {/* ===== Approve Modal (Managed by canManage check in handler) ===== */}
+        {/* ===== Approve Modal ===== */}
         <Transition appear show={approveModal} as={Fragment}>
           <Dialog as="div" className="relative z-50" onClose={() => setApproveModal(false)}>
             <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
@@ -430,7 +476,7 @@ export default function RequestedIDs() {
           </Dialog>
         </Transition>
 
-        {/* ===== Decline Modal (Managed by canManage check in handler) ===== */}
+        {/* ===== Decline Modal ===== */}
         <Transition appear show={declineModal} as={Fragment}>
           <Dialog as="div" className="relative z-50" onClose={() => setDeclineModal(false)}>
             <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />

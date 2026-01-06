@@ -1,5 +1,18 @@
 import jsPDF from 'jspdf';
 import signature from '../assets/headerpdf/signature.png'
+
+/**
+ * Helper: Formats name to Title Case (e.g. "SysTem TesTer" -> "System Tester")
+ */
+const formatName = (name) => {
+  if (!name) return "";
+  return name
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 /**
  * Generates a Certificate of Employment PDF
  * @param {Object} request - The COE request object
@@ -35,7 +48,10 @@ export const generateCOEPDF = (request, options = {}) => {
 
 
   // --- COE CONTENT DATA ---
-  const employeeName = request.name || "_____________________".toUpperCase();;
+  // FIX: Apply formatting here
+  const rawName = request.name || "";
+  const employeeName = formatName(rawName) || "_____________________".toUpperCase();
+  
   const position = options.position || "Security Guard".toUpperCase();
   const employmentStart = options.employmentStart || "__________";
   const employmentEnd = options.employmentEnd || "current date";
@@ -154,9 +170,10 @@ export const generateAndDownloadCOE = (request, options = {}) => {
   const doc = generateCOEPDF(request, options);
   
   // Generate filename
-  const guardName = request.name.replace(/\s+/g, '_');
-  const documentNumber = `COE-${request.id}-${new Date().getFullYear()}`;
-  const fileName = options.fileName || `COE_${guardName}_${documentNumber}.pdf`;
+  // FIX: Apply formatting to filename too for consistency
+  const formattedName = formatName(request.name || "").replace(/\s+/g, '_');
+  const documentNumber = `COE-${request.id || "DOC"}-${new Date().getFullYear()}`;
+  const fileName = options.fileName || `COE_${formattedName}_${documentNumber}.pdf`;
   
   // Save the PDF
   doc.save(fileName);
