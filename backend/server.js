@@ -7,6 +7,7 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import { fileURLToPath } from "url";
 import cookieParser from "cookie-parser";
+import { startApplicantCleanup } from './utils/cronJobs.js'
 
 dotenv.config();
 
@@ -103,6 +104,7 @@ app.use("/api/applicant-messages", applicantMessageRoutes);
 app.use("/api/applicants", applicantRoutes);
 
 app.get("/", (req, res) => res.send("API is running"));
+startApplicantCleanup();
 
 mongoose
   .connect(process.env.MONGO_URI)

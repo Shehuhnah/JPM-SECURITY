@@ -187,7 +187,8 @@ export default function GuardAttendancePage() {
     }
   };
 
-  const selectedGuardInfo = allAttendance.find(a => a.guard._id === selectedGuardId)?.guard;
+  // Add the '?' before ._id
+  const selectedGuardInfo = allAttendance.find(a => a.guard?._id === selectedGuardId)?.guard;
   const sortedAttendance = [...filteredAttendance].sort((a, b) => new Date(b.timeIn) - new Date(a.timeIn));
   const groupedAttendance = sortedAttendance.reduce((acc, rec) => {
     const client = rec.scheduleId?.client || "Unassigned Client";

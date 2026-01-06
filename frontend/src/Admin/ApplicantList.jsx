@@ -19,7 +19,8 @@ import {
   RefreshCcw,
   Shield,
   ChevronLeft,
-  ChevronRight 
+  ChevronRight,
+  X
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -233,12 +234,23 @@ export default function ApplicantsList() {
           credentials: "include",
         });
         if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
-        // Assuming the backend returns the updated applicant
-        setApplicants((prev) => prev.map((a) => (a._id === data._id ? data : a)));
-        if (selectedApplicant?._id === data._id) {
-          setSelectedApplicant(data);
+        
+        // --- FIX START: Manually update local state ---
+        
+        // Update the main list immediately
+        setApplicants((prev) => 
+          prev.map((a) => 
+            a._id === applicant._id ? { ...a, status: "Declined" } : a
+          )
+        );
+
+        // If the side panel is open for this applicant, update that too
+        if (selectedApplicant?._id === applicant._id) {
+          setSelectedApplicant((prev) => ({ ...prev, status: "Declined" }));
         }
+        
+        // --- FIX END ---
+
         toast.success("Applicant has been declined.");
       } catch (err) {
         console.error("Decline applicant error:", err);
@@ -754,7 +766,7 @@ export default function ApplicantsList() {
                                       </button>
                                       <button 
                                         onClick={() => openConfirmModal(selectedApplicant, "Declined")} className="bg-red-600/20 hover:bg-red-600/40 text-red-300 px-3 py-2 rounded-md flex items-center gap-2 text-sm justify-center">
-                                          <Trash2 size={14} /> Decline
+                                          <X size={14} /> Decline
                                       </button>
                                     </div>
                                   </div>

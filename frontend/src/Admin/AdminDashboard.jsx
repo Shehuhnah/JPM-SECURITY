@@ -142,11 +142,14 @@ export default function AdminDashboard() {
 
         // Guard Status Logic
         const guardStatusMap = new Map();
-        [...attendance].sort((a,b) => new Date(b.timeIn) - new Date(a.timeIn)).forEach(a => {
-          if (!guardStatusMap.has(a.guard._id)) {
-            guardStatusMap.set(a.guard._id, a.status);
-          }
-        });
+        [...attendance]
+          .sort((a, b) => new Date(b.timeIn) - new Date(a.timeIn))
+          .forEach((a) => {
+            // FIX: Add 'a.guard &&' to ensure the guard exists
+            if (a.guard && !guardStatusMap.has(a.guard._id)) {
+              guardStatusMap.set(a.guard._id, a.status);
+            }
+          });
         
         const statusCounts = { "On Duty": 0, "Off Duty": guards.length, "Absent": 0 };
         guardStatusMap.forEach(status => {

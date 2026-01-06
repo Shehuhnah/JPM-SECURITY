@@ -5,7 +5,7 @@ import logo from "../assets/jpmlogo.png";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useAuth } from "../hooks/useAuth.js";
-import bg from "../Home/assets/home-bg.jpg"; // Assuming you have this bg available
+import bg from "../Home/assets/home-bg.jpg";
 
 const api = import.meta.env.VITE_API_URL;
 
