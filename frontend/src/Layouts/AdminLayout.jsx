@@ -22,6 +22,7 @@ import {
   X,
   FileUser,
   Building,
+  ClipboardList
 } from "lucide-react";
 
 import avatar from "../assets/gerard.jpg";
@@ -31,6 +32,7 @@ const api = import.meta.env.VITE_API_URL;
 export default function AdminLayout() {
   const [messagesDropdown, setMessagesDropdown] = useState(false);
   const [postsDropdown, setPostsDropdown] = useState(false);
+  const [requestsDropdown, setRequestsDropdown] = useState(false); // New State
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { user, loading } = useAuth();
@@ -55,6 +57,7 @@ export default function AdminLayout() {
     }
   };
 
+  // Main Navigation Items (Removed Request ID/COE to put in dropdown)
   const navItems = [
     { to: "/admin", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
     { to: "/Admin/deployment", label: "Deployment", icon: <Calendar size={18} /> },
@@ -66,9 +69,14 @@ export default function AdminLayout() {
     { to: "/Admin/ApplicantList", label: "Applicants", icon: <User size={18} /> },
     { to: "/Admin/AdminGuardsProfile", label: "Guards", icon: <Users size={18} /> },
     { to: "/Admin/AdminAttendance", label: "Attendance", icon: <Clock size={18} /> },
-    { to: "/Admin/Request-ID", label: "Request ID", icon: <IdCardLanyard size={18} /> },
-    { to: "/Admin/AdminCOE", label: "COE", icon: <FileText size={18} /> },
-    { to: "request-coe", label: "Request COE", icon: <FileText size={18} /> },
+    { to: "/Admin/Request-ID", label: "View Request ID", icon: <IdCardLanyard size={18} /> },
+    { to: "/Admin/AdminCOE", label: "Manage COE", icon: <FileText size={18} /> },
+  ];
+
+  // New Dropdown Items
+  const requestItems = [
+    { to: "admin-request-id", label: "ID Request", icon: <IdCardLanyard size={16}/> },
+    { to: "request-coe", label: "COE Request", icon: <FileText size={16} /> },
   ];
 
   const postItems = [
@@ -119,7 +127,8 @@ export default function AdminLayout() {
                 return !["/Admin/AdminCOE", "/Admin/schedule-approval"].includes(item.to);
               }
               if (user?.role === "Admin") {
-                return !["request-coe", "/Admin/deployment"].includes(item.to);
+                // Admin doesn't need to see the guard-facing request forms usually, but kept purely on role logic if needed
+                return !["/Admin/deployment"].includes(item.to);
               }
               return true;
             })
@@ -207,6 +216,47 @@ export default function AdminLayout() {
                 </NavLink>
               );
             })}
+
+          {/* NEW: REQUESTS DROPDOWN */}
+          {/* Only show this if user role allows it (e.g., Subadmin might need it) */}
+          {user?.role === "Subadmin" && ( 
+            <div>
+              <button
+                onClick={() => setRequestsDropdown(!requestsDropdown)}
+                className="flex items-center justify-between w-full p-2 rounded hover:bg-[#0b2433]"
+              >
+                <div className="flex items-center gap-3">
+                  <ClipboardList size={18} />
+                  <span>Requests</span>
+                </div>
+                <ChevronDown
+                  size={16}
+                  className={`transition-transform ${requestsDropdown ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {requestsDropdown && (
+                <ul className="ml-8 mt-1 space-y-1 text-sm">
+                  {requestItems.map((item, idx) => (
+                    <li key={idx}>
+                      <NavLink
+                        to={item.to}
+                        className={({ isActive }) =>
+                          `flex items-center gap-2 p-2 rounded ${
+                            isActive ? "bg-[#142235] text-white" : "hover:bg-[#0b2433]"
+                          }`
+                        }
+                        onClick={() => setSidebarOpen(false)}
+                      >
+                        {item.icon}
+                        {item.label}
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {/* POSTS DROPDOWN */}
           <div>

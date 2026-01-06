@@ -10,22 +10,32 @@ import {
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+
 const api = import.meta.env.VITE_API_URL;
 
-export default function GuardReqID() {
- const { user: guard, loading } = useAuth();
+export default function RequestIDPage() {
+  // CHANGED: Renamed 'guard' to 'user' so it works for Subadmins too
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
+  
   const [form, setForm] = useState({ requestType: "", reason: "" });
   const [requests, setRequests] = useState([]);
   const [message, setMessage] = useState("");
   const [loadingPage, setLoadingPage] = useState(false);
 
-  // Fetch requests of current guard
+  // Fetch requests for the current user (Guard OR Subadmin)
   useEffect(() => {
-    document.title = "Request COE | JPM Agency Security";
+    document.title = "Request ID | JPM Agency Security";
     
+    // Redirect if not logged in (regardless of role)
+    if (!loading && !user) {
+        navigate("/admin/login"); 
+        return;
+    }
+
     const fetchRequests = async () => {
       try {
+        // This endpoint should return requests belonging to the logged-in user's ID
         const res = await fetch(`${api}/api/idrequests/myrequests`, {
           credentials: "include",
           headers: {
@@ -39,8 +49,9 @@ export default function GuardReqID() {
         console.error(err);
       }
     };
-    fetchRequests();
-  }, [guard]);
+    
+    if (user) fetchRequests();
+  }, [user, loading, navigate]); // CHANGED: Dependency is now 'user'
 
   // Submit new ID/Lanyard request
   const handleSubmit = async (e) => {
@@ -53,6 +64,7 @@ export default function GuardReqID() {
     try {
       setLoadingPage(true);
       setMessage("");
+      
       const res = await fetch(`${api}/api/idrequests`, {
         method: "POST",
         credentials: "include",
@@ -62,11 +74,14 @@ export default function GuardReqID() {
         body: JSON.stringify({
           requestType: form.requestType,
           requestReason: form.reason,
+          // Optional: You can pass the role if your backend needs to distinguish
+          // role: user.role 
         }),
       });
 
       if (!res.ok) throw new Error("Failed to submit request");
 
+      // Refresh list
       const res2 = await fetch(`${api}/api/idrequests/myrequests`, {
         credentials: "include",
         headers: {

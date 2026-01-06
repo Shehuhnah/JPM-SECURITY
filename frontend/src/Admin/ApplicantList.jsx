@@ -1132,31 +1132,33 @@ export default function ApplicantsList() {
         <Transition appear show={downloadModalOpen} as={Fragment}>
           <Dialog as="div" className="relative z-50" onClose={() => setDownloadModalOpen(false)}>
             <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0"><div className="fixed inset-0 bg-black/60" /></Transition.Child>
-            <div className="fixed inset-0 overflow-y-auto"><div className="flex min-h-full items-center justify-center p-4">
-              <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-150" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
-                <Dialog.Panel className="w-full max-w-md rounded-2xl bg-[#0f172a] border border-white/10 p-6 shadow-xl text-gray-100">
-                  <Dialog.Title className="text-lg font-semibold mb-4">Download Hired Applicants List</Dialog.Title>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm text-gray-400">Month</label>
-                      <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="w-full mt-1 rounded-lg bg-[#0f172a] border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/70">
-                        {months.map(m => <option key={m} value={m}>{m}</option>)}
-                      </select>
+            <div className="fixed inset-0 overflow-y-auto">
+              <div className="flex min-h-full items-center justify-center p-4">
+                <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-150" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+                  <Dialog.Panel className="w-full max-w-md rounded-2xl bg-[#0f172a] border border-white/10 p-6 shadow-xl text-gray-100">
+                    <Dialog.Title className="text-lg font-semibold mb-4">Download Hired Applicants List</Dialog.Title>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm text-gray-400">Month</label>
+                        <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="w-full mt-1 rounded-lg bg-[#0f172a] border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/70">
+                          {months.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-sm text-gray-400">Year</label>
+                        <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="w-full mt-1 rounded-lg bg-[#0f172a] border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/70">
+                          {years.map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-sm text-gray-400">Year</label>
-                      <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="w-full mt-1 rounded-lg bg-[#0f172a] border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/70">
-                        {years.map(y => <option key={y} value={y}>{y}</option>)}
-                      </select>
+                    <div className="flex justify-end gap-3 mt-6">
+                      <button onClick={() => setDownloadModalOpen(false)} className="px-4 py-2 rounded-lg border border-gray-600 text-gray-200 hover:bg-white/5">Cancel</button>
+                      <button onClick={handleDownloadList} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white">Download</button>
                     </div>
-                  </div>
-                  <div className="flex justify-end gap-3 mt-6">
-                    <button onClick={() => setDownloadModalOpen(false)} className="px-4 py-2 rounded-lg border border-gray-600 text-gray-200 hover:bg-white/5">Cancel</button>
-                    <button onClick={handleDownloadList} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white">Download</button>
-                  </div>
-                </Dialog.Panel>
-              </Transition.Child>
-            </div></div>
+                  </Dialog.Panel>
+                </Transition.Child>
+              </div>
+            </div>
           </Dialog>
         </Transition>
 

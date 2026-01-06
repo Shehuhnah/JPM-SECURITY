@@ -10,7 +10,8 @@ import {
   Calendar,
   FileX,
   User,
-  FileText
+  FileText,
+  Lock
 } from "lucide-react";
 import { Dialog, Transition } from "@headlessui/react";
 import { useAuth } from "../hooks/useAuth";
@@ -19,7 +20,7 @@ import { useNavigate } from "react-router-dom";
 const api = import.meta.env.VITE_API_URL;
 
 export default function RequestedIDs() {
-  const { user: admin, loading } = useAuth();
+  const { user, loading } = useAuth(); // Changed 'admin' to 'user' for clarity
   const navigate = useNavigate();
 
   const [requests, setRequests] = useState([]);
@@ -39,10 +40,14 @@ export default function RequestedIDs() {
   const [approveNotes, setApproveNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // --- ROLE CHECK ---
+  const canManage = user?.role === "Admin"; 
+
   // Fetch Requests
   const fetchRequests = async () => {
     try {
-      if (!loading && !admin) {
+      // Basic auth check
+      if (!loading && !user) {
         navigate("/admin/login");
         return;
       }
@@ -72,7 +77,7 @@ export default function RequestedIDs() {
 
   useEffect(() => {
     fetchRequests();
-  }, [admin]);
+  }, [user]);
 
   // Filter & Search Logic
   useEffect(() => {
@@ -90,6 +95,7 @@ export default function RequestedIDs() {
 
   // Handlers
   const handleApproveID = (id) => {
+    if (!canManage) return; // Security check
     setSelectedId(id);
     setPickupDate("");
     setApproveNotes("");
@@ -97,6 +103,7 @@ export default function RequestedIDs() {
   };
 
   const handleDeclineID = (id) => {
+    if (!canManage) return; // Security check
     setSelectedId(id);
     setDeclineReason("");
     setDeclineModal(true);
@@ -176,7 +183,10 @@ export default function RequestedIDs() {
              </div>
              <div>
                 <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Requested IDs</h2>
-                <p className="text-slate-400 text-sm mt-1">Manage ID issuance and renewals.</p>
+                <p className="text-slate-400 text-sm mt-1">
+                  Manage ID issuance and renewals. 
+                  {!canManage && <span className="text-yellow-500 ml-2 text-xs border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 rounded">View Only</span>}
+                </p>
              </div>
           </div>
 
@@ -240,20 +250,27 @@ export default function RequestedIDs() {
                     <th className="px-6 py-4 font-semibold">Request Info</th>
                     <th className="px-6 py-4 font-semibold">Date</th>
                     <th className="px-6 py-4 font-semibold">Status</th>
-                    <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                    {/* Only show Actions column header if Admin */}
+                    <th className="px-6 py-4 font-semibold text-right">{canManage ? "Actions" : ""}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700/50">
                   {filteredRequests.map((req) => (
                     <tr key={req._id} className="hover:bg-white/5 transition">
-                      <td className="px-6 py-4">
+                     <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-gray-300 border border-slate-600">
-                             <User size={16} />
+                            <User size={16} />
                           </div>
                           <div>
-                             <div className="font-medium text-white">{req.guard?.fullName || "Unknown"}</div>
-                             <div className="text-xs text-blue-400">{req.guard?.position || "N/A"}</div>
+                            {/* FIX START: Check both Guard and Admin fields */}
+                            <div className="font-medium text-white">
+                              {req.guard?.fullName || req.admin?.name || "Unknown"}
+                            </div>
+                            <div className="text-xs text-blue-400">
+                              {req.guard?.position || req.admin?.role || "N/A"}
+                            </div>
+                            {/* FIX END */}
                           </div>
                         </div>
                       </td>
@@ -268,24 +285,29 @@ export default function RequestedIDs() {
                         <StatusBadge status={req.status} />
                       </td>
                       <td className="px-6 py-4 text-right">
-                         <div className="flex items-center justify-end gap-2">
-                           <button
-                             onClick={() => handleApproveID(req._id)}
-                             disabled={req.status !== "Pending"}
-                             className="p-2 bg-green-500/10 hover:bg-green-500/20 text-green-500 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition"
-                             title="Approve"
-                           >
-                             <CheckCircle size={18} />
-                           </button>
-                           <button
-                             onClick={() => handleDeclineID(req._id)}
-                             disabled={req.status !== "Pending"}
-                             className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition"
-                             title="Decline"
-                           >
-                             <XCircle size={18} />
-                           </button>
-                         </div>
+                         {/* Only show buttons if Admin */}
+                         {canManage ? (
+                           <div className="flex items-center justify-end gap-2">
+                             <button
+                               onClick={() => handleApproveID(req._id)}
+                               disabled={req.status !== "Pending"}
+                               className="p-2 bg-green-500/10 hover:bg-green-500/20 text-green-500 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition"
+                               title="Approve"
+                             >
+                               <CheckCircle size={18} />
+                             </button>
+                             <button
+                               onClick={() => handleDeclineID(req._id)}
+                               disabled={req.status !== "Pending"}
+                               className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition"
+                               title="Decline"
+                             >
+                               <XCircle size={18} />
+                             </button>
+                           </div>
+                         ) : (
+                           <div className="text-xs text-gray-600 italic">View only</div>
+                         )}
                       </td>
                     </tr>
                   ))}
@@ -327,7 +349,8 @@ export default function RequestedIDs() {
                       )}
                    </div>
 
-                   {req.status === "Pending" && (
+                   {/* Role Check for Mobile Buttons */}
+                   {canManage && req.status === "Pending" && (
                       <div className="grid grid-cols-2 gap-3">
                          <button
                            onClick={() => handleApproveID(req._id)}
@@ -343,13 +366,19 @@ export default function RequestedIDs() {
                          </button>
                       </div>
                    )}
+                   
+                   {!canManage && (
+                      <div className="text-center text-xs text-gray-500 flex items-center justify-center gap-1">
+                        <Lock size={12}/> Admin access required to manage
+                      </div>
+                   )}
                  </div>
                ))}
             </div>
           </>
         )}
 
-        {/* ===== Approve Modal ===== */}
+        {/* ===== Approve Modal (Managed by canManage check in handler) ===== */}
         <Transition appear show={approveModal} as={Fragment}>
           <Dialog as="div" className="relative z-50" onClose={() => setApproveModal(false)}>
             <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
@@ -401,7 +430,7 @@ export default function RequestedIDs() {
           </Dialog>
         </Transition>
 
-        {/* ===== Decline Modal ===== */}
+        {/* ===== Decline Modal (Managed by canManage check in handler) ===== */}
         <Transition appear show={declineModal} as={Fragment}>
           <Dialog as="div" className="relative z-50" onClose={() => setDeclineModal(false)}>
             <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />

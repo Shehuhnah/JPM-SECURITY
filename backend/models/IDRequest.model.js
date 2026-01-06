@@ -11,7 +11,11 @@ const IDRequestSchema = new mongoose.Schema(
     guard: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Guard",
-      required: true,
+    },
+
+    admin: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "Admin"
     },
 
     requestReason: {

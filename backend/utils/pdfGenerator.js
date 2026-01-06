@@ -3,11 +3,22 @@ import fs from 'fs';
 import path from 'path';
 
 /**
+ * Helper to capitalize the first letter of each word
+ */
+const toTitleCase = (str) => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+/**
  * Generate a simple COE PDF and save to disk. Returns object with fileName and publicPath
  * @param {Object} requestObj - approvedCOE object and request metadata
  * @param {Object} opts - options { outputDir }
  */
-
 export const generateAndSaveCOE = async (requestObj, opts = {}) => {
   const uploadsDir = opts.outputDir || path.join(process.cwd(), 'backend', 'uploads', 'coe');
   await fs.promises.mkdir(uploadsDir, { recursive: true });
@@ -38,7 +49,12 @@ export const generateAndSaveCOE = async (requestObj, opts = {}) => {
 
       // ---- MAIN CONTENT ----
       const approved = requestObj.approvedCOE || {};
-      const guardName = requestObj.guardName || 'Employee Name';
+      
+      // --- FIX: Apply Title Case Formatting Here ---
+      const rawName = requestObj.guardName || 'Employee Name';
+      const guardName = toTitleCase(rawName); 
+      // -------------------------------------------
+
       const position = approved.position || 'Security Guard';
       const purpose = requestObj.purpose || 'employment verification purposes';
       const rawSalary = String(approved.salary || "0").replace(/,/g, "");
@@ -116,25 +132,25 @@ export const generateAndSaveCOE = async (requestObj, opts = {}) => {
 
       const totalWidth = width1 + width2 + width3;
 
-    // Compute usable page width inside margins and center inside margins
-    const pageWidth = doc.page.width; // full page width
-    const leftMargin = doc.page.margins.left || 50;
-    const rightMargin = doc.page.margins.right || 50;
-    const usableWidth = pageWidth - leftMargin - rightMargin;
+      // Compute usable page width inside margins and center inside margins
+      const pageWidth = doc.page.width; // full page width
+      const leftMargin = doc.page.margins.left || 50;
+      const rightMargin = doc.page.margins.right || 50;
+      const usableWidth = pageWidth - leftMargin - rightMargin;
 
-    // Starting x so the combined chunks are centered inside the margins
-    const startX = leftMargin + (usableWidth - totalWidth) / 2;
+      // Starting x so the combined chunks are centered inside the margins
+      const startX = leftMargin + (usableWidth - totalWidth) / 2;
 
-    // Current y position (where to draw the line)
-    const startY = doc.y;
+      // Current y position (where to draw the line)
+      const startY = doc.y;
 
-    // Small gap to ensure there is always a tiny separation if metrics differ slightly
-    const gap = 4; // points
+      // Small gap to ensure there is always a tiny separation if metrics differ slightly
+      const gap = 4; // points
 
-    // Draw each chunk at exact x positions with the correct fonts
-    doc.font('Helvetica').text(chunk1, startX, startY, { lineBreak: false });
-    doc.font('Helvetica-Bold').text(chunk2, startX + width1, startY, { lineBreak: false });
-    doc.font('Helvetica').text(chunk3, startX + width1 + width2 + gap, startY, { lineBreak: false });
+      // Draw each chunk at exact x positions with the correct fonts
+      doc.font('Helvetica').text(chunk1, startX, startY, { lineBreak: false });
+      doc.font('Helvetica-Bold').text(chunk2, startX + width1, startY, { lineBreak: false });
+      doc.font('Helvetica').text(chunk3, startX + width1 + width2 + gap, startY, { lineBreak: false });
 
       doc.moveDown(1.5);
 

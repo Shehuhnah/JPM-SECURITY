@@ -105,7 +105,9 @@ const Router = () => {
                 { path: "deployment/add-schedule/:id", element: <AdminAddSchedule /> },
                 { path: "subadmin-message", element: <SubAdminMessage/>},
                 { path: "applicant-message", element: <SubadminApplicantMessage/>},
-                { path: "manage-clients", element: <AdminManageClients />}
+                { path: "manage-clients", element: <AdminManageClients />},
+                { path: "admin-request-id", element: <GuardReqID/>},
+
               ],
             },
           ],
