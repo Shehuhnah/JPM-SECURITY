@@ -11,14 +11,15 @@ import {
   Mail, 
   RefreshCw, 
   Pencil, 
-  Trash  
+  Trash,
+  Eye, 
+  EyeOff 
 } from "lucide-react";
 import { ToastContainer, toast, Bounce } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Loader from "../components/Loading.jsx";
 import DeleteUserModal from "../components/DeleteUserModal";
 import { useAuth } from "../hooks/useAuth.js"
-import { Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const api = import.meta.env.VITE_API_URL;
@@ -26,22 +27,26 @@ const api = import.meta.env.VITE_API_URL;
 export default function GuardTable() {
   const { user: admin, loading } = useAuth();
   const navigate = useNavigate();
+  
+  // --- States ---
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false); 
-  const [isViewOpen, setIsViewOpen] = useState(false)
+  const [isViewOpen, setIsViewOpen] = useState(false);
   const [editIsOpen, setEditIsOpen] = useState(false); 
   const [guards, setGuards] = useState([]);
   const [loadingPage, setLoadingPage] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedGuard, setSelectedGuard] = useState(null)
-  
-  const [form, setForm] = useState({
+  const [selectedGuard, setSelectedGuard] = useState(null);
+
+  // Define initial state constant to reuse for resetting
+  const initialFormState = {
     fullName: "",
     email: "",
     guardId: "",
+    password: "",
     address: "",
     position: "",
     phoneNumber: "",
@@ -49,8 +54,11 @@ export default function GuardTable() {
     PhilHealthID: "",
     PagibigID: "",
     EmergencyPerson: "",
-    EmergencyContact: ""
-  });
+    EmergencyContact: "",
+    status: "Active" // Default status
+  };
+  
+  const [form, setForm] = useState(initialFormState);
 
   const generateGuardPassword = () => {
     const randomLetter = String.fromCharCode(65 + Math.floor(Math.random() * 26)); // A-Z
@@ -58,7 +66,7 @@ export default function GuardTable() {
     return `JPM${randomLetter}${randomNumber}`;
   };
 
-  //  Fetch users
+  // --- Fetch users ---
   useEffect(() => {
     document.title = "Guards Profile | JPM Security Agency";
     if (!admin && !loading) {
@@ -84,7 +92,8 @@ export default function GuardTable() {
     fetchGuards();
   }, [admin, loading, navigate]);
 
-  // Refresh users
+  // --- Handlers ---
+
   const handleRefresh = async () => {
     try {
       setLoadingPage(true);
@@ -93,24 +102,7 @@ export default function GuardTable() {
         });
       const data = await res.json();
       setGuards(data);
-      setForm(
-        {
-          fullName: "",
-          email: "",
-          guardId: "",
-          password: "",
-          address: "",
-          position: "",
-          dutyStation: "",
-          shift: "",
-          phoneNumber: "",
-          SSSID: "",
-          PhilHealthID: "",
-          PagibigID: "",
-          EmergencyPerson: "",
-          EmergencyContact: ""
-        }
-      )
+      setForm(initialFormState); // Reset form on refresh
     } catch (err) {
       console.error("Fetch users error:", err);
     } finally {
@@ -120,27 +112,31 @@ export default function GuardTable() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     setForm((prev) => ({
       ...prev,
       [name]: name === "email" ? value.toLowerCase() : value,
     }));
   };
 
-  // submit new guard
+  // Open Add Modal - FIX: Resets form correctly
+  const openAddGuardModal = () => {
+    setForm({
+      ...initialFormState,
+      password: generateGuardPassword(),
+    });
+    setErrorMsg("");
+    setIsOpen(true);
+  };
+
+  // Submit New Guard
   const handleAddGuard = async () => {
     setErrorMsg("");
 
-    if (!form.fullName || !form.email || !form.guardId ||!form.address  || !form.position || !form.phoneNumber || !form.EmergencyPerson || !form.EmergencyContact) {
-      setErrorMsg("⚠️ Please fill in all required fields.");
-      toast.error("⚠️ Please fill in all required fields.",{
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        pauseOnHover: true,
-        theme: "dark",
-        transition: Bounce,
-      });
+    // Validate required fields (Included password)
+    if (!form.fullName || !form.email || !form.guardId || !form.password || !form.address || !form.position || !form.phoneNumber || !form.EmergencyPerson || !form.EmergencyContact) {
+      const msg = "⚠️ Please fill in all required fields.";
+      setErrorMsg(msg);
+      toast.error(msg, { theme: "dark", transition: Bounce });
       return;
     }
 
@@ -162,26 +158,9 @@ export default function GuardTable() {
       const newGuard = await res.json();
       setGuards((prev) => [...prev, newGuard]); 
       setIsOpen(false);
-
-      setForm({
-          fullName: "",
-          email: "",
-          guardId: "",
-          address: "",
-          position: "",
-          phoneNumber: "",
-          SSSID: "",
-          PhilHealthID: "",
-          PagibigID: "",
-          EmergencyPerson: "",
-          EmergencyContact: ""
-      });
+      setForm(initialFormState); // Reset form
 
       toast.success("Guard added successfully!", {
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        pauseOnHover: true,
         theme: "dark",
         transition: Bounce,
       });
@@ -189,28 +168,13 @@ export default function GuardTable() {
     } catch (err) {
       console.error(err);
       setErrorMsg("❌ Failed to connect to server.");
-      toast.error("❌ Failed to connect to server", err ,{
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        pauseOnHover: true,
-        theme: "dark",
-        transition: Bounce,
-      });
+      toast.error("❌ Failed to create guard", { theme: "dark", transition: Bounce });
     } finally {
       setLoadingPage(false);
     }
   };
 
-  const openAddGuardModal = () => {
-    setForm((prev) => ({
-      ...prev,
-      password: generateGuardPassword(),
-    }));
-    setIsOpen(true);
-  };
-
-  // delete guard
+  // Delete Guard
   const handleDelete = async (id) => {
     try {
       const res = await fetch(`${api}/api/guards/${id}`, {
@@ -221,32 +185,21 @@ export default function GuardTable() {
 
       setGuards((prev) => prev.filter((u) => u._id !== id));
       setSelectedUser(null);
-      handleRefresh();
-      console.log("✅ Guard deleted successfully");
+      
       toast.success("✅ Guard deleted successfully", {
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        pauseOnHover: true,
         theme: "dark",
         transition: Bounce,
       });
     } catch (err) {
       console.error("❌ Delete Guard error:", err);
-      toast.error("❌ Failed to delete Guard", err ,{
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        pauseOnHover: true,
-        theme: "dark",
-        transition: Bounce,
-      });
+      toast.error("❌ Failed to delete Guard", { theme: "dark", transition: Bounce });
     }
   };
 
-  // edit guard
+  // Edit Guard
   const handleEdit = (guard) => {
     setForm(guard);
+    setErrorMsg("");
     setEditIsOpen(true);
   };
 
@@ -266,11 +219,7 @@ export default function GuardTable() {
 
       if (Object.keys(updatedFields).length === 0) {
         setEditIsOpen(false);
-        toast.info("⚠️ No changes detected.", {
-          position: "top-right",
-          autoClose: 3000,
-          theme: "dark",
-        });
+        toast.info("⚠️ No changes detected.", { theme: "dark" });
         return;
       }
 
@@ -290,19 +239,10 @@ export default function GuardTable() {
 
       setEditIsOpen(false);
       setErrorMsg("")
-      handleRefresh();
-      toast.success("✅ Guard updated successfully!", {
-        position: "top-right",
-        autoClose: 3000,
-        theme: "dark",
-      });
+      toast.success("✅ Guard updated successfully!", { theme: "dark" });
     } catch (err) {
       console.error("Update guard error:", err);
-      toast.error("❌ Failed to update guard.", {
-        position: "top-right",
-        autoClose: 3000,
-        theme: "dark",
-      });
+      toast.error("❌ Failed to update guard.", { theme: "dark" });
     } finally {
       setLoadingPage(false);
     }
@@ -322,7 +262,7 @@ export default function GuardTable() {
     </div>
   );
 
-  // filter logic
+  // Filter Logic
   const filteredData = guards.filter(
     (g) =>
       (filter === "All" || g.position === filter) &&
@@ -341,7 +281,6 @@ export default function GuardTable() {
         "On Duty": "bg-blue-500/10 text-blue-400 border-blue-500/20",
         Suspended: "bg-red-500/10 text-red-400 border-red-500/20",
     };
-    // Default to gray if status doesn't match
     const activeStyle = styles[status] || styles["Inactive"];
 
     return (
@@ -349,7 +288,7 @@ export default function GuardTable() {
             {status}
         </span>
     );
-};
+  };
 
   if (loading) return <Loader text="Loading, Please wait a minute..." />;
 
@@ -357,10 +296,9 @@ export default function GuardTable() {
     <>
       <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
         <div className="flex-1 flex flex-col p-4 md:p-6 bg-slate-900/50 min-h-screen">
+          
           {/* --- Header Section --- */}
           <header className="flex flex-col xl:flex-row xl:items-center xl:justify-between mb-8 gap-6">
-              
-              {/* Title & Stats */}
               <div className="flex items-center gap-3">
                   <div className="p-3 bg-blue-600/10 rounded-xl border border-blue-600/20">
                       <Shield className="text-blue-500" size={28}/> 
@@ -377,8 +315,6 @@ export default function GuardTable() {
 
               {/* Controls Toolbar */}
               <div className="flex flex-col sm:flex-row flex-wrap items-stretch gap-3 w-full xl:w-auto">
-                  
-                  {/* Search */}
                   <div className="relative flex-grow sm:flex-grow-0 sm:w-64 group">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-blue-400 transition" />
                       <input
@@ -391,7 +327,6 @@ export default function GuardTable() {
                       />
                   </div>
 
-                  {/* Filter */}
                   <select
                       value={filter}
                       onChange={(e) => setFilter(e.target.value)}
@@ -404,7 +339,6 @@ export default function GuardTable() {
                       <option value="Inspector">Inspector</option>
                   </select>
 
-                  {/* Refresh Button */}
                   <button
                       onClick={handleRefresh}
                       className="px-3 py-2 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-300 
@@ -415,7 +349,7 @@ export default function GuardTable() {
                   </button>
 
                   {/* Add Guard Button (Admin Only) */}
-                  {admin.role === "Admin" && admin.accessLevel === 1 && (
+                  {admin?.role === "Admin" && admin?.accessLevel === 1 && (
                       <button
                           onClick={openAddGuardModal}
                           className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 
@@ -427,7 +361,6 @@ export default function GuardTable() {
                   )}
               </div>
           </header>
-
 
           {/* DESKTOP VIEW: Enhanced Table */}
           <div className="hidden md:block overflow-hidden bg-[#1e293b]/90 backdrop-blur-md border border-gray-700 rounded-xl shadow-xl">
@@ -445,8 +378,6 @@ export default function GuardTable() {
                       {filteredData.length > 0 ? (
                           filteredData.map((g, i) => (
                               <tr key={i} className="group hover:bg-slate-800/50 transition duration-150">
-                                  
-                                  {/* Guard Profile (Name + ID) */}
                                   <td className="px-6 py-4">
                                       <div className="flex items-center gap-3">
                                           <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-300">
@@ -458,13 +389,7 @@ export default function GuardTable() {
                                           </div>
                                       </div>
                                   </td>
-
-                                  {/* Position */}
-                                  <td className="px-6 py-4 text-sm text-gray-300">
-                                      {g.position}
-                                  </td>
-
-                                  {/* Contact (Phone + Email grouped) */}
+                                  <td className="px-6 py-4 text-sm text-gray-300">{g.position}</td>
                                   <td className="px-6 py-4">
                                       <div className="flex flex-col gap-1">
                                           <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -475,20 +400,14 @@ export default function GuardTable() {
                                           </div>
                                       </div>
                                   </td>
-
-                                  {/* Status */}
-                                  <td className="px-6 py-4">
-                                      {getStatusBadge(g.status)}
-                                  </td>
-
-                                  {/* Actions */}
+                                  <td className="px-6 py-4">{getStatusBadge(g.status)}</td>
                                   <td className="px-6 py-4 text-right">
                                       <div className="flex items-center justify-end gap-2">
                                           <button onClick={() => handleView(g)} className="p-2 hover:bg-slate-700 rounded-lg text-gray-400 hover:text-blue-400 transition" title="View Profile">
                                               <Eye size={18} />
                                           </button>
                                           
-                                          {admin.role === "Admin" && admin.accessLevel === 1 && (
+                                          {admin?.role === "Admin" && admin?.accessLevel === 1 && (
                                               <>
                                                   <button onClick={() => handleEdit(g)} className="p-2 hover:bg-slate-700 rounded-lg text-gray-400 hover:text-yellow-400 transition" title="Edit">
                                                       <Pencil size={18} />
@@ -520,8 +439,6 @@ export default function GuardTable() {
           <div className="md:hidden grid gap-4">
               {filteredData.length > 0 ? filteredData.map((g, i) => (
                   <div key={i} className="bg-[#1e293b] border border-gray-700 rounded-xl p-4 shadow-sm flex flex-col gap-4">
-                      
-                      {/* Card Header */}
                       <div className="flex justify-between items-start">
                           <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-blue-500 border border-slate-700">
@@ -534,8 +451,6 @@ export default function GuardTable() {
                           </div>
                           {getStatusBadge(g.status)}
                       </div>
-
-                      {/* Card Details */}
                       <div className="bg-slate-900/50 rounded-lg p-3 space-y-2 text-sm">
                           <div className="flex justify-between border-b border-gray-800 pb-2 mb-2">
                               <span className="text-gray-500">Position</span>
@@ -548,13 +463,11 @@ export default function GuardTable() {
                               <Mail size={14} className="text-blue-500" /> {g.email}
                           </div>
                       </div>
-
-                      {/* Card Actions */}
                       <div className="grid grid-cols-3 gap-2">
                           <button onClick={() => handleView(g)} className="flex items-center justify-center py-2 bg-slate-800 rounded-lg text-gray-300 hover:text-white border border-gray-700">
                               <Eye size={18} />
                           </button>
-                          {admin.role === "Admin" && admin.accessLevel === 1 && (
+                          {admin?.role === "Admin" && admin?.accessLevel === 1 && (
                               <>
                                   <button onClick={() => handleEdit(g)} className="flex items-center justify-center py-2 bg-slate-800 rounded-lg text-gray-300 hover:text-yellow-400 border border-gray-700">
                                       <Pencil size={18} />
@@ -572,13 +485,10 @@ export default function GuardTable() {
           </div>
         </div>
       </div>
+
       {/* View Guard Modal */}
       <Transition appear show={isViewOpen} as={Fragment}>
-        <Dialog
-          as="div"
-          className="relative z-50"
-          onClose={() => setIsViewOpen(false)}
-        >
+        <Dialog as="div" className="relative z-50" onClose={() => setIsViewOpen(false)}>
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
@@ -590,7 +500,6 @@ export default function GuardTable() {
           >
             <div className="fixed inset-0 bg-black/50" />
           </Transition.Child>
-
           <div className="fixed inset-0 overflow-y-auto">
             <div className="flex min-h-full items-center justify-center p-4 text-center">
               <Transition.Child
@@ -603,28 +512,16 @@ export default function GuardTable() {
                 leaveTo="opacity-0 scale-95"
               >
                 <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-8 text-left align-middle shadow-xl border border-gray-700">
-
-                  {/* HEADER */}
                   <div className="flex gap-x-4 mb-6">
-                    {/* Avatar Placeholder */}
                     <div className="w-20 h-20 bg-[#0f172a] rounded-full flex items-center justify-center border-2 border-gray-600">
                       <Shield className="text-blue-400 w-8 h-8" />
                     </div>
-
                     <div className="mt-2">
-                      <Dialog.Title className="text-2xl font-bold text-white">
-                        Guard Profile
-                      </Dialog.Title>
-                      <p className="text-gray-400 text-sm">
-                        Complete information of the selected guard.
-                      </p>
+                      <Dialog.Title className="text-2xl font-bold text-white">Guard Profile</Dialog.Title>
+                      <p className="text-gray-400 text-sm">Complete information of the selected guard.</p>
                     </div>
                   </div>
-
-                  {/* PROFILE GRID */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                    {/* LEFT SIDE */}
                     <div className="space-y-3 text-gray-200">
                       <ProfileItem label="Full Name" value={selectedGuard?.fullName} />
                       <ProfileItem label="Guard ID" value={selectedGuard?.guardId} />
@@ -633,8 +530,6 @@ export default function GuardTable() {
                       <ProfileItem label="Position" value={selectedGuard?.position} />
                       <ProfileItem label="Address" value={selectedGuard?.address} />
                     </div>
-
-                    {/* RIGHT SIDE */}
                     <div className="space-y-3 text-gray-200">
                       <ProfileItem label="SSS ID" value={selectedGuard?.SSSID} />
                       <ProfileItem label="PhilHealth ID" value={selectedGuard?.PhilHealthID} />
@@ -644,23 +539,9 @@ export default function GuardTable() {
                       <ProfileItem label="Status" value={selectedGuard?.status} />
                     </div>
                   </div>
-
-                  {/* EXTRA META */}
-                  <div className="mt-8 text-gray-400 text-sm space-y-1">
-                    <p>Created At: {new Date(selectedGuard?.createdAt).toLocaleString()}</p>
-                    <p>Last Login: {new Date(selectedGuard?.lastLogin).toLocaleString()}</p>
-                  </div>
-
-                  {/* FOOTER */}
                   <div className="mt-8 flex justify-end">
-                    <button
-                      onClick={() => setIsViewOpen(false)}
-                      className="bg-gray-600 hover:bg-gray-500 px-6 py-2 rounded-lg text-white w-1/4"
-                    >
-                      Close
-                    </button>
+                    <button onClick={() => setIsViewOpen(false)} className="bg-gray-600 hover:bg-gray-500 px-6 py-2 rounded-lg text-white w-1/4">Close</button>
                   </div>
-
                 </Dialog.Panel>
               </Transition.Child>
             </div>
@@ -668,280 +549,74 @@ export default function GuardTable() {
         </Dialog>
       </Transition>
 
-      {/* Add Guard Modal */}
+      {/* Add Guard Modal - FIX: Now uses clean form state */}
       <Transition appear show={isOpen} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={() => setIsOpen(false)}>
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black/50" />
-          </Transition.Child>
-
+          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0"><div className="fixed inset-0 bg-black/50" /></Transition.Child>
           <div className="fixed inset-0 overflow-y-auto">
             <div className="flex min-h-full items-center justify-center p-4 text-center">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
+              <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
                 <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 sm:p-8 text-left align-middle shadow-xl border border-gray-700">
-                  
-                  {/* Header */}
                   <div className="flex flex-col sm:flex-row gap-x-3 items-center sm:items-start">
-                    <div className="flex justify-center mb-4 sm:mb-6">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#0f172a] rounded-full flex items-center justify-center border-2 border-gray-600">
-                        <Shield className="text-blue-400 w-6 h-6 sm:w-8 sm:h-8" />
-                      </div>
-                    </div>
-
-                    <div className="mt-0 sm:mt-3 text-center sm:text-left">
-                      <Dialog.Title className="text-xl sm:text-2xl font-bold text-white">
-                        Add New Guard
-                      </Dialog.Title>
-                      <p className="text-gray-400 text-sm mb-6">
-                        Fill out the guard’s information below.
-                      </p>
-                    </div>
+                    <div className="flex justify-center mb-4 sm:mb-6"><div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#0f172a] rounded-full flex items-center justify-center border-2 border-gray-600"><Shield className="text-blue-400 w-6 h-6 sm:w-8 sm:h-8" /></div></div>
+                    <div className="mt-0 sm:mt-3 text-center sm:text-left"><Dialog.Title className="text-xl sm:text-2xl font-bold text-white">Add New Guard</Dialog.Title><p className="text-gray-400 text-sm mb-6">Fill out the guard’s information below.</p></div>
                   </div>
-
-                  {errorMsg && (
-                    <div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-6 text-center">
-                      {errorMsg}
-                    </div>
-                  )}
-
-                  {/* Form */}
+                  {errorMsg && (<div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-6 text-center">{errorMsg}</div>)}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    
-                    {/* Left Column */}
                     <div className="space-y-3">
+                      <div><label className="text-gray-300 text-sm mb-1 block">Full Name</label><input type="text" name="fullName" required placeholder="e.g. Juan Dela Cruz" value={form.fullName} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Guard ID</label><input type="text" name="guardId" required placeholder="e.g. G-2025-001" value={form.guardId} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Email</label><input type="email" name="email" required placeholder="jpm@example.com" value={form.email} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Password</label><div className="relative w-full"><input type={showPassword ? "text" : "password"} name="password" required placeholder="••••••••" value={form.password} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 pr-10 text-sm sm:text-base placeholder-gray-600" /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200">{showPassword ? <Eye size={20} /> : <EyeOff size={20} />}</button></div></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Position</label><input type="text" name="position" required placeholder="e.g. Security Guard" value={form.position} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Address</label><input type="text" name="address" required placeholder="e.g. Brgy. 1, Tanza, Cavite" value={form.address} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
+                      {/* FIX: Status Dropdown was missing value from state */}
                       <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Full Name</label>
-                        <input
-                          type="text"
-                          name="fullName"
-                          required
-                          placeholder="e.g. Juan Dela Cruz"
-                          value={form.fullName}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Guard ID</label>
-                        <input
-                          type="text"
-                          name="guardId"
-                          required
-                          placeholder="e.g. G-2025-001"
-                          value={form.guardId}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Email</label>
-                        <input
-                          type="email"
-                          name="email"
-                          required
-                          placeholder="jpm@example.com" 
-                          value={form.email}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Password</label>
-                        <div className="relative w-full">
-                          <input
-                            type={showPassword ? "text" : "password"}
-                            name="password"
-                            required
-                            placeholder="••••••••"
-                            value={form.password}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 pr-10 text-sm sm:text-base placeholder-gray-600"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
-                          >
-                            {showPassword ? <Eye size={20} /> : <EyeOff size={20} />}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Position</label>
-                        <input
-                          type="text"
-                          name="position"
-                          required
-                          placeholder="e.g. Security Guard"
-                          value={form.position}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Address</label>
-                        <input
-                          type="text"
-                          name="address"
-                          required
-                          placeholder="e.g. Brgy. 1, Tanza, Cavite"
-                          value={form.address}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                        />
+                        <label className="text-gray-300 text-sm mb-1 block">Status</label>
+                        <select name="status" value={form.status} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500">
+                          <option value="Active">Active</option>
+                          <option value="Leave">Leave</option>
+                          <option value="Retired">Retired</option>
+                        </select>
                       </div>
                     </div>
-
-                    {/* Right Column */}
                     <div className="space-y-3">
                       <div>
                         <label className="text-gray-300 text-sm mb-1 block">Phone Number</label>
                         <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
                           <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none text-sm sm:text-base">+63</span>
-                          <input
-                            type="tel"
-                            name="phoneNumber"
-                            required
-                            placeholder="9123456789"
-                            value={form.phoneNumber.replace(/^\+63/, "")}
-                            onChange={(e) => {
-                              let value = e.target.value.replace(/\D/g, "");
-                              if (value.length > 10) value = value.slice(0, 10);
-                              setForm({ ...form, phoneNumber: "+63" + value });
-                            }}
-                            className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-600 focus:outline-none text-sm sm:text-base"
-                          />
+                          {/* FIX: Phone handler uses setForm with callback to ensure latest state */}
+                          <input type="tel" name="phoneNumber" required placeholder="9123456789" value={form.phoneNumber.replace(/^\+63/, "")} onChange={(e) => {
+                            let value = e.target.value.replace(/\D/g, "");
+                            if (value.length > 10) value = value.slice(0, 10);
+                            setForm(prev => ({ ...prev, phoneNumber: "+63" + value }));
+                          }} className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-600 focus:outline-none text-sm sm:text-base" />
                         </div>
                       </div>
-
-                      {/* --- SSS (Optional) --- */}
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <label className="text-gray-300 text-sm block">SSS ID</label>
-                          <span className="text-xs text-gray-500 italic">(Optional)</span>
-                        </div>
-                        <input
-                          type="text"
-                          name="SSSID"
-                          placeholder="Enter SSS ID (Optional)"
-                          value={form.SSSID}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                        />
-                      </div>
-
-                      {/* --- PhilHealth (Optional) --- */}
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <label className="text-gray-300 text-sm block">PhilHealth ID</label>
-                          <span className="text-xs text-gray-500 italic">(Optional)</span>
-                        </div>
-                        <input
-                          type="text"
-                          name="PhilHealthID"
-                          placeholder="Enter PhilHealth ID (Optional)"
-                          value={form.PhilHealthID}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                        />
-                      </div>
-
-                      {/* --- Pag-IBIG (Optional) --- */}
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <label className="text-gray-300 text-sm block">Pag-IBIG ID</label>
-                          <span className="text-xs text-gray-500 italic">(Optional)</span>
-                        </div>
-                        <input
-                          type="text"
-                          name="PagibigID"
-                          placeholder="Enter Pag-IBIG ID (Optional)"
-                          value={form.PagibigID}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Person</label>
-                        <input
-                          type="text"
-                          name="EmergencyPerson"
-                          required
-                          placeholder="e.g. Maria Dela Cruz"
-                          value={form.EmergencyPerson}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                        />
-                      </div>
-
+                      <div><label className="text-gray-300 text-sm mb-1 block">SSS ID</label><span className="text-xs text-gray-500 italic float-right">(Optional)</span><input type="text" name="SSSID" placeholder="Enter SSS ID" value={form.SSSID} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">PhilHealth ID</label><span className="text-xs text-gray-500 italic float-right">(Optional)</span><input type="text" name="PhilHealthID" placeholder="Enter PhilHealth ID" value={form.PhilHealthID} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Pag-IBIG ID</label><span className="text-xs text-gray-500 italic float-right">(Optional)</span><input type="text" name="PagibigID" placeholder="Enter Pag-IBIG ID" value={form.PagibigID} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Emergency Contact Person</label><input type="text" name="EmergencyPerson" required placeholder="e.g. Maria Dela Cruz" value={form.EmergencyPerson} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
                       <div>
                         <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Number</label>
                         <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
                           <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none text-sm sm:text-base">+63</span>
-                          <input
-                            type="tel"
-                            name="EmergencyContact"
-                            required
-                            placeholder="9123456789"
-                            value={form.EmergencyContact.replace(/^\+63/, "")}
-                            onChange={(e) => {
-                              let value = e.target.value.replace(/\D/g, "");
-                              if (value.length > 10) value = value.slice(0, 10);
-                              setForm({ ...form, EmergencyContact: "+63" + value });
-                            }}
-                            className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-600 focus:outline-none text-sm sm:text-base"
-                          />
+                          {/* FIX: Phone handler uses setForm with callback to ensure latest state */}
+                          <input type="tel" name="EmergencyContact" required placeholder="9123456789" value={form.EmergencyContact.replace(/^\+63/, "")} onChange={(e) => {
+                            let value = e.target.value.replace(/\D/g, "");
+                            if (value.length > 10) value = value.slice(0, 10);
+                            setForm(prev => ({ ...prev, EmergencyContact: "+63" + value }));
+                          }} className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-600 focus:outline-none text-sm sm:text-base" />
                         </div>
                       </div>
                     </div>
                   </div>
-
-                  {/* Footer */}
                   <div className="mt-8 flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4">
-                    <button
-                      onClick={() => setIsOpen(false)}
-                      className="bg-gray-600 hover:bg-gray-500 px-6 py-2.5 rounded-lg text-white w-full sm:w-auto font-medium transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => openConfirmHireModal()}
-                      disabled={loading}
-                      className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-8 py-2.5 rounded-lg shadow text-white font-medium w-full sm:w-auto disabled:opacity-50 transition-all flex justify-center items-center gap-2"
-                    >
-                      {loading ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          <span>Saving...</span>
-                        </>
-                      ) : (
-                        "Save Guard"
-                      )}
+                    <button onClick={() => setIsOpen(false)} className="bg-gray-600 hover:bg-gray-500 px-6 py-2.5 rounded-lg text-white w-full sm:w-auto font-medium transition-colors">Cancel</button>
+                    <button onClick={handleAddGuard} disabled={loading} className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-8 py-2.5 rounded-lg shadow text-white font-medium w-full sm:w-auto disabled:opacity-50 transition-all flex justify-center items-center gap-2">
+                      {loading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Saving...</span></> : "Save Guard"}
                     </button>
                   </div>
-
                 </Dialog.Panel>
               </Transition.Child>
             </div>
@@ -952,213 +627,63 @@ export default function GuardTable() {
       {/* Edit Guard Modal */}
       <Transition appear show={editIsOpen} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={() => setEditIsOpen(false)}>
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black/50" />
-          </Transition.Child>
-
+          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0"><div className="fixed inset-0 bg-black/50" /></Transition.Child>
           <div className="fixed inset-0 overflow-y-auto">
             <div className="flex min-h-full items-center justify-center p-4 text-center">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
+              <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
                 <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-8 text-left align-middle shadow-xl border border-gray-700">
-                  
-                  {/* Header */}
-                  <div className="flex gap-x-3 mb-4">
-                    <Pencil className="text-blue-400 w-10 h-10" />
-                    <div>
-                      <Dialog.Title className="text-2xl font-bold text-white">Edit Guard</Dialog.Title>
-                      <p className="text-gray-300 text-sm">Edit the guard’s information below.</p>
-                    </div>
-                  </div>
-
-                  {errorMsg && (
-                    <div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-4">
-                      {errorMsg}
-                    </div>
-                  )}
-
-                  {/* Form */}
+                  <div className="flex gap-x-3 mb-4"><Pencil className="text-blue-400 w-10 h-10" /><div><Dialog.Title className="text-2xl font-bold text-white">Edit Guard</Dialog.Title><p className="text-gray-300 text-sm">Edit the guard’s information below.</p></div></div>
+                  {errorMsg && (<div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-4">{errorMsg}</div>)}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                    {/* Left Column */}
                     <div className="space-y-3">
-                      <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Full Name</label>
-                        <input
-                          type="text"
-                          name="fullName"
-                          value={form.fullName}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Guard ID</label>
-                        <input
-                          type="text"
-                          name="guardId"
-                          value={form.guardId}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Email</label>
-                        <input
-                          type="email"
-                          name="email"
-                          value={form.email}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Position</label>
-                        <input
-                          type="text"
-                          name="position"
-                          value={form.position}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Address</label>
-                        <input
-                          type="text"
-                          name="address"
-                          value={form.address}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
+                      <div><label className="text-gray-300 text-sm mb-1 block">Full Name</label><input type="text" name="fullName" value={form.fullName} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Guard ID</label><input type="text" name="guardId" value={form.guardId} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Email</label><input type="email" name="email" value={form.email} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Position</label><input type="text" name="position" value={form.position} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Address</label><input type="text" name="address" value={form.address} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
                       <div>
                         <label className="text-gray-300 text-sm mb-1 block">Status</label>
-                        <select
-                          name="status"
-                          value={form.status}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                        >
+                        <select name="status" value={form.status} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500">
                           <option value="Active">Active</option>
                           <option value="Leave">Leave</option>
                           <option value="Retired">Retired</option>
                         </select>
                       </div>
                     </div>
-
-                    {/* Right Column */}
                     <div className="space-y-3">
                       <div>
                         <label className="text-gray-300 text-sm mb-1 block">Phone Number</label>
                         <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
                           <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none">+63</span>
-                          <input
-                            type="tel"
-                            name="phoneNumber"
-                            value={form.phoneNumber.replace(/^\+63/, "")}
-                            onChange={(e) => {
-                              let value = e.target.value.replace(/\D/g, "");
-                              if (value.length > 10) value = value.slice(0, 10);
-                              setForm({ ...form, phoneNumber: "+63" + value });
-                            }}
-                            className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none"
-                          />
+                          {/* FIX: Phone handler uses setForm with callback to ensure latest state */}
+                          <input type="tel" name="phoneNumber" value={form.phoneNumber.replace(/^\+63/, "")} onChange={(e) => {
+                            let value = e.target.value.replace(/\D/g, "");
+                            if (value.length > 10) value = value.slice(0, 10);
+                            setForm(prev => ({ ...prev, phoneNumber: "+63" + value }));
+                          }} className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none" />
                         </div>
                       </div>
-
-                      <div>
-                        <label className="text-gray-300 text-sm mb-1 block">SSS ID</label>
-                        <input
-                          type="text"
-                          name="SSSID"
-                          value={form.SSSID}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-300 text-sm mb-1 block">PhilHealth ID</label>
-                        <input
-                          type="text"
-                          name="PhilHealthID"
-                          value={form.PhilHealthID}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Pag-IBIG ID</label>
-                        <input
-                          type="text"
-                          name="PagibigID"
-                          value={form.PagibigID}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Person</label>
-                        <input
-                          type="text"
-                          name="EmergencyPerson"
-                          value={form.EmergencyPerson}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
+                      <div><label className="text-gray-300 text-sm mb-1 block">SSS ID</label><input type="text" name="SSSID" value={form.SSSID} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">PhilHealth ID</label><input type="text" name="PhilHealthID" value={form.PhilHealthID} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Pag-IBIG ID</label><input type="text" name="PagibigID" value={form.PagibigID} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Emergency Contact Person</label><input type="text" name="EmergencyPerson" value={form.EmergencyPerson} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
                       <div>
                         <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Number</label>
-                        <input
-                          type="tel"
-                          name="EmergencyContact"
-                          value={form.EmergencyContact}
-                          onChange={handleChange}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"
-                        />
+                        <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                          <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none">+63</span>
+                          {/* FIX: Phone handler uses setForm with callback to ensure latest state */}
+                          <input type="tel" name="EmergencyContact" value={form.EmergencyContact.replace(/^\+63/, "")} onChange={(e) => {
+                            let value = e.target.value.replace(/\D/g, "");
+                            if (value.length > 10) value = value.slice(0, 10);
+                            setForm(prev => ({ ...prev, EmergencyContact: "+63" + value }));
+                          }} className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none" />
+                        </div>
                       </div>
                     </div>
                   </div>
-
-                  {/* Footer */}
                   <div className="mt-6 flex justify-end gap-4">
-                    <button
-                      onClick={() => setEditIsOpen(false)}
-                      className="bg-gray-600 hover:bg-gray-500 px-6 py-2 rounded-lg text-white"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSaveEdit}
-                      disabled={loading}
-                      className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-8 py-2 rounded-lg shadow text-white font-medium disabled:opacity-50"
-                    >
-                      {loading ? "Updating..." : "Save Changes"}
-                    </button>
+                    <button onClick={() => setEditIsOpen(false)} className="bg-gray-600 hover:bg-gray-500 px-6 py-2 rounded-lg text-white">Cancel</button>
+                    <button onClick={handleSaveEdit} disabled={loading} className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-8 py-2 rounded-lg shadow text-white font-medium disabled:opacity-50">{loading ? "Updating..." : "Save Changes"}</button>
                   </div>
                 </Dialog.Panel>
               </Transition.Child>
@@ -1167,10 +692,7 @@ export default function GuardTable() {
         </Dialog>
       </Transition>
 
-      {/* Toast Container */}
       <ToastContainer />
-
-      {/* Delete Modal */}
       {selectedUser && (
         <DeleteUserModal
           user={selectedUser}
