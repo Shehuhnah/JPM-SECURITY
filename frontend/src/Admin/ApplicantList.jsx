@@ -128,13 +128,25 @@ export default function ApplicantsList() {
   };
 
   const openConfirmHireModal = () => {
-    setErrorMsg("")
+    setErrorMsg("");
+
+    // Check required fields
     if(!form.fullName || !form.email || !form.guardId || !form.address || !form.position || !form.phoneNumber || !form.EmergencyPerson || !form.EmergencyContact){
-      return setErrorMsg("Please fill out all required fields.")
-    } else {
-      setErrorMsg("")
-      setIsConfirmModalOpen(true)
+      return setErrorMsg("Please fill out all required fields.");
+    } 
+    
+    // Check Phone Number Validity (Must be +63 followed by 10 digits)
+    const phoneRegex = /^\+63\d{10}$/;
+    if (!phoneRegex.test(form.phoneNumber)) {
+      return setErrorMsg("Phone Number must be valid (10 digits starting with 9).");
     }
+    if (!phoneRegex.test(form.EmergencyContact)) {
+      return setErrorMsg("Emergency Contact must be valid (10 digits starting with 9).");
+    }
+
+    // If all good, open modal
+    setErrorMsg("");
+    setIsConfirmModalOpen(true);
   }
 
   const openPanel = (applicant) => {
@@ -756,17 +768,39 @@ export default function ApplicantsList() {
                                         onClick={() => handleViewResume(selectedApplicant)} className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 px-3 py-2 rounded-md flex items-center gap-2 text-sm justify-center">
                                         <Eye size={14} /> View Resume
                                       </button>
-                                      <button 
-                                        onClick={() => openInterviewModal(selectedApplicant)} className="bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 px-3 py-2 rounded-md flex items-center gap-2 text-sm justify-center">
-                                          <UserCheck size={14} /> Interview
+                                      <button
+                                        disabled={selectedApplicant.status === "Hired"}
+                                        onClick={() => openInterviewModal(selectedApplicant)}
+                                        className={`px-3 py-2 rounded-md flex items-center gap-2 text-sm justify-center transition
+                                          ${selectedApplicant.status === "Hired"
+                                            ? "bg-gray-700/50 text-gray-500 cursor-not-allowed opacity-50"
+                                            : "bg-purple-600/20 hover:bg-purple-600/40 text-purple-300"
+                                          }`}
+                                      >
+                                        <UserCheck size={14} /> Interview
                                       </button>
-                                      <button 
-                                        onClick={() => openAddGuardModal(true)} className="bg-green-600/20 hover:bg-green-600/40 text-green-300 px-3 py-2 rounded-md flex items-center gap-2 text-sm justify-center">
-                                        <CheckCircle size={14} /> Hire
+                                      <button
+                                        disabled={selectedApplicant.status === "Hired"}
+                                        onClick={() => openAddGuardModal()}
+                                        className={`px-3 py-2 rounded-md flex items-center gap-2 text-sm justify-center transition
+                                          ${selectedApplicant.status === "Hired" 
+                                            ? "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50" 
+                                            : "bg-green-600/20 hover:bg-green-600/40 text-green-300"
+                                          }`}
+                                      >
+                                        <CheckCircle size={14} /> 
+                                        {selectedApplicant.status === "Hired" ? "Hired" : "Hire"}
                                       </button>
-                                      <button 
-                                        onClick={() => openConfirmModal(selectedApplicant, "Declined")} className="bg-red-600/20 hover:bg-red-600/40 text-red-300 px-3 py-2 rounded-md flex items-center gap-2 text-sm justify-center">
-                                          <X size={14} /> Decline
+                                      <button
+                                        disabled={selectedApplicant.status === "Hired" || selectedApplicant.status === "Declined"}
+                                        onClick={() => openConfirmModal(selectedApplicant, "Declined")}
+                                        className={`px-3 py-2 rounded-md flex items-center gap-2 text-sm justify-center transition
+                                          ${selectedApplicant.status === "Hired" || selectedApplicant.status === "Declined"
+                                            ? "bg-gray-700/50 text-gray-500 cursor-not-allowed opacity-50"
+                                            : "bg-red-600/20 hover:bg-red-600/40 text-red-300"
+                                          }`}
+                                      >
+                                        <X size={14} /> Decline
                                       </button>
                                     </div>
                                   </div>
@@ -1318,11 +1352,17 @@ export default function ApplicantsList() {
                               name="phoneNumber"
                               required
                               placeholder="9123456789"
+                              // Display value without the prefix for better UX
                               value={form.phoneNumber.replace(/^\+63/, "")}
                               onChange={(e) => {
+                                // Remove non-digits
                                 let value = e.target.value.replace(/\D/g, "");
+                                
+                                // Limit to 10 digits
                                 if (value.length > 10) value = value.slice(0, 10);
-                                setForm({ ...form, phoneNumber: "+63" + value });
+                                
+                                // Store with prefix
+                                setForm((prev) => ({ ...prev, phoneNumber: "+63" + value }));
                               }}
                               className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-600 focus:outline-none text-sm sm:text-base"
                             />
@@ -1390,6 +1430,7 @@ export default function ApplicantsList() {
                           />
                         </div>
 
+                        {/* Emergency Contact Number */}
                         <div>
                           <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Number</label>
                           <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
@@ -1399,11 +1440,17 @@ export default function ApplicantsList() {
                               name="EmergencyContact"
                               required
                               placeholder="9123456789"
+                              // Display value without the prefix
                               value={form.EmergencyContact.replace(/^\+63/, "")}
                               onChange={(e) => {
+                                // Remove non-digits
                                 let value = e.target.value.replace(/\D/g, "");
+                                
+                                // Limit to 10 digits
                                 if (value.length > 10) value = value.slice(0, 10);
-                                setForm({ ...form, EmergencyContact: "+63" + value });
+                                
+                                // Store with prefix
+                                setForm((prev) => ({ ...prev, EmergencyContact: "+63" + value }));
                               }}
                               className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-600 focus:outline-none text-sm sm:text-base"
                             />
