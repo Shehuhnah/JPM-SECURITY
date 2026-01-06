@@ -684,268 +684,268 @@ export default function GuardTable() {
           </Transition.Child>
 
           <div className="fixed inset-0 overflow-y-auto">
-              <div className="flex min-h-full items-center justify-center p-4 text-center">
-                <Transition.Child
-                  as={Fragment}
-                  enter="ease-out duration-300"
-                  enterFrom="opacity-0 scale-95"
-                  enterTo="opacity-100 scale-100"
-                  leave="ease-in duration-200"
-                  leaveFrom="opacity-100 scale-100"
-                  leaveTo="opacity-0 scale-95"
-                >
-                  <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 sm:p-8 text-left align-middle shadow-xl border border-gray-700">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 sm:p-8 text-left align-middle shadow-xl border border-gray-700">
+                  
+                  {/* Header */}
+                  <div className="flex flex-col sm:flex-row gap-x-3 items-center sm:items-start">
+                    <div className="flex justify-center mb-4 sm:mb-6">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#0f172a] rounded-full flex items-center justify-center border-2 border-gray-600">
+                        <Shield className="text-blue-400 w-6 h-6 sm:w-8 sm:h-8" />
+                      </div>
+                    </div>
+
+                    <div className="mt-0 sm:mt-3 text-center sm:text-left">
+                      <Dialog.Title className="text-xl sm:text-2xl font-bold text-white">
+                        Add New Guard
+                      </Dialog.Title>
+                      <p className="text-gray-400 text-sm mb-6">
+                        Fill out the guard’s information below.
+                      </p>
+                    </div>
+                  </div>
+
+                  {errorMsg && (
+                    <div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-6 text-center">
+                      {errorMsg}
+                    </div>
+                  )}
+
+                  {/* Form */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     
-                    {/* Header */}
-                    <div className="flex flex-col sm:flex-row gap-x-3 items-center sm:items-start">
-                      <div className="flex justify-center mb-4 sm:mb-6">
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#0f172a] rounded-full flex items-center justify-center border-2 border-gray-600">
-                          <Shield className="text-blue-400 w-6 h-6 sm:w-8 sm:h-8" />
+                    {/* Left Column */}
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-gray-300 text-sm mb-1 block">Full Name</label>
+                        <input
+                          type="text"
+                          name="fullName"
+                          required
+                          placeholder="e.g. Juan Dela Cruz"
+                          value={form.fullName}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-gray-300 text-sm mb-1 block">Guard ID</label>
+                        <input
+                          type="text"
+                          name="guardId"
+                          required
+                          placeholder="e.g. G-2025-001"
+                          value={form.guardId}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-gray-300 text-sm mb-1 block">Email</label>
+                        <input
+                          type="email"
+                          name="email"
+                          required
+                          placeholder="jpm@example.com" 
+                          value={form.email}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-gray-300 text-sm mb-1 block">Password</label>
+                        <div className="relative w-full">
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            name="password"
+                            required
+                            placeholder="••••••••"
+                            value={form.password}
+                            onChange={handleChange}
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 pr-10 text-sm sm:text-base placeholder-gray-600"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
+                          >
+                            {showPassword ? <Eye size={20} /> : <EyeOff size={20} />}
+                          </button>
                         </div>
                       </div>
 
-                      <div className="mt-0 sm:mt-3 text-center sm:text-left">
-                        <Dialog.Title className="text-xl sm:text-2xl font-bold text-white">
-                          Add New Guard
-                        </Dialog.Title>
-                        <p className="text-gray-400 text-sm mb-6">
-                          Fill out the guard’s information below.
-                        </p>
-                      </div>
-                    </div>
-
-                    {errorMsg && (
-                      <div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-6 text-center">
-                        {errorMsg}
-                      </div>
-                    )}
-
-                    {/* Form */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      
-                      {/* Left Column */}
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Full Name</label>
-                          <input
-                            type="text"
-                            name="fullName"
-                            required
-                            placeholder="e.g. Juan Dela Cruz"
-                            value={form.fullName}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Guard ID</label>
-                          <input
-                            type="text"
-                            name="guardId"
-                            required
-                            placeholder="e.g. G-2025-001"
-                            value={form.guardId}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Email</label>
-                          <input
-                            type="email"
-                            name="email"
-                            required
-                            placeholder="jpm@example.com" 
-                            value={form.email}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Password</label>
-                          <div className="relative w-full">
-                            <input
-                              type={showPassword ? "text" : "password"}
-                              name="password"
-                              required
-                              placeholder="••••••••"
-                              value={form.password}
-                              onChange={handleChange}
-                              className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 pr-10 text-sm sm:text-base placeholder-gray-600"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
-                            >
-                              {showPassword ? <Eye size={20} /> : <EyeOff size={20} />}
-                            </button>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Position</label>
-                          <input
-                            type="text"
-                            name="position"
-                            required
-                            placeholder="e.g. Security Guard"
-                            value={form.position}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Address</label>
-                          <input
-                            type="text"
-                            name="address"
-                            required
-                            placeholder="e.g. Brgy. 1, Tanza, Cavite"
-                            value={form.address}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                          />
-                        </div>
+                      <div>
+                        <label className="text-gray-300 text-sm mb-1 block">Position</label>
+                        <input
+                          type="text"
+                          name="position"
+                          required
+                          placeholder="e.g. Security Guard"
+                          value={form.position}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                        />
                       </div>
 
-                      {/* Right Column */}
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Phone Number</label>
-                          <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
-                            <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none text-sm sm:text-base">+63</span>
-                            <input
-                              type="tel"
-                              name="phoneNumber"
-                              required
-                              placeholder="9123456789"
-                              value={form.phoneNumber.replace(/^\+63/, "")}
-                              onChange={(e) => {
-                                let value = e.target.value.replace(/\D/g, "");
-                                if (value.length > 10) value = value.slice(0, 10);
-                                setForm({ ...form, phoneNumber: "+63" + value });
-                              }}
-                              className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-600 focus:outline-none text-sm sm:text-base"
-                            />
-                          </div>
-                        </div>
-
-                        {/* --- SSS (Optional) --- */}
-                        <div>
-                          <div className="flex justify-between items-center mb-1">
-                            <label className="text-gray-300 text-sm block">SSS ID</label>
-                            <span className="text-xs text-gray-500 italic">(Optional)</span>
-                          </div>
-                          <input
-                            type="text"
-                            name="SSSID"
-                            placeholder="Enter SSS ID (Optional)"
-                            value={form.SSSID}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                          />
-                        </div>
-
-                        {/* --- PhilHealth (Optional) --- */}
-                        <div>
-                          <div className="flex justify-between items-center mb-1">
-                            <label className="text-gray-300 text-sm block">PhilHealth ID</label>
-                            <span className="text-xs text-gray-500 italic">(Optional)</span>
-                          </div>
-                          <input
-                            type="text"
-                            name="PhilHealthID"
-                            placeholder="Enter PhilHealth ID (Optional)"
-                            value={form.PhilHealthID}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                          />
-                        </div>
-
-                        {/* --- Pag-IBIG (Optional) --- */}
-                        <div>
-                          <div className="flex justify-between items-center mb-1">
-                            <label className="text-gray-300 text-sm block">Pag-IBIG ID</label>
-                            <span className="text-xs text-gray-500 italic">(Optional)</span>
-                          </div>
-                          <input
-                            type="text"
-                            name="PagibigID"
-                            placeholder="Enter Pag-IBIG ID (Optional)"
-                            value={form.PagibigID}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Person</label>
-                          <input
-                            type="text"
-                            name="EmergencyPerson"
-                            required
-                            placeholder="e.g. Maria Dela Cruz"
-                            value={form.EmergencyPerson}
-                            onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Number</label>
-                          <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
-                            <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none text-sm sm:text-base">+63</span>
-                            <input
-                              type="tel"
-                              name="EmergencyContact"
-                              required
-                              placeholder="9123456789"
-                              value={form.EmergencyContact.replace(/^\+63/, "")}
-                              onChange={(e) => {
-                                let value = e.target.value.replace(/\D/g, "");
-                                if (value.length > 10) value = value.slice(0, 10);
-                                setForm({ ...form, EmergencyContact: "+63" + value });
-                              }}
-                              className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-600 focus:outline-none text-sm sm:text-base"
-                            />
-                          </div>
-                        </div>
+                      <div>
+                        <label className="text-gray-300 text-sm mb-1 block">Address</label>
+                        <input
+                          type="text"
+                          name="address"
+                          required
+                          placeholder="e.g. Brgy. 1, Tanza, Cavite"
+                          value={form.address}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                        />
                       </div>
                     </div>
 
-                    {/* Footer */}
-                    <div className="mt-8 flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4">
-                      <button
-                        onClick={() => setGuardConfirmModalOpen(false)}
-                        className="bg-gray-600 hover:bg-gray-500 px-6 py-2.5 rounded-lg text-white w-full sm:w-auto font-medium transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => openConfirmHireModal()}
-                        disabled={loading}
-                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-8 py-2.5 rounded-lg shadow text-white font-medium w-full sm:w-auto disabled:opacity-50 transition-all flex justify-center items-center gap-2"
-                      >
-                        {loading ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            <span>Saving...</span>
-                          </>
-                        ) : (
-                          "Save Guard"
-                        )}
-                      </button>
-                    </div>
+                    {/* Right Column */}
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-gray-300 text-sm mb-1 block">Phone Number</label>
+                        <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                          <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none text-sm sm:text-base">+63</span>
+                          <input
+                            type="tel"
+                            name="phoneNumber"
+                            required
+                            placeholder="9123456789"
+                            value={form.phoneNumber.replace(/^\+63/, "")}
+                            onChange={(e) => {
+                              let value = e.target.value.replace(/\D/g, "");
+                              if (value.length > 10) value = value.slice(0, 10);
+                              setForm({ ...form, phoneNumber: "+63" + value });
+                            }}
+                            className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-600 focus:outline-none text-sm sm:text-base"
+                          />
+                        </div>
+                      </div>
 
-                  </Dialog.Panel>
-                </Transition.Child>
-              </div>
+                      {/* --- SSS (Optional) --- */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-gray-300 text-sm block">SSS ID</label>
+                          <span className="text-xs text-gray-500 italic">(Optional)</span>
+                        </div>
+                        <input
+                          type="text"
+                          name="SSSID"
+                          placeholder="Enter SSS ID (Optional)"
+                          value={form.SSSID}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                        />
+                      </div>
+
+                      {/* --- PhilHealth (Optional) --- */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-gray-300 text-sm block">PhilHealth ID</label>
+                          <span className="text-xs text-gray-500 italic">(Optional)</span>
+                        </div>
+                        <input
+                          type="text"
+                          name="PhilHealthID"
+                          placeholder="Enter PhilHealth ID (Optional)"
+                          value={form.PhilHealthID}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                        />
+                      </div>
+
+                      {/* --- Pag-IBIG (Optional) --- */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-gray-300 text-sm block">Pag-IBIG ID</label>
+                          <span className="text-xs text-gray-500 italic">(Optional)</span>
+                        </div>
+                        <input
+                          type="text"
+                          name="PagibigID"
+                          placeholder="Enter Pag-IBIG ID (Optional)"
+                          value={form.PagibigID}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Person</label>
+                        <input
+                          type="text"
+                          name="EmergencyPerson"
+                          required
+                          placeholder="e.g. Maria Dela Cruz"
+                          value={form.EmergencyPerson}
+                          onChange={handleChange}
+                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Number</label>
+                        <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                          <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none text-sm sm:text-base">+63</span>
+                          <input
+                            type="tel"
+                            name="EmergencyContact"
+                            required
+                            placeholder="9123456789"
+                            value={form.EmergencyContact.replace(/^\+63/, "")}
+                            onChange={(e) => {
+                              let value = e.target.value.replace(/\D/g, "");
+                              if (value.length > 10) value = value.slice(0, 10);
+                              setForm({ ...form, EmergencyContact: "+63" + value });
+                            }}
+                            className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-600 focus:outline-none text-sm sm:text-base"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="mt-8 flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4">
+                    <button
+                      onClick={() => setIsOpen(false)}
+                      className="bg-gray-600 hover:bg-gray-500 px-6 py-2.5 rounded-lg text-white w-full sm:w-auto font-medium transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => openConfirmHireModal()}
+                      disabled={loading}
+                      className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-8 py-2.5 rounded-lg shadow text-white font-medium w-full sm:w-auto disabled:opacity-50 transition-all flex justify-center items-center gap-2"
+                    >
+                      {loading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        "Save Guard"
+                      )}
+                    </button>
+                  </div>
+
+                </Dialog.Panel>
+              </Transition.Child>
             </div>
+          </div>
         </Dialog>
       </Transition>
 
