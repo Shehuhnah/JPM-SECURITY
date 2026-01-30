@@ -33,6 +33,7 @@ import AdminManageClients from "../Admin/AdminManageClients.jsx";
 
 // Guard pages
 import GuardLogin from "../Guard/GuardLogin.jsx";
+import GuardForgotPassword from "../Guard/GuardForgotPassword.jsx";
 import GuardDetachment from "../Guard/GuardDetachment.jsx";
 import GuardAnnouncement from "../Guard/GuardAnnouncement.jsx";
 import GuardLogBook from "../Guard/GuardLogBook.jsx";
@@ -116,6 +117,7 @@ const Router = () => {
           path: "guard",
           children: [
             { path: "login", element: <GuardLogin /> },
+            { path: "forgot-password", element: <GuardForgotPassword /> },
             {
               element: <GuardsLayout />,
               children: [

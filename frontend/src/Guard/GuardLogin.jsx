@@ -144,6 +144,15 @@ export default function LoginForm() {
                                 {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
                             </button>
                         </div>
+                        <div className="flex justify-end mt-1">
+                            <button
+                                type="button"
+                                onClick={() => navigate("/guard/forgot-password")}
+                                className="text-xs text-blue-400 hover:text-blue-300 transition-colors font-medium hover:underline"
+                            >
+                                Forgot Password?
+                            </button>
+                        </div>
                     </div>
 
                     {/* Submit Button */}

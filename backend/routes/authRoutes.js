@@ -1,46 +1,39 @@
 import express from "express";
-import { protect } from "../middleware/authMiddleware.js";
-import { 
-    registerUser, 
-    loginUser, 
-    loginGuard,
-    getSubadmins,
-    getAdmins,
-    getGuards,
-    getMe,
-    logout,
-    guardChangePassword,
-    setPassword
+import {
+  registerUser,
+  loginUser,
+  getMe,
+  logout,
+  loginGuard,
+  guardChangePassword,
+  getSubadmins,
+  getAdmins,
+  setPassword,
+  getGuards,
+  forgotPasswordGuard,
+  verifyOtpGuard
 } from "../controller/authController.js";
-import { 
-    getUsers,
-    createUser,
-    updateUser,
-    deleteUser,
-} from "../controller/userController.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/register", registerUser); // Register new user
-router.post("/login", loginUser); // Login user
-
-router.get("/users", getUsers); // Get all users
-router.post("/create-user", createUser); // Create new user
-router.put("/update-user/:id", updateUser); // Update user
-router.delete("/delete-user/:id", deleteUser); //delete user
-
-router.post("/login-guard", loginGuard); // Login guard
-router.post("/change-password-guard", protect, guardChangePassword); // Change password for guard
-router.post("/logout", protect, logout); // Logout user
-
-router.get("/me", protect, getMe); // get current logged in user
-
-//FETCHING FOR CONVERSATION
+router.post("/register", registerUser);
+router.post("/login", loginUser);
+router.post("/logout", logout);
+router.get("/me", getMe);
 router.get("/subadmins", protect, getSubadmins);
 router.get("/admins", protect, getAdmins);
-router.get("/guards", protect, getGuards);
+
+// GUARD AUTH
+router.post("/login-guard", loginGuard);
+router.put("/change-password", guardChangePassword); // Protected inside? usually check token
+router.get("/guards", protect, getGuards); // Fetch all guards
 
 // PASSWORD RESET FOR GUARDS WHEN NEWLY HIRED/REGISTERED
-router.post('/set-password/:token', setPassword);
+router.post("/set-password/:token", setPassword);
+
+// FORGOT PASSWORD FLOW
+router.post("/forgot-password-guard", forgotPasswordGuard);
+router.post("/verify-otp-guard", verifyOtpGuard);
 
 export default router;

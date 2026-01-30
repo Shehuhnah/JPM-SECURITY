@@ -77,6 +77,8 @@ const guardSchema = new mongoose.Schema(
     },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
+    otp: String,
+    otpExpire: Date,
   },
   { timestamps: true }
 );

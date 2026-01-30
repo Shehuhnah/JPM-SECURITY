@@ -2,61 +2,105 @@
 
 ## Project Overview
 
-This is a full-stack MERN-like web application for a security agency. It appears to be a management system for guards, schedules, clients, and internal operations.
+This is a full-stack web application designed for a security agency (JPM Security). It functions as a comprehensive management system for guards, schedules, clients, applicants, and internal operations.
 
-*   **Frontend:** The frontend is a [React](https://reactjs.org/) application built with [Vite](https://vitejs.dev/). It uses [Tailwind CSS](https://tailwindcss.com/) for styling and [React Router](https://reactrouter.com/) for navigation. It also includes components for calendars (`@fullcalendar/react`), charts (`chart.js`), and real-time communication (`socket.io-client`).
+### Tech Stack
 
-*   **Backend:** The backend is a [Node.js](https://nodejs.org/) application using the [Express](https://expressjs.com/) framework. It connects to a [MongoDB](https://www.mongodb.com/) database via [Mongoose](https://mongoosejs.com/). It provides a RESTful API for managing various resources like guards, schedules, clients, and more. It also uses [Socket.IO](https://socket.io/) for real-time features like messaging.
+*   **Frontend:**
+    *   **Framework:** [React](https://react.dev/) (v19) built with [Vite](https://vitejs.dev/) (v7).
+    *   **Styling:** [Tailwind CSS](https://tailwindcss.com/) (v4) with [Framer Motion](https://www.framer.com/motion/) for animations.
+    *   **Routing:** [React Router](https://reactrouter.com/) (v7).
+    *   **Key Libraries:**
+        *   `@fullcalendar/*`: For scheduling and calendar views.
+        *   `chart.js` & `react-chartjs-2`: For data visualization/dashboards.
+        *   `socket.io-client`: For real-time messaging and updates.
+        *   `react-toastify`: For notifications.
+        *   `jspdf`: For generating PDF documents on the client side.
 
-*   **Authentication:** The system uses JSON Web Tokens (JWT) for authentication.
+*   **Backend:**
+    *   **Runtime:** [Node.js](https://nodejs.org/) (ES Modules).
+    *   **Framework:** [Express.js](https://expressjs.com/).
+    *   **Database:** [MongoDB](https://www.mongodb.com/) using [Mongoose](https://mongoosejs.com/) ORM.
+    *   **Real-time:** [Socket.IO](https://socket.io/) for chat and live updates.
+    *   **Authentication:** JWT (JSON Web Tokens) with `bcryptjs` for password hashing.
+    *   **Key Utilities:**
+        *   `node-cron`: For scheduled tasks (cleanup, etc.).
+        *   `nodemailer` / `resend`: For email services.
+        *   `multer`: For file uploads (images, documents).
+
+## Project Structure
+
+The project is structured as a monorepo-style codebase:
+
+*   **Root:** Contains backend configuration, server entry point scripts, and backend dependencies.
+*   **`backend/`:** Contains the core server logic.
+    *   `server.js`: Main entry point (also referenced by root scripts).
+    *   `config/`: Database connection (`db.js`).
+    *   `controller/`: Request handlers for various features (Auth, Guards, Attendance, etc.).
+    *   `models/`: Mongoose schemas (User, Guard, Schedule, Message, etc.).
+    *   `routes/`: API route definitions.
+    *   `middleware/`: Auth verification, file upload handling.
+    *   `utils/`: Helper functions (PDF generation, mailer, cron jobs).
+    *   `uploads/` & `assets/`: Static file storage.
+*   **`frontend/`:** Contains the React client application.
+    *   `src/`: Source code.
+        *   `Admin/`: Components and pages for Admin users.
+        *   `Applicants/`: Components for job applicants.
+        *   `Guard/`: Components for Guard users.
+        *   `components/`: Reusable UI components.
+        *   `hooks/`, `utils/`, `assets/`: Helper logic and static assets.
 
 ## Building and Running
 
 ### Prerequisites
 
-*   Node.js and npm
-*   A running MongoDB instance
-*   A `.env` file in the root directory containing the `MONGO_URI` and other necessary environment variables.
+*   Node.js (v18+ recommended)
+*   MongoDB instance (local or Atlas)
+*   Environment variables set up in `.env` (Root) and potentially `frontend/.env`.
 
 ### Installation
 
-1.  **Install root dependencies (for the backend):**
+1.  **Backend Dependencies (Root):**
     ```bash
     npm install
     ```
 
-2.  **Install frontend dependencies:**
+2.  **Frontend Dependencies:**
     ```bash
     cd frontend
     npm install
     ```
 
-### Running the Application
+### Development
 
-1.  **Run the backend server:**
+1.  **Start Backend Server:**
     From the root directory:
     ```bash
     npm run dev
     ```
-    The backend server will start on `http://localhost:5000`.
+    *   Runs `nodemon backend/server.js`.
+    *   Server listens on port specified in `.env` (usually `5000`).
 
-2.  **Run the frontend development server:**
-    From the `frontend` directory:
+2.  **Start Frontend Server:**
+    From the `frontend/` directory:
     ```bash
     npm run dev
     ```
-    The frontend application will be available at `http://localhost:5173`.
+    *   Runs `vite`.
+    *   Accessible at `http://localhost:5173`.
 
-### Building for Production
+### Production Build
 
-*   **Build the frontend:**
-    From the `frontend` directory:
+*   **Build Frontend:**
+    From the `frontend/` directory:
     ```bash
     npm run build
     ```
+    *   Outputs static files to `frontend/dist`.
 
 ## Development Conventions
 
-*   **Code Style:** The project uses ESLint for code linting. Run `npm run lint` in the `frontend` directory to check for issues.
-*   **API:** The backend exposes a RESTful API under the `/api` prefix.
-*   **Modularity:** The backend code is organized into `routes`, `controllers`, and `models` directories, which is a common and good practice for Express applications. The frontend code is organized by features (e.g., `Admin`, `Guard`, `Applicants`).
+*   **Linting:** Frontend uses ESLint (`npm run lint` in `frontend/`).
+*   **API Design:** RESTful API endpoints prefixed with `/api` (e.g., `/api/auth`, `/api/guards`).
+*   **Real-time:** Socket.IO events are used for features like "mark seen" in messages and online user tracking.
+*   **File Uploads:** Handled via `multer` in the backend, stored locally in `uploads/` or `assets/` and served statically.
