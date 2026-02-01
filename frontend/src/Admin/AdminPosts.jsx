@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Send, Trash2, Edit, Save, Megaphone, User, Calendar, X, CheckCircle, AlertCircle } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 const api = import.meta.env.VITE_API_URL;
 
@@ -12,6 +13,10 @@ export default function AdminPosts() {
   const [editingPost, setEditingPost] = useState(null);
   const [expandedPosts, setExpandedPosts] = useState([]);
   const [loadingPage, setLoadingPage] = useState(false);
+  
+  // Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [postToDelete, setPostToDelete] = useState(null);
   
   // Toast State
   const [toasts, setToasts] = useState([]);
@@ -97,11 +102,16 @@ export default function AdminPosts() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this post?")) return;
+  const confirmDelete = (id) => {
+      setPostToDelete(id);
+      setIsDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!postToDelete) return;
 
     try {
-      const res = await fetch(`${API_URL}/${id}`, {
+      const res = await fetch(`${API_URL}/${postToDelete}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -109,11 +119,14 @@ export default function AdminPosts() {
 
       if (!res.ok) throw new Error(data.message || "Failed to delete");
 
-      setPosts((prev) => prev.filter((p) => p._id !== id));
+      setPosts((prev) => prev.filter((p) => p._id !== postToDelete));
       showToast("Post deleted successfully", "success");
     } catch (err) {
       console.error(err);
       showToast("Error deleting post", "error");
+    } finally {
+        setIsDeleteModalOpen(false);
+        setPostToDelete(null);
     }
   };
 
@@ -267,7 +280,7 @@ export default function AdminPosts() {
                         <button onClick={() => handleEdit(p)} className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition" title="Edit">
                             <Edit size={16} />
                         </button>
-                        <button onClick={() => handleDelete(p._id)} className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition" title="Delete">
+                        <button onClick={() => confirmDelete(p._id)} className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition" title="Delete">
                             <Trash2 size={16} />
                         </button>
                       </div>
@@ -302,6 +315,16 @@ export default function AdminPosts() {
             )}
           </div>
         )}
+
+        {/* Confirmation Modal */}
+        <ConfirmationModal 
+            isOpen={isDeleteModalOpen}
+            onClose={() => setIsDeleteModalOpen(false)}
+            onConfirm={handleDelete}
+            title="Delete Announcement"
+            message="Are you sure you want to delete this announcement? This action cannot be undone."
+            confirmText="Delete Post"
+        />
 
         {/* Toast Notifications */}
         <div className="fixed top-6 right-6 flex flex-col items-end gap-3 z-50">

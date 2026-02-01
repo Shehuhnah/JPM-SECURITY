@@ -14,6 +14,8 @@ import {
 import { Dialog, Transition } from "@headlessui/react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 const api = import.meta.env.VITE_API_URL;
 
 export default function GuardProfile() {
@@ -166,7 +168,16 @@ export default function GuardProfile() {
       const result = await res.json();
 
       if (result.success) {
-        alert("✅ Profile updated successfully!");
+        toast.success("Profile updated successfully!", {
+            position: "top-right",
+            autoClose: 3000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            progress: undefined,
+            theme: "dark",
+        });
         setIsModalOpen(false);
         setConfirmationPassword("");
         setIsEditing(false);
@@ -406,6 +417,7 @@ export default function GuardProfile() {
           </div>
         </Dialog>
       </Transition>
+      <ToastContainer />
     </section>
   );
 }

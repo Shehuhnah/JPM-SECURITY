@@ -20,6 +20,10 @@ const adminSchema = new mongoose.Schema(
     contactNumber: { type: String },
     status: { type: String, default: "active" },
     lastLogin: { type: Date },
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
+    otp: String,
+    otpExpire: Date,
   },
   { timestamps: true }
 );

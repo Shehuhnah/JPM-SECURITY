@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Send, Trash2, Edit3, Save, Briefcase, MapPin, Clock, X, CheckCircle, AlertCircle, Building2 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 const api = import.meta.env.VITE_API_URL;
 
@@ -19,6 +20,10 @@ export default function AdminHiring() {
   const [expandedPosts, setExpandedPosts] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
+
+  // Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [postToDelete, setPostToDelete] = useState(null);
 
   // Toast State
   const [toasts, setToasts] = useState([]);
@@ -101,21 +106,29 @@ export default function AdminHiring() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this post?")) return;
+  const confirmDelete = (id) => {
+      setPostToDelete(id);
+      setIsDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!postToDelete) return;
 
     try {
-      const res = await fetch(`${api}/api/hirings/${id}`, {
+      const res = await fetch(`${api}/api/hirings/${postToDelete}`, {
         method: "DELETE",
         credentials: "include"
       });
 
       if (!res.ok) throw new Error("Failed to delete post");
-      setPosts(posts.filter((p) => p._id !== id));
+      setPosts(posts.filter((p) => p._id !== postToDelete));
       showToast("Job post deleted successfully", "success");
     } catch (err) {
       console.error("Error deleting post:", err);
       showToast("Failed to delete post", "error");
+    } finally {
+        setIsDeleteModalOpen(false);
+        setPostToDelete(null);
     }
   };
 
@@ -346,7 +359,7 @@ export default function AdminHiring() {
                             Edit
                         </button>
                         <button
-                            onClick={() => handleDelete(p._id)}
+                            onClick={() => confirmDelete(p._id)}
                             className="flex items-center gap-1 bg-red-600/10 hover:bg-red-600/30 text-red-400 px-3 py-1.5 rounded-lg text-xs font-medium transition"
                         >
                             Delete
@@ -360,6 +373,16 @@ export default function AdminHiring() {
             </div>
         )}
       </main>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal 
+            isOpen={isDeleteModalOpen}
+            onClose={() => setIsDeleteModalOpen(false)}
+            onConfirm={handleDelete}
+            title="Delete Job Post"
+            message="Are you sure you want to delete this job post? This action cannot be undone."
+            confirmText="Delete Post"
+      />
 
       {/* Toast Notifications */}
       <div className="fixed top-6 right-6 flex flex-col items-end gap-3 z-50">

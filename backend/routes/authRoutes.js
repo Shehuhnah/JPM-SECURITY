@@ -11,7 +11,9 @@ import {
   setPassword,
   getGuards,
   forgotPasswordGuard,
-  verifyOtpGuard
+  verifyOtpGuard,
+  forgotPasswordAdmin,
+  verifyOtpAdmin
 } from "../controller/authController.js";
 import { 
     getUsers,
@@ -46,5 +48,9 @@ router.post("/set-password/:token", setPassword);
 // FORGOT PASSWORD FLOW
 router.post("/forgot-password-guard", forgotPasswordGuard);
 router.post("/verify-otp-guard", verifyOtpGuard);
+
+// ADMIN FORGOT PASSWORD FLOW
+router.post("/forgot-password-admin", forgotPasswordAdmin);
+router.post("/verify-otp-admin", verifyOtpAdmin);
 
 export default router;

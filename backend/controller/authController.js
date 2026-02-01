@@ -212,26 +212,37 @@ export const setPassword = async (req, res) => {
       .update(token)
       .digest("hex");
 
-    // 2. Find Guard with this token AND ensure it hasn't expired
-    const guard = await Guard.findOne({
+    // 2. Try finding Guard first
+    let user = await Guard.findOne({
       resetPasswordToken,
       resetPasswordExpire: { $gt: Date.now() },
     });
 
-    if (!guard) {
+    let userType = "Guard";
+
+    // 3. If not Guard, try finding Admin
+    if (!user) {
+      user = await User.findOne({
+        resetPasswordToken,
+        resetPasswordExpire: { $gt: Date.now() },
+      });
+      userType = "Admin";
+    }
+
+    if (!user) {
       return res.status(400).json({ success: false, message: "Invalid or expired activation link." });
     }
 
-    // 3. SET PLAIN TEXT PASSWORD
-    // Your Guard model's "pre-save" hook will detect this change and hash it automatically.
-    guard.password = password; 
+    // 4. SET PLAIN TEXT PASSWORD
+    // Mongoose "pre-save" hook will detect this change and hash it automatically.
+    user.password = password; 
 
-    // 4. Clear the reset token fields
-    guard.resetPasswordToken = undefined;
-    guard.resetPasswordExpire = undefined;
+    // 5. Clear the reset token fields
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
 
-    // 5. This triggers the pre('save') hook -> Hashing happens now
-    await guard.save();
+    // 6. This triggers the pre('save') hook -> Hashing happens now
+    await user.save();
 
     res.status(200).json({ success: true, message: "Password set successfully. You can now login." });
   } catch (error) {
@@ -243,6 +254,178 @@ export const setPassword = async (req, res) => {
 // --- FORGOT PASSWORD (OTP FLOW) ---
 
 import { sendMail } from "../utils/mailer.js";
+
+// ... (Existing Guard OTP Logic) ...
+
+export const forgotPasswordAdmin = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "Admin not found with this email" });
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Save OTP to User (valid for 10 mins)
+    user.otp = otp;
+    user.otpExpire = Date.now() + 10 * 60 * 1000;
+    await user.save();
+
+    const logoUrl = "https://jpm-security.onrender.com/assets/headerpdf/jpmlogo.png";
+    const subject = "JPM Security - Admin Password Reset OTP";
+    const defaultMessage = "We received a request to reset the password for your JPM Security Admin account.";
+
+    // Plain Text Version
+    const plainMessage = `
+      Hello ${user.name || "Administrator"},
+      
+      ${defaultMessage}
+      
+      Your One-Time Password (OTP) is: ${otp}
+      
+      This code is valid for 10 minutes.
+      
+      If you did not request this, please ignore this email.
+      
+      Best regards,
+      JPM Security Agency
+    `;
+
+    // Professional HTML Version
+    const htmlMessage = `
+      <div style="margin:0;padding:0;background:#f5f7fb;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f5f7fb;">
+          <tr>
+            <td align="center" style="padding:24px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+                
+                <tr>
+                  <td align="center" style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#334155 100%);padding:36px 24px;">
+                    <img src="${logoUrl}" alt="JPM Security Agency" width="160" style="display:block;height:auto;margin:0 auto 12px auto;" />
+                    <div style="font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:.2px;">Admin Password Reset</div>
+                    <div style="font-family:Arial,Helvetica,sans-serif;color:rgba(255,255,255,0.9);font-size:14px;margin-top:5px;">Secure Verification Code</div>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:28px 24px 8px 24px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:15px;line-height:1.7;">
+                    <p style="margin:0 0 12px 0;">Hello <strong>${user.name || "Administrator"}</strong>,</p>
+                    <p style="margin:0 0 16px 0;">${defaultMessage}</p>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td align="center" style="padding:10px 24px 28px 24px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:12px;">
+                        <tr>
+                            <td align="center" style="padding:24px;">
+                                <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Your Verification Code</div>
+                                <div style="font-family:'Courier New',Courier,monospace;font-size:36px;font-weight:bold;color:#0f172a;letter-spacing:6px;background:#ffffff;display:inline-block;padding:12px 24px;border-radius:8px;border:1px dashed #cbd5e1;">${otp}</div>
+                                <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#64748b;margin-top:12px;">This code expires in 10 minutes</div>
+                            </td>
+                        </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:0 24px 10px 24px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;">
+                      <tr>
+                        <td style="padding:14px 16px;font-family:Arial,Helvetica,sans-serif;color:#9f1239;font-size:13px;line-height:1.7;">
+                          <strong>Security Notice:</strong> If you did not request a password reset, please ignore this email or contact support immediately.
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:22px 24px 26px 24px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;border-top:1px solid #e2e8f0;">
+                    Best regards,<br />
+                    <strong>JPM Security Agency Support Team</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="background:#f8fafc;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;font-size:12px;padding:14px;">
+                    © ${new Date().getFullYear()} JPM Security Agency. All rights reserved.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+
+    try {
+      await sendMail({
+        to: user.email,
+        subject,
+        text: plainMessage,
+        html: htmlMessage,
+      });
+
+      res.status(200).json({ success: true, message: "OTP sent to your email" });
+    } catch (emailError) {
+      user.otp = undefined;
+      user.otpExpire = undefined;
+      await user.save();
+      return res.status(500).json({ message: "Email could not be sent" });
+    }
+
+  } catch (error) {
+    console.error("Forgot Password Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const verifyOtpAdmin = async (req, res) => {
+  const { email, otp } = req.body;
+
+  try {
+    const user = await User.findOne({
+      email,
+      otp,
+      otpExpire: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    // OTP Verified - Generate Reset Token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    
+    // Hash token and save to DB
+    user.resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+      
+    user.resetPasswordExpire = Date.now() + 30 * 60 * 1000; // 30 mins to reset
+    
+    // Clear OTP
+    user.otp = undefined;
+    user.otpExpire = undefined;
+
+    await user.save();
+
+    // Return the RAW resetToken to client
+    res.status(200).json({ 
+      success: true, 
+      message: "OTP Verified", 
+      resetToken: resetToken 
+    });
+
+  } catch (error) {
+    console.error("Verify OTP Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 export const forgotPasswordGuard = async (req, res) => {
   const { email } = req.body;

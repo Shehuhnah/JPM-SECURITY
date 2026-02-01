@@ -11,6 +11,7 @@ import HomeLayout from "../Layouts/HomeLayout.jsx";
 // Components
 import ErrorPage from "../components/error/ErrorPage.jsx";
 import Login from "../Admin/Login.jsx";
+import AdminForgotPassword from "../Admin/AdminForgotPassword.jsx";
 
 // Admin pages
 import AdminDeployment from "../Admin/AdminDeployment.jsx";
@@ -83,6 +84,7 @@ const Router = () => {
           path: "admin",
           children: [
             { path: "Login", element: <Login /> },
+            { path: "forgot-password", element: <AdminForgotPassword /> },
             {
               element: <AdminLayout />,
               children: [
