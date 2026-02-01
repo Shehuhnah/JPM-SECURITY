@@ -22,10 +22,10 @@ import {
   X,
   FileUser,
   Building,
-  ClipboardList
+  ClipboardList,
+  CircleUser
 } from "lucide-react";
 
-import avatar from "../assets/gerard.jpg";
 import logo from "../assets/jpmlogo.png";
 const api = import.meta.env.VITE_API_URL;
 
@@ -112,7 +112,7 @@ export default function AdminLayout() {
 
         {/* User */}
         <div className="flex flex-col items-center py-6 border-b border-gray-800">
-          <img src={avatar} className="w-16 h-16 rounded-full border mb-3" />
+          <ShieldUser className="w-16 h-16 text-[#A76CE1] mb-3" strokeWidth={1.5} />
           <h3 className="font-semibold text-gray-200">{user?.name}</h3>
           <span className="text-sm font-light">
             {user?.position} | {user?.role}

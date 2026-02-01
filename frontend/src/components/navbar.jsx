@@ -3,10 +3,9 @@ import { Link, useLocation } from "react-router-dom";
 import { Transition } from "@headlessui/react";
 import {
   FaCalendarAlt, FaFileAlt, FaUserShield, FaUser, FaRegEnvelope,
-  FaRegClipboard, FaUsers, FaRegClock, FaChevronDown, FaBars, FaTimes,
+  FaRegClipboard, FaUsers, FaRegClock, FaChevronDown, FaBars, FaTimes, FaUserCircle
 } from "react-icons/fa";
 
-import avatar from "../assets/gerard.jpg";
 import logo from "../assets/jpmlogo.png";
 
 // Re-usable NavLink
@@ -78,7 +77,7 @@ const NavigationPanel = ({ onLinkClick }) => (
 
     {/* User Profile */}
     <div className="flex flex-col items-center py-6 border-b">
-      <img src={avatar} alt="Admin Avatar" className="w-16 h-16 rounded-full border mb-3" />
+      <FaUserCircle size={64} className="text-gray-400 mb-3" />
       <h3 className="font-semibold text-gray-700">Gerard N.O Way</h3>
     </div>
 
