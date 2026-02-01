@@ -13,6 +13,12 @@ import {
   forgotPasswordGuard,
   verifyOtpGuard
 } from "../controller/authController.js";
+import { 
+    getUsers,
+    createUser,
+    updateUser,
+    deleteUser,
+} from "../controller/userController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -24,9 +30,14 @@ router.get("/me", getMe);
 router.get("/subadmins", protect, getSubadmins);
 router.get("/admins", protect, getAdmins);
 
+router.get("/users", getUsers); // Get all users
+router.post("/create-user", createUser); // Create new user
+router.put("/update-user/:id", updateUser); // Update user
+router.delete("/delete-user/:id", deleteUser); //delete user
+
 // GUARD AUTH
 router.post("/login-guard", loginGuard);
-router.put("/change-password", guardChangePassword); // Protected inside? usually check token
+router.put("/change-password", guardChangePassword);
 router.get("/guards", protect, getGuards); // Fetch all guards
 
 // PASSWORD RESET FOR GUARDS WHEN NEWLY HIRED/REGISTERED
