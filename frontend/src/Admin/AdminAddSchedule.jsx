@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Shield, Clock, Search, CalendarCheck2, Pencil, MapPin, Briefcase, User, Calendar as CalendarIcon, ChevronLeft, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, useParams } from "react-router-dom";
@@ -41,7 +41,7 @@ const datePickerStyles = `
 `;
 
 export default function AdminAddSchedule() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams();
   
@@ -49,6 +49,7 @@ export default function AdminAddSchedule() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [guards, setGuards] = useState([]);
   const [clients, setClients] = useState([]);
+  const [leaveAvailability, setLeaveAvailability] = useState([]);
   const [selectedGuard, setSelectedGuard] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDays, setSelectedDays] = useState([]);
@@ -67,20 +68,25 @@ export default function AdminAddSchedule() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [guardsRes, clientsRes] = await Promise.all([
+        const [guardsRes, clientsRes, leaveRes] = await Promise.all([
           fetch(`${api}/api/guards`, { credentials: "include" }),
           fetch(`${api}/api/clients/get-clients`, { credentials: "include" }),
+          fetch(`${api}/api/leaves/deployment-availability`, { credentials: "include" }),
         ]);
 
-        if (!guardsRes.ok || !clientsRes.ok) throw new Error("Failed to fetch data");
-
-        const [guardsData, clientsData] = await Promise.all([
+        const [guardsData, clientsData, leaveData] = await Promise.all([
           guardsRes.json(),
           clientsRes.json(),
+          leaveRes.json(),
         ]);
+
+        if (!guardsRes.ok) throw new Error(guardsData.message || "Failed to fetch guards");
+        if (!clientsRes.ok) throw new Error(clientsData.message || "Failed to fetch clients");
+        if (!leaveRes.ok) throw new Error(leaveData.message || "Failed to fetch leave availability");
 
         setGuards(guardsData);
         setClients(clientsData);
+        setLeaveAvailability(Array.isArray(leaveData) ? leaveData : []);
       } catch (error) {
         console.error("Error fetching data:", error);
         toast.error("Failed to load initial data");
@@ -219,6 +225,34 @@ export default function AdminAddSchedule() {
     g.fullName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const selectedDateStrings = selectedDays.map((day) => format(day, "yyyy-MM-dd"));
+
+  const getGuardLeaveConflict = useCallback((guardId) => {
+    if (!guardId || selectedDateStrings.length === 0) return null;
+
+    const conflict = leaveAvailability.find((leave) => {
+      return leave.guardId === guardId && selectedDateStrings.some((date) => (leave.dates || []).includes(date));
+    });
+
+    if (!conflict) return null;
+
+    const overlapDate = selectedDateStrings.find((date) => (conflict.dates || []).includes(date));
+    return {
+      ...conflict,
+      overlapDate,
+    };
+  }, [leaveAvailability, selectedDateStrings]);
+
+  useEffect(() => {
+    if (!selectedGuard) return;
+
+    const leaveConflict = getGuardLeaveConflict(selectedGuard._id);
+    if (leaveConflict) {
+      setSelectedGuard(null);
+      toast.warning(`${selectedGuard.fullName} is on approved leave on ${leaveConflict.overlapDate}.`);
+    }
+  }, [selectedGuard, selectedDays, leaveAvailability, getGuardLeaveConflict]);
+
   return (
     <div className="min-h-screen bg-[#0f172a] text-gray-100 p-3 md:p-8 font-sans">
       <style>{datePickerStyles}</style>
@@ -267,18 +301,34 @@ export default function AdminAddSchedule() {
               </div>
             ) : (
               filteredGuards.map((guard) => (
-                <div
-                  key={guard._id}
-                  onClick={() => {
-                    if (guard.status === "Active") setSelectedGuard(guard);
-                    else toast.warning("Only active guards can be deployed.");
-                  }}
-                  className={`p-3 rounded-xl cursor-pointer transition-all border ${
-                    selectedGuard?._id === guard._id
-                      ? "bg-blue-600/20 border-blue-500 shadow-md shadow-blue-900/20"
-                      : "bg-[#0f172a]/50 hover:bg-[#0f172a] border-transparent hover:border-gray-600"
-                  }`}
-                >
+                (() => {
+                  const leaveConflict = getGuardLeaveConflict(guard._id);
+                  const isUnavailable = guard.status !== "Active" || Boolean(leaveConflict);
+
+                  return (
+                    <div
+                      key={guard._id}
+                      onClick={() => {
+                        if (guard.status !== "Active") {
+                          toast.warning("Only active guards can be deployed.");
+                          return;
+                        }
+
+                        if (leaveConflict) {
+                          toast.warning(`${guard.fullName} is on approved leave on ${leaveConflict.overlapDate}.`);
+                          return;
+                        }
+
+                        setSelectedGuard(guard);
+                      }}
+                      className={`p-3 rounded-xl transition-all border ${
+                        isUnavailable
+                          ? "bg-slate-900/70 border-slate-800 cursor-not-allowed opacity-70"
+                          : selectedGuard?._id === guard._id
+                            ? "bg-blue-600/20 border-blue-500 shadow-md shadow-blue-900/20 cursor-pointer"
+                            : "bg-[#0f172a]/50 hover:bg-[#0f172a] border-transparent hover:border-gray-600 cursor-pointer"
+                      }`}
+                    >
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-sm font-bold ${
                         selectedGuard?._id === guard._id ? "bg-blue-500 text-white" : "bg-slate-700 text-gray-300"
@@ -290,12 +340,23 @@ export default function AdminAddSchedule() {
                       <p className="text-xs text-gray-400 truncate">{guard.position}</p>
                     </div>
                     <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full ${
-                        guard.status === "Active" ? "bg-green-500/20 text-green-400" : "bg-gray-600/30 text-gray-500"
+                        leaveConflict
+                          ? "bg-red-500/20 text-red-400"
+                          : guard.status === "Active"
+                            ? "bg-green-500/20 text-green-400"
+                            : "bg-gray-600/30 text-gray-500"
                     }`}>
-                        {guard.status}
+                        {leaveConflict ? "On Leave" : guard.status}
                     </span>
                   </div>
-                </div>
+                  {leaveConflict ? (
+                    <p className="mt-2 text-[11px] text-red-400">
+                      Unavailable on {leaveConflict.overlapDate}
+                    </p>
+                  ) : null}
+                    </div>
+                  );
+                })()
               ))
             )}
           </div>

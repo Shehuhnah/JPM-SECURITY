@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Users,
   Clock,
+  CalendarDays,
   LogOut,
   Megaphone,
   Briefcase,
@@ -63,6 +64,7 @@ export default function AdminLayout() {
     { to: "/Admin/deployment", label: "Deployment", icon: <Calendar size={18} /> },
     { to: "/Admin/schedule-approval", label: "Schedules Approval", icon: <Calendar size={18} /> },
     { to: "/Admin/manage-clients", label: "Clients", icon: <Building size={18} /> },
+    { to: "/Admin/leaves", label: "Leaves", icon: <CalendarDays size={18} /> },
     { to: "/Admin/AdminGuardUpdates", label: "Updates", icon: <Shield size={18} /> },
     { to: "/Admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
     { to: "/Admin/UserAccounts", label: "Staff", icon: <Users size={18} /> },
@@ -126,16 +128,12 @@ export default function AdminLayout() {
               if (user?.role === "Subadmin") {
                 return !["/Admin/AdminCOE", "/Admin/schedule-approval"].includes(item.to);
               }
-              if (user?.role === "Admin") {
-                // Admin doesn't need to see the guard-facing request forms usually, but kept purely on role logic if needed
-                return !["/Admin/deployment"].includes(item.to);
-              }
               return true;
             })
             .map((item, idx) => {
 
-              // SUBADMIN: custom MESSAGES dropdown
-              if (user?.role === "Subadmin" && item.label === "Messages") {
+              // Admin and Subadmin can both access all messaging views.
+              if ((user?.role === "Subadmin" || user?.role === "Admin") && item.label === "Messages") {
                 return (
                   <div key={idx}>
                     <button
@@ -218,8 +216,8 @@ export default function AdminLayout() {
             })}
 
           {/* NEW: REQUESTS DROPDOWN */}
-          {/* Only show this if user role allows it (e.g., Subadmin might need it) */}
-          {user?.role === "Subadmin" && ( 
+          {/* Admin is the unrestricted role, so keep request links visible there too. */}
+          {(user?.role === "Subadmin" || user?.role === "Admin") && ( 
             <div>
               <button
                 onClick={() => setRequestsDropdown(!requestsDropdown)}

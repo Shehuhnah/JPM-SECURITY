@@ -27,6 +27,7 @@ const api = import.meta.env.VITE_API_URL;
 export default function GuardTable() {
   const { user: admin, loading } = useAuth();
   const navigate = useNavigate();
+  const canManageGuards = admin?.role === "Admin";
   
   // --- States ---
   const [filter, setFilter] = useState("All");
@@ -349,7 +350,7 @@ export default function GuardTable() {
                   </button>
 
                   {/* Add Guard Button (Admin Only) */}
-                  {admin?.role === "Admin" && admin?.accessLevel === 1 && (
+                  {canManageGuards && (
                       <button
                           onClick={openAddGuardModal}
                           className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 
@@ -407,7 +408,7 @@ export default function GuardTable() {
                                               <Eye size={18} />
                                           </button>
                                           
-                                          {admin?.role === "Admin" && admin?.accessLevel === 1 && (
+                                          {canManageGuards && (
                                               <>
                                                   <button onClick={() => handleEdit(g)} className="p-2 hover:bg-slate-700 rounded-lg text-gray-400 hover:text-yellow-400 transition" title="Edit">
                                                       <Pencil size={18} />
@@ -467,7 +468,7 @@ export default function GuardTable() {
                           <button onClick={() => handleView(g)} className="flex items-center justify-center py-2 bg-slate-800 rounded-lg text-gray-300 hover:text-white border border-gray-700">
                               <Eye size={18} />
                           </button>
-                          {admin?.role === "Admin" && admin?.accessLevel === 1 && (
+                          {canManageGuards && (
                               <>
                                   <button onClick={() => handleEdit(g)} className="flex items-center justify-center py-2 bg-slate-800 rounded-lg text-gray-300 hover:text-yellow-400 border border-gray-700">
                                       <Pencil size={18} />

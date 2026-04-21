@@ -31,6 +31,7 @@ import AdminAddSchedule from "../Admin/AdminAddSchedule.jsx";
 import SubAdminMessage from "../SubAdmin/SubAdminMessage.jsx";
 import SubadminApplicantMessage from "../SubAdmin/SubadminApplicantMessage.jsx";
 import AdminManageClients from "../Admin/AdminManageClients.jsx";
+import AdminLeaves from "../Admin/AdminLeaves.jsx";
 
 // Guard pages
 import GuardLogin from "../Guard/GuardLogin.jsx";
@@ -45,6 +46,7 @@ import GuardProfile from "../Guard/GuardProfile.jsx";
 import GuardReqID from "../Guard/GuardReqID.jsx";
 import AdminSchedApproval from "../Admin/AdminSchedApproval.jsx";
 import GuardMessage from "../Guard/GuardMessage.jsx";
+import GuardLeaves from "../Guard/GuardLeaves.jsx";
 
 // Applicants pages
 import ApplicantsHiringDetails from "../Applicants/ApplicantsHiringDetails.jsx";
@@ -109,6 +111,7 @@ const Router = () => {
                 { path: "subadmin-message", element: <SubAdminMessage/>},
                 { path: "applicant-message", element: <SubadminApplicantMessage/>},
                 { path: "manage-clients", element: <AdminManageClients />},
+                { path: "leaves", element: <AdminLeaves />},
                 { path: "admin-request-id", element: <GuardReqID/>},
 
               ],
@@ -131,7 +134,8 @@ const Router = () => {
                 { path: "request-coe", element: <GuardReqCOE /> },
                 { path: "manage-profile", element: <GuardProfile/>},
                 { path: "request-id", element: <GuardReqID/>},
-                { path: "messages", element: <GuardMessage/>}
+                { path: "messages", element: <GuardMessage/>},
+                { path: "leaves", element: <GuardLeaves/>}
               ],
             },
           ],

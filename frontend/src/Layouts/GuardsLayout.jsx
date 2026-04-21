@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   Shield,
+  CalendarDays,
   Megaphone,
   BookOpen,
   FileText,
@@ -51,6 +52,7 @@ export default function GuardsLayout() {
 
   const navItems = [
     { to: "/guard/detachment", label: "Detachment / Deployment", icon: <Shield size={18} /> },
+    { to: "/guard/leaves", label: "Leave Request", icon: <CalendarDays size={18} /> },
     { to: "/guard/messages", label: "Messages", icon: <MessageCircle size={18} /> },
     { to: "/guard/announcements", label: "Announcement", icon: <Megaphone size={18} /> },
     { to: "/guard/logbook", label: "Log Book", icon: <BookOpen size={18} /> },

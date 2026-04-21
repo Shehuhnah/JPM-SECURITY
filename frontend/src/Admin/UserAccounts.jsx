@@ -355,7 +355,7 @@ export default function UserAccounts() {
     return matchesSearch && matchesRole;
   });
 
-  const canEdit = admin?.role === "Admin" && admin.accessLevel === 1;
+  const canEdit = admin?.role === "Admin";
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-gray-100 p-4 md:p-8 font-sans">

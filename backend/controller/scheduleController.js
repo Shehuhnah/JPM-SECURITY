@@ -1,4 +1,5 @@
 import Schedule from "../models/schedule.model.js";
+import LeaveRequest from "../models/leaveRequest.model.js";
 import { v4 as uuidv4 } from "uuid";
 // Helper
 const findConflict = async (scheduleData) => {
@@ -54,6 +55,20 @@ const findConflict = async (scheduleData) => {
     return {
       ...scheduleData,
       reason: `This guard is already scheduled on this date at another client ("${guardConflict.deploymentLocation}").`,
+    };
+  }
+
+  const leaveConflict = await LeaveRequest.findOne({
+    requesterRole: "Guard",
+    guard: guardId,
+    status: "Approved",
+    dates: newScheduleDateOnly,
+  });
+
+  if (leaveConflict) {
+    return {
+      ...scheduleData,
+      reason: `This guard is on approved leave on ${newScheduleDateOnly}.`,
     };
   }
 
