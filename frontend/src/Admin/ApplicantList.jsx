@@ -743,7 +743,7 @@ export default function ApplicantsList() {
                                   </dl>
                                 </div>
                                 
-                                {user?.role === "Admin" && (
+                                {["Admin", "Subadmin"].includes(user?.role) && (
                                   <div className="mt-2 flex flex-col gap-2">
                                     <button 
                                       onClick={() => handleViewResume(selectedApplicant)} 
@@ -760,7 +760,7 @@ export default function ApplicantsList() {
                                   </div>
                                 )}
                                 {/* Actions Section */}
-                                {user?.role === "Subadmin" && (
+                                {["Admin", "Subadmin"].includes(user?.role) && (
                                   <div>
                                     <h3 className="font-medium text-gray-200">Actions</h3>
                                     <div className="mt-2 grid grid-cols-2 gap-2">
@@ -807,7 +807,7 @@ export default function ApplicantsList() {
                                 )}
                                 
                                 {/* Remarks Section */}
-                                {user?.role === "Subadmin" && (
+                                {["Admin", "Subadmin"].includes(user?.role) && (
                                   <div>
                                     <h3 className="font-medium text-gray-200">Interview Remarks</h3>
                                     <div className="mt-2">

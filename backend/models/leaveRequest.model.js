@@ -4,7 +4,7 @@ const leaveRequestSchema = new mongoose.Schema(
   {
     requesterRole: {
       type: String,
-      enum: ["Guard", "Subadmin"],
+      enum: ["Guard", "Subadmin", "Admin"],
       required: true,
     },
     guard: {

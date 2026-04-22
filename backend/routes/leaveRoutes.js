@@ -12,10 +12,10 @@ const router = express.Router();
 
 router.use(protect);
 
-router.get("/my", authorizeRoles("Guard", "Subadmin"), getMyLeaveRequests);
+router.get("/my", authorizeRoles("Guard", "Subadmin", "Admin"), getMyLeaveRequests);
 router.get("/deployment-availability", authorizeRoles("Admin", "Subadmin"), getDeploymentLeaveAvailability);
 router.get("/", authorizeRoles("Admin", "Subadmin"), getLeaveRequests);
-router.post("/", authorizeRoles("Guard", "Subadmin"), createLeaveRequest);
+router.post("/", authorizeRoles("Guard", "Subadmin", "Admin"), createLeaveRequest);
 router.patch("/:id/review", authorizeRoles("Admin"), reviewLeaveRequest);
 
 export default router;

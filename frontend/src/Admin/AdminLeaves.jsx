@@ -51,6 +51,7 @@ const statusClassMap = {
 
 const roleClassMap = {
   Guard: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  Admin: "bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20",
   Subadmin: "bg-purple-500/10 text-purple-400 border-purple-500/20",
 };
 
@@ -67,6 +68,7 @@ export default function AdminLeaves() {
 
   const isAdmin = user?.role === "Admin";
   const isSubadmin = user?.role === "Subadmin";
+  const canRequestLeave = user?.role === "Admin" || user?.role === "Subadmin";
 
   const fetchRequests = useCallback(async (role, currentStatus = statusFilter) => {
     setLoadingPage(true);
@@ -194,7 +196,7 @@ export default function AdminLeaves() {
               {isAdmin ? "Leave Management" : "My Leave Requests"}
             </h1>
             <p className="text-sm text-slate-400">
-              {isAdmin ? "Review guard and subadmin leave requests." : "Submit leave dates for admin approval."}
+              {isAdmin ? "Review leave requests and file your own admin leave when needed." : "Submit leave dates for admin approval."}
             </p>
           </div>
         </div>
@@ -215,12 +217,12 @@ export default function AdminLeaves() {
           </div>
         ) : null}
 
-        <div className={`grid gap-6 ${isSubadmin ? "grid-cols-1 xl:grid-cols-[420px,1fr]" : "grid-cols-1"}`}>
-          {isSubadmin ? (
+        <div className={`grid gap-6 ${canRequestLeave ? "grid-cols-1 xl:grid-cols-[420px,1fr]" : "grid-cols-1"}`}>
+          {canRequestLeave ? (
             <form onSubmit={handleSubmit} className="bg-[#1e293b] border border-slate-700 rounded-3xl p-5 md:p-6 shadow-xl space-y-5">
               <div>
-                <h2 className="text-lg font-semibold text-white mb-1">New Staff Leave</h2>
-                <p className="text-sm text-slate-400">Pick the days you will be off and send them to admin for approval.</p>
+                <h2 className="text-lg font-semibold text-white mb-1">{isAdmin ? "New Admin Leave" : "New Staff Leave"}</h2>
+                <p className="text-sm text-slate-400">Pick the days you will be off and submit them for approval.</p>
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">

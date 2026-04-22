@@ -24,7 +24,8 @@ import {
   FileUser,
   Building,
   ClipboardList,
-  CircleUser
+  CircleUser,
+  ImagePlus
 } from "lucide-react";
 
 import logo from "../assets/jpmlogo.png";
@@ -69,6 +70,7 @@ export default function AdminLayout() {
     { to: "/Admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
     { to: "/Admin/UserAccounts", label: "Staff", icon: <Users size={18} /> },
     { to: "/Admin/ApplicantList", label: "Applicants", icon: <User size={18} /> },
+    { to: "/Admin/gallery-manager", label: "Gallery", icon: <ImagePlus size={18} /> },
     { to: "/Admin/AdminGuardsProfile", label: "Guards", icon: <Users size={18} /> },
     { to: "/Admin/AdminAttendance", label: "Attendance", icon: <Clock size={18} /> },
     { to: "/Admin/Request-ID", label: "View Request ID", icon: <IdCardLanyard size={18} /> },
@@ -126,7 +128,7 @@ export default function AdminLayout() {
           {navItems
             .filter(item => {
               if (user?.role === "Subadmin") {
-                return !["/Admin/AdminCOE", "/Admin/schedule-approval"].includes(item.to);
+                return !["/Admin/AdminCOE", "/Admin/schedule-approval", "/Admin/gallery-manager"].includes(item.to);
               }
               return true;
             })

@@ -15,9 +15,9 @@ const ApprovedCOESchema = new mongoose.Schema(
 
 const COERequestSchema = new mongoose.Schema({
   guard: { type: mongoose.Schema.Types.ObjectId, ref: "Guard" },
-  subadmin: { type: mongoose.Schema.Types.ObjectId, ref: "Admin" }, // <- add this
+  subadmin: { type: mongoose.Schema.Types.ObjectId, ref: "Admin" },
   purpose: { type: String, required: true },
-  requesterRole: { type: String, enum: ["guard", "subadmin"], default: "guard" },
+  requesterRole: { type: String, enum: ["guard", "subadmin", "admin"], default: "guard" },
   status: { type: String, enum: ["Pending", "Accepted", "Declined"], default: "Pending" },
   requestedAt: { type: Date, default: Date.now },
   processedAt: { type: Date },

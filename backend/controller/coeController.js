@@ -14,12 +14,15 @@ export const createRequest = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized: user not authenticated" });
 
     // Determine role
-    const requesterRole = (user.role || "guard").toLowerCase(); // 'guard' or 'subadmin'
+    const requesterRole = (user.role || "guard").toLowerCase();
+    if (!["guard", "subadmin", "admin"].includes(requesterRole)) {
+      return res.status(403).json({ message: "This account cannot request a COE." });
+    }
 
     // Create request with correct reference based on role
     const newReq = await COERequest.create({
       guard: requesterRole === "guard" ? user._id : undefined,
-      subadmin: requesterRole === "subadmin" ? user._id : undefined,
+      subadmin: requesterRole === "guard" ? undefined : user._id,
       purpose,
       requesterRole,
     });
@@ -53,7 +56,7 @@ export const listRequests = async (req, res) => {
 
     // normalize for frontend
     const normalizedItems = items.map(item => {
-      let isGuard = item.requesterRole === 'guard';
+      const isGuard = item.requesterRole === 'guard';
       const person = isGuard ? item.guard : item.subadmin;
       return {
         id: item._id,
@@ -97,7 +100,7 @@ export const getMyRequests = async (req, res) => {
 
     if (userRole === "guard") {
       filter.guard = user._id;
-    } else if (userRole === "admin" || userRole === "subadmin") { // Check for both 'admin' and 'subadmin' roles
+    } else if (userRole === "admin" || userRole === "subadmin") {
       filter.subadmin = user._id;
     } else {
       // If the user's role is not recognized, return no requests

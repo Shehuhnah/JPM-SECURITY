@@ -29,7 +29,7 @@ const populateLeaveRequest = (query) =>
 
 const getOwnLeaveFilter = (user) => {
   if (user.role === "Guard") return { requesterRole: "Guard", guard: user._id };
-  if (user.role === "Subadmin") return { requesterRole: "Subadmin", staff: user._id };
+  if (["Admin", "Subadmin"].includes(user.role)) return { requesterRole: user.role, staff: user._id };
   return null;
 };
 
@@ -57,8 +57,8 @@ const getExistingLeaveOverlap = async (user, dates) => {
 
 export const createLeaveRequest = async (req, res) => {
   try {
-    if (!["Guard", "Subadmin"].includes(req.user?.role)) {
-      return res.status(403).json({ message: "Only guards and subadmins can request leave." });
+    if (!["Guard", "Subadmin", "Admin"].includes(req.user?.role)) {
+      return res.status(403).json({ message: "This account cannot request leave." });
     }
 
     const dates = normalizeDates(req.body?.dates);
@@ -91,7 +91,7 @@ export const createLeaveRequest = async (req, res) => {
     const leaveRequest = await LeaveRequest.create({
       requesterRole: req.user.role,
       guard: req.user.role === "Guard" ? req.user._id : null,
-      staff: req.user.role === "Subadmin" ? req.user._id : null,
+      staff: ["Admin", "Subadmin"].includes(req.user.role) ? req.user._id : null,
       dates,
       reason,
     });
