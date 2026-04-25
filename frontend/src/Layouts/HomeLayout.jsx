@@ -6,8 +6,8 @@ export default function HomeLayout() {
     
     return (
         <>
-            <div className="">
-                <nav>
+            <div className="min-h-screen bg-[#0f172a]">
+                <nav className="h-24">
                     <Navbar/>
                 </nav>
                 <main className="">

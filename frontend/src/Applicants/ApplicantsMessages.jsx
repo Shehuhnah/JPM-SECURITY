@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { io } from "socket.io-client";
 import {
   Paperclip,
   Send,
@@ -11,14 +10,9 @@ import {
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth.js"
 import { useNavigate } from "react-router-dom";
+import { socket } from "../utils/socket";
 
 const api = import.meta.env.VITE_API_URL;
-const socketUrl = import.meta.env.VITE_SOCKET_URL || "https://jpm-security.onrender.com";
-
-export const socket = io(socketUrl, {
-  withCredentials: true,
-  transports: ["websocket", "polling"], 
-});
 
 const STORAGE_KEY = "jpm-applicant-chat";
 

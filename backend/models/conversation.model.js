@@ -22,6 +22,8 @@ const conversationSchema = new mongoose.Schema(
       enum: [
         "admin-subadmin",
         "subadmin-admin",
+        "admin-guard",
+        "guard-admin",
         "subadmin-guard",
         "guard-subadmin",
         "admin-applicant",

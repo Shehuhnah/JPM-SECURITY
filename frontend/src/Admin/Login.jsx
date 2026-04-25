@@ -15,12 +15,17 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loadingPage, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { user: admin, loading } = useAuth();
+  const { user: admin, loading, refreshAuth } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => { 
     document.title = "Admin Login | JPM Security Agency";
     if(admin && !loading){
+      if (admin.role === "Guard") {
+        navigate("/guard/announcements");
+        return;
+      }
+
       navigate("/admin/deployment");
     };
   }, [admin, loading, navigate]);
@@ -41,7 +46,7 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Invalid credentials");
       
-      // Navigate on success
+      await refreshAuth();
       navigate("/admin/deployment");
     } catch (err) {
       setError(err.message);

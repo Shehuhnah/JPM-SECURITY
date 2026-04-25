@@ -2,20 +2,48 @@ import { useEffect, useState, useRef } from "react";
 import { Paperclip, Send, CircleUserRound, ArrowLeft, MessageSquare, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { io } from "socket.io-client";
+import { socket } from "../utils/socket";
 
 const api = import.meta.env.VITE_API_URL;
-const socketUrl = import.meta.env.VITE_SOCKET_URL || "https://jpm-security.onrender.com";
-
-export const socket = io(socketUrl, {
-  withCredentials: true,
-  transports: ["websocket", "polling"], 
-});
 
 export default function GuardMessage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   
+  const normalizeId = (id) => {
+    if (!id) return "";
+    if (typeof id === "string") return id;
+    if (typeof id === "object") {
+      if (id?._id) return id._id.toString();
+      if (typeof id.toString === "function") return id.toString();
+    }
+    return "";
+  };
+
+  const sortConversations = (list) =>
+    [...list].sort((a, b) => {
+      const aTime = a?.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+      const bTime = b?.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
+  const isGuardConversation = (conversation) =>
+    conversation?.type === "admin-guard" ||
+    conversation?.type === "guard-admin" ||
+    conversation?.type === "subadmin-guard" ||
+    conversation?.type === "guard-subadmin";
+
+  const mergeMessages = (current, incoming) => {
+    const merged = [...current];
+    for (const message of incoming) {
+      const exists = merged.some(
+        (item) => normalizeId(item?._id || item?._tempId) === normalizeId(message?._id || message?._tempId)
+      );
+      if (!exists) merged.push(message);
+    }
+    return merged.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+  };
+
   // State
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
@@ -50,12 +78,24 @@ export default function GuardMessage() {
 
   // Socket: Online Status
   useEffect(() => {
-    if (user && !hasNotifiedOnline.current) {
+    const registerOnline = () => {
+      if (!user?._id) return;
       socket.emit("userOnline", user._id);
+      console.log("[guard-message] userOnline", { userId: user._id, role: user.role, socketId: socket.id });
       hasNotifiedOnline.current = true;
-    }
-    socket.on("onlineUsers", (users) => setOnlineUsers(users));
-    return () => socket.off("onlineUsers");
+    };
+
+    if (user) registerOnline();
+    const handleOnlineUsers = (users) => {
+      console.log("[guard-message] onlineUsers", users);
+      setOnlineUsers(users);
+    };
+    socket.on("connect", registerOnline);
+    socket.on("onlineUsers", handleOnlineUsers);
+    return () => {
+      socket.off("connect", registerOnline);
+      socket.off("onlineUsers", handleOnlineUsers);
+    };
   }, [user]);
 
   // Fetch Conversation
@@ -65,10 +105,8 @@ export default function GuardMessage() {
       try {
         const res = await fetch(`${api}/api/messages/conversations`, { credentials: "include" });
         const data = await res.json();
-        const filtered = (Array.isArray(data) ? data : []).filter(
-          (conv) => conv.type === "subadmin-guard" || conv.type === "guard-subadmin"
-        );
-        setConversations(filtered);
+        const filtered = (Array.isArray(data) ? data : []).filter(isGuardConversation);
+        setConversations(sortConversations(filtered));
   
         if (filtered.length > 0) {
           setSelectedConversation(filtered[0]);
@@ -79,7 +117,7 @@ export default function GuardMessage() {
             participants: [
               { userId: user._id, role: user.role, name: user.fullName || user.name },
             ],
-            type: "guard-subadmin",
+            type: "guard-admin",
             lastMessage: null,
             isTemp: true,
           });
@@ -93,49 +131,133 @@ export default function GuardMessage() {
   
   // Active Chat Logic
   useEffect(() => {
-    if (!selectedConversation || selectedConversation.isTemp || !user) return;
+    if (!selectedConversation || selectedConversation.isTemp || !user) {
+      if (!selectedConversation?.isTemp) setMessages([]);
+      return;
+    }
 
-    socket.emit("joinConversation", selectedConversation._id);
+    setMessages((prev) =>
+      prev.length > 0 &&
+      normalizeId(prev[0]?.conversationId) !== normalizeId(selectedConversation._id)
+        ? []
+        : prev
+    );
+
+    const joinActiveConversation = () => {
+      socket.emit("joinConversation", selectedConversation._id);
+      console.log("[guard-message] joinConversation", {
+        conversationId: selectedConversation._id,
+        userId: user._id,
+        role: user.role,
+        socketId: socket.id,
+      });
+    };
+
+    joinActiveConversation();
+    socket.on("connect", joinActiveConversation);
     socket.emit("mark_seen", { conversationId: selectedConversation._id, userId: user._id });
 
-    const fetchMessages = async () => {
+    setConversations((prev) =>
+      sortConversations(
+        prev.map((conv) =>
+          normalizeId(conv._id) === normalizeId(selectedConversation._id)
+            ? { ...conv, lastMessage: { ...conv.lastMessage, seen: true } }
+            : conv
+        )
+      )
+    );
+
+    const refreshMessages = async (conversationId = selectedConversation._id) => {
       try {
-        const res = await fetch(`${api}/api/messages/${selectedConversation._id}`, { credentials: "include" });
+        const res = await fetch(`${api}/api/messages/${conversationId}`, { credentials: "include" });
         const data = await res.json();
-        setMessages(Array.isArray(data) ? data : []);
+        setMessages((prev) => mergeMessages(prev, Array.isArray(data) ? data : []));
       } catch (err) {
         console.error("Error loading messages:", err);
       }
     };
-    fetchMessages();
+    refreshMessages();
+    const refreshInterval = setInterval(() => refreshMessages(), 1500);
 
     const handleReceiveMessage = (msg) => {
-      if (msg.conversationId === selectedConversation._id) {
-        setMessages((prev) => (prev.some((m) => m._id === msg._id) ? prev : [...prev, msg]));
-      }
+      console.log("[guard-message] receiveMessage", {
+        conversationId: msg.conversationId,
+        messageId: msg._id,
+        selectedConversationId: selectedConversation._id,
+      });
       setConversations((prev) =>
-        prev.map((c) => (c._id === msg.conversationId ? { ...c, lastMessage: msg } : c))
+        sortConversations(
+          prev.some((conv) => normalizeId(conv._id) === normalizeId(msg.conversationId))
+            ? prev.map((conv) =>
+                normalizeId(conv._id) === normalizeId(msg.conversationId)
+                  ? { ...conv, lastMessage: msg }
+                  : conv
+              )
+            : prev
+        )
       );
+
+      if (normalizeId(msg.conversationId) === normalizeId(selectedConversation._id)) {
+        setMessages((prev) => (prev.some((m) => normalizeId(m._id) === normalizeId(msg._id)) ? prev : [...prev, msg]));
+        socket.emit("mark_seen", { conversationId: msg.conversationId, userId: user._id });
+        refreshMessages(msg.conversationId);
+      }
     };
 
-    const handleConversationUpdated = (updatedConv) => {
-      if (updatedConv._id === selectedConversation._id) {
+    const handleConversationUpdated = async (updatedConv) => {
+      console.log("[guard-message] conversationUpdated", {
+        conversationId: updatedConv?._id,
+        type: updatedConv?.type,
+        selectedConversationId: selectedConversation?._id,
+      });
+      if (!isGuardConversation(updatedConv)) return;
+
+      if (normalizeId(updatedConv._id) === normalizeId(selectedConversation._id)) {
         setSelectedConversation(updatedConv);
+        try {
+          refreshMessages(updatedConv._id);
+        } catch (err) {
+          console.error("Error refreshing active conversation:", err);
+        }
       }
       setConversations((prev) => {
-        const exists = prev.some((c) => c._id === updatedConv._id);
-        return exists 
-            ? prev.map((c) => (c._id === updatedConv._id ? updatedConv : c))
-            : [updatedConv, ...prev];
+        const exists = prev.some((c) => normalizeId(c._id) === normalizeId(updatedConv._id));
+        const updated = exists
+          ? prev.map((c) => (normalizeId(c._id) === normalizeId(updatedConv._id) ? updatedConv : c))
+          : [updatedConv, ...prev];
+        return sortConversations(updated);
       });
+    };
+
+    const handleMessagesSeen = ({ conversationId }) => {
+      console.log("[guard-message] messages_seen", {
+        conversationId,
+        selectedConversationId: selectedConversation?._id,
+      });
+      setConversations((prev) =>
+        prev.map((conv) =>
+          normalizeId(conv._id) === normalizeId(conversationId)
+            ? { ...conv, lastMessage: { ...conv.lastMessage, seen: true } }
+            : conv
+        )
+      );
+
+      if (normalizeId(selectedConversation._id) === normalizeId(conversationId)) {
+        setMessages((prev) => prev.map((message) => ({ ...message, seen: true })));
+        refreshMessages(conversationId);
+      }
     };
 
     socket.on("receiveMessage", handleReceiveMessage);
     socket.on("conversationUpdated", handleConversationUpdated);
+    socket.on("messages_seen", handleMessagesSeen);
     
     return () => {
+      clearInterval(refreshInterval);
+      socket.off("connect", joinActiveConversation);
       socket.off("receiveMessage", handleReceiveMessage);
       socket.off("conversationUpdated", handleConversationUpdated);
+      socket.off("messages_seen", handleMessagesSeen);
     };
   }, [selectedConversation?._id, user]);
 
@@ -153,25 +275,25 @@ export default function GuardMessage() {
       return pid.toString() !== (user._id || "").toString();
     });
 
-    // Auto-assign Subadmin for new chat
+    // Auto-assign Admin for new chat
     if (!receiver && selectedConversation.isTemp) {
       try {
-        const res = await fetch(`${api}/api/auth/subadmins`, { credentials: "include" });
+        const res = await fetch(`${api}/api/auth/admins`, { credentials: "include" });
         const data = await res.json();
-        const subadmins = Array.isArray(data) ? data : [];
-        if (subadmins.length > 0) {
+        const admins = Array.isArray(data) ? data : [];
+        if (admins.length > 0) {
           receiver = {
-            userId: subadmins[0]._id,
-            role: "Subadmin",
-            name: subadmins[0].name,
+            userId: admins[0]._id,
+            role: "Admin",
+            name: admins[0].name,
           };
         } else {
-          console.error("No subadmins available");
+          console.error("No admins available");
           setIsSubmitting(false);
           return;
         }
       } catch (err) {
-        console.error("Error fetching subadmins:", err);
+        console.error("Error fetching admins:", err);
         setIsSubmitting(false);
         return;
       }
@@ -186,10 +308,16 @@ export default function GuardMessage() {
     formData.append("text", newMessage);
     formData.append("receiverId", typeof receiver.userId === "string" ? receiver.userId : receiver.userId?._id);
     formData.append("receiverRole", receiver.role);
-    formData.append("type", selectedConversation.type || "guard-subadmin");
+    formData.append("type", selectedConversation.type || "guard-admin");
     if (file) formData.append("file", file);
 
     try {
+      console.log("[guard-message] handleSend:start", {
+        conversationId: selectedConversation._id,
+        receiverId: typeof receiver.userId === "string" ? receiver.userId : receiver.userId?._id,
+        receiverRole: receiver.role,
+        type: selectedConversation.type || "guard-admin",
+      });
       const res = await fetch(`${api}/api/messages`, { method: "POST", credentials: "include", body: formData });
       if (!res.ok) {
           console.error(await res.text());
@@ -197,24 +325,37 @@ export default function GuardMessage() {
           return;
       } 
       
-      const { conversation } = await res.json();
+      const { message: sentMessage, conversation } = await res.json();
+      console.log("[guard-message] handleSend:success", {
+        conversationId: conversation?._id,
+        messageId: sentMessage?._id,
+      });
 
       // Update State
       setConversations((prev) => {
         if (selectedConversation?.isTemp) {
-          const exists = prev.some((c) => c._id === conversation._id);
+          const exists = prev.some((c) => normalizeId(c._id) === normalizeId(conversation._id));
           const withoutTemp = prev.filter((c) => !c.isTemp);
-          return exists
-            ? withoutTemp.map((c) => c._id === conversation._id ? conversation : c)
+          const updated = exists
+            ? withoutTemp.map((c) => normalizeId(c._id) === normalizeId(conversation._id) ? conversation : c)
             : [conversation, ...withoutTemp];
+          return sortConversations(updated);
         }
-        const exists = prev.some((c) => c._id === conversation._id);
-        return exists
-          ? prev.map((c) => (c._id === conversation._id ? conversation : c))
+        const exists = prev.some((c) => normalizeId(c._id) === normalizeId(conversation._id));
+        const updated = exists
+          ? prev.map((c) => (normalizeId(c._id) === normalizeId(conversation._id) ? conversation : c))
           : [conversation, ...prev];
+        return sortConversations(updated);
       });
 
-      setSelectedConversation((prev) => prev && prev._id === conversation._id ? prev : conversation);
+      setSelectedConversation(conversation);
+      if (sentMessage) {
+        setMessages((prev) =>
+          prev.some((msg) => normalizeId(msg._id || msg._tempId) === normalizeId(sentMessage._id || sentMessage._tempId))
+            ? prev
+            : [...prev, sentMessage]
+        );
+      }
       setNewMessage("");
       setFile(null);
     } catch (err) {
@@ -236,13 +377,14 @@ export default function GuardMessage() {
   const otherParticipant = selectedConversation?.participants?.find(
     (p) => {
         const pid = (typeof p.userId === "string" ? p.userId : p.userId?._id) || "";
-        return pid.toString() !== (user?._id || "").toString();
+        return normalizeId(pid) !== normalizeId(user?._id);
     }
   );
 
-  const otherName = otherParticipant?.user?.name || otherParticipant?.user?.fullName || otherParticipant?.name || "HR Support";
+  const otherName = otherParticipant?.user?.name || otherParticipant?.user?.fullName || otherParticipant?.name || "Admin Support";
   const otherId = (typeof otherParticipant?.userId === "string" ? otherParticipant.userId : otherParticipant?.userId?._id) || "";
-  const isOnline = onlineUsers.includes(otherId);
+  const isOnline = onlineUsers.includes(normalizeId(otherId));
+  const headerName = isGuardConversation(selectedConversation) ? "HR Team" : otherName;
 
   // Use h-[100dvh] to fix mobile browser address bar issues
   return (
@@ -257,7 +399,7 @@ export default function GuardMessage() {
             {isOnline && <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#0b1220] rounded-full"></span>}
         </div>
         <div>
-            <h1 className="text-lg font-bold text-white leading-tight">{otherName}</h1>
+            <h1 className="text-lg font-bold text-white leading-tight">{headerName}</h1>
             <p className="text-xs text-gray-400">{isOnline ? "Online" : "Offline"}</p>
         </div>
       </header>
@@ -272,8 +414,10 @@ export default function GuardMessage() {
         )}
         
         {messages.map((msg) => {
-            const senderId = (typeof msg.sender?.userId === "string" ? msg.sender.userId : msg.sender?.userId?._id) || msg.senderId || "";
-            const isMe = senderId.toString() === (user?._id || "").toString();
+            const senderId = normalizeId(
+              (typeof msg.sender?.userId === "string" ? msg.sender.userId : msg.sender?.userId?._id) || msg.senderId
+            );
+            const isMe = senderId === normalizeId(user?._id);
 
             return (
                 <div key={msg._id || msg.tempId} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>

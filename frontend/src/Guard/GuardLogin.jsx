@@ -6,7 +6,7 @@ import { useAuth } from "../hooks/useAuth";
 
 export default function LoginForm() {
     const api = import.meta.env.VITE_API_URL;
-    const { user: guard, loading } = useAuth();
+    const { user: guard, loading, refreshAuth } = useAuth();
     const navigate = useNavigate();
     
     const [loadingPage, setLoadingPage] = useState(false);
@@ -17,6 +17,11 @@ export default function LoginForm() {
     useEffect(() => {
         document.title = "Guard Login | JPM Security Agency";
         if (!loading && guard) {
+            if (guard.role === "Admin" || guard.role === "Subadmin") {
+                navigate("/admin");
+                return;
+            }
+
             navigate("/guard/announcements");
         }
     }, [guard, loading, navigate]);
@@ -48,6 +53,7 @@ export default function LoginForm() {
 
             if (!res.ok) throw new Error(data.message || "Invalid email or password");
 
+            await refreshAuth();
             setMessage("Login successful! Redirecting...");
             setTimeout(() => navigate("/guard/announcements"), 1500);
 

@@ -7,6 +7,7 @@ import AdminLayout from "../Layouts/AdminLayout.jsx";
 import GuardsLayout from "../Layouts/GuardsLayout.jsx";
 import ApplicantsLayout from "../Layouts/ApplicantsLayout.jsx";
 import HomeLayout from "../Layouts/HomeLayout.jsx";
+import RoleGuard from "../components/auth/RoleGuard.jsx";
 
 // Components
 import ErrorPage from "../components/error/ErrorPage.jsx";
@@ -89,7 +90,15 @@ const Router = () => {
             { path: "Login", element: <Login /> },
             { path: "forgot-password", element: <AdminForgotPassword /> },
             {
-              element: <AdminLayout />,
+              element: (
+                <RoleGuard
+                  allowedRoles={["Admin", "Subadmin"]}
+                  loginRedirect="/admin/login"
+                  forbiddenRedirect="/guard/announcements"
+                >
+                  <AdminLayout />
+                </RoleGuard>
+              ),
               children: [
                 { index: true, element: <AdminDashboard /> },
                 { path: "deployment", element: <AdminDeployment /> },
@@ -126,7 +135,15 @@ const Router = () => {
             { path: "login", element: <GuardLogin /> },
             { path: "forgot-password", element: <GuardForgotPassword /> },
             {
-              element: <GuardsLayout />,
+              element: (
+                <RoleGuard
+                  allowedRoles={["Guard"]}
+                  loginRedirect="/guard/login"
+                  forbiddenRedirect="/admin"
+                >
+                  <GuardsLayout />
+                </RoleGuard>
+              ),
               children: [
                 { path: "guard-attendance/time-in", element: <GuardAttendanceTimeIn /> },
                 { path: "guard-attendance/time-out", element: <GuardAttendanceTimeOut /> },

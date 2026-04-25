@@ -24,7 +24,7 @@ import logo from "../assets/jpmlogo.png";
 const api = import.meta.env.VITE_API_URL;
 
 export default function GuardsLayout() {
-  const { user: guard, loading } = useAuth();
+  const { user: guard, loading, clearAuth } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [openAttendance, setOpenAttendance] = useState(false);
@@ -35,6 +35,10 @@ export default function GuardsLayout() {
       navigate("/guard/login");
       return;
     }
+
+    if (!loading && (guard?.role === "Admin" || guard?.role === "Subadmin")) {
+      navigate("/admin");
+    }
   }, [guard, loading, navigate]);
 
   const handleLogout = async () => {
@@ -44,6 +48,7 @@ export default function GuardsLayout() {
         credentials: "include",
       });
 
+      clearAuth();
       navigate("/guard/login");
     } catch (err) {
       console.error("Logout error:", err);

@@ -37,12 +37,17 @@ export default function AdminLayout() {
   const [requestsDropdown, setRequestsDropdown] = useState(false); // New State
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const { user, loading } = useAuth();
+  const { user, loading, clearAuth } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!loading && !user) {
       navigate("/admin/login");
+      return;
+    }
+
+    if (!loading && user?.role === "Guard") {
+      navigate("/guard/announcements");
     }
   }, [user, loading, navigate]);
 
@@ -53,6 +58,7 @@ export default function AdminLayout() {
         credentials: "include",
       });
 
+      clearAuth();
       navigate("/admin/login");
     } catch (err) {
       console.error("Logout error:", err);

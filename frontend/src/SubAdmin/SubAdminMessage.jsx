@@ -1,16 +1,10 @@
 import { useEffect, useState, useRef } from "react";
-import { io } from "socket.io-client";
 import { Paperclip, Send, CircleUserRound, Search, ArrowLeft, MessageSquare, X, Shield } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { socket } from "../utils/socket";
 
 const api = import.meta.env.VITE_API_URL;
-const socketUrl = import.meta.env.VITE_SOCKET_URL || "https://jpm-security.onrender.com";
-
-export const socket = io(socketUrl, {
-  withCredentials: true,
-  transports: ["websocket", "polling"], 
-});
 
 export default function SubAdminMessagePage() {
   const { user, loading } = useAuth();
@@ -53,7 +47,21 @@ export default function SubAdminMessagePage() {
     });
 
   const isGuardConversation = (conversation) =>
-    conversation?.type === "subadmin-guard" || conversation?.type === "guard-subadmin";
+    conversation?.type === "subadmin-guard" ||
+    conversation?.type === "guard-subadmin" ||
+    conversation?.type === "admin-guard" ||
+    conversation?.type === "guard-admin";
+
+  const mergeMessages = (current, incoming) => {
+    const merged = [...current];
+    for (const message of incoming) {
+      const exists = merged.some(
+        (item) => normalizeId(item?._id || item?._tempId) === normalizeId(message?._id || message?._tempId)
+      );
+      if (!exists) merged.push(message);
+    }
+    return merged.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+  };
 
   const sortGuardConversations = (list) => sortConversations(list.filter(isGuardConversation));
 
@@ -71,6 +79,26 @@ export default function SubAdminMessagePage() {
     const gid = getGuardId(conversation);
     const found = guards.find((g) => normalizeId(g._id) === gid);
     return found?.fullName || found?.name || "Unknown";
+  };
+
+  const getSenderLabel = (msg) => {
+    const sender = msg?.sender?.userId;
+    const senderName = sender?.fullName || sender?.name || msg?.sender?.name || "";
+    const senderRole = msg?.sender?.role || sender?.role || "";
+
+    if (senderRole === "Guard") {
+      return senderName ? `${senderName} • Guard` : "Guard";
+    }
+
+    if (senderRole === "Subadmin") {
+      return senderName ? `${senderName} • HR / Subadmin` : "HR / Subadmin";
+    }
+
+    if (senderRole === "Admin") {
+      return senderName ? `${senderName} • Admin` : "Admin";
+    }
+
+    return senderName || "Unknown";
   };
 
   const isUserOnline = (userId) => onlineUsers.includes(userId);
@@ -100,12 +128,24 @@ export default function SubAdminMessagePage() {
 
   // Socket: User Online
   useEffect(() => {
-    if (user && !hasNotifiedOnline.current) {
+    const registerOnline = () => {
+      if (!user?._id) return;
       socket.emit("userOnline", user._id);
+      console.log("[subadmin-message] userOnline", { userId: user._id, role: user.role, socketId: socket.id });
       hasNotifiedOnline.current = true;
-    }
-    socket.on("onlineUsers", (users) => setOnlineUsers(users));
-    return () => socket.off("onlineUsers");
+    };
+
+    if (user) registerOnline();
+    const handleOnlineUsers = (users) => {
+      console.log("[subadmin-message] onlineUsers", users);
+      setOnlineUsers(users);
+    };
+    socket.on("connect", registerOnline);
+    socket.on("onlineUsers", handleOnlineUsers);
+    return () => {
+      socket.off("connect", registerOnline);
+      socket.off("onlineUsers", handleOnlineUsers);
+    };
   }, [user]);
 
   // Fetch Guards
@@ -128,9 +168,7 @@ export default function SubAdminMessagePage() {
       try {
         const res = await fetch(`${api}/api/messages/conversations`, { credentials: "include" });
         const data = await res.json();
-        const filtered = (Array.isArray(data) ? data : []).filter(
-          (conv) => conv.type === "subadmin-guard" || conv.type === "guard-subadmin"
-        );
+        const filtered = (Array.isArray(data) ? data : []).filter(isGuardConversation);
         setConversations(sortGuardConversations(filtered));
       } catch (err) {
         console.error("Error fetching conversations:", err);
@@ -146,10 +184,26 @@ export default function SubAdminMessagePage() {
       return;
     }
 
-    setMessages([]); // Clear previous messages
+    setMessages((prev) =>
+      prev.length > 0 &&
+      normalizeId(prev[0]?.conversationId) !== normalizeId(selectedConversation._id)
+        ? []
+        : prev
+    );
     
+    const joinActiveConversation = () => {
+      socket.emit("joinConversation", selectedConversation._id);
+      console.log("[subadmin-message] joinConversation", {
+        conversationId: selectedConversation._id,
+        userId: user._id,
+        role: user.role,
+        socketId: socket.id,
+      });
+    };
+
     // 1. Join Room
-    socket.emit("joinConversation", selectedConversation._id);
+    joinActiveConversation();
+    socket.on("connect", joinActiveConversation);
     
     // 2. Tell Server we saw it
     socket.emit("mark_seen", { conversationId: selectedConversation._id, userId: user._id });
@@ -172,20 +226,26 @@ export default function SubAdminMessagePage() {
       })
     );
 
-    const fetchMessages = async () => {
+    const refreshMessages = async (conversationId = selectedConversation._id) => {
       try {
-        const res = await fetch(`${api}/api/messages/${selectedConversation._id}`, { credentials: "include" });
+        const res = await fetch(`${api}/api/messages/${conversationId}`, { credentials: "include" });
         const data = await res.json();
-        setMessages(Array.isArray(data) ? data : []);
+        setMessages((prev) => mergeMessages(prev, Array.isArray(data) ? data : []));
       } catch (err) {
         console.error("Error loading messages:", err);
       }
     };
-    fetchMessages();
+    refreshMessages();
+    const refreshInterval = setInterval(() => refreshMessages(), 1500);
 
     // --- SOCKET LISTENERS ---
 
     const handleReceiveMessage = (msg) => {
+      console.log("[subadmin-message] receiveMessage", {
+        conversationId: msg.conversationId,
+        messageId: msg._id,
+        selectedConversationId: selectedConversation?._id,
+      });
       // Update sidebar list
       setConversations((prev) =>
         sortGuardConversations(
@@ -202,17 +262,28 @@ export default function SubAdminMessagePage() {
         setMessages((prev) => (prev.some((m) => m._id === msg._id) ? prev : [...prev, msg]));
         // If we are looking at this chat, mark the new message as seen immediately
         socket.emit("mark_seen", { conversationId: msg.conversationId, userId: user._id });
+        refreshMessages(msg.conversationId);
       }
     };
 
-    const handleConversationUpdated = (updatedConv) => {
+    const handleConversationUpdated = async (updatedConv) => {
+      console.log("[subadmin-message] conversationUpdated", {
+        conversationId: updatedConv?._id,
+        type: updatedConv?.type,
+        selectedConversationId: selectedConversation?._id,
+      });
       if (!isGuardConversation(updatedConv)) return;
       if (normalizeId(selectedConversation?._id) === normalizeId(updatedConv._id)) {
         setSelectedConversation(updatedConv);
+        try {
+          refreshMessages(updatedConv._id);
+        } catch (err) {
+          console.error("Error refreshing active conversation:", err);
+        }
       }
       setConversations((prev) => {
-        const exists = prev.some((c) => c._id === updatedConv._id);
-        if (exists) return sortGuardConversations(prev.map((c) => (c._id === updatedConv._id ? updatedConv : c)));
+        const exists = prev.some((c) => normalizeId(c._id) === normalizeId(updatedConv._id));
+        if (exists) return sortGuardConversations(prev.map((c) => (normalizeId(c._id) === normalizeId(updatedConv._id) ? updatedConv : c)));
         return sortGuardConversations([updatedConv, ...prev]);
       });
     };
@@ -220,6 +291,10 @@ export default function SubAdminMessagePage() {
     // 4. LISTEN FOR SEEN EVENT (Server Confirmation)
     // This ensures that if another subadmin reads it, or the server confirms it, the UI updates
     const handleMessagesSeen = ({ conversationId }) => {
+      console.log("[subadmin-message] messages_seen", {
+        conversationId,
+        selectedConversationId: selectedConversation?._id,
+      });
       // Update Sidebar
       setConversations((prev) => 
         prev.map((conv) => 
@@ -232,6 +307,7 @@ export default function SubAdminMessagePage() {
       // Update Messages inside the chat (optional, if you want checkmarks)
       if (normalizeId(selectedConversation._id) === normalizeId(conversationId)) {
         setMessages((prev) => prev.map((m) => ({ ...m, seen: true })));
+        refreshMessages(conversationId);
       }
     };
 
@@ -240,6 +316,8 @@ export default function SubAdminMessagePage() {
     socket.on("messages_seen", handleMessagesSeen); // <--- Add this listener
 
     return () => {
+      clearInterval(refreshInterval);
+      socket.off("connect", joinActiveConversation);
       socket.off("receiveMessage", handleReceiveMessage);
       socket.off("conversationUpdated", handleConversationUpdated);
       socket.off("messages_seen", handleMessagesSeen); // <--- Cleanup this listener
@@ -253,8 +331,8 @@ export default function SubAdminMessagePage() {
       if (normalizeId(selectedConversation?._id) === normalizeId(updatedConv._id)) return;
       
       setConversations((prev) => {
-        const exists = prev.some((c) => c._id === updatedConv._id);
-        if (exists) return sortGuardConversations(prev.map((c) => (c._id === updatedConv._id ? updatedConv : c)));
+        const exists = prev.some((c) => normalizeId(c._id) === normalizeId(updatedConv._id));
+        if (exists) return sortGuardConversations(prev.map((c) => (normalizeId(c._id) === normalizeId(updatedConv._id) ? updatedConv : c)));
         return sortGuardConversations([updatedConv, ...prev]);
       });
     };
@@ -279,27 +357,44 @@ export default function SubAdminMessagePage() {
     if (file) formData.append("file", file);
 
     try {
+      console.log("[subadmin-message] handleSend:start", {
+        conversationId: selectedConversation._id,
+        receiverId: typeof receiver.userId === "string" ? receiver.userId : receiver.userId?._id,
+        receiverRole: receiver.role,
+        type: selectedConversation.type,
+      });
       const res = await fetch(`${api}/api/messages`, { method: "POST", credentials: "include", body: formData });
       if (!res.ok) return console.error(await res.text());
-      const { conversation } = await res.json();
+      const { message: sentMessage, conversation } = await res.json();
+      console.log("[subadmin-message] handleSend:success", {
+        conversationId: conversation?._id,
+        messageId: sentMessage?._id,
+      });
 
       setConversations((prev) => {
         if (selectedConversation?.isTemp) {
-          const exists = prev.some((c) => c._id === conversation._id);
+          const exists = prev.some((c) => normalizeId(c._id) === normalizeId(conversation._id));
           const withoutTemp = prev.filter((c) => !c.isTemp);
           const updated = exists
-            ? withoutTemp.map((c) => (c._id === conversation._id ? conversation : c))
+            ? withoutTemp.map((c) => (normalizeId(c._id) === normalizeId(conversation._id) ? conversation : c))
             : [conversation, ...withoutTemp];
           return sortGuardConversations(updated);
         }
-        const exists = prev.some((c) => c._id === conversation._id);
+        const exists = prev.some((c) => normalizeId(c._id) === normalizeId(conversation._id));
         const updated = exists
-          ? prev.map((c) => (c._id === conversation._id ? conversation : c))
+          ? prev.map((c) => (normalizeId(c._id) === normalizeId(conversation._id) ? conversation : c))
           : [conversation, ...prev];
         return sortGuardConversations(updated);
       });
 
-      setSelectedConversation((prev) => (prev && prev._id === conversation._id ? prev : conversation));
+      setSelectedConversation(conversation);
+      if (sentMessage) {
+        setMessages((prev) =>
+          prev.some((msg) => normalizeId(msg._id || msg._tempId) === normalizeId(sentMessage._id || sentMessage._tempId))
+            ? prev
+            : [...prev, sentMessage]
+        );
+      }
       setNewMessage("");
       setFile(null);
     } catch (err) {
@@ -323,7 +418,7 @@ export default function SubAdminMessagePage() {
         { userId: user._id, role: user.role, name: user.name },
         { userId: guard._id, role: guard.role, name: guard.fullName || guard.name },
       ],
-      type: "subadmin-guard",
+      type: user.role === "Admin" ? "admin-guard" : "subadmin-guard",
       lastMessage: null,
       isTemp: true,
     };
@@ -488,11 +583,16 @@ export default function SubAdminMessagePage() {
             <div className="flex-1 w-full overflow-y-auto overscroll-contain p-4 md:p-6 space-y-4 bg-slate-900/50 scroll-smooth">
               {messages.map((msg) => {
                 const isMe = normalizeId(msg.senderId) === normalizeId(user._id);
-                return (
+              return (
                   <div key={msg._id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[85%] md:max-w-[60%] rounded-2xl px-4 py-3 shadow-sm text-sm md:text-base ${
                         isMe ? "bg-blue-600 text-white rounded-br-none" : "bg-[#1e293b] border border-gray-700 text-gray-200 rounded-bl-none"
                     }`}>
+                      {!isMe && (
+                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-blue-300/90">
+                          {getSenderLabel(msg)}
+                        </p>
+                      )}
                       {msg.text && <p className="leading-relaxed whitespace-pre-wrap break-words">{msg.text}</p>}
                       
                       {msg.file && (

@@ -7,11 +7,10 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import { fileURLToPath } from "url";
 import cookieParser from "cookie-parser";
-import { startApplicantCleanup } from './utils/cronJobs.js'
+import { startApplicantCleanup } from "./utils/cronJobs.js";
 
 dotenv.config();
 
-// ... (Keep your existing route imports here) ...
 import attendanceRoutes from "./routes/attendanceRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
@@ -29,11 +28,8 @@ import userRoutes from "./routes/authRoutes.js";
 import applicantMessageRoutes from "./routes/applicantMessageRoutes.js";
 import applicantRoutes from "./routes/applicantRoutes.js";
 
-// message models
 import Message from "./models/message.model.js";
 import Conversation from "./models/conversation.model.js";
-
-
 
 const app = express();
 const httpServer = createServer(app);
@@ -43,19 +39,17 @@ app.set("trust proxy", 1);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-
 const allowedOrigins = [
-  "https://jpm-security.vercel.app",       
-  "https://www.jpmsecurityagency.com",      
-  "https://jpmsecurityagency.com",          
-  "http://localhost:5173",                  
-  "http://localhost:5000",                  
-  process.env.CLIENT_ORIGIN                 
+  "https://jpm-security.vercel.app",
+  "https://www.jpmsecurityagency.com",
+  "https://jpmsecurityagency.com",
+  "http://localhost:5173",
+  "http://localhost:5000",
+  process.env.CLIENT_ORIGIN,
 ];
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, or Postman)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -67,21 +61,18 @@ const corsOptions = {
 };
 
 const io = new Server(httpServer, {
-  cors: corsOptions, 
+  cors: corsOptions,
 });
 
 export const onlineUsersMap = {};
 export { io };
 
-// Inject io into requests
 app.use((req, res, next) => {
   req.io = io;
   next();
 });
 
-// 2. Express CORS Setup
-app.use(cors(corsOptions)); 
-
+app.use(cors(corsOptions));
 
 app.use(cookieParser());
 app.use(express.json({ limit: "20mb" }));
@@ -113,71 +104,63 @@ startApplicantCleanup();
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    const PORT = process.env.PORT ;
-    httpServer.listen(PORT, () =>
-      console.log(`Server running on port ${PORT}`)
-    );
+    const PORT = process.env.PORT;
+    httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   })
   .catch((err) => console.log(err));
 
 io.on("connection", (socket) => {
-  console.log("🟢 New user connected:", socket.id);
+  console.log("[socket] connected", { socketId: socket.id });
 
   socket.on("userOnline", (userId) => {
     onlineUsersMap[userId] = socket.id;
+    console.log("[socket] userOnline", { userId, socketId: socket.id });
     io.emit("onlineUsers", Object.keys(onlineUsersMap));
   });
 
   socket.on("joinConversation", (conversationId) => {
     socket.join(conversationId);
+    console.log("[socket] joinConversation", { socketId: socket.id, conversationId });
   });
 
-  // --- FIXED MARK SEEN LOGIC ---
   socket.on("mark_seen", async ({ conversationId, userId }) => {
     try {
-      // 1. Update Messages in MongoDB
-      // "Find messages in this conversation where I am NOT the sender, and mark them seen"
       await Message.updateMany(
-        { 
-          conversationId: conversationId, 
-          senderId: { $ne: userId }, 
-          seen: false 
+        {
+          conversationId,
+          senderId: { $ne: userId },
+          seen: false,
         },
         { $set: { seen: true } }
       );
 
-      // 2. Update the Conversation's "lastMessage" preview
-      // This ensures the blue dot disappears on the sidebar even after refresh
       const conversation = await Conversation.findById(conversationId);
-      
+
       if (
-        conversation && 
-        conversation.lastMessage && 
-        conversation.lastMessage.senderId && // Safety check
+        conversation &&
+        conversation.lastMessage &&
+        conversation.lastMessage.senderId &&
         conversation.lastMessage.senderId.toString() !== userId
       ) {
         conversation.lastMessage.seen = true;
-        conversation.markModified('lastMessage'); // Important for mixed types/subdocs
+        conversation.markModified("lastMessage");
         await conversation.save();
       }
 
-      // 3. Broadcast to Frontends to update UI instantly
       io.to(conversationId).emit("messages_seen", {
         conversationId,
         seenBy: userId,
       });
-
+      console.log("[socket] messages_seen", { conversationId, seenBy: userId });
     } catch (error) {
       console.error("Socket mark_seen error:", error);
     }
   });
-  // -----------------------------
 
   socket.on("disconnect", () => {
-    const userId = Object.keys(onlineUsersMap).find(
-      (key) => onlineUsersMap[key] === socket.id
-    );
+    const userId = Object.keys(onlineUsersMap).find((key) => onlineUsersMap[key] === socket.id);
     if (userId) delete onlineUsersMap[userId];
+    console.log("[socket] disconnected", { socketId: socket.id, userId: userId || null });
     io.emit("onlineUsers", Object.keys(onlineUsersMap));
   });
 });
