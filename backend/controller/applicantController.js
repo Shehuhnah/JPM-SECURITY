@@ -571,7 +571,7 @@ export const addInterviewRemarks = async (req, res) => {
 // 📄 Download list of hired applicants for a specific month
 export const downloadHiredList = async (req, res) => {
   try {
-    let { month, year } = req.query;
+    let { month, year, applicationType } = req.query;
     if (!month || !year) {
       return res.status(400).json({ message: "Month and year are required." });
     }
@@ -594,13 +594,22 @@ export const downloadHiredList = async (req, res) => {
     const startDate = new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0));
     const endDate = new Date(Date.UTC(year, monthIndex + 1, 0, 23, 59, 59));
 
-    const hiredApplicants = await Applicant.find({
+    const normalizedApplicationType =
+      applicationType === "Walk-in" || applicationType === "Online" ? applicationType : null;
+
+    const query = {
       status: "Hired",
       dateOfHired: {  
         $gte: startDate,
         $lte: endDate,
       },
-    }).sort({ dateOfHired: 'asc' });
+    };
+
+    if (normalizedApplicationType) {
+      query.applicationType = normalizedApplicationType;
+    }
+
+    const hiredApplicants = await Applicant.find(query).sort({ dateOfHired: 'asc' });
 
     if (hiredApplicants.length === 0) {
       return res.status(404).json({ message: "No hired applicants found for the selected month." });
@@ -609,7 +618,13 @@ export const downloadHiredList = async (req, res) => {
     const pdfBuffer = await generateHiredApplicantsPDF(hiredApplicants, month, year);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=Hired_Applicants_${month}_${year}.pdf`);
+    const fileTypeSuffix =
+      normalizedApplicationType === "Walk-in"
+        ? "_Walkin"
+        : normalizedApplicationType === "Online"
+          ? "_Online"
+          : "";
+    res.setHeader('Content-Disposition', `attachment; filename=Hired_Applicants_${month}_${year}${fileTypeSuffix}.pdf`);
     res.send(pdfBuffer);
 
   } catch (error) {

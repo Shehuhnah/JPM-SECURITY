@@ -33,6 +33,7 @@ export default function ApplicantsList() {
   const [applicants, setApplicants] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [applicationTypeFilter, setApplicationTypeFilter] = useState("All");
   const [confirmModal, setConfirmModal] = useState({ open: false, applicant: null, status: null });
   const [pendingActionLabel, setPendingActionLabel] = useState("");
   const [interviewModal, setInterviewModal] = useState({ open: false, applicant: null });
@@ -53,6 +54,7 @@ export default function ApplicantsList() {
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleString('default', { month: 'long' }));
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [downloadApplicationType, setDownloadApplicationType] = useState("All");
   const [guardConfirmModalOpen , setGuardConfirmModalOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
   const [showPassword, setShowPassword] = useState(false);
@@ -492,10 +494,14 @@ export default function ApplicantsList() {
     );
   };
 
+  const normalizeApplicationType = (type) => (type === "Walk-in" ? "Walk-in" : "Online");
+
   const filteredApplicants = applicants.filter((a) => {
     const matchesSearch = a.name?.toLowerCase().includes(search.toLowerCase()) || a.email?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "All" || a.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesApplicationType =
+      applicationTypeFilter === "All" || normalizeApplicationType(a.applicationType) === applicationTypeFilter;
+    return matchesSearch && matchesStatus && matchesApplicationType;
   });
 
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
@@ -503,7 +509,16 @@ export default function ApplicantsList() {
 
   const handleDownloadList = async () => {
     try {
-      const res = await fetch(`${api}/api/applicants/download-hired-list?month=${selectedMonth}&year=${selectedYear}`, {
+      const params = new URLSearchParams({
+        month: selectedMonth,
+        year: selectedYear,
+      });
+
+      if (downloadApplicationType !== "All") {
+        params.set("applicationType", downloadApplicationType);
+      }
+
+      const res = await fetch(`${api}/api/applicants/download-hired-list?${params.toString()}`, {
         credentials: 'include',
       });
 
@@ -516,9 +531,13 @@ export default function ApplicantsList() {
       console.log(blob)
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
+      const fileTypeSuffix =
+        downloadApplicationType === "All"
+          ? ""
+          : `_${downloadApplicationType === "Walk-in" ? "Walkin" : "Online"}`;
       a.style.display = 'none';
       a.href = url;
-      a.download = `Hired_Applicants_${selectedMonth}_${selectedYear}.pdf`;
+      a.download = `Hired_Applicants_${selectedMonth}_${selectedYear}${fileTypeSuffix}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -590,6 +609,20 @@ export default function ApplicantsList() {
                             <option value="Interview">Interview</option>
                             <option value="Hired">Hired</option>
                             <option value="Declined">Declined</option>
+                        </select>
+                    </div>
+
+                    <div className="relative">
+                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-400 z-10" size={16} />
+                        <select
+                            value={applicationTypeFilter}
+                            onChange={(e) => setApplicationTypeFilter(e.target.value)}
+                            className="w-full sm:w-auto bg-[#1e293b] border border-gray-700 rounded-lg pl-10 pr-8 py-2.5 
+                            text-sm text-gray-200 focus:ring-2 focus:ring-cyan-500 appearance-none cursor-pointer hover:bg-[#243046] transition"
+                        >
+                            <option value="All">All Applications</option>
+                            <option value="Online">Online Application</option>
+                            <option value="Walk-in">Walk-in Application</option>
                         </select>
                     </div>
 
@@ -1290,6 +1323,18 @@ export default function ApplicantsList() {
                         </select>
                       </div>
                     </div>
+                    <div className="mt-4">
+                      <label className="text-sm text-gray-400">Application Type</label>
+                      <select
+                        value={downloadApplicationType}
+                        onChange={(e) => setDownloadApplicationType(e.target.value)}
+                        className="w-full mt-1 rounded-lg bg-[#0f172a] border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/70"
+                      >
+                        <option value="All">All Hired Applicants</option>
+                        <option value="Walk-in">Walk-in Only</option>
+                        <option value="Online">Online Only</option>
+                      </select>
+                    </div>
                     <div className="flex justify-end gap-3 mt-6">
                       <button onClick={() => setDownloadModalOpen(false)} className="px-4 py-2 rounded-lg border border-gray-600 text-gray-200 hover:bg-white/5">Cancel</button>
                       <button onClick={handleDownloadList} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white">Download</button>
@@ -1360,18 +1405,6 @@ export default function ApplicantsList() {
                             className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
                             placeholder="09XXXXXXXXX"
                           />
-                        </div>
-                        <div>
-                          <label className="block text-sm text-gray-300 mb-2">Application Type</label>
-                          <select
-                            name="applicationType"
-                            value={walkInForm.applicationType}
-                            onChange={handleWalkInChange}
-                            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
-                          >
-                            <option value="Walk-in">Walk-in</option>
-                            <option value="Online">Online</option>
-                          </select>
                         </div>
                         <div>
                           <label className="block text-sm text-gray-300 mb-2">Resume</label>
