@@ -27,6 +27,8 @@ import galleryRoutes from "./routes/galleryRoutes.js";
 import userRoutes from "./routes/authRoutes.js";
 import applicantMessageRoutes from "./routes/applicantMessageRoutes.js";
 import applicantRoutes from "./routes/applicantRoutes.js";
+import adminAttendanceRoutes from "./routes/adminAttendanceRoutes.js";
+import adminReportRoutes from "./routes/adminReportRoutes.js";
 
 import Message from "./models/message.model.js";
 import Conversation from "./models/conversation.model.js";
@@ -97,6 +99,8 @@ app.use("/api/gallery", galleryRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/applicant-messages", applicantMessageRoutes);
 app.use("/api/applicants", applicantRoutes);
+app.use("/api/admin-attendance", adminAttendanceRoutes);
+app.use("/api/admin-reports", adminReportRoutes);
 
 app.get("/", (req, res) => res.send("API is running"));
 startApplicantCleanup();

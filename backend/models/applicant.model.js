@@ -14,6 +14,11 @@ const applicantSchema = new mongoose.Schema(
       required: [true, "Position is Required"]
     },
     phone: String,
+    applicationType: {
+      type: String,
+      enum: ["Walk-in", "Online"],
+      default: "Online",
+    },
     resume: {
       file: { type: String },
       fileName: { type: String },
@@ -43,7 +48,12 @@ const applicantSchema = new mongoose.Schema(
     },
     declinedDate: {
       type: Date,
-    }
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
+      default: null,
+    },
   },
   { timestamps: true }
 );

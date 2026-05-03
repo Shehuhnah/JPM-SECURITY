@@ -23,6 +23,8 @@ import CompanyDetails from "../Admin/CompanyDetails.jsx";
 import AdminGuardsProfile from "../Admin/AdminGuardsProfile.jsx";
 import AdminCOE from "../Admin/AdminCOE.jsx";
 import AdminAttendance from "../Admin/AdminAttendance.jsx";
+import AdminStaffAttendance from "../Admin/AdminStaffAttendance.jsx";
+import AdminLogReports from "../Admin/AdminLogReports.jsx";
 import AdminGuardUpdates from "../Admin/AdminGuardUpdates.jsx";
 import AdminGuardUpdates2 from "../Admin/AdminGuardUpdates2.jsx";
 import AdminMessage from "../Admin/AdminMessage.jsx";
@@ -108,7 +110,9 @@ const Router = () => {
                 { path: "CompanyDetails", element: <CompanyDetails /> },
                 { path: "AdminGuardsProfile", element: <AdminGuardsProfile /> },
                 { path: "AdminCOE", element: <AdminCOE /> },
+                { path: "staff-attendance", element: <AdminStaffAttendance /> },
                 { path: "AdminAttendance", element: <AdminAttendance /> },
+                { path: "log-reports", element: <AdminLogReports /> },
                 { path: "AdminGuardUpdates", element: <AdminGuardUpdates /> },
                 { path: "AdminGuardUpdates2/:id", element: <AdminGuardUpdates2 /> },
                 { path: "AdminMessages", element: <AdminMessage /> },

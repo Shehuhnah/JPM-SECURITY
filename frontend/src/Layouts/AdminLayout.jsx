@@ -25,7 +25,8 @@ import {
   Building,
   ClipboardList,
   CircleUser,
-  ImagePlus
+  ImagePlus,
+  FilePenLine
 } from "lucide-react";
 
 import logo from "../assets/jpmlogo.png";
@@ -68,19 +69,21 @@ export default function AdminLayout() {
   // Main Navigation Items (Removed Request ID/COE to put in dropdown)
   const navItems = [
     { to: "/admin", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
-    { to: "/Admin/deployment", label: "Deployment", icon: <Calendar size={18} /> },
-    { to: "/Admin/schedule-approval", label: "Schedules Approval", icon: <Calendar size={18} /> },
-    { to: "/Admin/manage-clients", label: "Clients", icon: <Building size={18} /> },
-    { to: "/Admin/leaves", label: "Leaves", icon: <CalendarDays size={18} /> },
-    { to: "/Admin/AdminGuardUpdates", label: "Updates", icon: <Shield size={18} /> },
-    { to: "/Admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
-    { to: "/Admin/UserAccounts", label: "Staff", icon: <Users size={18} /> },
-    { to: "/Admin/ApplicantList", label: "Applicants", icon: <User size={18} /> },
-    { to: "/Admin/gallery-manager", label: "Gallery", icon: <ImagePlus size={18} /> },
-    { to: "/Admin/AdminGuardsProfile", label: "Guards", icon: <Users size={18} /> },
-    { to: "/Admin/AdminAttendance", label: "Attendance", icon: <Clock size={18} /> },
-    { to: "/Admin/Request-ID", label: "View Request ID", icon: <IdCardLanyard size={18} /> },
-    { to: "/Admin/AdminCOE", label: "Manage COE", icon: <FileText size={18} /> },
+    { to: "/admin/staff-attendance", label: "My Attendance", icon: <Clock size={18} /> },
+    { to: "/admin/log-reports", label: "My Log Reports", icon: <FilePenLine size={18} /> },
+    { to: "/admin/deployment", label: "Deployment", icon: <Calendar size={18} /> },
+    { to: "/admin/schedule-approval", label: "Schedules Approval", icon: <Calendar size={18} /> },
+    { to: "/admin/manage-clients", label: "Clients", icon: <Building size={18} /> },
+    { to: "/admin/leaves", label: "Leaves", icon: <CalendarDays size={18} /> },
+    { to: "/admin/AdminGuardUpdates", label: "Updates", icon: <Shield size={18} /> },
+    { to: "/admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
+    { to: "/admin/UserAccounts", label: "Staff", icon: <Users size={18} /> },
+    { to: "/admin/ApplicantList", label: "Applicants", icon: <User size={18} /> },
+    { to: "/admin/gallery-manager", label: "Gallery", icon: <ImagePlus size={18} /> },
+    { to: "/admin/AdminGuardsProfile", label: "Guards", icon: <Users size={18} /> },
+    { to: "/admin/AdminAttendance", label: "Guards Attendance", icon: <Clock size={18} /> },
+    { to: "/admin/Request-ID", label: "View Request ID", icon: <IdCardLanyard size={18} /> },
+    { to: "/admin/AdminCOE", label: "Manage COE", icon: <FileText size={18} /> },
   ];
 
   // New Dropdown Items

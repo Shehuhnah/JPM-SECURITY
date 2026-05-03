@@ -26,7 +26,7 @@ export default function Login() {
         return;
       }
 
-      navigate("/admin/deployment");
+      navigate("/admin/staff-attendance");
     };
   }, [admin, loading, navigate]);
 
@@ -47,7 +47,7 @@ export default function Login() {
       if (!res.ok) throw new Error(data.message || "Invalid credentials");
       
       await refreshAuth();
-      navigate("/admin/deployment");
+      navigate("/admin/staff-attendance");
     } catch (err) {
       setError(err.message);
     } finally {

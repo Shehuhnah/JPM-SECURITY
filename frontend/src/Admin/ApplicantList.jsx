@@ -3,7 +3,6 @@ import { Dialog, Transition } from "@headlessui/react";
 import {
   Search,
   UserCheck,
-  Trash2,
   Eye,
   EyeOff,
   User,
@@ -20,7 +19,9 @@ import {
   Shield,
   ChevronLeft,
   ChevronRight,
-  X
+  X,
+  Plus,
+  Paperclip
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -56,6 +57,16 @@ export default function ApplicantsList() {
   const [errorMsg, setErrorMsg] = useState("")
   const [showPassword, setShowPassword] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
+  const [walkInModalOpen, setWalkInModalOpen] = useState(false);
+  const [creatingWalkIn, setCreatingWalkIn] = useState(false);
+  const [walkInForm, setWalkInForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    position: "",
+    applicationType: "Walk-in",
+  });
+  const [walkInResume, setWalkInResume] = useState(null);
   
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -87,6 +98,60 @@ export default function ApplicantsList() {
       ...prev,
       [name]: name === "email" ? value.toLowerCase() : value,
     }));
+  };
+
+  const handleWalkInChange = (e) => {
+    const { name, value } = e.target;
+    setWalkInForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const resetWalkInForm = () => {
+    setWalkInForm({
+      name: "",
+      email: "",
+      phone: "",
+      position: "",
+      applicationType: "Walk-in",
+    });
+    setWalkInResume(null);
+  };
+
+  const handleCreateWalkInApplicant = async (e) => {
+    e.preventDefault();
+
+    try {
+      setCreatingWalkIn(true);
+      const formData = new FormData();
+      formData.append("name", walkInForm.name);
+      formData.append("email", walkInForm.email);
+      formData.append("phone", walkInForm.phone);
+      formData.append("position", walkInForm.position);
+      formData.append("applicationType", walkInForm.applicationType);
+      if (walkInResume) {
+        formData.append("resume", walkInResume);
+      }
+
+      const res = await fetch(`${api}/api/applicants`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to create walk-in applicant.");
+
+      setApplicants((prev) => [data, ...prev]);
+      toast.success("Walk-in applicant added successfully.");
+      setWalkInModalOpen(false);
+      resetWalkInForm();
+    } catch (error) {
+      toast.error(error.message || "Failed to create walk-in applicant.");
+    } finally {
+      setCreatingWalkIn(false);
+    }
   };
 
   const handleConfirmAndCreateGuard = async () => {
@@ -412,6 +477,21 @@ export default function ApplicantsList() {
     }
   };
 
+  const getApplicationTypeBadge = (type) => {
+    const isWalkIn = type === "Walk-in";
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+          isWalkIn
+            ? "bg-cyan-500/10 text-cyan-300 border-cyan-500/20"
+            : "bg-violet-500/10 text-violet-300 border-violet-500/20"
+        }`}
+      >
+        {isWalkIn ? "Walk-in Application" : "Online Application"}
+      </span>
+    );
+  };
+
   const filteredApplicants = applicants.filter((a) => {
     const matchesSearch = a.name?.toLowerCase().includes(search.toLowerCase()) || a.email?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "All" || a.status === statusFilter;
@@ -516,9 +596,16 @@ export default function ApplicantsList() {
                     {/* Action Buttons Group */}
                     <div className="flex gap-2">
                         <button
+                            onClick={() => setWalkInModalOpen(true)}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#2B7FFF] hover:bg-[#2460b9] text-white px-4 py-2.5 rounded-lg text-sm transition cursor-pointer"
+                        >
+                            <Plus size={18} />
+                            <span className="hidden sm:inline">Walk-in Applicant</span>
+                        </button>
+                        <button
                             onClick={() => setDownloadModalOpen(true)}
                             className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#1e293b] hover:bg-[#243046] 
-                            border border-gray-700 text-gray-200 px-4 py-2.5 rounded-lg text-sm transition"
+                            border border-gray-700 text-gray-200 px-4 py-2.5 rounded-lg text-sm transition cursor-pointer"
                         >
                             <FileDown size={18} className="text-blue-400" />
                             <span className="hidden sm:inline">Export</span>
@@ -563,7 +650,10 @@ export default function ApplicantsList() {
                                 <tr key={a._id} className="group hover:bg-slate-800/50 transition duration-150">
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-white">{a.name}</div>
-                                        <div className="text-xs text-gray-500">ID: {a._id.slice(-6)}</div>
+                                        <div className="text-xs text-gray-500 flex items-center gap-2 mt-1">
+                                          <span>ID: {a._id.slice(-6)}</span>
+                                          {getApplicationTypeBadge(a.applicationType || "Online")}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="text-sm text-gray-300">{a.email}</div>
@@ -594,6 +684,7 @@ export default function ApplicantsList() {
                             <div>
                                 <h3 className="font-semibold text-white text-lg">{a.name}</h3>
                                 <p className="text-gray-400 text-sm">{a.position}</p>
+                                <div className="mt-2">{getApplicationTypeBadge(a.applicationType || "Online")}</div>
                             </div>
                             {getStatusBadge(a.status)}
                         </div>
@@ -704,6 +795,14 @@ export default function ApplicantsList() {
                                     </div>
                                     <div className="py-3 sm:grid sm:grid-cols-3 sm:gap-4">
                                       <dt className="text-sm text-gray-400">
+                                        Application
+                                      </dt>
+                                      <dd className="mt-1 text-sm text-white sm:col-span-2 sm:mt-0">
+                                        {getApplicationTypeBadge(selectedApplicant.applicationType || "Online")}
+                                      </dd>
+                                    </div>
+                                    <div className="py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                                      <dt className="text-sm text-gray-400">
                                         Applied On
                                       </dt>
                                       <dd className="mt-1 text-sm text-white sm:col-span-2 sm:mt-0">
@@ -745,6 +844,12 @@ export default function ApplicantsList() {
                                 
                                 {["Admin", "Subadmin"].includes(user?.role) && (
                                   <div className="mt-2 flex flex-col gap-2">
+                                    {selectedApplicant.resume?.fileName && (
+                                      <div className="text-xs text-slate-400 flex items-center gap-2">
+                                        <Paperclip size={14} />
+                                        {selectedApplicant.resume.fileName}
+                                      </div>
+                                    )}
                                     <button 
                                       onClick={() => handleViewResume(selectedApplicant)} 
                                       className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 px-3 py-2 rounded-md flex items-center gap-2 text-sm justify-center">
@@ -1189,6 +1294,123 @@ export default function ApplicantsList() {
                       <button onClick={() => setDownloadModalOpen(false)} className="px-4 py-2 rounded-lg border border-gray-600 text-gray-200 hover:bg-white/5">Cancel</button>
                       <button onClick={handleDownloadList} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white">Download</button>
                     </div>
+                  </Dialog.Panel>
+                </Transition.Child>
+              </div>
+            </div>
+          </Dialog>
+        </Transition>
+
+        <Transition appear show={walkInModalOpen} as={Fragment}>
+          <Dialog as="div" className="relative z-50" onClose={() => setWalkInModalOpen(false)}>
+            <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0">
+              <div className="fixed inset-0 bg-black/60" />
+            </Transition.Child>
+            <div className="fixed inset-0 overflow-y-auto">
+              <div className="flex min-h-full items-center justify-center p-4">
+                <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-150" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+                  <Dialog.Panel className="w-full max-w-2xl rounded-2xl bg-[#0f172a] border border-white/10 p-6 shadow-xl text-gray-100">
+                    <Dialog.Title className="text-xl font-semibold mb-2">Add Walk-in Applicant</Dialog.Title>
+                    <Dialog.Description className="text-sm text-gray-400 mb-6">
+                      Admin and HR can register walk-in applicants and attach a resume directly from the office.
+                    </Dialog.Description>
+
+                    <form onSubmit={handleCreateWalkInApplicant} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">Full Name</label>
+                          <input
+                            name="name"
+                            value={walkInForm.name}
+                            onChange={handleWalkInChange}
+                            required
+                            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
+                            placeholder="Juan Dela Cruz"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">Position</label>
+                          <input
+                            name="position"
+                            value={walkInForm.position}
+                            onChange={handleWalkInChange}
+                            required
+                            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
+                            placeholder="Security Guard"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">Email</label>
+                          <input
+                            type="email"
+                            name="email"
+                            value={walkInForm.email}
+                            onChange={handleWalkInChange}
+                            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
+                            placeholder="candidate@email.com"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">Phone</label>
+                          <input
+                            name="phone"
+                            value={walkInForm.phone}
+                            onChange={handleWalkInChange}
+                            required
+                            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
+                            placeholder="09XXXXXXXXX"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">Application Type</label>
+                          <select
+                            name="applicationType"
+                            value={walkInForm.applicationType}
+                            onChange={handleWalkInChange}
+                            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
+                          >
+                            <option value="Walk-in">Walk-in</option>
+                            <option value="Online">Online</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">Resume</label>
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                            onChange={(e) => setWalkInResume(e.target.files?.[0] || null)}
+                            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-gray-300 file:mr-3 file:rounded-md file:border-0 file:bg-cyan-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
+                          />
+                          {walkInResume && (
+                            <div className="mt-2 text-xs text-gray-400 flex items-center gap-2">
+                              <Paperclip size={14} />
+                              {walkInResume.name}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-3 pt-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setWalkInModalOpen(false);
+                            resetWalkInForm();
+                          }}
+                          className="px-4 py-2 rounded-lg border border-gray-600 text-gray-200 hover:bg-white/5"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={creatingWalkIn}
+                          className="px-4 py-2 rounded-lg bg-[#2B7FFF] hover:bg-[#2460b9] text-white flex items-center gap-2 disabled:opacity-60"
+                        >
+                          {creatingWalkIn ? <RefreshCcw className="animate-spin" size={16} /> : <Plus size={16} />}
+                          Save Applicant
+                        </button>
+                      </div>
+                    </form>
                   </Dialog.Panel>
                 </Transition.Child>
               </div>

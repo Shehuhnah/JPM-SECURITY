@@ -21,17 +21,31 @@ export const getApplicants = async (req, res) => {
 // 🟢 Create a new applicant
 export const createApplicant = async (req, res) => {
   try {
-    const { name, email, phone, position } = req.body;
+    const { name, email, phone, position, applicationType } = req.body;
+
+    if (!["Admin", "Subadmin"].includes(req.user?.role)) {
+      return res.status(403).json({ message: "Only admin and HR can add applicants." });
+    }
 
     if (!name?.trim() || !position?.trim() || !phone?.trim()) {
       return res.status(400).json({ message: "Name, position, and phone are required." });
     }
+
+    const normalizedType = applicationType === "Online" ? "Online" : "Walk-in";
 
     const newApplicant = new Applicant({
       name: name.trim(),
       email: email?.trim() || "",
       phone: phone.trim(),
       position: position.trim(),
+      applicationType: normalizedType,
+      createdBy: req.user._id,
+      resume: req.file
+        ? {
+            file: `/uploads/applicants/${req.file.filename}`,
+            fileName: req.file.originalname,
+          }
+        : undefined,
     });
 
     const savedApplicant = await newApplicant.save();

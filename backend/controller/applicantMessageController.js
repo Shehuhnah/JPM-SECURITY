@@ -56,6 +56,7 @@ export const initApplicantConversation = async (req, res) => {
         phone: phone?.trim() || "",
         position: position?.trim() || "Unknown",
         status: "Review",
+        applicationType: "Online",
       });
     }
     // Update missing/contact fields if provided
