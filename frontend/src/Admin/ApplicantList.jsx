@@ -21,7 +21,8 @@ import {
   ChevronRight,
   X,
   Plus,
-  Paperclip
+  Paperclip,
+  AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -74,6 +75,7 @@ export default function ApplicantsList() {
     applicationType: "Walk-in",
   });
   const [walkInResume, setWalkInResume] = useState(null);
+  const [warningModal, setWarningModal] = useState({ open: false, title: "", message: "" });
   
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -167,6 +169,11 @@ export default function ApplicantsList() {
 
   const handleConfirmAndCreateGuard = async () => {
     if (!selectedApplicant) return;
+    if (!applicantHasValidResume(selectedApplicant)) {
+      setGuardConfirmModalOpen(false);
+      showResumeWarning();
+      return;
+    }
     setSavingRemarks(true); // Reuse for loading state
     setErrorMsg("");
 
@@ -196,6 +203,10 @@ export default function ApplicantsList() {
   };
 
   const openAddGuardModal = () => {
+    if (!applicantHasValidResume(selectedApplicant)) {
+      showResumeWarning();
+      return;
+    }
     setForm((prev) => ({
       ...prev,
       password: generateGuardPassword(),
@@ -379,6 +390,25 @@ export default function ApplicantsList() {
 
   const closeInterviewModal = () => setInterviewModal({ open: false, applicant: null });
 
+  const applicantHasValidResume = (applicant) => {
+    const resume = applicant?.resume;
+    if (!resume) return false;
+
+    const filePath = typeof resume.file === "string" ? resume.file.trim() : "";
+    const fileName = typeof resume.fileName === "string" ? resume.fileName.trim() : "";
+    const originalName = typeof resume.originalName === "string" ? resume.originalName.trim() : "";
+
+    return Boolean(filePath || fileName || originalName);
+  };
+
+  const showResumeWarning = () => {
+    setWarningModal({
+      open: true,
+      title: "Resume Required",
+      message: "Admin and subadmin cannot hire this applicant yet because the resume is missing or empty.",
+    });
+  };
+
   const formatDate = (val) => {
     if (!val) return "N/A";
     try {
@@ -488,7 +518,11 @@ export default function ApplicantsList() {
   const handleViewResume = (applicant) => {
     const file = applicant?.resume?.file;
     if (!file) {
-      toast.info("This applicant has not submitted a resume yet.");
+      setWarningModal({
+        open: true,
+        title: "Resume Unavailable",
+        message: "This applicant has not submitted a resume yet, or the uploaded resume is empty.",
+      });
       return;
     }
     window.open(`${api}${file}`, "_blank", "noopener,noreferrer");
@@ -1753,6 +1787,66 @@ export default function ApplicantsList() {
                       </button>
                     </div>
 
+                  </Dialog.Panel>
+                </Transition.Child>
+              </div>
+            </div>
+          </Dialog>
+        </Transition>
+
+        <Transition appear show={warningModal.open} as={Fragment}>
+          <Dialog
+            as="div"
+            className="relative z-50"
+            onClose={() => setWarningModal({ open: false, title: "", message: "" })}
+          >
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+            </Transition.Child>
+
+            <div className="fixed inset-0 overflow-y-auto">
+              <div className="flex min-h-full items-center justify-center p-4 text-center">
+                <Transition.Child
+                  as={Fragment}
+                  enter="ease-out duration-300"
+                  enterFrom="opacity-0 scale-95"
+                  enterTo="opacity-100 scale-100"
+                  leave="ease-in duration-200"
+                  leaveFrom="opacity-100 scale-100"
+                  leaveTo="opacity-0 scale-95"
+                >
+                  <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 text-left align-middle shadow-xl border border-amber-500/30">
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-500/15 border border-amber-500/30">
+                        <AlertTriangle className="text-amber-300" size={22} />
+                      </div>
+                      <div className="flex-1">
+                        <Dialog.Title className="text-lg font-semibold text-white">
+                          {warningModal.title}
+                        </Dialog.Title>
+                        <p className="mt-2 text-sm text-slate-300">
+                          {warningModal.message}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setWarningModal({ open: false, title: "", message: "" })}
+                        className="px-4 py-2 rounded-lg bg-amber-500 text-slate-950 font-medium hover:bg-amber-400 transition"
+                      >
+                        Understood
+                      </button>
+                    </div>
                   </Dialog.Panel>
                 </Transition.Child>
               </div>

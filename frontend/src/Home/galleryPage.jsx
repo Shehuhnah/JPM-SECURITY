@@ -56,7 +56,7 @@ export default function GalleryPage() {
           {chunked.length === 0 ? (
             <div className="min-h-[50vh] rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 flex flex-col items-center justify-center text-center px-6">
               <p className="text-xl font-semibold text-white">No gallery images yet</p>
-              <p className="text-sm text-slate-400 mt-2">Uploaded images from the admin gallery manager will appear here.</p>
+              <p className="text-sm text-slate-400 mt-2">Uploaded images from the admin or subadmin gallery manager will appear here.</p>
             </div>
           ) : (
             <Swiper

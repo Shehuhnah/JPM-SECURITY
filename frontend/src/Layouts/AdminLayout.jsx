@@ -137,7 +137,7 @@ export default function AdminLayout() {
           {navItems
             .filter(item => {
               if (user?.role === "Subadmin") {
-                return !["/Admin/AdminCOE", "/Admin/schedule-approval", "/Admin/gallery-manager"].includes(item.to);
+                return !["/Admin/AdminCOE", "/Admin/schedule-approval"].includes(item.to);
               }
               return true;
             })

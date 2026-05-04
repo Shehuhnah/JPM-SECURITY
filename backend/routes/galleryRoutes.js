@@ -22,8 +22,8 @@ const upload = multer({
 });
 
 router.get("/", listGalleryImages);
-router.get("/admin", protect, authorizeRoles("Admin"), listGalleryImagesForAdmin);
-router.post("/admin", protect, authorizeRoles("Admin"), upload.array("images", 12), uploadGalleryImages);
-router.delete("/admin/:id", protect, authorizeRoles("Admin"), deleteGalleryImage);
+router.get("/admin", protect, authorizeRoles("Admin", "Subadmin"), listGalleryImagesForAdmin);
+router.post("/admin", protect, authorizeRoles("Admin", "Subadmin"), upload.array("images", 12), uploadGalleryImages);
+router.delete("/admin/:id", protect, authorizeRoles("Admin", "Subadmin"), deleteGalleryImage);
 
 export default router;
