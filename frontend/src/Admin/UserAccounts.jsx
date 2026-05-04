@@ -22,8 +22,10 @@ import { ToastContainer, toast, Bounce } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "../hooks/useAuth.js";
 import { useNavigate } from "react-router-dom";
+import TablePagination from "../components/admin/TablePagination.jsx";
 
 const api = import.meta.env.VITE_API_URL;
+const PAGE_SIZE = 10;
 
 // --- Sub-Components ---
 
@@ -260,20 +262,42 @@ export default function UserAccounts() {
   
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     if (!admin && !loading) navigate("/admin/login");
     document.title = "Users List | JPM Security Agency";
-    fetchUsers();
   }, [admin, loading, navigate]);
 
-  const fetchUsers = async () => {
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, roleFilter]);
+
+  useEffect(() => {
+    if (admin) {
+      fetchUsers(currentPage);
+    }
+  }, [admin, currentPage, search, roleFilter]);
+
+  const fetchUsers = async (page = currentPage) => {
     setLoadingPage(true);
     try {
-      const res = await fetch(`${api}/api/auth/users`, { credentials: "include" });
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(PAGE_SIZE),
+      });
+
+      if (search.trim()) params.set("q", search.trim());
+      if (roleFilter !== "All") params.set("role", roleFilter);
+
+      const res = await fetch(`${api}/api/auth/users?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch users");
       const data = await res.json();
-      setUsers(data);
+      setUsers(data.items || []);
+      setTotalItems(data.total || 0);
+      setTotalPages(data.totalPages || 1);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -346,15 +370,6 @@ export default function UserAccounts() {
     }
   };
 
-  const filteredUsers = users.filter((u) => {
-    const matchesSearch =
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()) ||
-      u.position?.toLowerCase().includes(search.toLowerCase());
-    const matchesRole = roleFilter === "All" || u.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
-
   const canEdit = admin?.role === "Admin";
 
   return (
@@ -425,7 +440,7 @@ export default function UserAccounts() {
                 <Users size={48} className="mb-4 opacity-50" />
                 <p>Loading staff...</p>
              </div>
-        ) : filteredUsers.length === 0 ? (
+        ) : users.length === 0 ? (
              <div className="flex flex-col items-center justify-center h-[600px] text-gray-500">
                 <Users size={48} className="mb-4 opacity-20" />
                 <p>No users found matching criteria.</p>
@@ -437,6 +452,7 @@ export default function UserAccounts() {
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-[#0f172a] text-gray-400 text-xs uppercase tracking-wider">
                             <tr>
+                                <th className="px-6 py-4 font-semibold">#</th>
                                 <th className="px-6 py-4 font-semibold">User Profile</th>
                                 <th className="px-6 py-4 font-semibold">Role</th>
                                 <th className="px-6 py-4 font-semibold">Position</th>
@@ -445,8 +461,11 @@ export default function UserAccounts() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-700/50">
-                            {filteredUsers.map((u) => (
+                            {users.map((u, index) => (
                                 <tr key={u._id} className="group hover:bg-slate-800/50 transition">
+                                    <td className="px-6 py-4 text-sm text-gray-400">
+                                        {(currentPage - 1) * PAGE_SIZE + index + 1}
+                                    </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold text-xs border border-slate-600">
@@ -500,7 +519,7 @@ export default function UserAccounts() {
 
                 {/* Mobile Cards */}
                 <div className="md:hidden grid gap-4 p-4">
-                    {filteredUsers.map((u) => (
+                    {users.map((u) => (
                         <UserCard 
                             key={u._id} 
                             user={u} 
@@ -509,6 +528,18 @@ export default function UserAccounts() {
                             onDelete={(user) => setUserToDelete(user)}
                         />
                     ))}
+                </div>
+
+                <div className="px-4 pb-4 md:px-6">
+                    <TablePagination
+                      page={currentPage}
+                      limit={PAGE_SIZE}
+                      totalItems={totalItems}
+                      currentCount={users.length}
+                      totalPages={totalPages}
+                      label="staff accounts"
+                      onPageChange={setCurrentPage}
+                    />
                 </div>
             </>
         )}

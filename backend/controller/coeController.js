@@ -38,21 +38,17 @@ export const createRequest = async (req, res) => {
 // List requests (admin) or filter
 export const listRequests = async (req, res) => {
   try {
-    const { status, userId, q, page = 1, limit = 50 } = req.query;
+    const { status, userId, q } = req.query;
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const limit = Math.max(1, Number.parseInt(req.query.limit, 10) || 10);
     const filter = {};
     if (status && status !== "All") filter.status = status;
     if (userId) filter.$or = [{ guard: userId }, { subadmin: userId }];
 
-    const skip = (page - 1) * limit;
-    const [items, total] = await Promise.all([
-      COERequest.find(filter)
-        .populate('guard', 'fullName email guardId phoneNumber position createdAt')
-        .populate('subadmin', 'name email position contactNumber createdAt') // populate subadmin if needed
-        .sort({ requestedAt: -1 })
-        .skip(Number(skip))
-        .limit(Number(limit)),
-      COERequest.countDocuments(filter),
-    ]);
+    const items = await COERequest.find(filter)
+      .populate('guard', 'fullName email guardId phoneNumber position createdAt')
+      .populate('subadmin', 'name email position contactNumber createdAt')
+      .sort({ requestedAt: -1 });
 
     // normalize for frontend
     const normalizedItems = items.map(item => {
@@ -82,7 +78,12 @@ export const listRequests = async (req, res) => {
       ? normalizedItems.filter(i => i.name.toLowerCase().includes(q.toLowerCase()))
       : normalizedItems;
 
-    res.json({ items: filteredItems, total, page: Number(page), limit: Number(limit) });
+    const total = filteredItems.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const startIndex = (page - 1) * limit;
+    const paginatedItems = filteredItems.slice(startIndex, startIndex + limit);
+
+    res.json({ items: paginatedItems, total, page, limit, totalPages });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });

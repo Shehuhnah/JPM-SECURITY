@@ -11,8 +11,11 @@ import 'react-toastify/dist/ReactToastify.css';
 import { format, isSameDay } from 'date-fns'; // Added isSameDay
 import { DayPicker } from 'react-day-picker';
 import "react-day-picker/dist/style.css";
+import TablePagination from "../components/admin/TablePagination.jsx";
 
 const api = import.meta.env.VITE_API_URL;
+const PAGE_SIZE = 10;
+const DETAIL_PAGE_SIZE = 10;
 
 export default function GuardAttendancePage() {
   const [filter, setFilter] = useState("All");
@@ -23,6 +26,9 @@ export default function GuardAttendancePage() {
   // Guard Details Modal State
   const [selectedGuardId, setSelectedGuardId] = useState(null);
   const [selectedGuardAttendance, setSelectedGuardAttendance] = useState([]);
+  const [detailPage, setDetailPage] = useState(1);
+  const [detailTotalItems, setDetailTotalItems] = useState(0);
+  const [detailTotalPages, setDetailTotalPages] = useState(1);
   
   // Image Preview Modal State
   const [previewImage, setPreviewImage] = useState(null);
@@ -36,6 +42,9 @@ export default function GuardAttendancePage() {
   // Main Data State
   const [allAttendance, setAllAttendance] = useState([]);
   const [selectedClient, setSelectedClient] = useState(""); 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   
   // Top Filter State
   const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
@@ -54,10 +63,23 @@ export default function GuardAttendancePage() {
     try {
       setLoadingPage(true);
       setError(null);
-      const res = await fetch(`${api}/api/attendance`, { credentials: "include" });
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        limit: String(PAGE_SIZE),
+      });
+
+      if (search.trim()) params.set("q", search.trim());
+      if (selectedClient) params.set("client", selectedClient);
+      if (filter !== "All") params.set("status", filter);
+      if (selectedDateRange.from) params.set("from", format(selectedDateRange.from, "yyyy-MM-dd"));
+      if (selectedDateRange.to) params.set("to", format(selectedDateRange.to, "yyyy-MM-dd"));
+
+      const res = await fetch(`${api}/api/attendance?${params.toString()}`, { credentials: "include" });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Failed to fetch attendance");
-      setAllAttendance(data);
+      setAllAttendance(data.items || []);
+      setTotalItems(data.total || 0);
+      setTotalPages(data.totalPages || 1);
     } catch (err) {
       setError(err.message || "Failed to fetch attendance");
     } finally {
@@ -68,18 +90,39 @@ export default function GuardAttendancePage() {
   useEffect(() => {
     if (!admin && !loading) { navigate("/admin/Login"); return; }
     document.title = "Attendance | JPM Security Agency"
-    fetchAllAttendance();
   }, [admin, loading, navigate]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedClient, filter, selectedDateRange.from, selectedDateRange.to]);
+
+  useEffect(() => {
+    if (admin) {
+      fetchAllAttendance();
+    }
+  }, [admin, currentPage, search, selectedClient, filter, selectedDateRange.from, selectedDateRange.to]);
+
+  useEffect(() => {
+    if (selectedGuardId) {
+      setDetailPage(1);
+    }
+  }, [selectedGuardId]);
 
   useEffect(() => {
     if (!selectedGuardId) return;
     const fetchGuardAttendance = async () => {
       try {
         setLoadingPage(true);
-        const res = await fetch(`${api}/api/attendance/${selectedGuardId}`, { credentials: "include" });
+        const params = new URLSearchParams({
+          page: String(detailPage),
+          limit: String(DETAIL_PAGE_SIZE),
+        });
+        const res = await fetch(`${api}/api/attendance/${selectedGuardId}?${params.toString()}`, { credentials: "include" });
         const data = await res.json();
         if (!res.ok) throw new Error(data?.message || "Failed to fetch guard attendance");
-        setSelectedGuardAttendance(data);
+        setSelectedGuardAttendance(data.items || []);
+        setDetailTotalItems(data.total || 0);
+        setDetailTotalPages(data.totalPages || 1);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -87,7 +130,7 @@ export default function GuardAttendancePage() {
       }
     };
     fetchGuardAttendance();
-  }, [selectedGuardId]);
+  }, [selectedGuardId, detailPage]);
 
   // --- NEW LOGIC: Extract dates where guards actually worked for the selected client ---
   const daysWithData = useMemo(() => {
@@ -105,25 +148,6 @@ export default function GuardAttendancePage() {
 
   // Derive unique client names
   const clientList = [...new Set(allAttendance.map(a => a.scheduleId?.client).filter(Boolean))];
-
-  // Filter Logic (Top Filters) - [Remains the same as previous code]
-  const filteredAttendance = allAttendance
-    .filter(a => {
-      if (!selectedDateRange.from) return true;
-      if (!a.timeIn) return false;
-      let recordDate;
-      try { recordDate = new Date(a.timeIn); if (isNaN(recordDate.getTime())) return false; } catch (e) { return false; }
-      recordDate.setHours(0, 0, 0, 0);
-      const fromDate = new Date(selectedDateRange.from); fromDate.setHours(0, 0, 0, 0);
-      if (selectedDateRange.to) {
-        const toDate = new Date(selectedDateRange.to); toDate.setHours(0, 0, 0, 0);
-        return recordDate >= fromDate && recordDate <= toDate;
-      }
-      return recordDate.getTime() === fromDate.getTime();
-    })
-    .filter(a => selectedClient === "" || (a.scheduleId?.client || "").toLowerCase() === selectedClient.toLowerCase())
-    .filter(a => filter === "All" ? true : (a.status || "").toLowerCase() === filter.toLowerCase())
-    .filter(a => (a.guard?.fullName || "").toLowerCase().includes(search.toLowerCase()));
 
   // Open the download modal
   const openDownloadModal = (clientName) => {
@@ -189,12 +213,13 @@ export default function GuardAttendancePage() {
 
   // Add the '?' before ._id
   const selectedGuardInfo = allAttendance.find(a => a.guard?._id === selectedGuardId)?.guard;
-  const sortedAttendance = [...filteredAttendance].sort((a, b) => new Date(b.timeIn) - new Date(a.timeIn));
-  const groupedAttendance = sortedAttendance.reduce((acc, rec) => {
+  const rowNumberMap = new Map(
+    allAttendance.map((record, index) => [record._id, (currentPage - 1) * PAGE_SIZE + index + 1])
+  );
+  const groupedAttendance = allAttendance.reduce((acc, rec) => {
     const client = rec.scheduleId?.client || "Unassigned Client";
     if (!acc[client]) acc[client] = [];
-    const isGuardExists = acc[client].some((existingRec) => existingRec.guard?._id === rec.guard?._id);
-    if (!isGuardExists) { acc[client].push(rec); }
+    acc[client].push(rec);
     return acc;
   }, {});
 
@@ -221,7 +246,7 @@ export default function GuardAttendancePage() {
                   <div>
                       <h2 className="text-2xl md:text-3xl font-bold tracking-wide text-white">Guards Attendance</h2>
                       <div className="flex items-center gap-2 text-sm text-slate-400 mt-1">
-                          <span>Showing <span className="text-white font-semibold">{filteredAttendance.length}</span> records</span>
+                          <span>Showing <span className="text-white font-semibold">{totalItems}</span> records</span>
                           <span>•</span>
                           <span>{format(new Date(), "MMM dd, yyyy")}</span>
                       </div>
@@ -275,6 +300,7 @@ export default function GuardAttendancePage() {
                               <table className="w-full text-left text-sm">
                                   <thead className="bg-[#0f172a]/50 text-gray-400 border-b border-gray-700/50">
                                       <tr>
+                                          <th className="px-6 py-4 font-medium">#</th>
                                           <th className="px-6 py-4 font-medium">Guard Name</th>
                                           <th className="px-6 py-4 font-medium">Duty Station</th>
                                           <th className="px-6 py-4 font-medium">Shift Info</th>
@@ -285,6 +311,7 @@ export default function GuardAttendancePage() {
                                   <tbody className="divide-y divide-gray-700/50">
                                       {records.map((rec) => (
                                           <tr key={rec._id} className="hover:bg-white/5 transition">
+                                              <td className="px-6 py-4 text-sm text-gray-400">{rowNumberMap.get(rec._id)}</td>
                                               <td className="px-6 py-4"><div className="font-medium text-white flex items-center gap-2"><User size={16} className="text-gray-500" />{rec.guard?.fullName || "Unknown Guard"}</div></td>
                                               <td className="px-6 py-4 text-gray-300">{rec.scheduleId?.deploymentLocation || "—"}</td>
                                               <td className="px-6 py-4"><div className="text-gray-300">{rec.scheduleId?.position}</div><div className="text-xs text-gray-500">{rec.scheduleId?.shiftType}</div></td>
@@ -303,6 +330,7 @@ export default function GuardAttendancePage() {
                                           <div className="flex items-center gap-3">
                                               <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-gray-400"><User size={20} /></div>
                                               <div>
+                                                  <div className="text-xs font-medium text-gray-500">#{rowNumberMap.get(rec._id)}</div>
                                                   <div className="font-medium text-white">{rec.guard?.fullName}</div>
                                                   <div className="text-xs text-gray-500 flex items-center gap-1"><MapPin size={10} />{rec.scheduleId?.deploymentLocation}</div>
                                               </div>
@@ -320,6 +348,16 @@ export default function GuardAttendancePage() {
                   ))
               ) : <div className="flex flex-col items-center justify-center py-20 text-gray-500 bg-[#1e293b]/30 rounded-2xl border border-gray-800 border-dashed"><Clock size={48} className="mb-4 opacity-20" /><p>No attendance records found matching your filters.</p></div>}
           </div>
+
+          <TablePagination
+            page={currentPage}
+            limit={PAGE_SIZE}
+            totalItems={totalItems}
+            currentCount={allAttendance.length}
+            totalPages={totalPages}
+            label="attendance records"
+            onPageChange={setCurrentPage}
+          />
       </main>
 
       {/* --- DOWNLOAD REPORT MODAL --- */}
@@ -504,6 +542,7 @@ export default function GuardAttendancePage() {
                           <table className="w-full border-collapse text-gray-100">
                             <thead>
                               <tr className="uppercase text-xs bg-[#234C6A] text-gray-100">
+                                <th className="px-3 py-3 rounded-l-lg">#</th>
                                 <th className="px-3 py-3 rounded-l-lg">Date</th>
                                 <th className="px-3 py-3">Site</th>
                                 <th className="px-3 py-3">Time In</th>
@@ -513,7 +552,7 @@ export default function GuardAttendancePage() {
                               </tr>
                             </thead>
                             <tbody className="space-y-2">
-                              {selectedGuardAttendance.map((rec) => {
+                              {selectedGuardAttendance.map((rec, index) => {
                                 let working = "-";
                                 if (rec.timeIn && rec.timeOut) {
                                   const t1 = new Date(rec.timeIn);
@@ -526,6 +565,7 @@ export default function GuardAttendancePage() {
                                 }
                                 return (
                                   <tr key={rec._id} className="text-center border-b border-gray-800 hover:bg-[#2a3650] transition group">
+                                    <td className="px-3 py-3 text-sm">{(detailPage - 1) * DETAIL_PAGE_SIZE + index + 1}</td>
                                     <td className="px-3 py-3 text-sm">{new Date(rec.timeIn).toLocaleDateString()}</td>
                                     <td className="px-3 py-3 text-sm"><div className="flex flex-col items-center gap-1"><span className="block max-w-[200px] truncate text-gray-300">{rec.location?.address || "No location"}</span>{rec.location?.latitude && (<a href={`https://maps.google.com/?q=${rec.location.latitude},${rec.location.longitude}`} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1"><MapPin size={12} /> Map</a>)}</div></td>
                                     <td className="px-3 py-3 text-sm font-mono text-emerald-400">{new Date(rec.timeIn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
@@ -539,7 +579,7 @@ export default function GuardAttendancePage() {
                           </table>
                         </div>
                         <div className="md:hidden space-y-4">
-                          {selectedGuardAttendance.map((rec) => {
+                          {selectedGuardAttendance.map((rec, index) => {
                              let working = "-";
                              if (rec.timeIn && rec.timeOut) {
                                const t1 = new Date(rec.timeIn);
@@ -553,7 +593,10 @@ export default function GuardAttendancePage() {
                              return (
                               <div key={rec._id} className="bg-slate-800/50 border border-gray-700 rounded-xl p-4 flex flex-col gap-3">
                                 <div className="flex justify-between items-start border-b border-gray-700 pb-2">
-                                  <div className="flex items-center gap-2 text-white font-medium"><CalendarDays size={16} className="text-blue-400"/>{new Date(rec.timeIn).toLocaleDateString()}</div>
+                                  <div>
+                                    <div className="text-xs font-medium text-gray-500">#{(detailPage - 1) * DETAIL_PAGE_SIZE + index + 1}</div>
+                                    <div className="flex items-center gap-2 text-white font-medium"><CalendarDays size={16} className="text-blue-400"/>{new Date(rec.timeIn).toLocaleDateString()}</div>
+                                  </div>
                                   <div className="text-xs bg-slate-700 px-2 py-1 rounded text-gray-300">Duration: <span className="text-white font-bold">{working}</span></div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
@@ -569,9 +612,20 @@ export default function GuardAttendancePage() {
                       </>
                     ) : <div className="flex flex-col items-center justify-center h-40 sm:h-64 text-gray-400"><Clock size={48} className="mb-3 opacity-20" /><p>No attendance records found.</p></div>}
                   </div>
+                  <div className="px-4 sm:px-6">
+                    <TablePagination
+                      page={detailPage}
+                      limit={DETAIL_PAGE_SIZE}
+                      totalItems={detailTotalItems}
+                      currentCount={selectedGuardAttendance.length}
+                      totalPages={detailTotalPages}
+                      label="attendance entries"
+                      onPageChange={setDetailPage}
+                    />
+                  </div>
                   {/* Footer */}
                   <div className="px-4 sm:px-6 py-3 text-xs sm:text-sm text-gray-400 border-t border-gray-700 bg-[#1e293b] shrink-0 text-center sm:text-left">
-                    Total Records: <span className="text-white font-semibold">{selectedGuardAttendance.length}</span>
+                    Total Records: <span className="text-white font-semibold">{detailTotalItems}</span>
                   </div>
                 </Dialog.Panel>
               </Transition.Child>

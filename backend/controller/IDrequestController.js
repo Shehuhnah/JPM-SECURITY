@@ -1,6 +1,11 @@
 import IDRequest from "../models/IDRequest.model.js";
 import mongoose from "mongoose";
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 // --- CREATE REQUEST ---
 export const createRequest = async (req, res) => {
   try {
@@ -42,15 +47,63 @@ export const createRequest = async (req, res) => {
 // --- GET ALL REQUESTS (For Admin Dashboard) ---
 export const getAllRequests = async (req, res) => {
   try {
-    const requests = await IDRequest.find()
+    const shouldPaginate =
+      req.query.page !== undefined ||
+      req.query.limit !== undefined ||
+      req.query.status !== undefined ||
+      req.query.q !== undefined;
+
+    if (!shouldPaginate) {
+      const requests = await IDRequest.find()
+        .populate("guard", "fullName position email guardId")
+        .populate("admin", "name email position role")
+        .sort({ createdAt: -1 });
+
+      return res.status(200).json({
+        success: true,
+        count: requests.length,
+        data: requests,
+      });
+    }
+
+    const page = parsePositiveInt(req.query.page, 1);
+    const limit = parsePositiveInt(req.query.limit, 10);
+    const status = req.query.status;
+    const q = req.query.q?.trim().toLowerCase();
+
+    const filter = {};
+
+    if (status && status !== "All") {
+      filter.status = status;
+    }
+
+    const requests = await IDRequest.find(filter)
       .populate("guard", "fullName position email guardId") // Guard fields
       .populate("admin", "name email position role")        // Admin fields (Note: 'name' not 'fullName')
       .sort({ createdAt: -1 });
 
+    const filteredRequests = q
+      ? requests.filter((request) => {
+          const guardName = request.guard?.fullName?.toLowerCase() || "";
+          const adminName = request.admin?.name?.toLowerCase() || "";
+          const requestType = request.requestType?.toLowerCase() || "";
+          return guardName.includes(q) || adminName.includes(q) || requestType.includes(q);
+        })
+      : requests;
+
+    const total = filteredRequests.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const startIndex = (page - 1) * limit;
+    const items = filteredRequests.slice(startIndex, startIndex + limit);
+
     res.status(200).json({
       success: true,
-      count: requests.length,
-      data: requests,
+      count: total,
+      data: items,
+      total,
+      page,
+      limit,
+      totalPages,
     });
   } catch (error) {
     console.error("Error fetching ID requests:", error);

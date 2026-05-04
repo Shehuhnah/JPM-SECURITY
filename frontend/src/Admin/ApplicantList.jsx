@@ -27,7 +27,9 @@ import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
+import TablePagination from "../components/admin/TablePagination.jsx";
 const api = import.meta.env.VITE_API_URL;
+const PAGE_SIZE = 10;
 
 export default function ApplicantsList() {
   const [applicants, setApplicants] = useState([]);
@@ -61,6 +63,9 @@ export default function ApplicantsList() {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
   const [walkInModalOpen, setWalkInModalOpen] = useState(false);
   const [creatingWalkIn, setCreatingWalkIn] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [walkInForm, setWalkInForm] = useState({
     name: "",
     email: "",
@@ -145,10 +150,14 @@ export default function ApplicantsList() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to create walk-in applicant.");
 
-      setApplicants((prev) => [data, ...prev]);
       toast.success("Walk-in applicant added successfully.");
       setWalkInModalOpen(false);
       resetWalkInForm();
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        fetchApplicants();
+      }
     } catch (error) {
       toast.error(error.message || "Failed to create walk-in applicant.");
     } finally {
@@ -251,20 +260,37 @@ export default function ApplicantsList() {
     });
     setErrorMsg("");
     try {
-      const res = await fetch(`${api}/api/applicants`, { credentials: "include" });
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        limit: String(PAGE_SIZE),
+      });
+
+      if (search.trim()) params.set("q", search.trim());
+      if (statusFilter !== "All") params.set("status", statusFilter);
+      if (applicationTypeFilter !== "All") params.set("applicationType", applicationTypeFilter);
+
+      const res = await fetch(`${api}/api/applicants?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      setApplicants(Array.isArray(data) ? data : []);
+      setApplicants(Array.isArray(data.items) ? data.items : []);
+      setTotalItems(data.total || 0);
+      setTotalPages(data.totalPages || 1);
     } catch (err) {
       console.error("Fetch applicants error:", err);
       setApplicants([]);
+      setTotalItems(0);
+      setTotalPages(1);
       toast.error("Failed to fetch applicants.");
     }
   };
 
   useEffect(() => {
     if (user) fetchApplicants();
-  }, [user]);
+  }, [user, currentPage, search, statusFilter, applicationTypeFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, applicationTypeFilter]);
 
   const updateStatus = async (id, status) => {
     try {
@@ -494,16 +520,6 @@ export default function ApplicantsList() {
     );
   };
 
-  const normalizeApplicationType = (type) => (type === "Walk-in" ? "Walk-in" : "Online");
-
-  const filteredApplicants = applicants.filter((a) => {
-    const matchesSearch = a.name?.toLowerCase().includes(search.toLowerCase()) || a.email?.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "All" || a.status === statusFilter;
-    const matchesApplicationType =
-      applicationTypeFilter === "All" || normalizeApplicationType(a.applicationType) === applicationTypeFilter;
-    return matchesSearch && matchesStatus && matchesApplicationType;
-  });
-
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
   const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -661,6 +677,7 @@ export default function ApplicantsList() {
                 <table className="w-full text-left">
                     <thead className="bg-slate-800/50 border-b border-gray-700 text-gray-400 text-xs uppercase tracking-wider">
                         <tr>
+                            <th className="px-6 py-4 font-semibold">#</th>
                             <th className="px-6 py-4 font-semibold">Candidate</th>
                             <th className="px-6 py-4 font-semibold">Contact Info</th>
                             <th className="px-6 py-4 font-semibold">Position</th>
@@ -669,9 +686,9 @@ export default function ApplicantsList() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-700/50">
-                        {filteredApplicants.length === 0 ? (
+                        {applicants.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                                     <div className="flex flex-col items-center gap-2">
                                         <Search size={32} className="text-gray-600" />
                                         <p>No applicants found matching your criteria.</p>
@@ -679,8 +696,11 @@ export default function ApplicantsList() {
                                 </td>
                             </tr>
                         ) : (
-                            filteredApplicants.map((a) => (
+                            applicants.map((a, index) => (
                                 <tr key={a._id} className="group hover:bg-slate-800/50 transition duration-150">
+                                    <td className="px-6 py-4 text-sm text-gray-400">
+                                        {(currentPage - 1) * PAGE_SIZE + index + 1}
+                                    </td>
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-white">{a.name}</div>
                                         <div className="text-xs text-gray-500 flex items-center gap-2 mt-1">
@@ -711,10 +731,11 @@ export default function ApplicantsList() {
 
             {/* MOBILE VIEW: Cards (Replaces table on small screens) */}
             <div className="md:hidden grid gap-4">
-                {filteredApplicants.map((a) => (
+                {applicants.map((a, index) => (
                     <div key={a._id} className="bg-[#1e293b] border border-gray-700 rounded-xl p-4 shadow-sm">
                         <div className="flex justify-between items-start mb-3">
                             <div>
+                                <p className="text-xs font-medium text-gray-500">#{(currentPage - 1) * PAGE_SIZE + index + 1}</p>
                                 <h3 className="font-semibold text-white text-lg">{a.name}</h3>
                                 <p className="text-gray-400 text-sm">{a.position}</p>
                                 <div className="mt-2">{getApplicationTypeBadge(a.applicationType || "Online")}</div>
@@ -742,21 +763,15 @@ export default function ApplicantsList() {
             </div>
 
             {/* --- Pagination Footer --- */}
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-800 pt-6">
-                <p className="text-sm text-gray-500">
-                    Showing <span className="text-white font-medium">{filteredApplicants.length}</span> results
-                </p>
-                
-                {/* Placeholder Pagination Controls */}
-                <div className="flex items-center gap-2">
-                    <button className="p-2 rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 disabled:opacity-50">
-                        <ChevronLeft size={16} />
-                    </button>
-                    <button className="p-2 rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800">
-                        <ChevronRight size={16} />
-                    </button>
-                </div>
-            </div>
+            <TablePagination
+              page={currentPage}
+              limit={PAGE_SIZE}
+              totalItems={totalItems}
+              currentCount={applicants.length}
+              totalPages={totalPages}
+              label="applicants"
+              onPageChange={setCurrentPage}
+            />
 
             <footer className="mt-8 text-center text-gray-600 text-xs">
                 © {new Date().getFullYear()} JPM Security Agency — Portal

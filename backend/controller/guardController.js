@@ -5,11 +5,61 @@ import bcrypt from "bcryptjs";
 import { sendMail } from "../utils/mailer.js";
 import crypto from 'crypto';
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 // Get all guards
 export const getAllGuards = async (req, res) => {
   try {
-    const guards = await Guard.find().select("-password").sort({ createdAt: -1 }); // Exclude password from results
-    res.status(200).json(guards);
+    const shouldPaginate =
+      req.query.page !== undefined ||
+      req.query.limit !== undefined ||
+      req.query.position !== undefined ||
+      req.query.q !== undefined;
+
+    if (!shouldPaginate) {
+      const guards = await Guard.find().select("-password").sort({ createdAt: -1 });
+      return res.status(200).json(guards);
+    }
+
+    const page = parsePositiveInt(req.query.page, 1);
+    const limit = parsePositiveInt(req.query.limit, 10);
+    const position = req.query.position;
+    const q = req.query.q?.trim();
+
+    const filter = {};
+
+    if (position && position !== "All") {
+      filter.position = position;
+    }
+
+    if (q) {
+      filter.$or = [
+        { fullName: { $regex: q, $options: "i" } },
+        { email: { $regex: q, $options: "i" } },
+        { guardId: { $regex: q, $options: "i" } },
+        { SSSID: { $regex: q, $options: "i" } },
+        { PhilHealthID: { $regex: q, $options: "i" } },
+        { PagibigID: { $regex: q, $options: "i" } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      Guard.find(filter).select("-password").sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Guard.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
   } catch (error) {
     res.status(500).json({ message: "Error fetching guards", error: error.message });
   }

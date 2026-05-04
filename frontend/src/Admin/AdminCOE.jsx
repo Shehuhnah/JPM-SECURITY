@@ -7,8 +7,10 @@ import {
 import { generateAndDownloadCOE } from "../utils/pdfGenerator";
 import { useAuth } from "../hooks/useAuth";
 import header from "../assets/headerpdf/header.png";
+import TablePagination from "../components/admin/TablePagination.jsx";
 
 const api = import.meta.env.VITE_API_URL;
+const PAGE_SIZE = 10;
 
 export default function AdminCOE() {
   const [search, setSearch] = useState("");
@@ -30,13 +32,24 @@ export default function AdminCOE() {
   // UI States
   const [isFading, setIsFading] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   const { user, loading } = useAuth();
 
   const fetchRequests = async () => {
     try {
       setIsLoadingData(true);
-      const res = await fetch(`${api}/api/coe`, { credentials: 'include' });
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        limit: String(PAGE_SIZE),
+      });
+
+      if (search.trim()) params.set("q", search.trim());
+      if (statusFilter !== "All") params.set("status", statusFilter);
+
+      const res = await fetch(`${api}/api/coe?${params.toString()}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load requests');
 
       const data = await res.json();
@@ -62,6 +75,8 @@ export default function AdminCOE() {
       });
 
       setRequests(mapped);
+      setTotalItems(data.total || 0);
+      setTotalPages(data.totalPages || 1);
     } catch (err) {
       console.error(err);
     } finally {
@@ -71,7 +86,11 @@ export default function AdminCOE() {
 
   useEffect(() => {
     fetchRequests();
-  }, []);
+  }, [currentPage, search, statusFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter]);
 
   // Toast helper
   const showToast = (message, type) => {
@@ -222,13 +241,6 @@ export default function AdminCOE() {
     }
   };
 
-  // Filtering
-  const filtered = requests.filter((r) => {
-    const name = r.name || ""; 
-    return (statusFilter === "All" || r.status === statusFilter) &&
-           name.toLowerCase().includes(search.toLowerCase());
-  });
-
   return (
     <div className="flex min-h-screen bg-slate-900/50 text-gray-100 font-sans">
       <main className="flex-1 flex flex-col p-4 md:p-6">
@@ -292,7 +304,7 @@ export default function AdminCOE() {
                 <FileText size={40} className="mb-4 opacity-50" />
                 <p>Loading requests...</p>
              </div>
-        ) : filtered.length === 0 ? (
+        ) : requests.length === 0 ? (
              <div className="flex flex-col items-center justify-center py-20 text-gray-500 bg-[#1e293b]/30 rounded-2xl border border-gray-800 border-dashed">
                 <FileText size={48} className="mb-4 opacity-20" />
                 <p>No COE requests found.</p>
@@ -304,6 +316,7 @@ export default function AdminCOE() {
                 <table className="w-full text-left border-collapse">
                     <thead className="bg-[#0f172a]/50 text-gray-400 border-b border-gray-700/50 text-xs uppercase tracking-wider">
                     <tr>
+                        <th className="px-6 py-4 font-semibold">#</th>
                         <th className="px-6 py-4 font-semibold">Requester Details</th>
                         <th className="px-6 py-4 font-semibold">Purpose</th>
                         <th className="px-6 py-4 font-semibold">Date Requested</th>
@@ -312,8 +325,11 @@ export default function AdminCOE() {
                     </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-700/50">
-                    {filtered.map((r) => (
+                    {requests.map((r, index) => (
                         <tr key={r.id} className="hover:bg-white/5 transition">
+                        <td className="px-6 py-4 text-sm text-gray-400">
+                            {(currentPage - 1) * PAGE_SIZE + index + 1}
+                        </td>
                         <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                                 <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-gray-300 border border-slate-600">
@@ -391,7 +407,7 @@ export default function AdminCOE() {
 
                 {/* --- MOBILE CARDS --- */}
                 <div className="md:hidden grid gap-4">
-                {filtered.map((r) => (
+                {requests.map((r, index) => (
                     <div key={r.id} className="bg-[#1e293b] border border-gray-700 rounded-xl p-4 shadow-sm flex flex-col gap-4">
                         <div className="flex justify-between items-start">
                             <div className="flex items-center gap-3">
@@ -399,6 +415,7 @@ export default function AdminCOE() {
                                     <User size={20} />
                                 </div>
                                 <div>
+                                    <p className="text-xs font-medium text-gray-500">#{(currentPage - 1) * PAGE_SIZE + index + 1}</p>
                                     <h3 className="font-semibold text-white">{r.name}</h3>
                                     <span className="text-xs text-blue-400">{r.position}</span>
                                 </div>
@@ -454,6 +471,16 @@ export default function AdminCOE() {
                     </div>
                 ))}
                 </div>
+
+                <TablePagination
+                  page={currentPage}
+                  limit={PAGE_SIZE}
+                  totalItems={totalItems}
+                  currentCount={requests.length}
+                  totalPages={totalPages}
+                  label="COE requests"
+                  onPageChange={setCurrentPage}
+                />
             </>
         )}
 

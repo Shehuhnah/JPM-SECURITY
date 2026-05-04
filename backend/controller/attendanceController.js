@@ -3,6 +3,11 @@ import Schedule from "../models/schedule.model.js";
 import Guard from "../models/guard.model.js";
 import { generateWorkHoursPDF, generateWorkHoursByClientPDF } from "../utils/workingHoursPdfGenerator.js";
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 /**
  * @desc    Guard performs time-in for a specific schedule
  * @route   POST /api/attendance/time-in
@@ -130,6 +135,38 @@ export const updateAttendance = async (req, res) => {
  */
 export const getAttendances = async (req, res) => {
   try {
+    const shouldPaginate =
+      req.query.page !== undefined ||
+      req.query.limit !== undefined ||
+      req.query.status !== undefined ||
+      req.query.client !== undefined ||
+      req.query.q !== undefined ||
+      req.query.from !== undefined ||
+      req.query.to !== undefined;
+
+    if (!shouldPaginate) {
+      const attendances = await Attendance.find()
+        .populate({
+            path: 'guard',
+            select: 'fullName email guardId'
+        })
+        .populate({
+            path: 'scheduleId',
+            select: 'client deploymentLocation position shiftType timeIn timeOut'
+        })
+        .sort({ createdAt: -1 });
+
+      return res.json(attendances);
+    }
+
+    const page = parsePositiveInt(req.query.page, 1);
+    const limit = parsePositiveInt(req.query.limit, 10);
+    const status = req.query.status;
+    const client = req.query.client;
+    const q = req.query.q?.trim().toLowerCase();
+    const from = req.query.from;
+    const to = req.query.to;
+
     const attendances = await Attendance.find()
       .populate({
           path: 'guard',
@@ -141,7 +178,77 @@ export const getAttendances = async (req, res) => {
       })
       .sort({ createdAt: -1 });
 
-    res.json(attendances);
+    const filteredAttendances = attendances.filter((attendance) => {
+      const recordClient = attendance.scheduleId?.client || "";
+      const guardName = attendance.guard?.fullName?.toLowerCase() || "";
+      const recordStatus = attendance.status || "";
+
+      if (status && status !== "All" && recordStatus.toLowerCase() !== status.toLowerCase()) {
+        return false;
+      }
+
+      if (client && recordClient.toLowerCase() !== client.toLowerCase()) {
+        return false;
+      }
+
+      if (q && !guardName.includes(q)) {
+        return false;
+      }
+
+      if (from || to) {
+        if (!attendance.timeIn) {
+          return false;
+        }
+
+        const recordDate = new Date(attendance.timeIn);
+        if (Number.isNaN(recordDate.getTime())) {
+          return false;
+        }
+
+        recordDate.setHours(0, 0, 0, 0);
+
+        if (from) {
+          const fromDate = new Date(from);
+          fromDate.setHours(0, 0, 0, 0);
+          if (recordDate < fromDate) {
+            return false;
+          }
+        }
+
+        if (to) {
+          const toDate = new Date(to);
+          toDate.setHours(0, 0, 0, 0);
+          if (recordDate > toDate) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    });
+
+    const uniqueRecords = [];
+    const seen = new Set();
+
+    for (const attendance of filteredAttendances) {
+      const guardId = attendance.guard?._id?.toString();
+      const recordClient = attendance.scheduleId?.client || "Unassigned Client";
+      const key = `${recordClient}:${guardId}`;
+
+      if (!guardId || seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      uniqueRecords.push(attendance);
+    }
+
+    const total = uniqueRecords.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const startIndex = (page - 1) * limit;
+    const items = uniqueRecords.slice(startIndex, startIndex + limit);
+
+    res.json({ items, total, page, limit, totalPages });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -155,14 +262,44 @@ export const getAttendances = async (req, res) => {
 export const getGuardAttendance = async (req, res) => {
   try {
     const guardId = req.params.id;
-    const attendance = await Attendance.find({ guard: guardId })
+    const shouldPaginate =
+      req.query.page !== undefined ||
+      req.query.limit !== undefined;
+
+    if (!shouldPaginate) {
+      const attendance = await Attendance.find({ guard: guardId })
         .populate({
             path: 'scheduleId',
             select: 'client deploymentLocation shiftType timeIn timeOut'
         })
         .sort({ createdAt: -1 });
 
-    res.json(attendance);
+      return res.json(attendance);
+    }
+
+    const page = parsePositiveInt(req.query.page, 1);
+    const limit = parsePositiveInt(req.query.limit, 10);
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      Attendance.find({ guard: guardId })
+        .populate({
+            path: 'scheduleId',
+            select: 'client deploymentLocation shiftType timeIn timeOut'
+        })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Attendance.countDocuments({ guard: guardId }),
+    ]);
+
+    res.json({
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

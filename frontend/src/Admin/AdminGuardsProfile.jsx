@@ -21,8 +21,10 @@ import Loader from "../components/Loading.jsx";
 import DeleteUserModal from "../components/DeleteUserModal";
 import { useAuth } from "../hooks/useAuth.js"
 import { useNavigate } from "react-router-dom";
+import TablePagination from "../components/admin/TablePagination.jsx";
 
 const api = import.meta.env.VITE_API_URL;
+const PAGE_SIZE = 10;
 
 export default function GuardTable() {
   const { user: admin, loading } = useAuth();
@@ -41,6 +43,9 @@ export default function GuardTable() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [selectedGuard, setSelectedGuard] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Define initial state constant to reuse for resetting
   const initialFormState = {
@@ -74,35 +79,38 @@ export default function GuardTable() {
       navigate("/admin/login");
       return;
     }
-    const fetchGuards = async () => {
-      try {
-        const res = await fetch(`${api}/api/guards`, {
-         credentials: "include",
-        });
-        if (!res.ok) throw new Error("Failed to fetch guards");
-
-        const data = await res.json();
-        setGuards(data);
-      } catch (err) {
-        console.error("Fetch guards error:", err);
-      } finally {
-        setLoadingPage(false);
-      }
-    };
-
-    fetchGuards();
   }, [admin, loading, navigate]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filter]);
+
+  useEffect(() => {
+    if (admin) {
+      handleRefresh(currentPage);
+    }
+  }, [admin, currentPage, search, filter]);
 
   // --- Handlers ---
 
-  const handleRefresh = async () => {
+  const handleRefresh = async (page = currentPage) => {
     try {
       setLoadingPage(true);
-      const res = await fetch(`${api}/api/guards`, {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(PAGE_SIZE),
+      });
+
+      if (search.trim()) params.set("q", search.trim());
+      if (filter !== "All") params.set("position", filter);
+
+      const res = await fetch(`${api}/api/guards?${params.toString()}`, {
          credentials: "include",
         });
       const data = await res.json();
-      setGuards(data);
+      setGuards(data.items || []);
+      setTotalItems(data.total || 0);
+      setTotalPages(data.totalPages || 1);
       setForm(initialFormState); // Reset form on refresh
     } catch (err) {
       console.error("Fetch users error:", err);
@@ -263,18 +271,6 @@ export default function GuardTable() {
     </div>
   );
 
-  // Filter Logic
-  const filteredData = guards.filter(
-    (g) =>
-      (filter === "All" || g.position === filter) &&
-      (g.fullName?.toLowerCase().includes(search.toLowerCase()) ||
-        g.email?.toLowerCase().includes(search.toLowerCase()) ||
-        g.guardId?.toLowerCase().includes(search.toLowerCase()) ||
-        g.SSSID?.toLowerCase().includes(search.toLowerCase()) ||
-        g.PhilHealthID?.toLowerCase().includes(search.toLowerCase()) ||
-        g.PagibigID?.toLowerCase().includes(search.toLowerCase()))
-  );
-  
   const getStatusBadge = (status) => {
     const styles = {
         Active: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
@@ -368,6 +364,7 @@ export default function GuardTable() {
               <table className="w-full text-left border-collapse">
                   <thead className="bg-slate-800/50 border-b border-gray-700 text-gray-400 text-xs uppercase tracking-wider">
                       <tr>
+                          <th className="px-6 py-4 font-semibold">#</th>
                           <th className="px-6 py-4 font-semibold">Guard Profile</th>
                           <th className="px-6 py-4 font-semibold">Position</th>
                           <th className="px-6 py-4 font-semibold">Contact Info</th>
@@ -376,9 +373,12 @@ export default function GuardTable() {
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700/50">
-                      {filteredData.length > 0 ? (
-                          filteredData.map((g, i) => (
-                              <tr key={i} className="group hover:bg-slate-800/50 transition duration-150">
+                      {guards.length > 0 ? (
+                          guards.map((g, index) => (
+                              <tr key={g._id} className="group hover:bg-slate-800/50 transition duration-150">
+                                  <td className="px-6 py-4 text-sm text-gray-400">
+                                      {(currentPage - 1) * PAGE_SIZE + index + 1}
+                                  </td>
                                   <td className="px-6 py-4">
                                       <div className="flex items-center gap-3">
                                           <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-300">
@@ -424,7 +424,7 @@ export default function GuardTable() {
                           ))
                       ) : (
                           <tr>
-                              <td colSpan="5" className="text-center py-12 text-gray-500">
+                              <td colSpan="6" className="text-center py-12 text-gray-500">
                                   <div className="flex flex-col items-center gap-2">
                                       <Shield size={32} className="text-gray-700" />
                                       <p>No guards found matching your search.</p>
@@ -438,14 +438,15 @@ export default function GuardTable() {
 
           {/* MOBILE VIEW: Cards */}
           <div className="md:hidden grid gap-4">
-              {filteredData.length > 0 ? filteredData.map((g, i) => (
-                  <div key={i} className="bg-[#1e293b] border border-gray-700 rounded-xl p-4 shadow-sm flex flex-col gap-4">
+              {guards.length > 0 ? guards.map((g, index) => (
+                  <div key={g._id} className="bg-[#1e293b] border border-gray-700 rounded-xl p-4 shadow-sm flex flex-col gap-4">
                       <div className="flex justify-between items-start">
                           <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-blue-500 border border-slate-700">
                                   <UserCheck size={20} />
                               </div>
                               <div>
+                                  <p className="text-xs font-medium text-gray-500">#{(currentPage - 1) * PAGE_SIZE + index + 1}</p>
                                   <h3 className="font-semibold text-white">{g.fullName}</h3>
                                   <span className="text-xs text-gray-400">ID: {g.guardId}</span>
                               </div>
@@ -484,6 +485,16 @@ export default function GuardTable() {
                   <div className="text-center py-10 text-gray-500">No guards found.</div>
               )}
           </div>
+
+          <TablePagination
+            page={currentPage}
+            limit={PAGE_SIZE}
+            totalItems={totalItems}
+            currentCount={guards.length}
+            totalPages={totalPages}
+            label="guards"
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
 

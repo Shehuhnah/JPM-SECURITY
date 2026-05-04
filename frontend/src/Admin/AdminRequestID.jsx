@@ -17,18 +17,22 @@ import {
 import { Dialog, Transition } from "@headlessui/react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import TablePagination from "../components/admin/TablePagination.jsx";
 
 const api = import.meta.env.VITE_API_URL;
+const PAGE_SIZE = 10;
 
 export default function RequestedIDs() {
   const { user, loading } = useAuth(); 
   const navigate = useNavigate();
 
   const [requests, setRequests] = useState([]);
-  const [filteredRequests, setFilteredRequests] = useState([]);
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [loadingPage, setLoadingPage] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Modal States
   const [approveModal, setApproveModal] = useState(false);
@@ -53,7 +57,15 @@ export default function RequestedIDs() {
       }
 
       setLoadingPage(true);
-      const res = await fetch(`${api}/api/idrequests`, {
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        limit: String(PAGE_SIZE),
+      });
+
+      if (search.trim()) params.set("q", search.trim());
+      if (filter !== "All") params.set("status", filter);
+
+      const res = await fetch(`${api}/api/idrequests?${params.toString()}`, {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
       });
@@ -63,10 +75,12 @@ export default function RequestedIDs() {
 
       if (result.success && Array.isArray(result.data)) {
         setRequests(result.data);
-        setFilteredRequests(result.data);
+        setTotalItems(result.total || result.count || 0);
+        setTotalPages(result.totalPages || 1);
       } else {
         setRequests([]);
-        setFilteredRequests([]);
+        setTotalItems(0);
+        setTotalPages(1);
       }
     } catch (err) {
       console.error("❌ Failed to load ID requests:", err);
@@ -77,22 +91,11 @@ export default function RequestedIDs() {
 
   useEffect(() => {
     fetchRequests();
-  }, [user]);
+  }, [user, currentPage, search, filter]);
 
-  // Filter & Search Logic
   useEffect(() => {
-    let filtered = [...requests];
-    if (filter !== "All") filtered = filtered.filter((r) => r.status === filter);
-    if (search.trim()) {
-      filtered = filtered.filter(
-        (r) =>
-          r.guard?.fullName?.toLowerCase().includes(search.toLowerCase()) ||
-          r.admin?.name?.toLowerCase().includes(search.toLowerCase()) || // Added Admin search
-          r.requestType?.toLowerCase().includes(search.toLowerCase())
-      );
-    }
-    setFilteredRequests(filtered);
-  }, [filter, search, requests]);
+    setCurrentPage(1);
+  }, [search, filter]);
 
   // Handlers
   const handleApproveID = (id) => {
@@ -235,7 +238,7 @@ export default function RequestedIDs() {
              <IdCard size={40} className="mb-4 opacity-50" />
              <p>Loading requests...</p>
            </div>
-        ) : filteredRequests.length === 0 ? (
+        ) : requests.length === 0 ? (
            <div className="flex flex-col items-center justify-center py-20 text-gray-500 bg-[#1e293b]/30 rounded-2xl border border-gray-800 border-dashed">
              <FileText size={48} className="mb-4 opacity-20" />
              <p>No ID requests found.</p>
@@ -247,6 +250,7 @@ export default function RequestedIDs() {
               <table className="w-full text-left border-collapse">
                 <thead className="bg-[#0f172a]/50 text-gray-400 border-b border-gray-700/50 text-xs uppercase tracking-wider">
                   <tr>
+                    <th className="px-6 py-4 font-semibold">#</th>
                     <th className="px-6 py-4 font-semibold">User Details</th>
                     <th className="px-6 py-4 font-semibold">Request Type</th>
                     <th className="px-6 py-4 font-semibold">Date Requested</th>
@@ -257,8 +261,11 @@ export default function RequestedIDs() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700/50">
-                  {filteredRequests.map((req) => (
+                  {requests.map((req, index) => (
                     <tr key={req._id} className="hover:bg-white/5 transition">
+                      <td className="px-6 py-4 text-sm text-gray-400">
+                        {(currentPage - 1) * PAGE_SIZE + index + 1}
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-gray-300 border border-slate-600">
@@ -344,7 +351,7 @@ export default function RequestedIDs() {
 
             {/* --- MOBILE CARDS --- */}
             <div className="md:hidden grid gap-4">
-               {filteredRequests.map((req) => (
+               {requests.map((req, index) => (
                  <div key={req._id} className="bg-[#1e293b] border border-gray-700 rounded-xl p-4 shadow-sm flex flex-col gap-4">
                    <div className="flex justify-between items-start">
                       <div className="flex items-center gap-3">
@@ -352,6 +359,7 @@ export default function RequestedIDs() {
                             <User size={20} />
                          </div>
                          <div>
+                            <p className="text-xs font-medium text-gray-500">#{(currentPage - 1) * PAGE_SIZE + index + 1}</p>
                             <h3 className="font-semibold text-white">
                                 {req.guard?.fullName || req.admin?.name || "Unknown"}
                             </h3>
@@ -421,6 +429,16 @@ export default function RequestedIDs() {
                  </div>
                ))}
             </div>
+
+            <TablePagination
+              page={currentPage}
+              limit={PAGE_SIZE}
+              totalItems={totalItems}
+              currentCount={requests.length}
+              totalPages={totalPages}
+              label="ID requests"
+              onPageChange={setCurrentPage}
+            />
           </>
         )}
 

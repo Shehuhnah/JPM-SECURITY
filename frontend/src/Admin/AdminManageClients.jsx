@@ -17,8 +17,10 @@ import {
   User
 } from "lucide-react";
 import { Dialog, Transition } from "@headlessui/react";
+import TablePagination from "../components/admin/TablePagination.jsx";
 
 const api = import.meta.env.VITE_API_URL;
+const PAGE_SIZE = 10;
 
 // --- Components ---
 
@@ -235,21 +237,43 @@ export default function AdminManageClients() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [uniqueTypes, setUniqueTypes] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     if (!loading && !user) navigate("/admin/login");
     document.title = "Manage Clients | JPM Security Agency";
-    fetchClients();
   }, [user, loading, navigate]);
 
-  const fetchClients = async () => {
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filter]);
+
+  useEffect(() => {
+    if (user) {
+      fetchClients(currentPage);
+    }
+  }, [user, currentPage, search, filter]);
+
+  const fetchClients = async (page = currentPage) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${api}/api/clients/get-clients`, { credentials: "include" });
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(PAGE_SIZE),
+      });
+
+      if (search.trim()) params.set("q", search.trim());
+      if (filter !== "All") params.set("type", filter);
+
+      const response = await fetch(`${api}/api/clients/get-clients?${params.toString()}`, { credentials: "include" });
       if (!response.ok) throw new Error("Failed to fetch clients");
       const data = await response.json();
-      setClients(data);
-      setUniqueTypes([...new Set(data.map((c) => c.clientTypeOfEstablishment).filter(Boolean))]);
+      setClients(data.items || []);
+      setUniqueTypes(data.types || []);
+      setTotalItems(data.total || 0);
+      setTotalPages(data.totalPages || 1);
     } catch (error) {
       toast.error("Error loading clients", { theme: "dark", transition: Bounce });
     } finally {
@@ -291,13 +315,6 @@ export default function AdminManageClients() {
       toast.error(error.message, { theme: "dark", transition: Bounce });
     }
   };
-
-  const filteredClients = clients.filter(
-    (client) =>
-      (filter === "All" || client.clientTypeOfEstablishment === filter) &&
-      (client.clientName.toLowerCase().includes(search.toLowerCase()) ||
-       client.clientAddress.toLowerCase().includes(search.toLowerCase()))
-  );
 
   const openModal = (client = null) => {
     setSelectedClient(client);
@@ -377,7 +394,7 @@ export default function AdminManageClients() {
                 <Building size={48} className="mb-4 opacity-50" />
                 <p>Loading clients...</p>
              </div>
-        ) : filteredClients.length === 0 ? (
+        ) : clients.length === 0 ? (
              <div className="flex flex-col items-center justify-center h-[600px] text-gray-500">
                 <Building size={48} className="mb-4 opacity-20" />
                 <p>No clients found matching criteria.</p>
@@ -389,6 +406,7 @@ export default function AdminManageClients() {
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-[#0f172a] text-gray-400 text-xs uppercase tracking-wider">
                             <tr>
+                                <th className="px-6 py-4 font-semibold">#</th>
                                 <th className="px-6 py-4 font-semibold">Client Details</th>
                                 <th className="px-6 py-4 font-semibold">Contact Person</th>
                                 <th className="px-6 py-4 font-semibold">Contact No.</th>
@@ -397,8 +415,11 @@ export default function AdminManageClients() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-700/50">
-                            {filteredClients.map((client) => (
+                            {clients.map((client, index) => (
                                 <tr key={client._id} className="group hover:bg-slate-800/50 transition">
+                                    <td className="px-6 py-4 text-sm text-gray-400">
+                                        {(currentPage - 1) * PAGE_SIZE + index + 1}
+                                    </td>
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-white">{client.clientName}</div>
                                         <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
@@ -438,10 +459,11 @@ export default function AdminManageClients() {
 
                 {/* Mobile Cards */}
                 <div className="md:hidden grid gap-4 p-4">
-                    {filteredClients.map((client) => (
+                    {clients.map((client, index) => (
                         <div key={client._id} className="bg-[#1e293b] border border-gray-700 rounded-xl p-4 shadow-sm flex flex-col gap-3">
                             <div className="flex justify-between items-start">
                                 <div>
+                                    <p className="text-xs font-medium text-gray-500">#{(currentPage - 1) * PAGE_SIZE + index + 1}</p>
                                     <h3 className="font-bold text-white text-lg">{client.clientName}</h3>
                                     <span className="text-xs text-blue-400 bg-blue-900/20 px-2 py-0.5 rounded border border-blue-900/50">{client.clientTypeOfEstablishment}</span>
                                 </div>
@@ -471,6 +493,18 @@ export default function AdminManageClients() {
                             </div>
                         </div>
                     ))}
+                </div>
+
+                <div className="px-4 pb-4 md:px-6">
+                    <TablePagination
+                      page={currentPage}
+                      limit={PAGE_SIZE}
+                      totalItems={totalItems}
+                      currentCount={clients.length}
+                      totalPages={totalPages}
+                      label="clients"
+                      onPageChange={setCurrentPage}
+                    />
                 </div>
             </>
         )}

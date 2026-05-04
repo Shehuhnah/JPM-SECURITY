@@ -6,12 +6,64 @@ import { generateHiredApplicantsPDF } from "../utils/hiredApplicantsPdfGenerator
 
 const logoUrl = "https://jpm-security.onrender.com/assets/headerpdf/jpmlogo.png";
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 
 // 🟢 Get all applicants (latest first)
 export const getApplicants = async (req, res) => {
   try {
-    const applicants = await Applicant.find().sort({ createdAt: -1 });
-    res.status(200).json(applicants);
+    const shouldPaginate =
+      req.query.page !== undefined ||
+      req.query.limit !== undefined ||
+      req.query.status !== undefined ||
+      req.query.applicationType !== undefined ||
+      req.query.q !== undefined;
+
+    if (!shouldPaginate) {
+      const applicants = await Applicant.find().sort({ createdAt: -1 });
+      return res.status(200).json(applicants);
+    }
+
+    const page = parsePositiveInt(req.query.page, 1);
+    const limit = parsePositiveInt(req.query.limit, 10);
+    const status = req.query.status;
+    const applicationType = req.query.applicationType;
+    const q = req.query.q?.trim();
+
+    const filter = {};
+
+    if (status && status !== "All") {
+      filter.status = status;
+    }
+
+    if (applicationType && applicationType !== "All") {
+      filter.applicationType = applicationType;
+    }
+
+    if (q) {
+      filter.$or = [
+        { name: { $regex: q, $options: "i" } },
+        { email: { $regex: q, $options: "i" } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      Applicant.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Applicant.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
   } catch (error) {
     console.error("Error fetching applicants:", error);
     res.status(500).json({ message: "Failed to fetch applicants." });
