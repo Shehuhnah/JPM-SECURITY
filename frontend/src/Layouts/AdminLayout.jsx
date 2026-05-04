@@ -1,5 +1,5 @@
 import { Outlet, NavLink, Link, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
 
 import {
@@ -36,6 +36,7 @@ export default function AdminLayout() {
   const [messagesDropdown, setMessagesDropdown] = useState(false);
   const [postsDropdown, setPostsDropdown] = useState(false);
   const [requestsDropdown, setRequestsDropdown] = useState(false); // New State
+  const [userManagementDropdown, setUserManagementDropdown] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { user, loading, clearAuth } = useAuth();
@@ -73,14 +74,11 @@ export default function AdminLayout() {
     { to: "/admin/log-reports", label: "My Log Reports", icon: <FilePenLine size={18} /> },
     { to: "/admin/deployment", label: "Deployment", icon: <Calendar size={18} /> },
     { to: "/admin/schedule-approval", label: "Schedules Approval", icon: <Calendar size={18} /> },
+    { to: "/admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
     { to: "/admin/manage-clients", label: "Clients", icon: <Building size={18} /> },
     { to: "/admin/leaves", label: "Leaves", icon: <CalendarDays size={18} /> },
     { to: "/admin/AdminGuardUpdates", label: "Updates", icon: <Shield size={18} /> },
-    { to: "/admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
-    { to: "/admin/UserAccounts", label: "Staff", icon: <Users size={18} /> },
-    { to: "/admin/ApplicantList", label: "Applicants", icon: <User size={18} /> },
     { to: "/admin/gallery-manager", label: "Gallery", icon: <ImagePlus size={18} /> },
-    { to: "/admin/AdminGuardsProfile", label: "Guards", icon: <Users size={18} /> },
     { to: "/admin/AdminAttendance", label: "Guards Attendance", icon: <Clock size={18} /> },
     { to: "/admin/Request-ID", label: "View Request ID", icon: <IdCardLanyard size={18} /> },
     { to: "/admin/AdminCOE", label: "Manage COE", icon: <FileText size={18} /> },
@@ -96,6 +94,54 @@ export default function AdminLayout() {
     { to: "/Admin/AdminPosts", label: "Announcement", icon: <Megaphone size={16} /> },
     { to: "/Admin/AdminHiring", label: "Hiring", icon: <Briefcase size={16} /> },
   ];
+
+  const userManagementItems = [
+    { to: "/admin/UserAccounts", label: "Staff", icon: <Users size={16} /> },
+    { to: "/admin/ApplicantList", label: "Applicants", icon: <User size={16} /> },
+    { to: "/admin/AdminGuardsProfile", label: "Guards", icon: <Users size={16} /> },
+  ];
+
+  const userManagementAnchorLabel =
+    user?.role === "Subadmin" ? "Deployment" : "Schedules Approval";
+
+  const renderUserManagementDropdown = () => (
+    <div>
+      <button
+        onClick={() => setUserManagementDropdown(!userManagementDropdown)}
+        className="flex items-center justify-between w-full p-2 rounded hover:bg-[#0b2433]"
+      >
+        <div className="flex items-center gap-3">
+          <CircleUser size={18} />
+          <span>User Management</span>
+        </div>
+        <ChevronDown
+          size={16}
+          className={`transition-transform ${userManagementDropdown ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {userManagementDropdown && (
+        <ul className="ml-8 mt-1 space-y-1 text-sm">
+          {userManagementItems.map((item, idx) => (
+            <li key={idx}>
+              <NavLink
+                to={item.to}
+                className={({ isActive }) =>
+                  `flex items-center gap-2 p-2 rounded ${
+                    isActive ? "bg-[#142235] text-white" : "hover:bg-[#0b2433]"
+                  }`
+                }
+                onClick={() => setSidebarOpen(false)}
+              >
+                {item.icon}
+                {item.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 
   return (
     <div className="flex flex-col min-h-screen bg-[#0f172a] text-gray-100">
@@ -146,7 +192,7 @@ export default function AdminLayout() {
               // Admin and Subadmin can both access all messaging views.
               if ((user?.role === "Subadmin" || user?.role === "Admin") && item.label === "Messages") {
                 return (
-                  <div key={idx}>
+                  <Fragment key={idx}>
                     <button
                       onClick={() => setMessagesDropdown(!messagesDropdown)}
                       className="flex items-center justify-between w-full p-2 rounded hover:bg-[#0b2433]"
@@ -204,25 +250,29 @@ export default function AdminLayout() {
                         </li>
                       </ul>
                     )}
-                  </div>
+                    {item.label === userManagementAnchorLabel && renderUserManagementDropdown()}
+                  </Fragment>
                 );
               }
 
               // Regular Nav Item
               return (
-                <NavLink
-                  key={idx}
-                  to={item.to}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 p-2 rounded transition ${
-                      isActive ? "bg-[#142235] text-white" : "hover:bg-[#0b2433]"
-                    }`
-                  }
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </NavLink>
+                <Fragment key={idx}>
+                  <NavLink
+                    to={item.to}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 p-2 rounded transition ${
+                        isActive ? "bg-[#142235] text-white" : "hover:bg-[#0b2433]"
+                      }`
+                    }
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </NavLink>
+
+                  {item.label === userManagementAnchorLabel && renderUserManagementDropdown()}
+                </Fragment>
               );
             })}
 
