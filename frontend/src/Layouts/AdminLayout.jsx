@@ -80,7 +80,7 @@ export default function AdminLayout() {
     { to: "/admin/AdminGuardUpdates", label: "Updates", icon: <Shield size={18} /> },
     { to: "/admin/gallery-manager", label: "Gallery", icon: <ImagePlus size={18} /> },
     { to: "/admin/AdminAttendance", label: "Guards Attendance", icon: <Clock size={18} /> },
-    { to: "/admin/Request-ID", label: "View Request ID", icon: <IdCardLanyard size={18} /> },
+    { to: "/admin/Request-ID", label: "Manage Request ID", icon: <IdCardLanyard size={18} /> },
     { to: "/admin/AdminCOE", label: "Manage COE", icon: <FileText size={18} /> },
   ];
 
@@ -325,7 +325,7 @@ export default function AdminLayout() {
             >
               <div className="flex items-center gap-3">
                 <User size={18} />
-                <span>Posts</span>
+                <span>Manage Posts</span>
               </div>
 
               <ChevronDown
