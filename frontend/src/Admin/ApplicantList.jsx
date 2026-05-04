@@ -131,17 +131,28 @@ export default function ApplicantsList() {
   const handleCreateWalkInApplicant = async (e) => {
     e.preventDefault();
 
+    if (!walkInResume) {
+      toast.error("Resume is required for walk-in applicants.");
+      return;
+    }
+
     try {
       setCreatingWalkIn(true);
+      const payload = {
+        name: walkInForm.name.trim(),
+        email: walkInForm.email.trim(),
+        phone: walkInForm.phone.trim(),
+        position: walkInForm.position.trim(),
+        applicationType: walkInForm.applicationType,
+      };
+
       const formData = new FormData();
-      formData.append("name", walkInForm.name);
-      formData.append("email", walkInForm.email);
-      formData.append("phone", walkInForm.phone);
-      formData.append("position", walkInForm.position);
-      formData.append("applicationType", walkInForm.applicationType);
-      if (walkInResume) {
-        formData.append("resume", walkInResume);
-      }
+      formData.append("name", payload.name);
+      formData.append("email", payload.email);
+      formData.append("phone", payload.phone);
+      formData.append("position", payload.position);
+      formData.append("applicationType", payload.applicationType);
+      formData.append("resume", walkInResume);
 
       const res = await fetch(`${api}/api/applicants`, {
         method: "POST",
@@ -1460,6 +1471,7 @@ export default function ApplicantsList() {
                           <input
                             type="file"
                             accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                            required
                             onChange={(e) => setWalkInResume(e.target.files?.[0] || null)}
                             className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-gray-300 file:mr-3 file:rounded-md file:border-0 file:bg-cyan-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
                           />
