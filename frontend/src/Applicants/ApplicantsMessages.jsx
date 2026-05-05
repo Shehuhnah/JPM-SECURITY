@@ -26,6 +26,32 @@ const formatDateTime = (timestamp) =>
       })
     : "";
 
+const getApplicantStatusMeta = (status) => {
+  switch (status) {
+    case "Interview":
+      return {
+        label: "For Interview",
+        className: "bg-blue-500/15 text-blue-200 border-blue-400/30",
+      };
+    case "Hired":
+      return {
+        label: "Passed",
+        className: "bg-emerald-500/15 text-emerald-200 border-emerald-400/30",
+      };
+    case "Declined":
+      return {
+        label: "Declined",
+        className: "bg-red-500/15 text-red-200 border-red-400/30",
+      };
+    case "Review":
+    default:
+      return {
+        label: "Under Review",
+        className: "bg-amber-500/15 text-amber-100 border-amber-400/30",
+      };
+  }
+};
+
 const normalizeId = (value) => {
   if (!value) return "";
   if (typeof value === "string") return value;
@@ -73,6 +99,8 @@ export default function ApplicantsMessages() {
   const [loadingPage, setLoadingPage] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [applicantStatus, setApplicantStatus] = useState(session?.status ?? "Review");
+  const [processedByStaff, setProcessedByStaff] = useState(Boolean(session?.processedBy));
 
   const messagesEndRef = useRef(null);
   const bootstrappedRef = useRef(false);
@@ -104,6 +132,8 @@ export default function ApplicantsMessages() {
     setSession(data);
     if (data.phone !== undefined) setPhoneInput(data.phone ?? "");
     if (data.email !== undefined) setEmailInput(data.email ?? "");
+    if (data.status !== undefined) setApplicantStatus(data.status || "Review");
+    if (data.processedBy !== undefined) setProcessedByStaff(Boolean(data.processedBy));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   };
 
@@ -164,6 +194,8 @@ export default function ApplicantsMessages() {
           applicantId: data.applicant._id,
           conversationId: data.conversation._id,
           phone: data.applicant.phone ?? phoneInput,
+          status: data.applicant.status ?? "Review",
+          processedBy: data.applicant.processedBy ?? null,
         };
         persistSession(updatedSession);
         setPhoneInput(data.applicant.phone ?? phoneInput ?? "");
@@ -231,6 +263,14 @@ export default function ApplicantsMessages() {
     const handleConversationUpdated = (conv) => {
       if (normalizeId(conv._id) !== normalizeId(session.conversationId)) return;
       setConversation(conv);
+
+      const applicantParticipant = conv.participants?.find((participant) => participant.role === "Applicant");
+      if (applicantParticipant?.user?.status) {
+        setApplicantStatus(applicantParticipant.user.status);
+      }
+      if (Object.prototype.hasOwnProperty.call(applicantParticipant?.user ?? {}, "processedBy")) {
+        setProcessedByStaff(Boolean(applicantParticipant.user.processedBy));
+      }
     };
 
     // 3. Listen for "messages_seen" to update local state (syncs with backend)
@@ -360,6 +400,7 @@ export default function ApplicantsMessages() {
           console.log("🔄 [ApplicantsMessages] Conversation not found, re-initializing...");
           // Clear session and re-initialize
           const res = await fetch(`${api}/api/applicant-messages/session`, {
+            credentials: "include",
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name: session.name, email: session.email, phone: phoneInput, position: hiringContext?.position }),
@@ -372,6 +413,9 @@ export default function ApplicantsMessages() {
               email: reinitData.applicant.email ?? session.email ?? "",
               applicantId: reinitData.applicant._id,
               conversationId: reinitData.conversation._id,
+              phone: reinitData.applicant.phone ?? phoneInput,
+              status: reinitData.applicant.status ?? "Review",
+              processedBy: reinitData.applicant.processedBy ?? null,
             };
             persistSession(updatedSession);
             setConversation(reinitData.conversation);
@@ -467,6 +511,12 @@ export default function ApplicantsMessages() {
   const isSender = (msg) =>
     normalizeId(msg.senderId) === normalizeId(session?.applicantId);
 
+  const statusMeta = getApplicantStatusMeta(applicantStatus);
+  const hasStaffProcessedStatus =
+    processedByStaff || applicantStatus === "Interview" || applicantStatus === "Hired";
+  const shouldShowEmailNotice =
+    applicantStatus === "Interview" || applicantStatus === "Hired";
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#0b1220] via-[#102137] to-[#0b1220] text-gray-100">
       <header className="sticky top-0 z-20 border-b border-white/10 bg-[#0f172a]/80 backdrop-blur">
@@ -489,10 +539,18 @@ export default function ApplicantsMessages() {
           <div className="flex-1 flex flex-col rounded-3xl border border-white/10 bg-white/5 backdrop-blur overflow-hidden">
             {/* Sub-header */}
             <div className="px-6 py-5 border-b border-white/5 bg-white/5 flex-shrink-0">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="rounded-full bg-blue-500/20 text-blue-200 px-3 py-1 text-xs uppercase tracking-wide">
                   Applicant Support
                 </div>
+                <div className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${statusMeta.className}`}>
+                  Status: {statusMeta.label}
+                </div>
+                {hasStaffProcessedStatus && (
+                  <div className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-100">
+                    Processed by Staff
+                  </div>
+                )}
                 {loading && (
                   <div className="flex items-center gap-2 text-xs text-gray-300">
                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -508,6 +566,13 @@ export default function ApplicantsMessages() {
   
             {/* Messages area (scrollable) */}
             <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-4 scrollbar-thin scrollbar-thumb-blue-600/60 scrollbar-track-transparent">
+              {shouldShowEmailNotice && (
+                <div className="flex justify-center">
+                  <div className="max-w-2xl rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50 shadow-lg ring-1 ring-white/5">
+                    We sent an update to your registered email address. Didn&apos;t receive the email? Please check the spam on your registered email account.
+                  </div>
+                </div>
+              )}
               {messages.map((msg) => {
                 const mine = isSender(msg);
 

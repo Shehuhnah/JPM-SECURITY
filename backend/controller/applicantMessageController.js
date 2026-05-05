@@ -14,6 +14,15 @@ const normalizeId = (value) => {
   return String(value);
 };
 
+const buildApplicantPayload = (applicant) => ({
+  _id: applicant._id,
+  name: applicant.name,
+  email: applicant.email,
+  phone: applicant.phone,
+  status: applicant.status,
+  processedBy: applicant.processedBy ?? null,
+});
+
 // This function needs to ensure that if an applicant conversation exists, it has an Admin/Subadmin participant.
 // It will dynamically add one if missing.
 const ensureHRParticipant = async (conversation) => {
@@ -105,11 +114,7 @@ export const initApplicantConversation = async (req, res) => {
     // Populate applicant participant for response
     const applicantParticipant = conversation.participants.find((p) => p.role === "Applicant");
     if (applicantParticipant) {
-      applicantParticipant.user = {
-        _id: applicant._id,
-        name: applicant.name,
-        email: applicant.email,
-      };
+      applicantParticipant.user = buildApplicantPayload(applicant);
     }
 
     console.log("📤 [initApplicantConversation] Returning conversation:", {
@@ -120,9 +125,7 @@ export const initApplicantConversation = async (req, res) => {
 
     return res.status(200).json({
       applicant: {
-        _id: applicant._id,
-        name: applicant.name,
-        email: applicant.email,
+        ...buildApplicantPayload(applicant),
       },
       conversation: conversation.toObject(),
     });
@@ -260,7 +263,7 @@ export const sendApplicantMessage = async (req, res) => {
             } else if (participant.role === "Guard") {
                 userDoc = await Guard.findById(participant.userId, "fullName email role");
             } else if (participant.role === "Applicant") {
-                userDoc = await Applicant.findById(participant.userId, "name email phone isDeleted");
+                userDoc = await Applicant.findById(participant.userId, "name email phone isDeleted status processedBy");
             }
             if (userDoc) {
                 populated.push({ ...participant.toObject(), user: userDoc });
