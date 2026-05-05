@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, Fragment, useMemo } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -15,18 +15,18 @@ import {
   Pencil,
   Trash,
   RefreshCcw,
-  MapPin,
   Clock,
-  User,
   Shield,
   X
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { Link, useNavigate } from "react-router-dom";
 import { ToastContainer, toast, Bounce } from "react-toastify";
+import TablePagination from "../components/admin/TablePagination.jsx";
 import "react-toastify/dist/ReactToastify.css";
 
 const api = import.meta.env.VITE_API_URL;
+const LIST_PAGE_SIZE = 5;
 
 // --- Custom Calendar Styles ---
 const calendarStyles = `
@@ -88,6 +88,7 @@ export default function AdminDeployment() {
   const [selectedClient, setSelectedClient] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [viewMode, setViewMode] = useState("calendar");
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Modal State
   const [showClientModal, setShowClientModal] = useState(false);
@@ -142,6 +143,41 @@ export default function AdminDeployment() {
     const matchesStatus = !statusFilter || statusFilter === "All" || s.isApproved === statusFilter;
     return matchesClient && matchesStatus;
   });
+
+  const getCreatedAtValue = (schedule) => new Date(schedule?.createdAt || 0).getTime();
+
+  const sortedBatchGroups = useMemo(() => {
+    const groupedBatches = filteredSchedules.reduce((acc, schedule) => {
+      const batchKey = schedule.batchId || schedule._id;
+      if (!acc[batchKey]) acc[batchKey] = [];
+      acc[batchKey].push(schedule);
+      return acc;
+    }, {});
+
+    return Object.entries(groupedBatches)
+      .map(([batchKey, batchSchedules]) => ({
+        batchKey,
+        batchSchedules,
+        latestCreatedAt: Math.max(...batchSchedules.map(getCreatedAtValue)),
+      }))
+      .sort((a, b) => b.latestCreatedAt - a.latestCreatedAt);
+  }, [filteredSchedules]);
+
+  const totalBatchPages = Math.max(1, Math.ceil(sortedBatchGroups.length / LIST_PAGE_SIZE));
+  const paginatedBatchGroups = sortedBatchGroups.slice(
+    (currentPage - 1) * LIST_PAGE_SIZE,
+    currentPage * LIST_PAGE_SIZE
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedClient, statusFilter, viewMode]);
+
+  useEffect(() => {
+    if (currentPage > totalBatchPages) {
+      setCurrentPage(totalBatchPages);
+    }
+  }, [currentPage, totalBatchPages]);
 
   const calendarEvents = filteredSchedules.map((s, idx) => ({
     id: String(idx),
@@ -353,31 +389,24 @@ export default function AdminDeployment() {
                 ) : (
                     // ===== LIST VIEW (Grouped) =====
                     <div className="p-2 md:p-6 space-y-8">
-                        {filteredSchedules.length === 0 ? (
+                        {sortedBatchGroups.length === 0 ? (
                              <div className="text-center py-20 text-gray-500">No schedules found matching your filters.</div>
                         ) : (
-                            // Group by Client
-                            Object.entries(filteredSchedules.reduce((acc, schedule) => {
-                                const client = schedule.client || "Unassigned Client";
-                                if (!acc[client]) acc[client] = [];
-                                acc[client].push(schedule);
-                                return acc;
-                            }, {})).map(([clientName, clientSchedules]) => (
-                                <div key={clientName} className="space-y-4">
-                                    {/* Client Header */}
-                                    <div className="flex items-center gap-3 pb-2 border-b border-gray-700">
-                                        <Building2 className="text-blue-500" size={24}/>
-                                        <h2 className="text-xl font-bold text-white">{clientName}</h2>
+                            <>
+                                <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-700 bg-[#0f172a]/60 px-4 py-3">
+                                    <div className="flex items-center gap-2 text-sm text-gray-300">
+                                        <Table size={16} className="text-blue-400" />
+                                        <span>
+                                            Showing newest deployment batches first
+                                        </span>
                                     </div>
+                                    <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                                        {sortedBatchGroups.length} batches
+                                    </span>
+                                </div>
 
-                                    {/* Group by Batch (Location/Shift/Status) */}
-                                    {Object.entries(clientSchedules.reduce((acc, schedule) => {
-                                        const batchKey = `${schedule.deploymentLocation}-${schedule.shiftType}-${schedule.isApproved}`;
-                                        if (!acc[batchKey]) acc[batchKey] = [];
-                                        acc[batchKey].push(schedule);
-                                        return acc;
-                                    }, {})).map(([batchKey, batchSchedules], idx) => (
-                                        <div key={idx} className="bg-[#1e293b] border border-gray-700 rounded-xl overflow-hidden shadow-md">
+                                {paginatedBatchGroups.map(({ batchKey, batchSchedules }) => (
+                                        <div key={batchKey} className="bg-[#1e293b] border border-gray-700 rounded-xl overflow-hidden shadow-md">
                                             
                                             {/* Batch Header */}
                                             <div className="p-4 bg-slate-800/50 border-b border-gray-700 flex flex-col xs:flex-row xs:items-center justify-between gap-4">
@@ -388,6 +417,10 @@ export default function AdminDeployment() {
                                                     <div className={`w-1 self-stretch rounded-full ${batchSchedules[0].shiftType === 'Night Shift' ? 'bg-red-500' : 'bg-yellow-500'} min-h-[40px] md:min-h-0`}></div>
                                                     
                                                     <div className="flex-1">
+                                                        <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-blue-300">
+                                                            <Building2 size={14} />
+                                                            <span>{batchSchedules[0].client || "Unassigned Client"}</span>
+                                                        </div>
                                                         <h3 className="font-semibold text-white text-base md:text-lg leading-tight mb-1">{batchSchedules[0].deploymentLocation}</h3>
                                                         
                                                         <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm text-gray-400">
@@ -483,9 +516,18 @@ export default function AdminDeployment() {
                                                 </div>
                                             )}
                                         </div>
-                                    ))}
-                                </div>
-                            ))
+                                ))}
+
+                                <TablePagination
+                                    page={currentPage}
+                                    limit={LIST_PAGE_SIZE}
+                                    totalItems={sortedBatchGroups.length}
+                                    currentCount={paginatedBatchGroups.length}
+                                    totalPages={totalBatchPages}
+                                    label="deployment batches"
+                                    onPageChange={setCurrentPage}
+                                />
+                            </>
                         )}
                     </div>
                 )}

@@ -36,6 +36,7 @@ import SubadminApplicantMessage from "../SubAdmin/SubadminApplicantMessage.jsx";
 import AdminManageClients from "../Admin/AdminManageClients.jsx";
 import AdminLeaves from "../Admin/AdminLeaves.jsx";
 import AdminGalleryManager from "../Admin/AdminGalleryManager.jsx";
+import AdminProfile from "../Admin/AdminProfile.jsx";
 
 // Guard pages
 import GuardLogin from "../Guard/GuardLogin.jsx";
@@ -128,6 +129,7 @@ const Router = () => {
                 { path: "leaves", element: <AdminLeaves />},
                 { path: "gallery-manager", element: <AdminGalleryManager />},
                 { path: "admin-request-id", element: <GuardReqID/>},
+                { path: "profile", element: <AdminProfile />},
 
               ],
             },

@@ -26,7 +26,8 @@ import {
   ClipboardList,
   CircleUser,
   ImagePlus,
-  FilePenLine
+  FilePenLine,
+  Settings
 } from "lucide-react";
 
 import logo from "../assets/jpmlogo.png";
@@ -72,6 +73,7 @@ export default function AdminLayout() {
     { to: "/admin", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
     { to: "/admin/staff-attendance", label: "My Attendance", icon: <Clock size={18} /> },
     { to: "/admin/log-reports", label: "My Log Reports", icon: <FilePenLine size={18} /> },
+    { to: "/admin/profile", label: "My Profile", icon: <Settings size={18} /> },
     { to: "/admin/deployment", label: "Deployment", icon: <Calendar size={18} /> },
     { to: "/admin/schedule-approval", label: "Schedules Approval", icon: <Calendar size={18} /> },
     { to: "/admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
@@ -171,7 +173,13 @@ export default function AdminLayout() {
 
         {/* User */}
         <div className="flex flex-col items-center py-6 border-b border-gray-800">
-          <ShieldUser className="w-16 h-16 text-[#A76CE1] mb-3" strokeWidth={1.5} />
+          <div className="mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-gray-700 bg-[#142235]">
+            {user?.photo ? (
+              <img src={user.photo} alt={user?.name || "Admin"} className="h-full w-full object-cover" />
+            ) : (
+              <ShieldUser className="h-10 w-10 text-[#A76CE1]" strokeWidth={1.5} />
+            )}
+          </div>
           <h3 className="font-semibold text-gray-200">{user?.name}</h3>
           <span className="text-sm font-light">
             {user?.position} | {user?.role}

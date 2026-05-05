@@ -2,6 +2,8 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.model.js";
 import Guard from "../models/guard.model.js";
 import crypto from 'crypto';
+import { attachCurrentLeaveStatusToGuards } from "../utils/guardStatus.js";
+import { deleteImageFromCloudinary, uploadImageToCloudinary } from "../utils/cloudinary.js";
 
 // Generate JWT token
 const generateToken = (id, role) => {
@@ -155,14 +157,80 @@ export const getMe = async (req, res) => {
     // If not found, try guard
     if (!user) {
       user = await Guard.findById(decoded.id).select("-password");
+      if (user) {
+        user = await attachCurrentLeaveStatusToGuards(user);
+      }
     }
 
     if (!user) return res.status(401).json({ message: "User not found" });
 
-    res.json(user.toJSON());
+    const safeUser =
+      typeof user?.toJSON === "function"
+        ? user.toJSON()
+        : typeof user?.toObject === "function"
+          ? user.toObject()
+          : user;
+
+    res.json(safeUser);
   } catch (err) {
     console.error("Error in /me:", err);
     res.status(401).json({ message: "Not authenticated" });
+  }
+};
+
+export const updateMyProfile = async (req, res) => {
+  try {
+    if (!["Admin", "Subadmin"].includes(req.user?.role)) {
+      return res.status(403).json({ message: "Only admin and subadmin accounts can update this profile." });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const { name, email, position, contactNumber } = req.body;
+
+    if (!name?.trim() || !email?.trim()) {
+      return res.status(400).json({ message: "Name and email are required." });
+    }
+
+    const existingUser = await User.findOne({
+      email: email.trim(),
+      _id: { $ne: user._id },
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ message: "Email is already in use by another account." });
+    }
+
+    user.name = name.trim();
+    user.email = email.trim();
+    user.position = position?.trim() || "";
+    user.contactNumber = contactNumber?.trim() || "";
+
+    if (req.file) {
+      if (user.photoPublicId) {
+        await deleteImageFromCloudinary(user.photoPublicId);
+      }
+
+      const uploadedImage = await uploadImageToCloudinary(req.file, {
+        folder: "jpm-security/admin-profiles",
+      });
+
+      user.photo = uploadedImage.secure_url;
+      user.photoPublicId = uploadedImage.public_id;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      message: "Profile updated successfully.",
+      user: user.toJSON(),
+    });
+  } catch (error) {
+    console.error("Update my profile error:", error);
+    res.status(500).json({ message: error.message || "Failed to update profile." });
   }
 };
 
@@ -194,7 +262,8 @@ export const getGuards = async (req, res) => {
     const guards = await Guard.find({ role: "Guard" }).select(
       "fullName email guardId phoneNumber address position status" // Removed dutyStation and shift
     );
-    res.json(guards);
+    const guardsWithStatus = await attachCurrentLeaveStatusToGuards(guards);
+    res.json(guardsWithStatus);
   } catch (err) {
     console.error("Error fetching guards:", err.message);
     res.status(500).json({ message: "Server error fetching guards" });

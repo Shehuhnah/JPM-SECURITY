@@ -4,6 +4,7 @@ import Logbook from "../models/logbook.model.js";
 import bcrypt from "bcryptjs";
 import { sendMail } from "../utils/mailer.js";
 import crypto from 'crypto';
+import { attachCurrentLeaveStatusToGuards } from "../utils/guardStatus.js";
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -21,7 +22,8 @@ export const getAllGuards = async (req, res) => {
 
     if (!shouldPaginate) {
       const guards = await Guard.find().select("-password").sort({ createdAt: -1 });
-      return res.status(200).json(guards);
+      const guardsWithStatus = await attachCurrentLeaveStatusToGuards(guards);
+      return res.status(200).json(guardsWithStatus);
     }
 
     const page = parsePositiveInt(req.query.page, 1);
@@ -53,8 +55,10 @@ export const getAllGuards = async (req, res) => {
       Guard.countDocuments(filter),
     ]);
 
+    const itemsWithStatus = await attachCurrentLeaveStatusToGuards(items);
+
     res.status(200).json({
-      items,
+      items: itemsWithStatus,
       total,
       page,
       limit,
@@ -72,7 +76,8 @@ export const getGuardById = async (req, res) => {
     if (!guard) {
       return res.status(404).json({ message: "Guard not found" });
     }
-    res.status(200).json(guard);
+    const guardWithStatus = await attachCurrentLeaveStatusToGuards(guard);
+    res.status(200).json(guardWithStatus);
   } catch (error) {
     res.status(500).json({ message: "Error fetching guard", error: error.message });
   }
@@ -296,7 +301,8 @@ export const getGuardInfo = async (req, res) => {
     if (!guard)
       return res.status(404).json({ success: false, message: "Guard not found" });
 
-    res.status(200).json({ success: true, data: guard });
+    const guardWithStatus = await attachCurrentLeaveStatusToGuards(guard);
+    res.status(200).json({ success: true, data: guardWithStatus });
   } catch (error) {
     console.error("Error fetching guard info:", error);
     res.status(500).json({ success: false, message: "Server error" });
@@ -365,7 +371,8 @@ export const getGuardDetails = async (req, res) => {
       return res.status(404).json({ message: "Guard not found" });
     }
 
-    res.status(200).json({ guard, schedules, logs });
+    const guardWithStatus = await attachCurrentLeaveStatusToGuards(guard);
+    res.status(200).json({ guard: guardWithStatus, schedules, logs });
   } catch (error) {
     console.error("Error fetching guard details:", error);
     res.status(500).json({ message: "Error fetching guard details", error: error.message });

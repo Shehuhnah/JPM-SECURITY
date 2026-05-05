@@ -32,6 +32,14 @@ const logbookSchema = new mongoose.Schema(
       trim: true,
       maxlength: 500,
     },
+    imageUrl: {
+      type: String,
+      default: "",
+    },
+    imagePublicId: {
+      type: String,
+      default: "",
+    },
     createdAt: {
       type: Date,
       default: Date.now,

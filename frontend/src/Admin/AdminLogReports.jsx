@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardList, FileText, RefreshCcw, Send } from "lucide-react";
+import { ClipboardList, FileText, Image as ImageIcon, RefreshCcw, Send } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
@@ -13,6 +13,7 @@ const initialForm = {
   reportDate: new Date().toISOString().split("T")[0],
   attendanceId: "",
   details: "",
+  image: null,
 };
 
 const formatDateTime = (value) => {
@@ -34,6 +35,7 @@ export default function AdminLogReports() {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [imagePreview, setImagePreview] = useState("");
 
   useEffect(() => {
     if (!user && !loading) {
@@ -80,16 +82,37 @@ export default function AdminLogReports() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  useEffect(() => {
+    if (!form.image) {
+      setImagePreview("");
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(form.image);
+    setImagePreview(previewUrl);
+
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [form.image]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     try {
       setSubmitting(true);
+      const payload = new FormData();
+      payload.append("title", form.title);
+      payload.append("category", form.category);
+      payload.append("reportDate", form.reportDate);
+      payload.append("attendanceId", form.attendanceId);
+      payload.append("details", form.details);
+      if (form.image) {
+        payload.append("image", form.image);
+      }
+
       const res = await fetch(`${api}/api/admin-reports`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: payload,
       });
 
       const data = await res.json();
@@ -210,6 +233,26 @@ export default function AdminLogReports() {
               />
             </div>
 
+            <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950 p-4">
+              <label className="mb-2 flex items-center gap-2 text-sm text-slate-300">
+                <ImageIcon size={16} className="text-amber-400" />
+                Attach Image (Optional)
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(event) => setForm((prev) => ({ ...prev, image: event.target.files?.[0] || null }))}
+                className="block w-full text-sm text-slate-300 file:mr-4 file:rounded-lg file:border-0 file:bg-[#2B7FFF] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-[#2460b9]"
+              />
+              {imagePreview ? (
+                <img
+                  src={imagePreview}
+                  alt="Report preview"
+                  className="mt-3 max-h-56 rounded-xl border border-slate-700 object-cover"
+                />
+              ) : null}
+            </div>
+
             <button
               type="submit"
               disabled={submitting}
@@ -250,6 +293,16 @@ export default function AdminLogReports() {
                   </div>
 
                   <p className="text-sm text-slate-300 whitespace-pre-wrap">{report.details}</p>
+
+                  {report.imageUrl ? (
+                    <div className="mt-4 overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+                      <img
+                        src={report.imageUrl}
+                        alt={`${report.title} attachment`}
+                        className="max-h-80 w-full object-cover"
+                      />
+                    </div>
+                  ) : null}
 
                   <div className="mt-3 pt-3 border-t border-slate-800 flex flex-wrap gap-4 text-xs text-slate-500">
                     <span className="flex items-center gap-1">

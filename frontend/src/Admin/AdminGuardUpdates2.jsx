@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import {
-  ArrowLeft, Clock, MapPin, Shield, CalendarDays,
-  Activity, FileText, AlertCircle, Hash
+  ArrowLeft,
+  Clock,
+  MapPin,
+  Shield,
+  CalendarDays,
+  Activity,
+  FileText,
+  AlertCircle,
+  Hash,
+  Users,
+  Briefcase,
 } from "lucide-react";
 
 const api = import.meta.env.VITE_API_URL;
@@ -15,7 +24,7 @@ const formatDateDisplay = (dateString, options = {}) => {
     if (isNaN(dateObj.getTime())) return "Invalid Date";
     const defaultOptions = { year: "numeric", month: "short", day: "numeric" };
     return dateObj.toLocaleDateString(undefined, { ...defaultOptions, ...options });
-  } catch (e) {
+  } catch {
     return "Invalid Date";
   }
 };
@@ -24,7 +33,7 @@ const formatTimeDisplay = (dateString) => {
   if (!dateString) return "";
   try {
     return new Date(dateString).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch (e) {
+  } catch {
     return "";
   }
 };
@@ -53,10 +62,15 @@ const SkeletonLoader = () => (
 
 export default function AdminGuardUpdates2() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
+  const entityType = searchParams.get("type") === "staff" ? "staff" : "guard";
+  const isGuardView = entityType === "guard";
+
   const [guard, setGuard] = useState(null);
+  const [staff, setStaff] = useState(null);
   const [logs, setLogs] = useState([]);
   const [loadingPage, setLoadingPage] = useState(true);
   const [error, setError] = useState("");
@@ -68,25 +82,41 @@ export default function AdminGuardUpdates2() {
   }, [user, loading, navigate]);
 
   useEffect(() => {
-    if (id) fetchGuardData();
-  }, [id]);
+    if (id) {
+      fetchProfileData();
+    }
+  }, [id, entityType]);
 
-  const fetchGuardData = async () => {
+  const fetchProfileData = async () => {
     try {
       setLoadingPage(true);
       setError("");
-      const response = await fetch(`${api}/api/guards/${id}/details`, { credentials: "include" });
+      setGuard(null);
+      setStaff(null);
 
-      if (response.ok) {
-        const data = await response.json();
-        setGuard(data.guard);
-        setLogs(data.logs);
-      } else {
-        setError("Guard not found or access denied.");
+      const endpoint = isGuardView
+        ? `${api}/api/guards/${id}/details`
+        : `${api}/api/admin-reports/staff/${id}`;
+
+      const response = await fetch(endpoint, { credentials: "include" });
+
+      if (!response.ok) {
+        setError(`${isGuardView ? "Guard" : "Staff"} not found or access denied.`);
+        return;
       }
-    } catch (error) {
-      console.error("Error fetching guard details:", error);
-      setError("Network error. Unable to load guard data.");
+
+      const data = await response.json();
+
+      if (isGuardView) {
+        setGuard(data.guard);
+        setLogs(Array.isArray(data.logs) ? data.logs : []);
+      } else {
+        setStaff(data.staff);
+        setLogs(Array.isArray(data.reports) ? data.reports : []);
+      }
+    } catch (fetchError) {
+      console.error("Error fetching update details:", fetchError);
+      setError("Network error. Unable to load profile data.");
     } finally {
       setLoadingPage(false);
     }
@@ -96,13 +126,15 @@ export default function AdminGuardUpdates2() {
     return <div className="min-h-screen bg-[#0f172a]"><SkeletonLoader /></div>;
   }
 
-  if (error || !guard) {
+  const profile = isGuardView ? guard : staff;
+
+  if (error || !profile) {
     return (
       <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-4">
         <div className="text-red-400 bg-red-900/20 p-6 rounded-2xl border border-red-900/50 text-center max-w-md">
           <AlertCircle size={48} className="mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">Error Loading Profile</h2>
-          <p className="text-sm text-gray-400 mb-6">{error || "Guard data unavailable."}</p>
+          <p className="text-sm text-gray-400 mb-6">{error || "Profile data unavailable."}</p>
           <Link to="/admin/AdminGuardUpdates" className="bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-lg transition">
             Return to List
           </Link>
@@ -111,7 +143,9 @@ export default function AdminGuardUpdates2() {
     );
   }
 
-  const isGuardActive = guard.status === "Active";
+  const displayName = profile.fullName || profile.name || "Unknown";
+  const profileStatus = profile.status || "Unknown";
+  const isActive = isGuardView ? profileStatus === "Active" : profileStatus === "active";
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-slate-200 font-sans pb-12">
@@ -121,7 +155,7 @@ export default function AdminGuardUpdates2() {
             <div className="p-2 bg-slate-800 rounded-full group-hover:bg-slate-700 transition">
               <ArrowLeft size={18} />
             </div>
-            <span className="font-medium">Back to Guard List</span>
+            <span className="font-medium">Back to Updates List</span>
           </Link>
         </div>
 
@@ -132,31 +166,59 @@ export default function AdminGuardUpdates2() {
             <div className="flex flex-col items-center">
               <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-br from-slate-700 to-slate-800 shadow-2xl mb-4">
                 <div className="w-full h-full rounded-full bg-[#0f172a] flex items-center justify-center text-4xl font-bold text-white border-4 border-[#1e293b]">
-                  {guard.fullName.charAt(0).toUpperCase()}
+                  {displayName.charAt(0).toUpperCase()}
                 </div>
               </div>
               <span
                 className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border ${
-                  isGuardActive
+                  isActive
                     ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                     : "bg-slate-500/10 text-slate-400 border-slate-500/20"
                 }`}
               >
-                {guard.status}
+                {profileStatus}
               </span>
             </div>
 
             <div className="flex-1 w-full text-center lg:text-left">
-              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">{guard.fullName}</h1>
+              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">{displayName}</h1>
               <p className="text-slate-400 mb-6 flex items-center justify-center lg:justify-start gap-2">
-                <Hash size={16} /> {guard.guardId}
+                {isGuardView ? (
+                  <>
+                    <Hash size={16} /> {guard?.guardId || "N/A"}
+                  </>
+                ) : (
+                  <>
+                    <Users size={16} /> {staff?.role || "Staff"}
+                  </>
+                )}
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                <InfoBadge icon={Shield} label="Position" value={guard.position} colorClass="text-purple-400" />
-                <InfoBadge icon={MapPin} label="Duty Station" value={guard.dutyStation} colorClass="text-red-400" />
-                <InfoBadge icon={Clock} label="Assigned Shift" value={guard.shift} colorClass="text-amber-400" />
-                <InfoBadge icon={CalendarDays} label="Joined" value={formatDateDisplay(guard.createdAt)} colorClass="text-blue-400" />
+                <InfoBadge
+                  icon={isGuardView ? Shield : Briefcase}
+                  label="Position"
+                  value={profile.position}
+                  colorClass="text-purple-400"
+                />
+                <InfoBadge
+                  icon={isGuardView ? MapPin : Users}
+                  label={isGuardView ? "Duty Station" : "Role"}
+                  value={isGuardView ? guard?.dutyStation : staff?.role}
+                  colorClass="text-red-400"
+                />
+                <InfoBadge
+                  icon={Clock}
+                  label={isGuardView ? "Assigned Shift" : "Contact"}
+                  value={isGuardView ? guard?.shift : staff?.contactNumber}
+                  colorClass="text-amber-400"
+                />
+                <InfoBadge
+                  icon={CalendarDays}
+                  label="Joined"
+                  value={formatDateDisplay(profile.createdAt)}
+                  colorClass="text-blue-400"
+                />
               </div>
             </div>
           </div>
@@ -166,38 +228,62 @@ export default function AdminGuardUpdates2() {
           <div className="bg-[#1e293b] rounded-2xl border border-slate-700/50 shadow-lg max-h-[800px] flex flex-col">
             <div className="p-6 border-b border-slate-700/50 bg-slate-800/30">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Activity className="text-emerald-500" size={20} /> Recent Logs
+                <Activity className="text-emerald-500" size={20} /> {isGuardView ? "Recent Logs" : "Submitted Reports"}
               </h2>
             </div>
 
             <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
               {logs.length > 0 ? (
                 <div className="relative border-l border-slate-700 ml-3 space-y-8">
-                  {logs.map((log) => (
-                    <div key={log._id} className="ml-8 relative">
-                      <span className="absolute -left-[41px] top-1 h-5 w-5 rounded-full border-4 border-[#1e293b] bg-slate-600 flex items-center justify-center" />
+                  {logs.map((log) => {
+                    const entryDate = isGuardView ? log.createdAt : log.reportDate || log.createdAt;
 
-                      <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/60 transition group">
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="text-emerald-400 font-semibold text-sm">{log.type}</span>
-                          <span className="text-[10px] text-slate-500 font-mono">{formatTimeDisplay(log.createdAt)}</span>
-                        </div>
+                    return (
+                      <div key={log._id} className="ml-8 relative">
+                        <span className="absolute -left-[41px] top-1 h-5 w-5 rounded-full border-4 border-[#1e293b] bg-slate-600 flex items-center justify-center" />
 
-                        <p className="text-slate-300 text-sm leading-relaxed mb-3">{log.remarks}</p>
+                        <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/60 transition group">
+                          <div className="flex justify-between items-start mb-2 gap-4">
+                            <span className="text-emerald-400 font-semibold text-sm">
+                              {isGuardView ? log.type : log.title}
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-mono">{formatTimeDisplay(entryDate)}</span>
+                          </div>
 
-                        <div className="flex items-center gap-2 text-xs text-slate-500 pt-2 border-t border-slate-700/50">
-                          <MapPin size={12} /> {log.post}
-                          <span className="text-slate-600">•</span>
-                          <span>{formatDateDisplay(log.createdAt)}</span>
+                          <p className="text-slate-300 text-sm leading-relaxed mb-3">
+                            {isGuardView ? log.remarks : log.details}
+                          </p>
+
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 pt-2 border-t border-slate-700/50">
+                            {isGuardView ? (
+                              <>
+                                <MapPin size={12} /> {log.post || "No post assigned"}
+                                <span className="text-slate-600">|</span>
+                                <span>{formatDateDisplay(entryDate)}</span>
+                              </>
+                            ) : (
+                              <>
+                                <FileText size={12} /> {log.category || "Report"}
+                                <span className="text-slate-600">|</span>
+                                <span>{formatDateDisplay(entryDate)}</span>
+                                {log.attendanceId?.status ? (
+                                  <>
+                                    <span className="text-slate-600">|</span>
+                                    <span>Attendance: {log.attendanceId.status}</span>
+                                  </>
+                                ) : null}
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-64 text-slate-500">
                   <FileText size={48} className="mb-3 opacity-20" />
-                  <p>No log activity recorded yet.</p>
+                  <p>{isGuardView ? "No log activity recorded yet." : "No staff reports recorded yet."}</p>
                 </div>
               )}
             </div>

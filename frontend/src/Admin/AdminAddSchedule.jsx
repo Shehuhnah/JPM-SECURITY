@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Shield, Clock, Search, CalendarCheck2, Pencil, MapPin, Briefcase, User, Calendar as CalendarIcon, ChevronLeft, X } from "lucide-react";
+import { Shield, Clock, Search, CalendarCheck2, Pencil, MapPin, Briefcase, User, Calendar as CalendarIcon, ChevronLeft, X, Users } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
@@ -50,7 +50,7 @@ export default function AdminAddSchedule() {
   const [guards, setGuards] = useState([]);
   const [clients, setClients] = useState([]);
   const [leaveAvailability, setLeaveAvailability] = useState([]);
-  const [selectedGuard, setSelectedGuard] = useState(null);
+  const [selectedGuards, setSelectedGuards] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDays, setSelectedDays] = useState([]);
   const [loadingPage, setLoadingPage] = useState(false);
@@ -119,16 +119,11 @@ export default function AdminAddSchedule() {
               timeOut: "",
             });
 
-            // Handle Guard Selection logic
-            const uniqueGuardIds = new Set(batchData.map(s => s.guardId.toString()));
-            if (uniqueGuardIds.size === 1) {
-                const guard = guards.find((g) => g._id === firstSched.guardId.toString());
-                setSelectedGuard(guard);
-            } else {
-                toast.error("Batch contains multiple guards. Cannot edit here.");
-            }
+            const batchGuardIds = [...new Set(batchData.map((s) => s.guardId.toString()))];
+            setSelectedGuards(guards.filter((guard) => batchGuardIds.includes(guard._id)));
 
-            const days = batchData.map((s) => new Date(s.timeIn));
+            const uniqueDays = [...new Set(batchData.map((s) => format(new Date(s.timeIn), "yyyy-MM-dd")))];
+            const days = uniqueDays.map((day) => new Date(day));
             setSelectedDays(days);
           }
         } catch (err) {
@@ -157,7 +152,7 @@ export default function AdminAddSchedule() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedGuard) return toast.error("Please select a guard first!");
+    if (selectedGuards.length === 0) return toast.error("Please select at least one guard first!");
     if (selectedDays.length === 0) return toast.error("Please select at least one date!");
 
     setLoadingPage(true);
@@ -166,27 +161,29 @@ export default function AdminAddSchedule() {
       ? { timeIn: "19:00", timeOut: "07:00" }
       : { timeIn: "07:00", timeOut: "19:00" };
 
-    const schedules = selectedDays.map((day) => {
-      const dateStr = format(day, "yyyy-MM-dd");
-      const timeInFull = `${dateStr}T${shiftTimes.timeIn}`;
-      let timeOutFull = `${dateStr}T${shiftTimes.timeOut}`;
+    const schedules = selectedGuards.flatMap((guard) =>
+      selectedDays.map((day) => {
+        const dateStr = format(day, "yyyy-MM-dd");
+        const timeInFull = `${dateStr}T${shiftTimes.timeIn}`;
+        let timeOutFull = `${dateStr}T${shiftTimes.timeOut}`;
 
-      if (form.shiftType === "Night Shift") {
-        const nextDay = new Date(day);
-        nextDay.setDate(nextDay.getDate() + 1);
-        timeOutFull = `${format(nextDay, "yyyy-MM-dd")}T${shiftTimes.timeOut}`;
-      }
+        if (form.shiftType === "Night Shift") {
+          const nextDay = new Date(day);
+          nextDay.setDate(nextDay.getDate() + 1);
+          timeOutFull = `${format(nextDay, "yyyy-MM-dd")}T${shiftTimes.timeOut}`;
+        }
 
-      return {
-        guardId: selectedGuard._id,
-        deploymentLocation: form.deploymentLocation,
-        client: form.client,
-        position: form.position,
-        shiftType: form.shiftType,
-        timeIn: timeInFull,
-        timeOut: timeOutFull,
-      };
-    });
+        return {
+          guardId: guard._id,
+          deploymentLocation: form.deploymentLocation,
+          client: form.client,
+          position: form.position,
+          shiftType: form.shiftType,
+          timeIn: timeInFull,
+          timeOut: timeOutFull,
+        };
+      })
+    );
 
     try {
       let res;
@@ -244,14 +241,44 @@ export default function AdminAddSchedule() {
   }, [leaveAvailability, selectedDateStrings]);
 
   useEffect(() => {
-    if (!selectedGuard) return;
+    setSelectedGuards((prev) => {
+      const availableGuards = prev.filter((guard) => !getGuardLeaveConflict(guard._id));
+      if (availableGuards.length !== prev.length) {
+        prev
+          .filter((guard) => getGuardLeaveConflict(guard._id))
+          .forEach((guard) => {
+            const leaveConflict = getGuardLeaveConflict(guard._id);
+            if (leaveConflict) {
+              toast.warning(`${guard.fullName} is on approved leave on ${leaveConflict.overlapDate}.`);
+            }
+          });
+      }
+      return availableGuards;
+    });
+  }, [selectedDays, leaveAvailability, getGuardLeaveConflict]);
 
-    const leaveConflict = getGuardLeaveConflict(selectedGuard._id);
-    if (leaveConflict) {
-      setSelectedGuard(null);
-      toast.warning(`${selectedGuard.fullName} is on approved leave on ${leaveConflict.overlapDate}.`);
+  const isGuardSelected = (guardId) => selectedGuards.some((guard) => guard._id === guardId);
+
+  const toggleGuardSelection = (guard) => {
+    const leaveConflict = getGuardLeaveConflict(guard._id);
+    const isStatusBlocked = !["Active", "On Leave"].includes(guard.status);
+
+    if (isStatusBlocked) {
+      toast.warning("Only active guards can be deployed.");
+      return;
     }
-  }, [selectedGuard, selectedDays, leaveAvailability, getGuardLeaveConflict]);
+
+    if (leaveConflict) {
+      toast.warning(`${guard.fullName} is on approved leave on ${leaveConflict.overlapDate}.`);
+      return;
+    }
+
+    setSelectedGuards((prev) =>
+      prev.some((item) => item._id === guard._id)
+        ? prev.filter((item) => item._id !== guard._id)
+        : [...prev, guard]
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-gray-100 p-3 md:p-8 font-sans">
@@ -303,35 +330,24 @@ export default function AdminAddSchedule() {
               filteredGuards.map((guard) => (
                 (() => {
                   const leaveConflict = getGuardLeaveConflict(guard._id);
-                  const isUnavailable = guard.status !== "Active" || Boolean(leaveConflict);
+                  const isStatusBlocked = !["Active", "On Leave"].includes(guard.status);
+                  const isUnavailable = isStatusBlocked || Boolean(leaveConflict);
 
                   return (
                     <div
                       key={guard._id}
-                      onClick={() => {
-                        if (guard.status !== "Active") {
-                          toast.warning("Only active guards can be deployed.");
-                          return;
-                        }
-
-                        if (leaveConflict) {
-                          toast.warning(`${guard.fullName} is on approved leave on ${leaveConflict.overlapDate}.`);
-                          return;
-                        }
-
-                        setSelectedGuard(guard);
-                      }}
+                      onClick={() => toggleGuardSelection(guard)}
                       className={`p-3 rounded-xl transition-all border ${
                         isUnavailable
                           ? "bg-slate-900/70 border-slate-800 cursor-not-allowed opacity-70"
-                          : selectedGuard?._id === guard._id
+                          : isGuardSelected(guard._id)
                             ? "bg-blue-600/20 border-blue-500 shadow-md shadow-blue-900/20 cursor-pointer"
                             : "bg-[#0f172a]/50 hover:bg-[#0f172a] border-transparent hover:border-gray-600 cursor-pointer"
                       }`}
                     >
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-sm font-bold ${
-                        selectedGuard?._id === guard._id ? "bg-blue-500 text-white" : "bg-slate-700 text-gray-300"
+                        isGuardSelected(guard._id) ? "bg-blue-500 text-white" : "bg-slate-700 text-gray-300"
                     }`}>
                         {guard.fullName.charAt(0)}
                     </div>
@@ -344,6 +360,8 @@ export default function AdminAddSchedule() {
                           ? "bg-red-500/20 text-red-400"
                           : guard.status === "Active"
                             ? "bg-green-500/20 text-green-400"
+                            : guard.status === "On Leave"
+                              ? "bg-amber-500/20 text-amber-400"
                             : "bg-gray-600/30 text-gray-500"
                     }`}>
                         {leaveConflict ? "On Leave" : guard.status}
@@ -369,19 +387,26 @@ export default function AdminAddSchedule() {
                     <h2 className="text-xl font-semibold flex items-center gap-2">
                         <Briefcase className="text-blue-400" size={22} /> Deployment Details
                     </h2>
-                    {selectedGuard && (
-                        <div className="bg-blue-900/30 pl-3 pr-2 py-2 rounded-lg border border-blue-500/30 flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-                            <div className="flex items-center gap-2 overflow-hidden">
-                                <span className="text-xs text-blue-300 whitespace-nowrap">Assigning to:</span>
-                                <span className="text-sm font-bold text-white truncate">{selectedGuard.fullName}</span>
+                    {selectedGuards.length > 0 && (
+                        <div className="w-full sm:w-auto rounded-lg border border-blue-500/30 bg-blue-900/30 px-3 py-2">
+                            <div className="mb-2 flex items-center gap-2 text-xs text-blue-300">
+                                <Users size={14} />
+                                <span>Assigning to {selectedGuards.length} guard(s)</span>
                             </div>
-                            <button 
-                                onClick={() => setSelectedGuard(null)}
-                                className="bg-blue-800/50 hover:bg-blue-700 text-blue-200 p-1 rounded-full transition-colors"
-                                type="button"
-                            >
-                                <X size={14} />
-                            </button>
+                            <div className="flex flex-wrap gap-2">
+                                {selectedGuards.map((guard) => (
+                                    <div key={guard._id} className="flex items-center gap-2 rounded-full bg-blue-800/50 px-3 py-1 text-sm text-white">
+                                        <span className="max-w-40 truncate">{guard.fullName}</span>
+                                        <button
+                                            onClick={() => setSelectedGuards((prev) => prev.filter((item) => item._id !== guard._id))}
+                                            className="rounded-full bg-blue-700/70 p-0.5 text-blue-100 transition-colors hover:bg-blue-600"
+                                            type="button"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>

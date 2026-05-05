@@ -1,5 +1,6 @@
 import AdminAttendance from "../models/AdminAttendance.model.js";
 import AdminReport from "../models/AdminReport.model.js";
+import { getAttendanceMinutesBreakdown, toHours } from "../utils/attendanceHours.js";
 
 const STAFF_ROLES = ["Admin", "Subadmin"];
 
@@ -19,8 +20,6 @@ const getMonthRange = () => {
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
   return { start, end };
 };
-
-const toHours = (minutes) => Number((minutes / 60).toFixed(2));
 
 export const getMyAttendanceDashboard = async (req, res) => {
   try {
@@ -43,12 +42,13 @@ export const getMyAttendanceDashboard = async (req, res) => {
     ]);
 
     let totalMinutesThisMonth = 0;
+    let regularMinutesThisMonth = 0;
+    let overtimeMinutesThisMonth = 0;
     for (const record of monthlyRecords) {
-      if (!record.timeIn || !record.timeOut) continue;
-      totalMinutesThisMonth += Math.max(
-        0,
-        Math.round((new Date(record.timeOut) - new Date(record.timeIn)) / 60000)
-      );
+      const breakdown = getAttendanceMinutesBreakdown(record);
+      totalMinutesThisMonth += breakdown.totalMinutes;
+      regularMinutesThisMonth += breakdown.regularMinutes;
+      overtimeMinutesThisMonth += breakdown.overtimeMinutes;
     }
 
     res.status(200).json({
@@ -57,6 +57,8 @@ export const getMyAttendanceDashboard = async (req, res) => {
       stats: {
         presentDaysThisMonth: monthlyRecords.length,
         totalHoursThisMonth: toHours(totalMinutesThisMonth),
+        regularHoursThisMonth: toHours(regularMinutesThisMonth),
+        overtimeHoursThisMonth: toHours(overtimeMinutesThisMonth),
         reportsCreated: reportCount,
         currentStatus: todayRecord?.status || "Not Timed In",
       },

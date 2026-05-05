@@ -1,4 +1,5 @@
 import express from "express";
+import multer from "multer";
 import {
   registerUser,
   loginUser,
@@ -13,7 +14,8 @@ import {
   forgotPasswordGuard,
   verifyOtpGuard,
   forgotPasswordAdmin,
-  verifyOtpAdmin
+  verifyOtpAdmin,
+  updateMyProfile,
 } from "../controller/authController.js";
 import { 
     getUsers,
@@ -21,14 +23,25 @@ import {
     updateUser,
     deleteUser,
 } from "../controller/userController.js";
-import { protect } from "../middleware/authMiddleware.js";
+import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("Only image files are allowed."));
+    }
+    cb(null, true);
+  },
+});
 
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 router.post("/logout", logout);
 router.get("/me", getMe);
+router.put("/me", protect, authorizeRoles("Admin", "Subadmin"), upload.single("photo"), updateMyProfile);
 router.get("/subadmins", protect, getSubadmins);
 router.get("/admins", protect, getAdmins);
 

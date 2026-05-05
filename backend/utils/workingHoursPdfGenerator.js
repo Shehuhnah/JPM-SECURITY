@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
+import { getAttendanceMinutesBreakdown } from './attendanceHours.js';
 
 /**
  * Generate a grid-based timesheet PDF.
@@ -20,21 +21,12 @@ export const generateWorkHoursPDF = (guard, attendanceRecords, periodCover) => {
 
       const detachment = attendanceRecords[0]?.scheduleId?.client || 'N/A';
 
-      // Helper to get work hours in minutes
-      const getWorkMinutes = (record) => {
-        if (!record.timeIn || !record.timeOut) return 0;
-        const start = new Date(record.timeIn);
-        const end = new Date(record.timeOut);
-        if (end < start) end.setDate(end.getDate() + 1); // overnight shift
-        return (end - start) / (1000 * 60);
-      };
-
       // Map day => hours
       const attendanceMap = new Map();
       let totalMinutes = 0;
       attendanceRecords.forEach(record => {
         const day = new Date(record.timeIn).getDate();
-        const workMinutes = getWorkMinutes(record);
+        const workMinutes = getAttendanceMinutesBreakdown(record).totalMinutes;
         if (workMinutes > 0) {
           totalMinutes += workMinutes;
           attendanceMap.set(day, (workMinutes / 60).toFixed(1)); // hours
@@ -293,13 +285,11 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
         const workDays = new Set();
 
         records.forEach(rec => {
-          if (rec.timeIn && rec.timeOut && rec.scheduleId) {
+          if (rec.timeIn && rec.scheduleId) {
             const t1 = new Date(rec.timeIn);
-            const t2 = new Date(rec.timeOut);
-            let diffMs = t2 - t1;
-            if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
-            const hours = diffMs / (1000 * 60 * 60);
-            totalMinutes += diffMs / (1000 * 60);
+            const breakdown = getAttendanceMinutesBreakdown(rec);
+            const hours = breakdown.totalMinutes / 60;
+            totalMinutes += breakdown.totalMinutes;
 
             // Use the actual Date (1-31)
             const day = t1.getDate();

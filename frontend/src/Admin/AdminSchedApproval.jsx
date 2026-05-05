@@ -1,4 +1,4 @@
-import React, { useEffect, useState, Fragment } from "react";
+import React, { useEffect, useMemo, useState, Fragment } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -22,9 +22,11 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
+import TablePagination from "../components/admin/TablePagination.jsx";
 import "react-toastify/dist/ReactToastify.css";
 
 const api = import.meta.env.VITE_API_URL;
+const LIST_PAGE_SIZE = 5;
 
 // --- Custom Styles for Dark Mode FullCalendar ---
 const calendarStyles = `
@@ -97,6 +99,7 @@ export default function AdminSchedApproval() {
   const [viewMode, setViewMode] = useState("calendar");
   const [statusFilter, setStatusFilter] = useState("All");
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Modals
   const [showApproveBatchModal, setShowApproveBatchModal] = useState(false);
@@ -217,6 +220,8 @@ export default function AdminSchedApproval() {
     return matchesClient && matchesStatus;
   });
 
+  const getCreatedAtValue = (schedule) => new Date(schedule?.createdAt || 0).getTime();
+
   const calendarEvents = filteredSchedules.map((s) => ({
     id: s._id,
     title: `${s.guardId?.fullName || "Unassigned"} (${s.shiftType})`,
@@ -228,19 +233,43 @@ export default function AdminSchedApproval() {
     extendedProps: s,
   }));
 
-  const groupedForTable = filteredSchedules.reduce((acc, schedule) => {
-    const key = `${schedule.client}-${schedule.shiftType}`;
-    if (!acc[key]) {
-      acc[key] = {
-        client: schedule.client,
-        shiftType: schedule.shiftType,
-        isApproved: schedule.isApproved,
-        schedules: [],
-      };
+  const groupedForTable = useMemo(() => {
+    const grouped = filteredSchedules.reduce((acc, schedule) => {
+      const key = schedule.batchId || schedule._id;
+      if (!acc[key]) {
+        acc[key] = {
+          batchId: schedule.batchId || schedule._id,
+          client: schedule.client,
+          deploymentLocation: schedule.deploymentLocation,
+          shiftType: schedule.shiftType,
+          isApproved: schedule.isApproved,
+          schedules: [],
+          latestCreatedAt: 0,
+        };
+      }
+      acc[key].schedules.push(schedule);
+      acc[key].latestCreatedAt = Math.max(acc[key].latestCreatedAt, getCreatedAtValue(schedule));
+      return acc;
+    }, {});
+
+    return Object.values(grouped).sort((a, b) => b.latestCreatedAt - a.latestCreatedAt);
+  }, [filteredSchedules]);
+
+  const totalBatchPages = Math.max(1, Math.ceil(groupedForTable.length / LIST_PAGE_SIZE));
+  const paginatedGroups = groupedForTable.slice(
+    (currentPage - 1) * LIST_PAGE_SIZE,
+    currentPage * LIST_PAGE_SIZE
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedClient, statusFilter, viewMode]);
+
+  useEffect(() => {
+    if (currentPage > totalBatchPages) {
+      setCurrentPage(totalBatchPages);
     }
-    acc[key].schedules.push(schedule);
-    return acc;
-  }, {});
+  }, [currentPage, totalBatchPages]);
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white p-4 md:p-6 font-sans">
@@ -368,18 +397,31 @@ export default function AdminSchedApproval() {
                 ) : (
                     // ===== LIST VIEW (Grouped) =====
                     <div className="p-4 md:p-6 space-y-8">
-                        {Object.values(groupedForTable).length === 0 ? (
+                        {groupedForTable.length === 0 ? (
                              <div className="text-center py-20 text-gray-500">No schedules found matching your filters.</div>
                         ) : (
-                            Object.values(groupedForTable).map((group, idx) => (
-                                <div key={idx} className="bg-[#1e293b] border border-gray-700 rounded-xl overflow-hidden shadow-md">
+                            <>
+                            <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-700 bg-[#0f172a]/60 px-4 py-3">
+                                <div className="flex items-center gap-2 text-sm text-gray-300">
+                                    <Table size={16} className="text-blue-400" />
+                                    <span>Showing newest schedule batches first</span>
+                                </div>
+                                <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                                    {groupedForTable.length} batches
+                                </span>
+                            </div>
+
+                            {paginatedGroups.map((group) => (
+                                <div key={group.batchId} className="bg-[#1e293b] border border-gray-700 rounded-xl overflow-hidden shadow-md">
                                     {/* Group Header */}
                                     <div className="p-4 bg-slate-800/50 border-b border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                         <div className="flex items-center gap-3">
                                             <div className={`w-1 h-8 rounded-full ${group.shiftType === 'Night Shift' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
                                             <div>
                                                 <h3 className="font-bold text-white text-lg">{group.client}</h3>
-                                                <div className="flex items-center gap-2 text-sm text-gray-400">
+                                                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-400">
+                                                    <span className="text-gray-300">{group.deploymentLocation}</span>
+                                                    <span>•</span>
                                                     <span className={group.shiftType === 'Night Shift' ? 'text-red-400' : 'text-yellow-400'}>{group.shiftType}</span>
                                                     <span>•</span>
                                                     <span className={`px-2 py-0.5 rounded text-xs font-medium border ${
@@ -476,7 +518,18 @@ export default function AdminSchedApproval() {
                                         ))}
                                     </div>
                                 </div>
-                            ))
+                            ))}
+
+                            <TablePagination
+                                page={currentPage}
+                                limit={LIST_PAGE_SIZE}
+                                totalItems={groupedForTable.length}
+                                currentCount={paginatedGroups.length}
+                                totalPages={totalBatchPages}
+                                label="schedule batches"
+                                onPageChange={setCurrentPage}
+                            />
+                            </>
                         )}
                     </div>
                 )}

@@ -2,6 +2,7 @@ import Attendance from "../models/Attendance.model.js";
 import Schedule from "../models/schedule.model.js";
 import Guard from "../models/guard.model.js";
 import { generateWorkHoursPDF, generateWorkHoursByClientPDF } from "../utils/workingHoursPdfGenerator.js";
+import { getAttendanceMinutesBreakdown } from "../utils/attendanceHours.js";
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -111,6 +112,10 @@ export const updateAttendance = async (req, res) => {
 
     attendance.timeOut = new Date();
     attendance.status = "Off Duty";
+    const minutesBreakdown = getAttendanceMinutesBreakdown({
+      timeIn: attendance.timeIn,
+      timeOut: attendance.timeOut,
+    });
     await attendance.save();
 
     const populatedAttendance = await Attendance.findById(attendanceId).populate({
@@ -121,7 +126,14 @@ export const updateAttendance = async (req, res) => {
         select: 'fullName'
     });
 
-    res.status(200).json(populatedAttendance);
+    res.status(200).json({
+      ...populatedAttendance.toObject(),
+      workSummary: {
+        regularHours: Number((minutesBreakdown.regularMinutes / 60).toFixed(2)),
+        overtimeHours: Number((minutesBreakdown.overtimeMinutes / 60).toFixed(2)),
+        totalHours: Number((minutesBreakdown.totalMinutes / 60).toFixed(2)),
+      },
+    });
   } catch (error) {
     console.error("Error updating attendance (time-out):", error);
     res.status(500).json({ message: "Server error during time-out." });

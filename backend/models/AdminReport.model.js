@@ -31,6 +31,14 @@ const adminReportSchema = new mongoose.Schema(
       ref: "AdminAttendance",
       default: null,
     },
+    imageUrl: {
+      type: String,
+      default: "",
+    },
+    imagePublicId: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

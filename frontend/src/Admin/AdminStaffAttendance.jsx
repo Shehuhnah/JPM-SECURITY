@@ -1,16 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Line } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Tooltip,
-  Legend,
-  Filler,
-} from "chart.js";
 import {
   CalendarClock,
   Clock3,
@@ -25,16 +14,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "../hooks/useAuth";
 
 const api = import.meta.env.VITE_API_URL;
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Tooltip,
-  Legend,
-  Filler
-);
+const SUMMARY_DAYS = 15;
 
 const WEEKDAY_HEADERS = ["Sun", "Mon", "Tues", "Wed", "Thurs", "Fri", "Sat"];
 
@@ -65,6 +45,45 @@ const getDurationLabel = (timeIn, timeOut) => {
   return `${hours}h ${minutes}m`;
 };
 
+const getDateKey = (value) => {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const normalizeLeaveDateKey = (value) => {
+  if (!value) return null;
+  if (typeof value === "string") {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+    const slashMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (slashMatch) {
+      const [, month, day, year] = slashMatch;
+      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+    }
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return getDateKey(parsed);
+    return value.slice(0, 10);
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return getDateKey(parsed);
+};
+
+const getLastNDays = (count) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (count - 1 - index));
+    return date;
+  });
+};
+
 const isWeekend = (date) => {
   const day = date.getDay();
   return day === 0 || day === 6;
@@ -75,16 +94,32 @@ const getHeatmapTone = (status) => {
     return "bg-emerald-500/90 border-emerald-300/70";
   }
 
+  if (status === "leave-approved") {
+    return "bg-[repeating-linear-gradient(135deg,rgba(251,191,36,0.96),rgba(251,191,36,0.96)_8px,rgba(245,158,11,0.96)_8px,rgba(245,158,11,0.96)_16px)] border-amber-100 ring-2 ring-amber-300/80 shadow-[0_0_0_1px_rgba(253,224,71,0.45)]";
+  }
+
+  if (status === "leave-pending") {
+    return "bg-[repeating-linear-gradient(135deg,rgba(96,165,250,0.9),rgba(96,165,250,0.9)_8px,rgba(59,130,246,0.9)_8px,rgba(59,130,246,0.9)_16px)] border-sky-100 ring-2 ring-sky-300/80 shadow-[0_0_0_1px_rgba(125,211,252,0.35)]";
+  }
+
   return "bg-slate-700/70 border-slate-500/60";
 };
 
-const getHeatmapStatus = (date, attendanceMap) => {
-  const key = date.toISOString().split("T")[0];
+const getHeatmapLabel = (status) => {
+  if (status === "present") return "Present";
+  if (status === "leave-approved") return "Approved Leave";
+  if (status === "leave-pending") return "Pending Leave";
+  return "No Record / Day Off";
+};
+
+const getHeatmapStatus = (date, attendanceMap, leaveDateMap) => {
+  const key = getDateKey(date);
   const record = attendanceMap.get(key);
   const now = new Date();
   const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   if (record?.timeIn) return "present";
+  if (leaveDateMap.has(key)) return leaveDateMap.get(key);
   if (date > endOfToday || isWeekend(date)) return "dayoff";
   return "dayoff";
 };
@@ -93,6 +128,7 @@ export default function AdminStaffAttendance() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [dashboard, setDashboard] = useState(null);
+  const [leaveRequests, setLeaveRequests] = useState([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -107,12 +143,25 @@ export default function AdminStaffAttendance() {
   const fetchDashboard = async () => {
     try {
       setPageLoading(true);
-      const res = await fetch(`${api}/api/admin-attendance/me`, {
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to load attendance.");
-      setDashboard(data);
+      const [attendanceRes, leaveRes] = await Promise.all([
+        fetch(`${api}/api/admin-attendance/me`, {
+          credentials: "include",
+        }),
+        fetch(`${api}/api/leaves/my`, {
+          credentials: "include",
+        }),
+      ]);
+
+      const [attendanceData, leaveData] = await Promise.all([
+        attendanceRes.json(),
+        leaveRes.json(),
+      ]);
+
+      if (!attendanceRes.ok) throw new Error(attendanceData.message || "Failed to load attendance.");
+      if (!leaveRes.ok) throw new Error(leaveData.message || "Failed to load leave requests.");
+
+      setDashboard(attendanceData);
+      setLeaveRequests(Array.isArray(leaveData) ? leaveData : []);
     } catch (error) {
       toast.error(error.message || "Failed to load attendance.");
     } finally {
@@ -177,37 +226,64 @@ export default function AdminStaffAttendance() {
 
   const recentAttendance = useMemo(() => dashboard?.recentRecords || [], [dashboard]);
 
-  const attendanceRateTrendData = useMemo(() => {
-    const sortedRecords = [...recentAttendance]
-      .filter((record) => record?.timeIn)
-      .sort((a, b) => new Date(a.timeIn) - new Date(b.timeIn));
+  const leaveDateMap = useMemo(() => {
+    const map = new Map();
 
-    let runningPresent = 0;
-    const points = sortedRecords.map((record, index) => {
-      if (record.timeIn) runningPresent += 1;
-      return Number(((runningPresent / (index + 1)) * 100).toFixed(1));
-    });
+    leaveRequests
+      .filter((request) => request.status !== "Declined")
+      .forEach((request) => {
+        const leaveStatus = request.status === "Approved" ? "leave-approved" : "leave-pending";
+        (request.dates || []).forEach((date) => {
+          const normalizedDate = normalizeLeaveDateKey(date);
+          if (normalizedDate) {
+            map.set(normalizedDate, leaveStatus);
+          }
+        });
+      });
 
-    return {
-      labels: sortedRecords.map((record) =>
-        new Date(record.timeIn).toLocaleDateString([], {
-          month: "short",
-          day: "numeric",
-        })
+    return map;
+  }, [leaveRequests]);
+
+  const attendanceMap = useMemo(
+    () =>
+      new Map(
+        recentAttendance.map((record) => [
+          getDateKey(record.timeIn || record.createdAt),
+          record,
+        ])
       ),
-      datasets: [
-        {
-          label: "Attendance Rate",
-          data: points,
-          borderColor: "#2B7FFF",
-          backgroundColor: "rgba(43, 127, 255, 0.18)",
-          fill: true,
-          tension: 0.35,
-          pointRadius: 4,
-          pointHoverRadius: 5,
-        },
-      ],
-    };
+    [recentAttendance]
+  );
+
+  const fifteenDaySummary = useMemo(() => {
+    const days = getLastNDays(SUMMARY_DAYS);
+
+    return days.reduce(
+      (acc, date) => {
+        const status = getHeatmapStatus(date, attendanceMap, leaveDateMap);
+        acc.total += 1;
+        if (status === "present") acc.present += 1;
+        else if (status === "leave-approved" || status === "leave-pending") acc.leave += 1;
+        else acc.noRecord += 1;
+        return acc;
+      },
+      { total: 0, present: 0, leave: 0, noRecord: 0 }
+    );
+  }, [attendanceMap, leaveDateMap]);
+
+  const hoursLast15Days = useMemo(() => {
+    const validKeys = new Set(getLastNDays(SUMMARY_DAYS).map((date) => getDateKey(date)));
+
+    const totalMinutes = recentAttendance.reduce((sum, record) => {
+      const recordKey = getDateKey(record.timeIn || record.createdAt);
+      if (!validKeys.has(recordKey) || !record.timeIn || !record.timeOut) {
+        return sum;
+      }
+
+      return sum + Math.max(0, Math.round((new Date(record.timeOut) - new Date(record.timeIn)) / 60000));
+    }, 0);
+
+    return Number((totalMinutes / 60).toFixed(2));
   }, [recentAttendance]);
 
   const attendanceHeatmap = useMemo(() => {
@@ -216,17 +292,11 @@ export default function AdminStaffAttendance() {
     const month = now.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstDayOfMonth = new Date(year, month, 1).getDay();
-    const attendanceMap = new Map(
-      recentAttendance.map((record) => [
-        new Date(record.timeIn || record.createdAt).toISOString().split("T")[0],
-        record,
-      ])
-    );
 
     const days = Array.from({ length: daysInMonth }, (_, index) => {
       const date = new Date(year, month, index + 1);
-      const key = date.toISOString().split("T")[0];
-      const status = getHeatmapStatus(date, attendanceMap);
+      const key = getDateKey(date);
+      const status = getHeatmapStatus(date, attendanceMap, leaveDateMap);
 
       return {
         key,
@@ -242,10 +312,12 @@ export default function AdminStaffAttendance() {
 
     const summary = days.reduce(
       (acc, day) => {
-        acc[day.status] += 1;
+        if (day.status === "present") acc.present += 1;
+        else if (day.status === "leave-approved" || day.status === "leave-pending") acc.leave += 1;
+        else acc.dayoff += 1;
         return acc;
       },
-      { present: 0, dayoff: 0 }
+      { present: 0, leave: 0, dayoff: 0 }
     );
 
     const leadingEmptyDays = Array.from({ length: firstDayOfMonth }, (_, index) => ({
@@ -264,7 +336,7 @@ export default function AdminStaffAttendance() {
       summary,
       calendarCells: [...leadingEmptyDays, ...days, ...trailingEmptyDays],
     };
-  }, [recentAttendance]);
+  }, [attendanceMap, leaveDateMap]);
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-gray-100 p-4 md:p-8">
@@ -305,8 +377,8 @@ export default function AdminStaffAttendance() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
         <StatCard title="Status Today" value={dashboard?.stats?.currentStatus || "Loading"} icon={<Clock3 className="text-cyan-400" size={20} />} />
-        <StatCard title="Days This Month" value={dashboard?.stats?.presentDaysThisMonth ?? 0} icon={<CalendarClock className="text-blue-400" size={20} />} />
-        <StatCard title="Hours This Month" value={dashboard?.stats?.totalHoursThisMonth ?? 0} icon={<Clock3 className="text-emerald-400" size={20} />} />
+        <StatCard title="Present Last 15 Days" value={fifteenDaySummary.present} icon={<CalendarClock className="text-blue-400" size={20} />} />
+        <StatCard title="Hours Last 15 Days" value={hoursLast15Days} icon={<Clock3 className="text-emerald-400" size={20} />} />
         <StatCard title="Reports Created" value={dashboard?.stats?.reportsCreated ?? 0} icon={<FileText className="text-amber-400" size={20} />} />
       </div>
 
@@ -349,19 +421,22 @@ export default function AdminStaffAttendance() {
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-xl font-semibold text-white">Attendance Snapshot</h2>
             <span className="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-300">
-              This month
+              Last 15 days
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <MiniMetric label="Present" value={attendanceHeatmap.summary.present} tone="text-emerald-300" />
-            <MiniMetric label="No Record" value={attendanceHeatmap.summary.dayoff} tone="text-slate-300" />
+          <div className="grid grid-cols-3 gap-3">
+            <MiniMetric label="Present" value={fifteenDaySummary.present} tone="text-emerald-300" />
+            <MiniMetric label="Leave" value={fifteenDaySummary.leave} tone="text-amber-300" />
+            <MiniMetric label="No Record" value={fifteenDaySummary.noRecord} tone="text-slate-300" />
           </div>
 
           <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
             <div className="text-sm font-medium text-white">Legend</div>
             <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-slate-400">
               <LegendItem label="Present" tone="bg-emerald-500/90 border-emerald-300/70" />
+              <LegendItem label="Approved leave" tone="bg-amber-500/90 border-amber-300/70" />
+              <LegendItem label="Pending leave" tone="bg-sky-500/90 border-sky-300/70" />
               <LegendItem label="No record / day off" tone="bg-slate-700/70 border-slate-500/60" />
             </div>
           </div>
@@ -402,11 +477,21 @@ export default function AdminStaffAttendance() {
                       aria-hidden="true"
                     />
                   ) : (
-                    <div key={day.key} className="group" title={`${day.fullLabel} • ${day.status}`}>
+                    <div key={day.key} className="group" title={`${day.fullLabel} | ${getHeatmapLabel(day.status)}`}>
                       <div
-                        className={`h-11 md:h-12 rounded-xl border ${getHeatmapTone(day.status)} flex items-center justify-center text-sm font-semibold text-white shadow-sm transition-transform group-hover:scale-[1.04]`}
+                        className={`relative h-11 md:h-12 rounded-xl border ${getHeatmapTone(day.status)} flex flex-col items-center justify-center text-sm font-semibold ${day.status === "leave-approved" ? "text-slate-950" : day.status === "leave-pending" ? "text-slate-950" : "text-white"} shadow-sm transition-transform group-hover:scale-[1.04] overflow-hidden`}
                       >
+                        {day.status === "leave-approved" ? (
+                          <span className="absolute top-1 right-1 h-4 min-w-4 px-1 rounded-full bg-slate-950/85 text-[9px] font-bold leading-4 text-amber-300 text-center">L</span>
+                        ) : day.status === "leave-pending" ? (
+                          <span className="absolute top-1 right-1 h-4 min-w-4 px-1 rounded-full bg-slate-950/85 text-[9px] font-bold leading-4 text-sky-300 text-center">L</span>
+                        ) : null}
                         {day.dayNumber}
+                        {day.status === "leave-approved" || day.status === "leave-pending" ? (
+                          <span className="text-[9px] leading-none font-bold uppercase tracking-wide">
+                            Leave
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   )
@@ -416,64 +501,13 @@ export default function AdminStaffAttendance() {
 
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-400">
               <LegendItem label="Present" tone="bg-emerald-500/90 border-emerald-300/70" />
+              <LegendItem label="Approved leave" tone="bg-amber-500/90 border-amber-300/70" />
+              <LegendItem label="Pending leave" tone="bg-sky-500/90 border-sky-300/70" />
               <LegendItem label="No record / day off" tone="bg-slate-700/70 border-slate-500/60" />
             </div>
           </section>
 
           <div className="grid grid-cols-1 gap-6">
-            <section className="bg-[#1e293b] border border-slate-800 rounded-2xl p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-xl font-semibold text-white">Attendance Rate Over Time</h2>
-                <span className="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-300">
-                  Recent records
-                </span>
-              </div>
-
-              <div className="h-72">
-                {attendanceRateTrendData.labels.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-sm text-slate-500 border border-dashed border-slate-700 rounded-xl">
-                    No attendance trend data yet.
-                  </div>
-                ) : (
-                  <Line
-                    data={attendanceRateTrendData}
-                    options={{
-                      maintainAspectRatio: false,
-                      responsive: true,
-                      plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                          backgroundColor: "#0f172a",
-                          titleColor: "#f3f4f6",
-                          bodyColor: "#d1d5db",
-                          borderColor: "#334155",
-                          borderWidth: 1,
-                          callbacks: {
-                            label: (context) => `${context.raw}% attendance rate`,
-                          },
-                        },
-                      },
-                      scales: {
-                        x: {
-                          ticks: { color: "#94a3b8" },
-                          grid: { display: false },
-                        },
-                        y: {
-                          beginAtZero: true,
-                          max: 100,
-                          ticks: {
-                            color: "#94a3b8",
-                            callback: (value) => `${value}%`,
-                          },
-                          grid: { color: "rgba(148, 163, 184, 0.12)" },
-                        },
-                      },
-                    }}
-                  />
-                )}
-              </div>
-            </section>
-
             <section className="bg-[#1e293b] border border-slate-800 rounded-2xl p-6 shadow-xl">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-xl font-semibold text-white">Recent Attendance</h2>

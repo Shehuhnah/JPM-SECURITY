@@ -1,6 +1,7 @@
 import Logbook from "../models/logbook.model.js";
 import Schedule from "../models/schedule.model.js";
 import Attendance from "../models/Attendance.model.js";
+import { deleteImageFromCloudinary, uploadImageToCloudinary } from "../utils/cloudinary.js";
 
 export const createLogbook = async (req, res) => {
   try {
@@ -30,6 +31,17 @@ export const createLogbook = async (req, res) => {
     }
     
     const shift = schedule.shiftType;
+    let imageData = {};
+
+    if (req.file) {
+      const uploadedImage = await uploadImageToCloudinary(req.file, {
+        folder: "jpm-security/logbook",
+      });
+      imageData = {
+        imageUrl: uploadedImage.secure_url,
+        imagePublicId: uploadedImage.public_id,
+      };
+    }
 
     const logbook = await Logbook.create({
       guard: guardId,
@@ -38,6 +50,7 @@ export const createLogbook = async (req, res) => {
       shift,
       type,
       remarks,
+      ...imageData,
     });
     res.status(201).json(logbook);
   } catch (error) {
@@ -100,6 +113,9 @@ export const deleteLogbook = async (req, res) => {
         const deletedLogbook = await Logbook.findByIdAndDelete(id);
         if (!deletedLogbook) {
             return res.status(404).json({ message: "Logbook entry not found" });
+        }
+        if (deletedLogbook.imagePublicId) {
+            await deleteImageFromCloudinary(deletedLogbook.imagePublicId);
         }
         res.json({ message: "Logbook entry deleted successfully" });
     } catch (error) {
