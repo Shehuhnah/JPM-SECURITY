@@ -1,5 +1,4 @@
 import AdminAttendance from "../models/AdminAttendance.model.js";
-import AdminReport from "../models/AdminReport.model.js";
 import { getAttendanceMinutesBreakdown, toHours } from "../utils/attendanceHours.js";
 
 const STAFF_ROLES = ["Admin", "Subadmin"];
@@ -21,6 +20,18 @@ const getMonthRange = () => {
   return { start, end };
 };
 
+const getWorkedMinutesFromSegment = (timeIn, timeOut) => {
+  if (!timeIn || !timeOut) return 0;
+
+  const start = new Date(timeIn);
+  const end = new Date(timeOut);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return 0;
+  }
+
+  return Math.max(0, Math.round((end - start) / 60000));
+};
+
 export const getMyAttendanceDashboard = async (req, res) => {
   try {
     if (!isStaff(req.user)) {
@@ -31,14 +42,13 @@ export const getMyAttendanceDashboard = async (req, res) => {
     const todayKey = getDateKey();
     const { start, end } = getMonthRange();
 
-    const [todayRecord, recentRecords, monthlyRecords, reportCount] = await Promise.all([
+    const [todayRecord, recentRecords, monthlyRecords] = await Promise.all([
       AdminAttendance.findOne({ user: userId, dateKey: todayKey }).sort({ createdAt: -1 }),
       AdminAttendance.find({ user: userId }).sort({ createdAt: -1 }).limit(10),
       AdminAttendance.find({
         user: userId,
         timeIn: { $gte: start, $lte: end },
       }).sort({ createdAt: -1 }),
-      AdminReport.countDocuments({ createdBy: userId }),
     ]);
 
     let totalMinutesThisMonth = 0;
@@ -59,7 +69,6 @@ export const getMyAttendanceDashboard = async (req, res) => {
         totalHoursThisMonth: toHours(totalMinutesThisMonth),
         regularHoursThisMonth: toHours(regularMinutesThisMonth),
         overtimeHoursThisMonth: toHours(overtimeMinutesThisMonth),
-        reportsCreated: reportCount,
         currentStatus: todayRecord?.status || "Not Timed In",
       },
     });
@@ -78,17 +87,36 @@ export const timeInStaff = async (req, res) => {
     const todayKey = getDateKey();
     const existing = await AdminAttendance.findOne({ user: req.user._id, dateKey: todayKey });
     if (existing) {
-      return res.status(400).json({
-        message: existing.timeOut
-          ? "You already completed attendance for today."
-          : "You are already timed in today.",
-      });
+      if (!existing.timeOut) {
+        return res.status(400).json({
+          message: "You are already timed in today.",
+        });
+      }
+
+      if (!existing.firstTimeIn) {
+        existing.firstTimeIn = existing.timeIn;
+      }
+
+      if (!Number.isFinite(existing.accumulatedWorkedMinutes)) {
+        existing.accumulatedWorkedMinutes = getWorkedMinutesFromSegment(existing.timeIn, existing.timeOut);
+      }
+
+      existing.timeIn = new Date();
+      existing.timeOut = null;
+      existing.status = "Timed In";
+      if (typeof req.body?.notes === "string") {
+        existing.notes = req.body.notes.trim();
+      }
+      await existing.save();
+
+      return res.status(200).json(existing);
     }
 
     const record = await AdminAttendance.create({
       user: req.user._id,
       dateKey: todayKey,
       timeIn: new Date(),
+      firstTimeIn: new Date(),
       notes: req.body?.notes?.trim?.() || "",
     });
 
@@ -119,6 +147,10 @@ export const timeOutStaff = async (req, res) => {
     }
 
     record.timeOut = new Date();
+    record.firstTimeIn = record.firstTimeIn || record.timeIn;
+    record.accumulatedWorkedMinutes =
+      Math.max(0, record.accumulatedWorkedMinutes || 0) +
+      getWorkedMinutesFromSegment(record.timeIn, record.timeOut);
     record.status = "Timed Out";
     if (typeof req.body?.notes === "string") {
       record.notes = req.body.notes.trim();

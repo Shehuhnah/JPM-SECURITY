@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   CalendarClock,
   Clock3,
-  FileText,
   LogIn,
   LogOut,
   RefreshCcw,
@@ -40,6 +39,41 @@ const formatTime = (value) => {
 const getDurationLabel = (timeIn, timeOut) => {
   if (!timeIn || !timeOut) return "--";
   const diff = Math.max(0, new Date(timeOut) - new Date(timeIn));
+  const hours = Math.floor(diff / 3600000);
+  const minutes = Math.floor((diff % 3600000) / 60000);
+  return `${hours}h ${minutes}m`;
+};
+
+const getWorkedMilliseconds = (record, currentTime = new Date()) => {
+  if (!record) return 0;
+
+  const accumulatedWorkedMinutes = Number.isFinite(record.accumulatedWorkedMinutes)
+    ? Math.max(0, record.accumulatedWorkedMinutes)
+    : 0;
+  let totalMs = accumulatedWorkedMinutes * 60000;
+
+  if (record.timeIn && !record.timeOut) {
+    totalMs += Math.max(0, currentTime - new Date(record.timeIn));
+  }
+
+  return totalMs;
+};
+
+const getWorkedDurationLabel = (record, currentTime = new Date()) => {
+  const diff = getWorkedMilliseconds(record, currentTime);
+  if (!diff) return "Not Timed In";
+
+  const hours = Math.floor(diff / 3600000);
+  const minutes = Math.floor((diff % 3600000) / 60000);
+  const seconds = Math.floor((diff % 60000) / 1000);
+
+  return `${hours}h ${minutes}m ${seconds}s`;
+};
+
+const getWorkedHoursLabel = (record, currentTime = new Date()) => {
+  const diff = getWorkedMilliseconds(record, currentTime);
+  if (!diff) return "--";
+
   const hours = Math.floor(diff / 3600000);
   const minutes = Math.floor((diff % 3600000) / 60000);
   return `${hours}h ${minutes}m`;
@@ -131,6 +165,7 @@ export default function AdminStaffAttendance() {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [liveNow, setLiveNow] = useState(new Date());
 
   useEffect(() => {
     if (!user && !loading) {
@@ -172,6 +207,14 @@ export default function AdminStaffAttendance() {
   useEffect(() => {
     if (user) fetchDashboard();
   }, [user]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveNow(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const handleTimeIn = async () => {
     try {
@@ -218,11 +261,10 @@ export default function AdminStaffAttendance() {
   const todayRecord = dashboard?.todayRecord;
   const hasTimedIn = Boolean(todayRecord?.timeIn);
   const hasTimedOut = Boolean(todayRecord?.timeOut);
-  const primaryAction = !hasTimedIn
+  const liveTimeInLabel = getWorkedDurationLabel(todayRecord, liveNow);
+  const primaryAction = !hasTimedIn || hasTimedOut
     ? { label: "Time In", icon: <LogIn size={18} />, onClick: handleTimeIn }
-    : !hasTimedOut
-      ? { label: "Time Out", icon: <LogOut size={18} />, onClick: handleTimeOut }
-      : null;
+    : { label: "Time Out", icon: <LogOut size={18} />, onClick: handleTimeOut };
 
   const recentAttendance = useMemo(() => dashboard?.recentRecords || [], [dashboard]);
 
@@ -275,12 +317,12 @@ export default function AdminStaffAttendance() {
     const validKeys = new Set(getLastNDays(SUMMARY_DAYS).map((date) => getDateKey(date)));
 
     const totalMinutes = recentAttendance.reduce((sum, record) => {
-      const recordKey = getDateKey(record.timeIn || record.createdAt);
-      if (!validKeys.has(recordKey) || !record.timeIn || !record.timeOut) {
+      const recordKey = record.dateKey || getDateKey(record.firstTimeIn || record.timeIn || record.createdAt);
+      if (!validKeys.has(recordKey)) {
         return sum;
       }
 
-      return sum + Math.max(0, Math.round((new Date(record.timeOut) - new Date(record.timeIn)) / 60000));
+      return sum + Math.round(getWorkedMilliseconds(record) / 60000);
     }, 0);
 
     return Number((totalMinutes / 60).toFixed(2));
@@ -375,11 +417,29 @@ export default function AdminStaffAttendance() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
-        <StatCard title="Status Today" value={dashboard?.stats?.currentStatus || "Loading"} icon={<Clock3 className="text-cyan-400" size={20} />} />
-        <StatCard title="Present Last 15 Days" value={fifteenDaySummary.present} icon={<CalendarClock className="text-blue-400" size={20} />} />
-        <StatCard title="Hours Last 15 Days" value={hoursLast15Days} icon={<Clock3 className="text-emerald-400" size={20} />} />
-        <StatCard title="Reports Created" value={dashboard?.stats?.reportsCreated ?? 0} icon={<FileText className="text-amber-400" size={20} />} />
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+        <StatCard
+          title="Status Today"
+          value={dashboard?.stats?.currentStatus || "Loading"}
+          icon={<Clock3 className="text-cyan-400" size={20} />}
+          accent="cyan"
+        />
+        <StatCard
+          title={hasTimedOut ? "Worked Time Today" : "Live Time Since In"}
+          value={liveTimeInLabel}
+          icon={<CalendarClock className="text-amber-400" size={20} />}
+          accent="amber"
+        />
+        <StatCard
+          title="Hours Last 15 Days"
+          value={hoursLast15Days}
+          icon={<Clock3 className="text-emerald-400" size={20} />}
+        />
+        <StatCard
+          title="Present Last 15 Days"
+          value={fifteenDaySummary.present}
+          icon={<CalendarClock className="text-blue-400" size={20} />}
+        />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -398,9 +458,9 @@ export default function AdminStaffAttendance() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <PanelItem label="Time In" value={formatDateTime(todayRecord?.timeIn)} />
+              <PanelItem label="Time In" value={formatDateTime(todayRecord?.firstTimeIn || todayRecord?.timeIn)} />
               <PanelItem label="Time Out" value={formatDateTime(todayRecord?.timeOut)} />
-              <PanelItem label="Worked Hours" value={getDurationLabel(todayRecord?.timeIn, todayRecord?.timeOut)} />
+              <PanelItem label="Worked Hours" value={getWorkedHoursLabel(todayRecord, liveNow)} />
             </div>
           )}
 
@@ -528,12 +588,12 @@ export default function AdminStaffAttendance() {
                       <div>
                         <div className="text-white font-medium">{record.dateKey}</div>
                         <div className="text-sm text-slate-400">
-                          {formatTime(record.timeIn)} to {formatTime(record.timeOut)}
+                          {formatTime(record.firstTimeIn || record.timeIn)} to {formatTime(record.timeOut)}
                         </div>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-semibold text-cyan-300">{record.status}</div>
-                        <div className="text-xs text-slate-500">{getDurationLabel(record.timeIn, record.timeOut)}</div>
+                        <div className="text-xs text-slate-500">{getWorkedHoursLabel(record, liveNow)}</div>
                       </div>
                     </div>
                   ))
@@ -547,9 +607,16 @@ export default function AdminStaffAttendance() {
   );
 }
 
-function StatCard({ title, value, icon }) {
+function StatCard({ title, value, icon, accent = "default" }) {
+  const accentClass =
+    accent === "cyan"
+      ? "border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 to-slate-900"
+      : accent === "amber"
+        ? "border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-slate-900"
+        : "border-slate-800 bg-[#1e293b]";
+
   return (
-    <div className="bg-[#1e293b] border border-slate-800 rounded-2xl p-5 shadow-lg">
+    <div className={`rounded-2xl border p-5 shadow-lg ${accentClass}`}>
       <div className="flex items-center justify-between mb-4">
         <div className="text-sm text-slate-400">{title}</div>
         {icon}

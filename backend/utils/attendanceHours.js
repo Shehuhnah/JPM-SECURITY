@@ -6,8 +6,29 @@ const toDate = (value) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-export const getAttendanceMinutesBreakdown = ({ timeIn, timeOut }) => {
+export const getAttendanceMinutesBreakdown = ({ timeIn, timeOut, accumulatedWorkedMinutes = null }) => {
   const start = toDate(timeIn);
+  const normalizedAccumulatedWorkedMinutes = Number.isFinite(accumulatedWorkedMinutes)
+    ? Math.max(0, accumulatedWorkedMinutes)
+    : null;
+
+  if (normalizedAccumulatedWorkedMinutes !== null) {
+    let workedMinutes = normalizedAccumulatedWorkedMinutes;
+
+    if (!timeOut && start) {
+      workedMinutes += Math.max(0, Math.round((new Date() - start) / 60000));
+    }
+
+    const regularMinutes = Math.min(workedMinutes, REGULAR_MINUTES_PER_DAY);
+    const overtimeMinutes = Math.max(0, workedMinutes - REGULAR_MINUTES_PER_DAY);
+
+    return {
+      regularMinutes,
+      overtimeMinutes,
+      totalMinutes: regularMinutes + overtimeMinutes,
+    };
+  }
+
   if (!start) {
     return {
       regularMinutes: 0,

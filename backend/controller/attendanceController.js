@@ -9,6 +9,26 @@ const parsePositiveInt = (value, fallback) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const getManilaDateKey = (value = new Date()) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
+
+const isScheduleWithinCurrentDay = (schedule, now = new Date()) => {
+  if (!schedule?.timeIn || !schedule?.timeOut) {
+    return false;
+  }
+
+  const todayKey = getManilaDateKey(now);
+  const timeInKey = getManilaDateKey(schedule.timeIn);
+  const timeOutKey = getManilaDateKey(schedule.timeOut);
+
+  return timeInKey === todayKey || timeOutKey === todayKey;
+};
+
 /**
  * @desc    Guard performs time-in for a specific schedule
  * @route   POST /api/attendance/time-in
@@ -20,10 +40,23 @@ export const createAttendance = async (req, res) => {
     const guardId = req.user.id;
     const { scheduleId, location, photo } = req.body;
 
-
     const schedule = await Schedule.findById(scheduleId);
     if (!schedule) {
       return res.status(404).json({ message: "Schedule not found." });
+    }
+
+    if (schedule.guardId?.toString() !== guardId) {
+      return res.status(403).json({ message: "You can only time in for your own schedule." });
+    }
+
+    if (schedule.isApproved !== "Approved") {
+      return res.status(400).json({ message: "This schedule is not approved for attendance yet." });
+    }
+
+    if (!isScheduleWithinCurrentDay(schedule)) {
+      return res.status(400).json({
+        message: "You can only time in for a schedule assigned for today.",
+      });
     }
 
     const existingAttendance = await Attendance.findOne({ scheduleId });
@@ -32,41 +65,6 @@ export const createAttendance = async (req, res) => {
     }
 
     const now = new Date();
-
-    const timeZoneOffset = "+08:00"; 
-    
-    const timeInString = schedule.timeIn.endsWith("Z") || schedule.timeIn.includes("+") 
-      ? schedule.timeIn 
-      : `${schedule.timeIn}${timeZoneOffset}`;
-      
-    const timeOutString = schedule.timeOut.endsWith("Z") || schedule.timeOut.includes("+") 
-      ? schedule.timeOut 
-      : `${schedule.timeOut}${timeZoneOffset}`;
-
-    const scheduledTimeIn = new Date(timeInString);
-    const scheduledTimeOut = new Date(timeOutString);
-
-    const validTimeInStart = new Date(scheduledTimeIn);
-    validTimeInStart.setHours(validTimeInStart.getHours() - 2); 
-    
-
-    if (now < validTimeInStart) {
-      const localValidStart = validTimeInStart.toLocaleTimeString('en-US', { 
-        timeZone: 'Asia/Manila', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-      
-      return res.status(400).json({
-        message: `Cannot time-in yet. You can time-in starting at ${localValidStart}.`,
-      });
-    }
-
-    if (now > scheduledTimeOut) {
-      return res.status(400).json({
-        message: "Cannot time-in. The schedule has already ended.",
-      });
-    }
 
     const newAttendance = new Attendance({
       guard: guardId,

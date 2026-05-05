@@ -16,9 +16,18 @@ const adminAttendanceSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    firstTimeIn: {
+      type: Date,
+      default: null,
+    },
     timeOut: {
       type: Date,
       default: null,
+    },
+    accumulatedWorkedMinutes: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     status: {
       type: String,

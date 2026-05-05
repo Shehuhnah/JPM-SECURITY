@@ -116,6 +116,7 @@ const Router = () => {
                 { path: "log-reports", element: <AdminLogReports /> },
                 { path: "AdminGuardUpdates", element: <AdminGuardUpdates /> },
                 { path: "AdminGuardUpdates2/:id", element: <AdminGuardUpdates2 /> },
+                { path: "guard-updates/:id", element: <AdminGuardUpdates2 /> },
                 { path: "AdminMessages", element: <AdminMessage /> },
                 { path: "ApplicantList", element: <ApplicantList />},
                 { path: "Request-ID", element: <AdminRequestID/>},

@@ -37,7 +37,7 @@ function GuardAttendanceTimeOut() {
           const data = await res.json().catch(() => []);
           if (!res.ok) throw new Error(data?.message || "Failed to fetch attendance");
 
-          // Find active duty: status "On Duty" and no timeOut
+          // Find the guard's open attendance record for today/demo flow
           const activeDuty = Array.isArray(data)
             ? data.find(r => r.status === "On Duty" && !r.timeOut)
             : null;
@@ -196,7 +196,7 @@ function GuardAttendanceTimeOut() {
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
               <div className="flex items-center gap-2 mb-3">
                 <Clock className="text-blue-400 w-5 h-5" />
-                <span className="text-blue-400 font-semibold">Today's Time In</span>
+                <span className="text-blue-400 font-semibold">Open Time In Record</span>
               </div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
@@ -282,7 +282,7 @@ function GuardAttendanceTimeOut() {
                 className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 disabled:from-gray-600 disabled:to-gray-500 text-white font-semibold py-3 rounded-lg shadow-md transition flex items-center justify-center gap-2"
               >
                 <Clock size={18} />
-                {timeInData ? "Submit Time Out" : "No Time In Record"}
+                {timeInData ? "Submit Time Out" : "No Open Time In Record"}
               </button>
             ) : (
               <div className="space-y-3">
@@ -305,7 +305,7 @@ function GuardAttendanceTimeOut() {
             <div className="mt-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
               <div className="flex items-center gap-2 text-yellow-400 text-sm">
                 <Timer className="w-4 h-4" />
-                <span>No time-in record found for today. Please time in first.</span>
+                <span>No open time-in record found. Time in first using a schedule assigned for today.</span>
               </div>
             </div>
           )}

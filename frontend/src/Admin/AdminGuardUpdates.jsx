@@ -32,22 +32,52 @@ export default function AdminGuardUpdates() {
     try {
       setError("");
 
-      const [guardsResponse, staffResponse] = await Promise.all([
+      const [guardsResponse, staffResponse, logbookResponse] = await Promise.all([
         fetch(`${api}/api/guards`, { credentials: "include" }),
         fetch(`${api}/api/auth/users`, { credentials: "include" }),
+        fetch(`${api}/api/logbook`, { credentials: "include" }),
       ]);
 
-      if (!guardsResponse.ok || !staffResponse.ok) {
+      if (!guardsResponse.ok || !staffResponse.ok || !logbookResponse.ok) {
         setError("Failed to load updates data.");
         return;
       }
 
-      const [guardsData, staffData] = await Promise.all([
+      const [guardsData, staffData, logbookData] = await Promise.all([
         guardsResponse.json(),
         staffResponse.json(),
+        logbookResponse.json(),
       ]);
 
-      setGuards(Array.isArray(guardsData) ? guardsData : []);
+      const latestLogByGuard = new Map();
+      (Array.isArray(logbookData) ? logbookData : []).forEach((log) => {
+        const guardId = log?.guard?._id || log?.guard;
+        const createdAt = new Date(log?.createdAt || 0).getTime();
+
+        if (!guardId || !Number.isFinite(createdAt)) {
+          return;
+        }
+
+        const previous = latestLogByGuard.get(String(guardId)) || 0;
+        if (createdAt > previous) {
+          latestLogByGuard.set(String(guardId), createdAt);
+        }
+      });
+
+      const sortedGuards = (Array.isArray(guardsData) ? guardsData : [])
+        .map((guard) => ({
+          ...guard,
+          latestLogAt: latestLogByGuard.get(String(guard._id)) || 0,
+        }))
+        .sort((a, b) => {
+          if (b.latestLogAt !== a.latestLogAt) {
+            return b.latestLogAt - a.latestLogAt;
+          }
+
+          return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        });
+
+      setGuards(sortedGuards);
       setStaff(Array.isArray(staffData) ? staffData : []);
     } catch (fetchError) {
       console.error("Error fetching updates data:", fetchError);

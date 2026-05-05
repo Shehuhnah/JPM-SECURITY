@@ -31,6 +31,7 @@ function GuardAttendanceTimeIn() {
   const [checkError, setCheckError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [workingHours, setWorkingHours] = useState("0h 0m");
 
   const [availableSchedules, setAvailableSchedules] = useState([]);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
@@ -41,7 +42,7 @@ function GuardAttendanceTimeIn() {
 
   // --- HELPER FUNCTIONS ---
 
-  // Check if a schedule is currently active (Now is between In and Out)
+  // Used only for UI hints. Attendance is not restricted to this window for now.
   const isShiftOngoing = (schedule) => {
     if (!schedule) return false;
     const now = new Date();
@@ -77,6 +78,22 @@ function GuardAttendanceTimeIn() {
     return dateObj.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   };
 
+  const formatWorkingHours = (timeIn, now = new Date()) => {
+    if (!timeIn) return "0h 0m";
+
+    const start = new Date(timeIn);
+    if (isNaN(start.getTime())) return "0h 0m";
+
+    let diffMs = now - start;
+    if (diffMs < 0) {
+      diffMs += 24 * 60 * 60 * 1000;
+    }
+
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}h ${minutes}m`;
+  };
+
   // --- EFFECTS ---
 
   // Redirect if not authenticated
@@ -95,7 +112,7 @@ function GuardAttendanceTimeIn() {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch Schedules & Auto-Select Ongoing
+  // Fetch today's schedules and auto-select a reasonable default.
   useEffect(() => {
     const fetchSchedules = async () => {
       if (!guard?._id) return;
@@ -114,14 +131,12 @@ function GuardAttendanceTimeIn() {
         const { schedules } = await res.json();
         setAvailableSchedules(schedules);
 
-        // INTELLIGENT AUTO-SELECT:
-        // 1. Look for a shift happening RIGHT NOW
+        // Prefer an ongoing shift for convenience, otherwise fall back to the first available schedule.
         const ongoing = schedules.find((s) => isShiftOngoing(s));
         
         if (ongoing) {
           setSelectedSchedule(ongoing);
-        } else if (schedules.length === 1) {
-          // 2. Fallback: If only one exists, pick it
+        } else if (schedules.length > 0) {
           setSelectedSchedule(schedules[0]);
         }
       } catch (err) {
@@ -156,10 +171,13 @@ function GuardAttendanceTimeIn() {
         if (existingRecord) {
           setAttendanceData(existingRecord);
           setIsSubmitted(true);
-          setCheckError("You have already timed in for this schedule. Proceed to Time-Out page.");
+          setSubmitError(null);
+          setCapturedImage(null);
+          setCheckError(null);
         } else {
           setAttendanceData(null);
           setIsSubmitted(false);
+          setWorkingHours("0h 0m");
           setCheckError(null);
         }
       } catch (err) {
@@ -171,6 +189,17 @@ function GuardAttendanceTimeIn() {
     };
     checkAttendance();
   }, [selectedSchedule?._id, api]);
+
+  useEffect(() => {
+    if (!isSubmitted || !attendanceData?.timeIn || attendanceData?.timeOut) {
+      if (!isSubmitted || attendanceData?.timeOut) {
+        setWorkingHours("0h 0m");
+      }
+      return;
+    }
+
+    setWorkingHours(formatWorkingHours(attendanceData.timeIn, currentTime));
+  }, [attendanceData, currentTime, isSubmitted]);
 
   // Geolocation
   const reverseGeocode = async (lat, lng) => {
@@ -330,7 +359,10 @@ function GuardAttendanceTimeIn() {
 
     if (!selectedSchedule) return setSubmitError("Please select a schedule first.");
     if (!capturedImage) return setSubmitError("Please take a photo before submitting.");
-    if (isSubmitted) return setSubmitError("Already timed in.");
+    if (isSubmitted) {
+      navigate("/guard/guard-attendance/time-out");
+      return;
+    }
 
     setSubmitting(true);
 
@@ -349,6 +381,13 @@ function GuardAttendanceTimeIn() {
       });
 
       const payload = await res.json().catch(() => ({}));
+      if (!res.ok && payload?.message === "You have already timed in for this schedule.") {
+        setAttendanceData(payload?.attendance || attendanceData);
+        setIsSubmitted(true);
+        setCapturedImage(null);
+        navigate("/guard/guard-attendance/time-out");
+        return;
+      }
       if (!res.ok) throw new Error(payload?.message || `Failed to submit (${res.status})`);
 
       setAttendanceData(payload);
@@ -445,7 +484,7 @@ function GuardAttendanceTimeIn() {
           {/* SCHEDULE DROPDOWN - IMPROVED */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Select Your Shift
+              Select Your Schedule for Today
             </label>
             <Menu as="div" className="relative block text-left">
               <div>
@@ -519,7 +558,7 @@ function GuardAttendanceTimeIn() {
                       })
                     ) : (
                       <Menu.Item disabled>
-                        <span className="block text-gray-500 px-4 py-2 text-sm">No schedules available</span>
+                        <span className="block text-gray-500 px-4 py-2 text-sm">No approved schedule found for today</span>
                       </Menu.Item>
                     )}
                   </div>
@@ -577,11 +616,18 @@ function GuardAttendanceTimeIn() {
 
           {/* Success Summary */}
           {isSubmitted && attendanceData && (
-            <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4 mb-6">
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <CheckCircle className="text-green-400 w-5 h-5" />
-                <span className="text-green-400 font-semibold">Time In Successful!</span>
+                <CheckCircle className="text-blue-400 w-5 h-5" />
+                <span className="text-blue-400 font-semibold">
+                  {attendanceData.timeOut ? "Time In Recorded" : "Active Time In Record"}
+                </span>
               </div>
+              {!attendanceData.timeOut && (
+                <div className="mb-3 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs text-blue-200">
+                  You already timed in for this schedule. You can continue tracking today&apos;s working hours or proceed to time out.
+                </div>
+              )}
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between border-b border-green-500/10 pb-1">
                   <span className="text-gray-400">Date</span>
@@ -591,9 +637,15 @@ function GuardAttendanceTimeIn() {
                   <span className="text-gray-400">Time In</span>
                   <span className="text-gray-200 font-bold">{formatTimeDisplay(attendanceData.timeIn)}</span>
                 </div>
+                {!attendanceData.timeOut && (
+                  <div className="flex justify-between border-b border-green-500/10 pb-1">
+                    <span className="text-gray-400">Working Hours</span>
+                    <span className="text-blue-300 font-semibold">{workingHours}</span>
+                  </div>
+                )}
                 <div className="flex justify-between pt-1">
                   <span className="text-gray-400">Status</span>
-                  <span className="text-green-400 font-medium">{attendanceData.status}</span>
+                  <span className="text-blue-300 font-medium">{attendanceData.status}</span>
                 </div>
               </div>
             </div>
