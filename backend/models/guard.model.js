@@ -3,10 +3,20 @@ import bcrypt from "bcryptjs";
 
 const guardSchema = new mongoose.Schema(
   {
-    fullName: {
+    firstName: {
       type: String,
-      required: [true, "Full name is required"],
+      required: [true, "First name is required"],
       trim: true,
+    },
+    lastName: {
+      type: String,
+      required: [true, "Last name is required"],
+      trim: true,
+    },
+    sex: {
+      type: String,
+      enum: ["Male", "Female"],
+      required: [true, "Sex is required"],
     },
     email: {
       type: String,
@@ -80,8 +90,13 @@ const guardSchema = new mongoose.Schema(
     otp: String,
     otpExpire: Date,
   },
-  { timestamps: true }
+  { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
+
+// Virtual getter so existing code using guard.fullName still works
+guardSchema.virtual("fullName").get(function () {
+  return `${this.firstName} ${this.lastName}`.trim();
+});
 
 guardSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();

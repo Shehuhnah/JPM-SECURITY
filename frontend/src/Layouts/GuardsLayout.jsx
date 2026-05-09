@@ -116,7 +116,11 @@ export default function GuardsLayout() {
             <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-500 to-blue-600 flex items-center justify-center shadow-lg mb-4">
               <UserRoundPen className="text-white w-8 h-8" />
             </div>
-            <h3 className="font-semibold text-white text-lg">{guard?.fullName || "Guard Name"}</h3>
+            <h3 className="font-semibold text-white text-lg">
+              {guard?.firstName && guard?.lastName
+                ? `${guard.firstName} ${guard.lastName}`
+                : guard?.fullName || "Guard Name"}
+            </h3>
             <p className="text-sm text-gray-400">{guard?.position || "Security Guard"}</p>
             <div className="mt-2 px-3 py-1 bg-green-500/20 border border-green-500/30 rounded-full">
               <span className="text-green-400 text-xs font-medium">Online</span>

@@ -81,7 +81,9 @@ export default function ApplicantsList() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
-    fullName: "",
+    firstName: "",
+    lastName: "",
+    sex: "Male",
     email: "",
     guardId: "",
     address: "",
@@ -218,9 +220,17 @@ export default function ApplicantsList() {
       showResumeWarning();
       return;
     }
+    // Pre-fill name fields from the applicant record
+    const applicantName = selectedApplicant?.name?.trim() || "";
+    const nameParts = applicantName.split(" ");
+    const preFirstName = nameParts[0] || "";
+    const preLastName = nameParts.slice(1).join(" ") || "";
     setForm((prev) => ({
       ...prev,
-      password: generateGuardPassword(),
+      firstName: preFirstName,
+      lastName: preLastName,
+      email: selectedApplicant?.email || "",
+      position: selectedApplicant?.position || "",
     }));
     setGuardConfirmModalOpen(true);
   };
@@ -229,9 +239,9 @@ export default function ApplicantsList() {
     setErrorMsg("");
 
     // Check required fields
-    if(!form.fullName || !form.email || !form.guardId || !form.address || !form.position || !form.phoneNumber || !form.EmergencyPerson || !form.EmergencyContact){
+    if(!form.firstName || !form.lastName || !form.sex || !form.email || !form.guardId || !form.address || !form.position || !form.phoneNumber || !form.EmergencyPerson || !form.EmergencyContact){
       return setErrorMsg("Please fill out all required fields.");
-    } 
+    }
     
     // Check Phone Number Validity (Must be +63 followed by 10 digits)
     const phoneRegex = /^\+63\d{10}$/;
@@ -268,7 +278,9 @@ export default function ApplicantsList() {
 
   const fetchApplicants = async () => {
     setForm({ // Reset form state
-      fullName: "",
+      firstName: "",
+      lastName: "",
+      sex: "Male",
       email: "",
       guardId: "",
       address: "",
@@ -408,7 +420,7 @@ export default function ApplicantsList() {
     const filePath = typeof resume.file === "string" ? resume.file.trim() : "";
     const fileName = typeof resume.fileName === "string" ? resume.fileName.trim() : "";
     const originalName = typeof resume.originalName === "string" ? resume.originalName.trim() : "";
-
+    
     return Boolean(filePath || fileName || originalName);
   };
 
@@ -416,7 +428,7 @@ export default function ApplicantsList() {
     setWarningModal({
       open: true,
       title: "Resume Required",
-      message: "Admin and subadmin cannot hire this applicant yet because the resume is missing or empty.",
+      message: "You can't hire this applicant yet because the resume is missing or empty.",
     });
   };
 
@@ -963,7 +975,13 @@ export default function ApplicantsList() {
                                     <h3 className="font-medium text-gray-200">Actions</h3>
                                     <div className="mt-2 grid grid-cols-2 gap-2">
                                       <button 
-                                        onClick={() => handleViewResume(selectedApplicant)} className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 px-3 py-2 rounded-md flex items-center gap-2 text-sm justify-center">
+                                        disabled={selectedApplicant.status === "Hired"}
+                                        onClick={() => handleViewResume(selectedApplicant)} 
+                                        className={`px-3 py-2 rounded-md flex items-center gap-2 text-sm justify-center transition
+                                          ${selectedApplicant.status === "Hired"
+                                            ? "bg-gray-700/50 text-gray-500 cursor-not-allowed opacity-50"
+                                            : "bg-blue-600/20 hover:bg-blue-600/40 text-blue-300"
+                                          }`}>
                                         <Eye size={14} /> View Resume
                                       </button>
                                       <button
@@ -1009,8 +1027,8 @@ export default function ApplicantsList() {
                                   <div>
                                     <h3 className="font-medium text-gray-200">Interview Remarks</h3>
                                     <div className="mt-2">
-                                      <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={5} className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/70" placeholder="Add interview notes, feedback, etc."/>
-                                      <button onClick={handleSaveRemarks} disabled={savingRemarks} className="mt-2 w-full flex justify-center items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-60">
+                                      <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={5} disabled={selectedApplicant.status === "Hired"} className={`w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/70 ${selectedApplicant.status === "Hired" ? "opacity-50 cursor-not-allowed" : ""}`} placeholder="Add interview notes, feedback, etc."/>
+                                      <button onClick={handleSaveRemarks} disabled={savingRemarks || selectedApplicant.status === "Hired"} className="mt-2 w-full flex justify-center items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-60">
                                         {savingRemarks ? "Saving..." : <><Save size={14} /> Save Remarks</>}
                                       </button>
                                     </div>
@@ -1314,7 +1332,9 @@ export default function ApplicantsList() {
                     <div className="bg-[#131d33] border border-white/10 rounded-xl p-5 text-sm grid grid-cols-2 gap-6">
 
                       <div className="space-y-2">
-                        <InfoRow label="Full Name" value={form.fullName} />
+                        <InfoRow label="First Name" value={form.firstName} />
+                        <InfoRow label="Last Name" value={form.lastName} />
+                        <InfoRow label="Sex" value={form.sex} />
                         <InfoRow label="Guard ID" value={form.guardId} />
                         <InfoRow label="Email" value={form.email} />
                         <InfoRow label="Password" value={form.password} />
@@ -1570,20 +1590,47 @@ export default function ApplicantsList() {
                       {/* Left Column */}
                       <div className="space-y-3">
                         <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Full Name</label>
+                          <label className="text-gray-300 text-sm mb-1 block">First Name <span className="text-red-400">*</span></label>
                           <input
                             type="text"
-                            name="fullName"
+                            name="firstName"
                             required
-                            placeholder="e.g. Juan Dela Cruz"
-                            value={form.fullName}
+                            placeholder="e.g. Juan"
+                            value={form.firstName}
                             onChange={handleChange}
                             className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
                           />
                         </div>
 
                         <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Guard ID</label>
+                          <label className="text-gray-300 text-sm mb-1 block">Last Name <span className="text-red-400">*</span></label>
+                          <input
+                            type="text"
+                            name="lastName"
+                            required
+                            placeholder="e.g. Dela Cruz"
+                            value={form.lastName}
+                            onChange={handleChange}
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-gray-300 text-sm mb-1 block">Sex <span className="text-red-400">*</span></label>
+                          <select
+                            name="sex"
+                            required
+                            value={form.sex}
+                            onChange={handleChange}
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                          >
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-gray-300 text-sm mb-1 block">Guard ID <span className="text-red-400">*</span></label>
                           <input
                             type="text"
                             name="guardId"
@@ -1596,7 +1643,7 @@ export default function ApplicantsList() {
                         </div>
 
                         <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Email</label>
+                          <label className="text-gray-300 text-sm mb-1 block">Email <span className="text-red-400">*</span></label>
                           <input
                             type="email"
                             name="email"
@@ -1609,29 +1656,7 @@ export default function ApplicantsList() {
                         </div>
 
                         <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Password</label>
-                          <div className="relative w-full">
-                            <input
-                              type={showPassword ? "text" : "password"}
-                              name="password"
-                              required
-                              placeholder="••••••••"
-                              value={form.password}
-                              onChange={handleChange}
-                              className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 pr-10 text-sm sm:text-base placeholder-gray-600"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
-                            >
-                              {showPassword ? <Eye size={20} /> : <EyeOff size={20} />}
-                            </button>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Position</label>
+                          <label className="text-gray-300 text-sm mb-1 block">Position <span className="text-red-400">*</span></label>
                           <input
                             type="text"
                             name="position"
@@ -1644,7 +1669,7 @@ export default function ApplicantsList() {
                         </div>
 
                         <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Address</label>
+                          <label className="text-gray-300 text-sm mb-1 block">Address <span className="text-red-400">*</span></label>
                           <input
                             type="text"
                             name="address"
@@ -1660,7 +1685,7 @@ export default function ApplicantsList() {
                       {/* Right Column */}
                       <div className="space-y-3">
                         <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Phone Number</label>
+                          <label className="text-gray-300 text-sm mb-1 block">Phone Number <span className="text-red-400">*</span></label>
                           <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
                             <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none text-sm sm:text-base">+63</span>
                             <input
@@ -1734,7 +1759,7 @@ export default function ApplicantsList() {
                         </div>
 
                         <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Person</label>
+                          <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Person <span className="text-red-400">*</span></label>
                           <input
                             type="text"
                             name="EmergencyPerson"
@@ -1748,7 +1773,7 @@ export default function ApplicantsList() {
 
                         {/* Emergency Contact Number */}
                         <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Number</label>
+                          <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Number <span className="text-red-400">*</span></label>
                           <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
                             <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none text-sm sm:text-base">+63</span>
                             <input

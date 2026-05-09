@@ -532,7 +532,22 @@ export const sendHireEmail = async (req, res) => {
 export const finalizeHiring = async (req, res) => {
   try {
     const { id } = req.params;
-    const { ...guardData } = req.body;
+    const {
+      firstName,
+      lastName,
+      sex,
+      email,
+      guardId,
+      address,
+      position,
+      phoneNumber,
+      SSSID,
+      PhilHealthID,
+      PagibigID,
+      EmergencyPerson,
+      EmergencyContact,
+      password: rawPassword,
+    } = req.body;
 
     // 1. Check if Applicant exists
     const applicant = await Applicant.findById(id);
@@ -544,24 +559,36 @@ export const finalizeHiring = async (req, res) => {
     }
 
     // 3. PRE-CHECK: Check if Guard Email or ID already exists manually
-    // This prevents the code from running further if a duplicate is found
     const existingGuard = await Guard.findOne({
-      $or: [{ email: guardData.email }, { guardId: guardData.guardId }]
+      $or: [{ email }, { guardId }]
     });
 
     if (existingGuard) {
       return res.status(409).json({ 
-        message: `A guard with this Email (${guardData.email}) or ID (${guardData.guardId}) already exists.` 
+        message: `A guard with this Email (${email}) or ID (${guardId}) already exists.` 
       });
     }
 
     // 4. Generate placeholder password if missing
-    if (!guardData.password) {
-      guardData.password = crypto.randomBytes(16).toString("hex");
-    }
+    const password = rawPassword || crypto.randomBytes(16).toString("hex");
 
     // 5. Create Guard (Safe to save now)
-    const newGuard = new Guard(guardData);
+    const newGuard = new Guard({
+      firstName,
+      lastName,
+      sex,
+      email,
+      guardId,
+      address,
+      position,
+      phoneNumber,
+      SSSID,
+      PhilHealthID,
+      PagibigID,
+      EmergencyPerson,
+      EmergencyContact,
+      password,
+    });
     await newGuard.save();
 
     // 6. Update Applicant Status

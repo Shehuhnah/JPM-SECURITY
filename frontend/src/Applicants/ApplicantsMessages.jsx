@@ -93,7 +93,14 @@ export default function ApplicantsMessages() {
   const [file, setFile] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const [isPromptOpen, setIsPromptOpen] = useState(!session);
-  const [nameInput, setNameInput] = useState(session?.name ?? "");
+  const [firstNameInput, setFirstNameInput] = useState(() => {
+    const parts = (session?.name ?? "").split(" ");
+    return parts[0] ?? "";
+  });
+  const [lastNameInput, setLastNameInput] = useState(() => {
+    const parts = (session?.name ?? "").split(" ");
+    return parts.slice(1).join(" ") ?? "";
+  });
   const [emailInput, setEmailInput] = useState(session?.email ?? "");
   const [phoneInput, setPhoneInput] = useState(session?.phone ?? "");
   const [loadingPage, setLoadingPage] = useState(false);
@@ -294,8 +301,10 @@ export default function ApplicantsMessages() {
 
   const handleSubmitIdentity = async (e) => {
     e.preventDefault();
-    if (!nameInput.trim()) {
-      setError("Please provide your name so we can personalize the chat.");
+    const firstTrim = firstNameInput.trim();
+    const lastTrim = lastNameInput.trim();
+    if (!firstTrim || !lastTrim) {
+      setError("Please provide both your first name and last name.");
       return;
     }
     const emailTrim = emailInput.trim();
@@ -309,7 +318,7 @@ export default function ApplicantsMessages() {
       return;
     }
     setError("");
-    persistSession({ name: nameInput.trim(), email: emailTrim, phone: phoneTrim });
+    persistSession({ name: `${firstTrim} ${lastTrim}`, email: emailTrim, phone: phoneTrim });
     setEmailInput(emailTrim);
     setPhoneInput(phoneTrim);
     setIsPromptOpen(false);
@@ -817,18 +826,33 @@ export default function ApplicantsMessages() {
                 </p>
   
                 <form onSubmit={handleSubmitIdentity} className="mt-6 space-y-4">
-                  <div>
-                    <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
-                      Full name
-                    </label>
-                    <input
-                      type="text"
-                      value={nameInput}
-                      onChange={(e) => setNameInput(e.target.value)}
-                      className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
-                      placeholder="Juan Dela Cruz"
-                      required
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
+                        First name
+                      </label>
+                      <input
+                        type="text"
+                        value={firstNameInput}
+                        onChange={(e) => setFirstNameInput(e.target.value)}
+                        className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
+                        placeholder="Juan"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
+                        Last name
+                      </label>
+                      <input
+                        type="text"
+                        value={lastNameInput}
+                        onChange={(e) => setLastNameInput(e.target.value)}
+                        className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
+                        placeholder="Dela Cruz"
+                        required
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">

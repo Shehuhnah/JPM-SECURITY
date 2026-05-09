@@ -49,7 +49,9 @@ export default function GuardTable() {
 
   // Define initial state constant to reuse for resetting
   const initialFormState = {
-    fullName: "",
+    firstName: "",
+    lastName: "",
+    sex: "Male",
     email: "",
     guardId: "",
     password: "",
@@ -142,7 +144,7 @@ export default function GuardTable() {
     setErrorMsg("");
 
     // Validate required fields (Included password)
-    if (!form.fullName || !form.email || !form.guardId || !form.password || !form.address || !form.position || !form.phoneNumber || !form.EmergencyPerson || !form.EmergencyContact) {
+    if (!form.firstName || !form.lastName || !form.sex || !form.email || !form.guardId || !form.password || !form.address || !form.position || !form.phoneNumber || !form.EmergencyPerson || !form.EmergencyContact) {
       const msg = "⚠️ Please fill in all required fields.";
       setErrorMsg(msg);
       toast.error(msg, { theme: "dark", transition: Bounce });
@@ -447,7 +449,7 @@ export default function GuardTable() {
                               </div>
                               <div>
                                   <p className="text-xs font-medium text-gray-500">#{(currentPage - 1) * PAGE_SIZE + index + 1}</p>
-                                  <h3 className="font-semibold text-white">{g.fullName}</h3>
+                                  <h3 className="font-semibold text-white">{g.firstName} {g.lastName}</h3>
                                   <span className="text-xs text-gray-400">ID: {g.guardId}</span>
                               </div>
                           </div>
@@ -535,7 +537,9 @@ export default function GuardTable() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-3 text-gray-200">
-                      <ProfileItem label="Full Name" value={selectedGuard?.fullName} />
+                      <ProfileItem label="First Name" value={selectedGuard?.firstName} />
+                      <ProfileItem label="Last Name" value={selectedGuard?.lastName} />
+                      <ProfileItem label="Sex" value={selectedGuard?.sex} />
                       <ProfileItem label="Guard ID" value={selectedGuard?.guardId} />
                       <ProfileItem label="Email" value={selectedGuard?.email} />
                       <ProfileItem label="Phone Number" value={selectedGuard?.phoneNumber} />
@@ -576,7 +580,9 @@ export default function GuardTable() {
                   {errorMsg && (<div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-6 text-center">{errorMsg}</div>)}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-3">
-                      <div><label className="text-gray-300 text-sm mb-1 block">Full Name</label><input type="text" name="fullName" required placeholder="e.g. Juan Dela Cruz" value={form.fullName} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">First Name</label><input type="text" name="firstName" required placeholder="e.g. Juan" value={form.firstName} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Last Name</label><input type="text" name="lastName" required placeholder="e.g. Dela Cruz" value={form.lastName} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Sex</label><select name="sex" required value={form.sex} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"><option value="Male">Male</option><option value="Female">Female</option></select></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Guard ID</label><input type="text" name="guardId" required placeholder="e.g. G-2025-001" value={form.guardId} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Email</label><input type="email" name="email" required placeholder="jpm@example.com" value={form.email} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Password</label><div className="relative w-full"><input type={showPassword ? "text" : "password"} name="password" required placeholder="••••••••" value={form.password} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 pr-10 text-sm sm:text-base placeholder-gray-600" /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200">{showPassword ? <Eye size={20} /> : <EyeOff size={20} />}</button></div></div>
@@ -648,7 +654,9 @@ export default function GuardTable() {
                   {errorMsg && (<div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-4">{errorMsg}</div>)}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-3">
-                      <div><label className="text-gray-300 text-sm mb-1 block">Full Name</label><input type="text" name="fullName" value={form.fullName} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">First Name</label><input type="text" name="firstName" value={form.firstName} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Last Name</label><input type="text" name="lastName" value={form.lastName} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Sex</label><select name="sex" value={form.sex} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"><option value="Male">Male</option><option value="Female">Female</option></select></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Guard ID</label><input type="text" name="guardId" value={form.guardId} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Email</label><input type="email" name="email" value={form.email} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Position</label><input type="text" name="position" value={form.position} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
