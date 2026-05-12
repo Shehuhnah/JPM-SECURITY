@@ -139,7 +139,7 @@ export const getSchedules = async (req, res) => {
     const filter = {};
     if (status) filter.isApproved = status; 
 
-    const schedules = await Schedule.find(filter).populate("guardId", "fullName email guardId");
+    const schedules = await Schedule.find(filter).populate("guardId", "firstName lastName fullName email guardId");
     res.status(200).json(schedules);
   } catch (error) {
     res.status(500).json({ message: "Error fetching schedules", error: error.message });
@@ -149,7 +149,7 @@ export const getSchedules = async (req, res) => {
 // Get single schedule by ID
 export const getScheduleById = async (req, res) => {
   try {
-    const schedule = await Schedule.findById(req.params.id).populate("guardId", "fullName email guardId");
+    const schedule = await Schedule.findById(req.params.id).populate("guardId", "firstName lastName fullName email guardId");
     if (!schedule) return res.status(404).json({ message: "Schedule not found" });
     res.status(200).json(schedule);
   } catch (error) {
@@ -164,7 +164,7 @@ export const getSchedulesByGuard = async (req, res) => {
     const schedules = await Schedule.find({
       guardId: id,
       isApproved: "Approved"
-    }).populate("guardId", "fullName email");
+    }).populate("guardId", "firstName lastName fullName email guardId");
 
     res.status(200).json(schedules);
   } catch (error) {
@@ -200,7 +200,7 @@ export const getTodayScheduleByGuard = async (req, res) => {
         { timeIn: { $regex: `^${todayDateStr}` } },    // Starts Today
         { timeIn: { $regex: `^${yesterdayDateStr}` } } // Starts Yesterday
       ]
-    }).populate("guardId", "fullName email");
+    }).populate("guardId", "firstName lastName fullName email guardId");
 
     
     const validSchedules = allPotentialSchedules.filter(schedule => {

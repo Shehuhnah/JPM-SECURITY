@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../hooks/useAuth";
+import { getPersonName } from "../utils/name";
 import logo from "../assets/jpmlogo.png";
 const api = import.meta.env.VITE_API_URL;
 
@@ -57,6 +58,7 @@ export default function GuardsLayout() {
 
   const navItems = [
     { to: "/guard/detachment", label: "Detachment / Deployment", icon: <Shield size={18} /> },
+    { to: "/guard/my-attendance", label: "My Attendance", icon: <Clock size={18} /> },
     { to: "/guard/leaves", label: "Leave Request", icon: <CalendarDays size={18} /> },
     { to: "/guard/messages", label: "Messages", icon: <MessageCircle size={18} /> },
     { to: "/guard/announcements", label: "Announcement", icon: <Megaphone size={18} /> },
@@ -68,7 +70,7 @@ export default function GuardsLayout() {
 
   const attendanceItems = [
     { to: "/guard/guard-attendance/time-in", label: "Time In", icon: <Camera size={16} /> },
-    { to: "/guard/guard-attendance/time-out", label: "Time Out", icon: <Clock size={16} /> }
+    { to: "/guard/guard-attendance/time-out", label: "Time Out", icon: <Clock size={16} /> },
   ];
 
   const isActive = (path) => {
@@ -117,9 +119,7 @@ export default function GuardsLayout() {
               <UserRoundPen className="text-white w-8 h-8" />
             </div>
             <h3 className="font-semibold text-white text-lg">
-              {guard?.firstName && guard?.lastName
-                ? `${guard.firstName} ${guard.lastName}`
-                : guard?.fullName || "Guard Name"}
+              {getPersonName(guard, "Guard Name")}
             </h3>
             <p className="text-sm text-gray-400">{guard?.position || "Security Guard"}</p>
             <div className="mt-2 px-3 py-1 bg-green-500/20 border border-green-500/30 rounded-full">

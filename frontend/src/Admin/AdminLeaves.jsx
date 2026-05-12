@@ -16,6 +16,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-day-picker/dist/style.css";
 import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "../hooks/useAuth";
+import { getPersonName } from "../utils/name";
 
 const api = import.meta.env.VITE_API_URL;
 
@@ -231,7 +232,6 @@ export default function AdminLeaves() {
                     mode="multiple"
                     selected={selectedDays}
                     onSelect={(days) => setSelectedDays(days || [])}
-                    disabled={{ before: new Date() }}
                   />
                 </div>
 
@@ -316,7 +316,7 @@ export default function AdminLeaves() {
             ) : (
               <div className="space-y-4">
                 {requests.map((request) => {
-                  const requesterName = request.guard?.fullName || request.staff?.name || "Unknown";
+                  const requesterName = request.guard ? getPersonName(request.guard) : request.staff?.name || "Unknown";
                   const requesterMeta = request.guard?.guardId || request.staff?.position || request.requesterRole;
                   const roleIcon = request.requesterRole === "Guard" ? Shield : User;
                   const RoleIcon = roleIcon;

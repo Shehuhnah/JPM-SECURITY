@@ -1,4 +1,5 @@
 import { useState, useEffect, Fragment, useMemo } from "react";
+import { getPersonName } from "../utils/name";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -181,7 +182,7 @@ export default function AdminDeployment() {
 
   const calendarEvents = filteredSchedules.map((s, idx) => ({
     id: String(idx),
-    title: `${s.guardId?.fullName || "Unassigned"} (${s.shiftType})`,
+    title: `${getPersonName(s.guardId, "Unassigned")} (${s.shiftType})`,
     start: s.timeIn,
     end: s.timeOut,
     backgroundColor: shiftColors[s.shiftType] || "#3b82f6",
@@ -191,7 +192,7 @@ export default function AdminDeployment() {
       client: s.client,
       location: s.deploymentLocation,
       status: s.isApproved,
-      guardName: s.guardId?.fullName,
+      guardName: getPersonName(s.guardId),
     },
   }));
 
@@ -476,7 +477,7 @@ export default function AdminDeployment() {
                                                             <tr key={i} className="hover:bg-slate-800/30 transition">
                                                                 <td className="py-3 px-6 font-medium text-white flex items-center gap-2">
                                                                     <Shield size={16} className="text-blue-500"/>
-                                                                    {s.guardId?.fullName || "Unassigned"}
+                                                                    {getPersonName(s.guardId, "Unassigned")}
                                                                 </td>
                                                                 <td className="py-3 px-6 text-gray-300">{s.position}</td>
                                                                 <td className="py-3 px-6 text-gray-300">{new Date(s.timeIn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
@@ -494,7 +495,7 @@ export default function AdminDeployment() {
                                                         <div className="flex items-center justify-between">
                                                             <div className="font-medium text-white flex items-center gap-2">
                                                                 <Shield size={16} className="text-blue-500"/>
-                                                                {s.guardId?.fullName}
+                                                                {getPersonName(s.guardId)}
                                                             </div>
                                                             <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">{s.position}</span>
                                                         </div>

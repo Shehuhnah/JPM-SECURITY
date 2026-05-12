@@ -6,6 +6,16 @@ const parsePositiveInt = (value, fallback) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const getDisplayName = (person) => {
+  if (!person) return "";
+
+  const firstName = person.firstName?.trim() || "";
+  const lastName = person.lastName?.trim() || "";
+  const combinedName = `${firstName} ${lastName}`.trim();
+
+  return combinedName || person.fullName?.trim() || person.name?.trim() || "";
+};
+
 // --- CREATE REQUEST ---
 export const createRequest = async (req, res) => {
   try {
@@ -55,7 +65,7 @@ export const getAllRequests = async (req, res) => {
 
     if (!shouldPaginate) {
       const requests = await IDRequest.find()
-        .populate("guard", "fullName position email guardId")
+        .populate("guard", "firstName lastName fullName position email guardId")
         .populate("admin", "name email position role")
         .sort({ createdAt: -1 });
 
@@ -78,13 +88,13 @@ export const getAllRequests = async (req, res) => {
     }
 
     const requests = await IDRequest.find(filter)
-      .populate("guard", "fullName position email guardId") // Guard fields
+      .populate("guard", "firstName lastName fullName position email guardId")
       .populate("admin", "name email position role")        // Admin fields (Note: 'name' not 'fullName')
       .sort({ createdAt: -1 });
 
     const filteredRequests = q
       ? requests.filter((request) => {
-          const guardName = request.guard?.fullName?.toLowerCase() || "";
+          const guardName = getDisplayName(request.guard).toLowerCase();
           const adminName = request.admin?.name?.toLowerCase() || "";
           const requestType = request.requestType?.toLowerCase() || "";
           return guardName.includes(q) || adminName.includes(q) || requestType.includes(q);
@@ -123,7 +133,7 @@ export const getMyRequests = async (req, res) => {
         { admin: userId }
       ]
     })
-    .populate("guard", "fullName email guardId")
+    .populate("guard", "firstName lastName fullName email guardId")
     .populate("admin", "name email role")
     .sort({ createdAt: -1 });
 
@@ -148,7 +158,7 @@ export const getRequestById = async (req, res) => {
     }
 
     const request = await IDRequest.findById(id)
-      .populate("guard", "fullName email guardId")
+      .populate("guard", "firstName lastName fullName email guardId")
       .populate("admin", "name email position");
 
     if (!request) {
@@ -186,7 +196,7 @@ export const updateRequest = async (req, res) => {
       updateFields,
       { new: true }
     )
-    .populate("guard", "fullName email guardId")
+    .populate("guard", "firstName lastName fullName email guardId")
     .populate("admin", "name email position");
 
     if (!updatedRequest) {

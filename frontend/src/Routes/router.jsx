@@ -47,6 +47,7 @@ import GuardLogBook from "../Guard/GuardLogBook.jsx";
 import GuardReqCOE from "../Guard/GuardReqCOE.jsx";
 import GuardAttendanceTimeIn from "../Guard/GuardAttendanceTimeIn.jsx";
 import GuardAttendanceTimeOut from "../Guard/GuardAttendanceTimeOut.jsx";
+import GuardAttendanceRecords from "../Guard/GuardAttendanceRecords.jsx";
 import GuardProfile from "../Guard/GuardProfile.jsx";
 import GuardReqID from "../Guard/GuardReqID.jsx";
 import AdminSchedApproval from "../Admin/AdminSchedApproval.jsx";
@@ -154,6 +155,7 @@ const Router = () => {
               children: [
                 { path: "guard-attendance/time-in", element: <GuardAttendanceTimeIn /> },
                 { path: "guard-attendance/time-out", element: <GuardAttendanceTimeOut /> },
+                { path: "my-attendance", element: <GuardAttendanceRecords /> },
                 { path: "detachment", element: <GuardDetachment /> },
                 { path: "announcements", element: <GuardAnnouncement /> },
                 { path: "logbook", element: <GuardLogBook /> },

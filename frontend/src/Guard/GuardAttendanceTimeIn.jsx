@@ -12,6 +12,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { Menu, Transition } from "@headlessui/react";
+import { getPersonName } from "../utils/name";
 
 function GuardAttendanceTimeIn() {
   const { user: guard, loading } = useAuth();
@@ -315,7 +316,7 @@ function GuardAttendanceTimeIn() {
     ctx.font = "bold 13px Arial"; 
     ctx.textAlign = "left";
 
-    const guardName = guard?.fullName || "Unknown";
+    const guardName = getPersonName(guard);
     const guardIdCode = guard?.guardId || guard?._id || "Unknown";
     const dutyStation = selectedSchedule?.deploymentLocation || "Unknown";
     const position = selectedSchedule?.position || "Unknown";
@@ -428,7 +429,7 @@ function GuardAttendanceTimeIn() {
                 <div className="text-white text-sm space-y-1">
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4" />
-                    <span>{guard?.fullName}</span>
+                    <span>{getPersonName(guard)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4" />
@@ -476,7 +477,7 @@ function GuardAttendanceTimeIn() {
               <User className="text-white w-10 h-10" />
             </div>
             <h2 className="text-xl font-semibold text-white mb-2">
-              {guard?.fullName?.toUpperCase()}
+              {getPersonName(guard, "").toUpperCase()}
             </h2>
             <p className="text-gray-400 text-sm">ID: {guard?.guardId || guard?._id}</p>
           </div>

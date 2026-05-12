@@ -115,8 +115,11 @@ export const loginGuard = async (req, res) => {
       maxAge: 1000 * 60 * 60 * 24 * 15, 
     });
 
-    guard.lastLogin = new Date();
-    await guard.save();
+    const lastLogin = new Date();
+    guard.lastLogin = lastLogin;
+
+    // Avoid blocking login on legacy/incomplete guard records when only touching metadata.
+    await Guard.updateOne({ _id: guard._id }, { $set: { lastLogin } });
     res.json({ guard: guard.toJSON() });
 
   } catch (err) {

@@ -93,6 +93,7 @@ export const updateAttendance = async (req, res) => {
   try {
     const attendanceId = req.params.id; 
     const guardId = req.user.id;
+    const { photo } = req.body;
 
     const attendance = await Attendance.findById(attendanceId);
 
@@ -108,7 +109,12 @@ export const updateAttendance = async (req, res) => {
       return res.status(400).json({ message: "You have already timed out for this shift." });
     }
 
+    if (!photo) {
+      return res.status(400).json({ message: "A time-out photo is required." });
+    }
+
     attendance.timeOut = new Date();
+    attendance.timeOutPhoto = photo;
     attendance.status = "Off Duty";
     const minutesBreakdown = getAttendanceMinutesBreakdown({
       timeIn: attendance.timeIn,

@@ -16,6 +16,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { getPersonName } from "../utils/name";
 const api = import.meta.env.VITE_API_URL;
 
 export default function GuardProfile() {
@@ -38,6 +39,8 @@ export default function GuardProfile() {
 
   const [guard, setGuard] = useState({
     fullName: "",
+    firstName: "",
+    lastName: "",
     guardId: "",
     email: "",
     phoneNumber: "",
@@ -74,7 +77,9 @@ export default function GuardProfile() {
 
         setGuard((prev) => ({
           ...prev,
-          fullName: p.fullName || "",
+          fullName: getPersonName(p, ""),
+          firstName: p.firstName || "",
+          lastName: p.lastName || "",
           guardId: p.guardId || "",
           email: p.email || "",
           phoneNumber: p.phoneNumber || "",
@@ -218,7 +223,7 @@ export default function GuardProfile() {
           <div className="mx-auto mb-4 w-24 h-24 bg-[#0f172a] flex items-center justify-center rounded-full border border-gray-600">
             <ShieldUser size={50} className="text-blue-400" />
           </div>
-          <h2 className="text-2xl font-bold text-white">{guard.fullName}</h2>
+          <h2 className="text-2xl font-bold text-white">{getPersonName(guard)}</h2>
           <p className="text-gray-400 text-sm">{guard.position}</p>
           <p className="text-blue-400 text-xs font-mono mt-1">
             ID: {guard.guardId}

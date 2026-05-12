@@ -1,3 +1,5 @@
+import { getPersonName } from "../utils/name";
+
 export default function DeleteUserModal({ user, onConfirm, onCancel }) {
   if (!user) return null; // Don’t show if no user selected
 
@@ -7,7 +9,7 @@ export default function DeleteUserModal({ user, onConfirm, onCancel }) {
         <h2 className="text-lg font-semibold mb-3">Delete User</h2>
         <p className="text-sm text-gray-300 mb-5">
           Are you sure you want to delete{" "}
-          <span className="font-medium text-red-400">{user.fullName}</span>?  
+          <span className="font-medium text-red-400">{getPersonName(user)}</span>?  
           This action cannot be undone.
         </p>
 

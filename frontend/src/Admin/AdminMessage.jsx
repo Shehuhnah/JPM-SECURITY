@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Paperclip, Send, Search, CircleUserRound, ArrowLeft, MessageSquare, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { socket } from "../utils/socket";
+import { getPersonName } from "../utils/name";
 
 const api = import.meta.env.VITE_API_URL;
 
@@ -83,21 +84,19 @@ export default function MessagesPage() {
 
   const getParticipantName = (p) => {
     if (!p) return "Unknown";
-    if (p.user?.fullName) return p.user.fullName;
-    if (p.user?.name) return p.user.name;
-    if (p.userId?.fullName) return p.userId.fullName;
-    if (p.userId?.name) return p.userId.name;
+    if (p.user) return getPersonName(p.user);
+    if (p.userId && typeof p.userId === "object") return getPersonName(p.userId);
 
     const match = availableUsers.find(u => u._id === (typeof p.userId === "string" ? p.userId : p.userId?._id));
-    if (match) return match.fullName || match.name;
+    if (match) return getPersonName(match);
 
-    if (p.userId === user._id) return user.fullName || user.name || "Me";
+    if (p.userId === user._id) return getPersonName(user, "Me");
     return "Unknown";
   };
 
   const getSenderLabel = (msg) => {
     const sender = msg?.sender?.userId;
-    const senderName = sender?.fullName || sender?.name || msg?.sender?.name || "";
+    const senderName = getPersonName(sender || msg?.sender, "");
     const senderRole = msg?.sender?.role || sender?.role || "";
 
     if (senderRole === "Guard") {
@@ -453,7 +452,7 @@ export default function MessagesPage() {
   const filteredUsers = shownUsers.filter(item => {
     const name = item.type === "conversation"
       ? getParticipantName((item.data.participants ?? []).find(p => (typeof p.userId === "string" ? p.userId : p.userId?._id) !== user._id))
-      : item.data?.fullName ?? item.data?.name ?? "Unknown";
+      : getPersonName(item.data);
     return name.toLowerCase().includes(search.toLowerCase());
   });
 
@@ -537,7 +536,7 @@ export default function MessagesPage() {
                         {isOnline && <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 ring-2 ring-[#0b1220]"/>}
                       </div>
                       <div>
-                        <h4 className="text-sm font-medium text-gray-300">{u.fullName || u.name}</h4>
+                        <h4 className="text-sm font-medium text-gray-300">{getPersonName(u)}</h4>
                         <p className="text-xs text-gray-500">Click to message</p>
                       </div>
                   </div>

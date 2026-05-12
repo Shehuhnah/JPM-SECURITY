@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Shield, UserX, AlertTriangle, Hash, Users } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { getPersonName } from "../utils/name";
 
 const api = import.meta.env.VITE_API_URL;
 
@@ -90,7 +91,7 @@ export default function AdminGuardUpdates() {
   const query = search.toLowerCase();
 
   const filteredGuards = guards.filter((guard) =>
-    (guard.fullName || "").toLowerCase().includes(query) ||
+    getPersonName(guard, "").toLowerCase().includes(query) ||
     (guard.guardId || "").toLowerCase().includes(query) ||
     (guard.dutyStation || "").toLowerCase().includes(query) ||
     (guard.position || "").toLowerCase().includes(query)
@@ -181,7 +182,7 @@ export default function AdminGuardUpdates() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
           {filteredRecords.map((record) => {
-            const name = record.fullName || record.name || "Unknown";
+            const name = getPersonName(record);
             const isActive = showingGuards ? record.status === "Active" : record.status === "active";
 
             return (

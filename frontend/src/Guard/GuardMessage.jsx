@@ -3,6 +3,7 @@ import { Paperclip, Send, CircleUserRound, ArrowLeft, MessageSquare, X } from "l
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { socket } from "../utils/socket";
+import { getPersonName } from "../utils/name";
 
 const api = import.meta.env.VITE_API_URL;
 
@@ -115,7 +116,7 @@ export default function GuardMessage() {
           setSelectedConversation({
             _id: `temp-new`,
             participants: [
-              { userId: user._id, role: user.role, name: user.fullName || user.name },
+              { userId: user._id, role: user.role, name: getPersonName(user) },
             ],
             type: "guard-admin",
             lastMessage: null,
@@ -381,7 +382,7 @@ export default function GuardMessage() {
     }
   );
 
-  const otherName = otherParticipant?.user?.name || otherParticipant?.user?.fullName || otherParticipant?.name || "Admin Support";
+  const otherName = getPersonName(otherParticipant?.user || otherParticipant, "Admin Support");
   const otherId = (typeof otherParticipant?.userId === "string" ? otherParticipant.userId : otherParticipant?.userId?._id) || "";
   const isOnline = onlineUsers.includes(normalizeId(otherId));
   const headerName = isGuardConversation(selectedConversation) ? "HR Team" : otherName;

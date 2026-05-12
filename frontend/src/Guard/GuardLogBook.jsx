@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ClipboardList, Clock, FileText, Image as ImageIcon, LogIn, MapPin } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { getPersonName } from "../utils/name";
 
 export default function GuardLogBook() {
   const api = import.meta.env.VITE_API_URL;
@@ -113,7 +114,7 @@ export default function GuardLogBook() {
 
       if (response.ok) {
         const newLog = await response.json();
-        newLog.guard = { fullName: guard.fullName, guardId: guard.guardId };
+        newLog.guard = { fullName: getPersonName(guard), guardId: guard.guardId };
         setLogs((prev) => [newLog, ...prev]);
         setForm((prev) => ({
           ...prev,

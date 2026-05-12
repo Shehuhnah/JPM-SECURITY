@@ -5,6 +5,7 @@ import {
   FileDown, FileImage, RefreshCcw, ChevronRight, IdCard
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { getPersonName } from "../utils/name";
 import { Dialog, Transition } from "@headlessui/react";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -312,7 +313,7 @@ export default function GuardAttendancePage() {
                                       {records.map((rec) => (
                                           <tr key={rec._id} className="hover:bg-white/5 transition">
                                               <td className="px-6 py-4 text-sm text-gray-400">{rowNumberMap.get(rec._id)}</td>
-                                              <td className="px-6 py-4"><div className="font-medium text-white flex items-center gap-2"><User size={16} className="text-gray-500" />{rec.guard?.fullName || "Unknown Guard"}</div></td>
+                                              <td className="px-6 py-4"><div className="font-medium text-white flex items-center gap-2"><User size={16} className="text-gray-500" />{getPersonName(rec.guard, "Unknown Guard")}</div></td>
                                               <td className="px-6 py-4 text-gray-300">{rec.scheduleId?.deploymentLocation || "—"}</td>
                                               <td className="px-6 py-4"><div className="text-gray-300">{rec.scheduleId?.position}</div><div className="text-xs text-gray-500">{rec.scheduleId?.shiftType}</div></td>
                                               <td className="px-6 py-4">{getStatusBadge(rec.status)}</td>
@@ -331,7 +332,7 @@ export default function GuardAttendancePage() {
                                               <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-gray-400"><User size={20} /></div>
                                               <div>
                                                   <div className="text-xs font-medium text-gray-500">#{rowNumberMap.get(rec._id)}</div>
-                                                  <div className="font-medium text-white">{rec.guard?.fullName}</div>
+                                                  <div className="font-medium text-white">{getPersonName(rec.guard)}</div>
                                                   <div className="text-xs text-gray-500 flex items-center gap-1"><MapPin size={10} />{rec.scheduleId?.deploymentLocation}</div>
                                               </div>
                                           </div>
@@ -529,7 +530,7 @@ export default function GuardAttendancePage() {
                     <div className="flex flex-col sm:flex-row items-start sm:items-center px-4 sm:px-6 py-4 border-b border-gray-700 bg-[#192233] gap-4 shrink-0">
                       <div className="p-3 bg-blue-500/10 rounded-full border border-blue-500/20"><Shield className="text-blue-400" size={32} /></div>
                       <div className="flex-1 flex flex-col gap-1 w-full">
-                        <p className="text-lg sm:text-xl font-semibold text-white flex items-center gap-2">{selectedGuardInfo.fullName}</p>
+                        <p className="text-lg sm:text-xl font-semibold text-white flex items-center gap-2">{getPersonName(selectedGuardInfo)}</p>
                         <div className="flex items-center gap-2 text-sm text-gray-400 bg-gray-800/50 w-fit px-2 py-1 rounded"><IdCard size={16} className="text-blue-300" /> <span>ID: {selectedGuardInfo.guardId}</span></div>
                       </div>
                     </div>

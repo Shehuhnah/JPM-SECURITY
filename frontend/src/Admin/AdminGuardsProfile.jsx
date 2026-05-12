@@ -22,6 +22,7 @@ import DeleteUserModal from "../components/DeleteUserModal";
 import { useAuth } from "../hooks/useAuth.js"
 import { useNavigate } from "react-router-dom";
 import TablePagination from "../components/admin/TablePagination.jsx";
+import { getPersonName } from "../utils/name";
 
 const api = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
@@ -387,7 +388,7 @@ export default function GuardTable() {
                                               <UserCheck size={20} />
                                           </div>
                                           <div>
-                                              <div className="font-medium text-white">{g.fullName}</div>
+                                              <div className="font-medium text-white">{getPersonName(g)}</div>
                                               <div className="text-xs text-blue-400 font-mono">ID: {g.guardId}</div>
                                           </div>
                                       </div>

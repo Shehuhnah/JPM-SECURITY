@@ -1,4 +1,4 @@
-import { Outlet, NavLink, Link, useNavigate } from "react-router-dom";
+import { Outlet, NavLink, Link, useLocation, useNavigate } from "react-router-dom";
 import { Fragment, useState, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
 
@@ -42,6 +42,7 @@ export default function AdminLayout() {
 
   const { user, loading, clearAuth } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -93,8 +94,8 @@ export default function AdminLayout() {
   ];
 
   const postItems = [
-    { to: "/Admin/AdminPosts", label: "Announcement", icon: <Megaphone size={16} /> },
-    { to: "/Admin/AdminHiring", label: "Hiring", icon: <Briefcase size={16} /> },
+    { to: "/admin/AdminPosts", label: "Announcement", icon: <Megaphone size={16} /> },
+    { to: "/admin/AdminHiring", label: "Hiring", icon: <Briefcase size={16} /> },
   ];
 
   const userManagementItems = [
@@ -149,7 +150,7 @@ export default function AdminLayout() {
     <div className="flex flex-col min-h-screen bg-[#0f172a] text-gray-100">
       {/* Mobile Top Navbar */}
       <div className="md:hidden flex items-center justify-between bg-[#0f172a] p-4 border-b border-gray-800 sticky top-0 z-20">
-        <Link to="/Admin/dashboard" className="flex items-center gap-2" onClick={() => setSidebarOpen(false)}>
+        <Link to="/admin" className="flex items-center gap-2" onClick={() => setSidebarOpen(false)}>
           <img src={logo} alt="logo" className="w-8 h-8" />
           <span className="font-bold text-white text-lg">JPM SECURITY</span>
         </Link>
@@ -191,7 +192,7 @@ export default function AdminLayout() {
           {navItems
             .filter(item => {
               if (user?.role === "Subadmin") {
-                return !["/Admin/AdminCOE", "/Admin/schedule-approval"].includes(item.to);
+                return !["/admin/AdminCOE", "/admin/schedule-approval"].includes(item.to);
               }
               return true;
             })
@@ -219,7 +220,7 @@ export default function AdminLayout() {
                       <ul className="ml-8 mt-1 space-y-1 text-sm">
                         <li>
                           <NavLink
-                            to="/Admin/AdminMessages"
+                            to="/admin/AdminMessages"
                             className={({ isActive }) =>
                               `flex items-center gap-2 p-2 rounded ${
                                 isActive ? "bg-[#142235] text-white" : "hover:bg-[#0b2433]"
@@ -232,7 +233,7 @@ export default function AdminLayout() {
                         </li>
                         <li>
                           <NavLink
-                            to="/Admin/subadmin-message"
+                            to="/admin/subadmin-message"
                             className={({ isActive }) =>
                               `flex items-center gap-2 p-2 rounded ${
                                 isActive ? "bg-[#142235] text-white" : "hover:bg-[#0b2433]"
@@ -245,7 +246,7 @@ export default function AdminLayout() {
                         </li>
                         <li>
                           <NavLink
-                            to="/Admin/applicant-message"
+                            to="/admin/applicant-message"
                             className={({ isActive }) =>
                               `flex items-center gap-2 p-2 rounded ${
                                 isActive ? "bg-[#142235] text-white" : "hover:bg-[#0b2433]"
@@ -387,7 +388,9 @@ export default function AdminLayout() {
 
       {/* MAIN CONTENT */}
       <main className="flex-1 pt-5 md:pt-0 overflow-y-auto md:ml-64">
-        <Outlet/>
+        <div key={location.pathname}>
+          <Outlet />
+        </div>
       </main>
     </div>
   );

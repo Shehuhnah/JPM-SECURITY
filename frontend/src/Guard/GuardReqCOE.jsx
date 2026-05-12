@@ -14,6 +14,7 @@ import {
 import { generateAndDownloadCOE } from "../utils/pdfGenerator";
 import header from "../assets/headerpdf/header.png";
 import { useAuth } from "../hooks/useAuth";
+import { getPersonName } from "../utils/name";
 const api = import.meta.env.VITE_API_URL;
 
 export default function GuardReqCOE() {
@@ -49,7 +50,7 @@ export default function GuardReqCOE() {
           return {
             ...req,
             user: {
-              name: userObj.fullName || userObj.name || "UNDEFINED",
+              name: getPersonName(userObj, "UNDEFINED"),
               id: userObj._id || "",
               guardId: userObj.guardId || userObj._id || "",
               phone: userObj.phoneNumber || userObj.contactNumber || "",
@@ -100,7 +101,7 @@ export default function GuardReqCOE() {
         return {
           ...req,
           user: {
-            name: userObj.fullName || userObj.name || "UNDEFINED",
+            name: getPersonName(userObj, "UNDEFINED"),
             id: userObj._id || "",
             guardId: userObj.guardId || userObj._id || "",
             phone: userObj.phoneNumber || userObj.contactNumber || "",

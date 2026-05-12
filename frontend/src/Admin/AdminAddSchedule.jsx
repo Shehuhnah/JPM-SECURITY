@@ -1,14 +1,31 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Shield, Clock, Search, CalendarCheck2, Pencil, MapPin, Briefcase, User, Calendar as CalendarIcon, ChevronLeft, X, Users } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, useParams } from "react-router-dom";
-import { format } from "date-fns";
+import {
+  eachDayOfInterval,
+  endOfMonth,
+  format,
+  getDay,
+  isSameMonth,
+  startOfMonth,
+} from "date-fns";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { getPersonInitial, getPersonName } from "../utils/name";
 
 const api = import.meta.env.VITE_API_URL;
+const WEEKDAY_OPTIONS = [
+  { label: "Sun", value: 0 },
+  { label: "Mon", value: 1 },
+  { label: "Tue", value: 2 },
+  { label: "Wed", value: 3 },
+  { label: "Thu", value: 4 },
+  { label: "Fri", value: 5 },
+  { label: "Sat", value: 6 },
+];
 
 // Custom CSS to force Dark Mode on React Day Picker with Responsive Cell Sizes
 const datePickerStyles = `
@@ -53,6 +70,8 @@ export default function AdminAddSchedule() {
   const [selectedGuards, setSelectedGuards] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDays, setSelectedDays] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [selectedWeekdays, setSelectedWeekdays] = useState([1, 2, 3, 4, 5]);
   const [loadingPage, setLoadingPage] = useState(false);
   
   const [form, setForm] = useState({
@@ -125,6 +144,9 @@ export default function AdminAddSchedule() {
             const uniqueDays = [...new Set(batchData.map((s) => format(new Date(s.timeIn), "yyyy-MM-dd")))];
             const days = uniqueDays.map((day) => new Date(day));
             setSelectedDays(days);
+            if (days.length > 0) {
+              setSelectedMonth(format(days[0], "yyyy-MM"));
+            }
           }
         } catch (err) {
           toast.error(`Error: ${err.message}`);
@@ -139,6 +161,23 @@ export default function AdminAddSchedule() {
   // --- Handlers ---
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
+  const getMonthDaysByWeekdays = useCallback((monthValue, weekdayValues) => {
+    if (!monthValue || weekdayValues.length === 0) return [];
+
+    const [year, month] = monthValue.split("-").map(Number);
+    const monthStart = startOfMonth(new Date(year, month - 1, 1));
+    const monthEnd = endOfMonth(monthStart);
+
+    return eachDayOfInterval({ start: monthStart, end: monthEnd }).filter((day) =>
+      weekdayValues.includes(getDay(day))
+    );
+  }, []);
+
+  const mergeSelectedDays = useCallback((days) => {
+    const uniqueDays = [...new Map(days.map((day) => [format(day, "yyyy-MM-dd"), day])).values()];
+    setSelectedDays(uniqueDays.sort((a, b) => a.getTime() - b.getTime()));
+  }, []);
+
   const handleClientChange = (e) => {
     const selectedClientName = e.target.value;
     const clientData = clients.find((c) => c.clientName === selectedClientName);
@@ -148,6 +187,45 @@ export default function AdminAddSchedule() {
       client: selectedClientName,
       deploymentLocation: clientData ? clientData.clientAddress : "", 
     }));
+  };
+
+  const handleWeekdayToggle = (weekday) => {
+    setSelectedWeekdays((prev) =>
+      prev.includes(weekday)
+        ? prev.filter((value) => value !== weekday)
+        : [...prev, weekday].sort((a, b) => a - b)
+    );
+  };
+
+  const applyMonthPreset = (type) => {
+    if (!selectedMonth) {
+      toast.error("Please choose a month first.");
+      return;
+    }
+
+    let weekdayValues = selectedWeekdays;
+
+    if (type === "all") {
+      weekdayValues = WEEKDAY_OPTIONS.map((option) => option.value);
+      setSelectedWeekdays(weekdayValues);
+    } else if (type === "weekdays") {
+      weekdayValues = [1, 2, 3, 4, 5];
+      setSelectedWeekdays(weekdayValues);
+    } else if (type === "weekends") {
+      weekdayValues = [0, 6];
+      setSelectedWeekdays(weekdayValues);
+    }
+
+    mergeSelectedDays(getMonthDaysByWeekdays(selectedMonth, weekdayValues));
+  };
+
+  const clearCurrentMonthSelection = () => {
+    if (!selectedMonth) return;
+
+    const [year, month] = selectedMonth.split("-").map(Number);
+    const monthDate = new Date(year, month - 1, 1);
+
+    setSelectedDays((prev) => prev.filter((day) => !isSameMonth(day, monthDate)));
   };
 
   const handleSubmit = async (e) => {
@@ -219,10 +297,13 @@ export default function AdminAddSchedule() {
   };
 
   const filteredGuards = guards.filter((g) =>
-    g.fullName.toLowerCase().includes(searchTerm.toLowerCase())
+    getPersonName(g, "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const selectedDateStrings = selectedDays.map((day) => format(day, "yyyy-MM-dd"));
+  const selectedDateStrings = useMemo(
+    () => selectedDays.map((day) => format(day, "yyyy-MM-dd")),
+    [selectedDays]
+  );
 
   const getGuardLeaveConflict = useCallback((guardId) => {
     if (!guardId || selectedDateStrings.length === 0) return null;
@@ -243,13 +324,17 @@ export default function AdminAddSchedule() {
   useEffect(() => {
     setSelectedGuards((prev) => {
       const availableGuards = prev.filter((guard) => !getGuardLeaveConflict(guard._id));
+      if (availableGuards.length === prev.length) {
+        return prev;
+      }
+
       if (availableGuards.length !== prev.length) {
         prev
           .filter((guard) => getGuardLeaveConflict(guard._id))
           .forEach((guard) => {
             const leaveConflict = getGuardLeaveConflict(guard._id);
             if (leaveConflict) {
-              toast.warning(`${guard.fullName} is on approved leave on ${leaveConflict.overlapDate}.`);
+              toast.warning(`${getPersonName(guard)} is on approved leave on ${leaveConflict.overlapDate}.`);
             }
           });
       }
@@ -269,7 +354,7 @@ export default function AdminAddSchedule() {
     }
 
     if (leaveConflict) {
-      toast.warning(`${guard.fullName} is on approved leave on ${leaveConflict.overlapDate}.`);
+      toast.warning(`${getPersonName(guard)} is on approved leave on ${leaveConflict.overlapDate}.`);
       return;
     }
 
@@ -349,10 +434,10 @@ export default function AdminAddSchedule() {
                     <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-sm font-bold ${
                         isGuardSelected(guard._id) ? "bg-blue-500 text-white" : "bg-slate-700 text-gray-300"
                     }`}>
-                        {guard.fullName.charAt(0)}
+                        {getPersonInitial(guard)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-white truncate text-base sm:text-sm">{guard.fullName}</p>
+                      <p className="font-medium text-white truncate text-base sm:text-sm">{getPersonName(guard)}</p>
                       <p className="text-xs text-gray-400 truncate">{guard.position}</p>
                     </div>
                     <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full ${
@@ -396,7 +481,7 @@ export default function AdminAddSchedule() {
                             <div className="flex flex-wrap gap-2">
                                 {selectedGuards.map((guard) => (
                                     <div key={guard._id} className="flex items-center gap-2 rounded-full bg-blue-800/50 px-3 py-1 text-sm text-white">
-                                        <span className="max-w-40 truncate">{guard.fullName}</span>
+                                        <span className="max-w-40 truncate">{getPersonName(guard)}</span>
                                         <button
                                             onClick={() => setSelectedGuards((prev) => prev.filter((item) => item._id !== guard._id))}
                                             className="rounded-full bg-blue-700/70 p-0.5 text-blue-100 transition-colors hover:bg-blue-600"
@@ -485,6 +570,89 @@ export default function AdminAddSchedule() {
                                 </select>
                             </div>
                         </div>
+
+                        <div className="rounded-2xl border border-gray-700 bg-slate-900/40 p-4">
+                            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-blue-300">
+                                <CalendarIcon size={16} /> Monthly Schedule
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1.5 ml-1">Schedule Month</label>
+                                    <input
+                                        type="month"
+                                        value={selectedMonth}
+                                        onChange={(e) => setSelectedMonth(e.target.value)}
+                                        className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1.5 ml-1">Quick Fill</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => applyMonthPreset("weekdays")}
+                                            className="rounded-xl border border-gray-600 bg-[#0f172a] px-3 py-3 text-xs font-medium text-gray-200 transition hover:border-blue-500 hover:text-white"
+                                        >
+                                            Weekdays
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => applyMonthPreset("weekends")}
+                                            className="rounded-xl border border-gray-600 bg-[#0f172a] px-3 py-3 text-xs font-medium text-gray-200 transition hover:border-blue-500 hover:text-white"
+                                        >
+                                            Weekends
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => applyMonthPreset("all")}
+                                            className="rounded-xl border border-gray-600 bg-[#0f172a] px-3 py-3 text-xs font-medium text-gray-200 transition hover:border-blue-500 hover:text-white"
+                                        >
+                                            Full Month
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-4">
+                                <label className="block text-sm font-medium text-gray-400 mb-2 ml-1">Repeat On</label>
+                                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                                    {WEEKDAY_OPTIONS.map((option) => {
+                                      const isActive = selectedWeekdays.includes(option.value);
+                                      return (
+                                        <button
+                                          key={option.value}
+                                          type="button"
+                                          onClick={() => handleWeekdayToggle(option.value)}
+                                          className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                                            isActive
+                                              ? "border-blue-500 bg-blue-600/20 text-white"
+                                              : "border-gray-600 bg-[#0f172a] text-gray-300 hover:border-blue-500"
+                                          }`}
+                                        >
+                                          {option.label}
+                                        </button>
+                                      );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="mt-4 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => mergeSelectedDays(getMonthDaysByWeekdays(selectedMonth, selectedWeekdays))}
+                                  className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500"
+                                >
+                                  Apply Selected Days To Month
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={clearCurrentMonthSelection}
+                                  className="rounded-xl border border-gray-600 bg-[#0f172a] px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:border-red-500 hover:text-white"
+                                >
+                                  Clear Current Month
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     {/* CALENDAR COLUMN */}
@@ -496,6 +664,8 @@ export default function AdminAddSchedule() {
                             mode="multiple"
                             selected={selectedDays}
                             onSelect={setSelectedDays}
+                            month={selectedMonth ? new Date(`${selectedMonth}-01T00:00:00`) : undefined}
+                            onMonthChange={(month) => setSelectedMonth(format(month, "yyyy-MM"))}
                             className="text-sm"
                         />
                         <div className="mt-4 text-xs text-gray-400 bg-slate-800 px-3 py-2 rounded-lg w-full text-center">

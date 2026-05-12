@@ -24,6 +24,7 @@ const attendanceSchema = new mongoose.Schema(
 
     location: { type: Object },
     photo: { type: String },
+    timeOutPhoto: { type: String },
   },
   { timestamps: true }
 );

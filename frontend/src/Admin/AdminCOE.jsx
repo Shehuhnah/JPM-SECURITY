@@ -8,6 +8,7 @@ import { generateAndDownloadCOE } from "../utils/pdfGenerator";
 import { useAuth } from "../hooks/useAuth";
 import header from "../assets/headerpdf/header.png";
 import TablePagination from "../components/admin/TablePagination.jsx";
+import { getPersonName } from "../utils/name";
 
 const api = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
@@ -58,7 +59,7 @@ export default function AdminCOE() {
         const person = req.raw.requesterRole === 'guard' ? req.raw.guard : req.raw.subadmin;
         return {
           id: req.id,
-          name: person?.fullName || person?.name || "N/A",
+          name: getPersonName(person, "N/A"),
           guardId: req.raw.requesterRole === 'guard' ? person?.guardId || "N/A" : person?._id || "N/A",
           phone: person?.phoneNumber || person?.contactNumber || "N/A",
           email: person?.email || "N/A",
@@ -209,7 +210,7 @@ export default function AdminCOE() {
 
       generateAndDownloadCOE(
         {
-          name: (person.fullName || person.name || "UNDEFINED"),
+          name: getPersonName(person, "UNDEFINED"),
           guardId: person.guardId || person._id || "UNDEFINED",
           purpose: data.purpose,
           id: data._id,

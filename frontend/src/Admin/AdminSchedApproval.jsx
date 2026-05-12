@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState, Fragment } from "react";
+import React, { useEffect, useMemo, useState, Fragment, useCallback } from "react";
+import { getPersonName } from "../utils/name";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -11,6 +12,7 @@ import {
   ThumbsDown,
   RefreshCw,
   Table,
+  Eye,
   LayoutGrid,
   ChevronDown,
   Clock,
@@ -106,6 +108,7 @@ export default function AdminSchedApproval() {
   const [batchToApprove, setBatchToApprove] = useState(null);
   const [showDeclineBatchModal, setShowDeclineBatchModal] = useState(false);
   const [batchToDecline, setBatchToDecline] = useState(null);
+  const [selectedBatchDetails, setSelectedBatchDetails] = useState(null);
 
   useEffect(() => {
     if (!user && !loading) {
@@ -221,10 +224,15 @@ export default function AdminSchedApproval() {
   });
 
   const getCreatedAtValue = (schedule) => new Date(schedule?.createdAt || 0).getTime();
+  const formatShortDate = (value) =>
+    new Date(value).toLocaleDateString([], { month: "short", day: "numeric" });
+
+  const formatTimeRange = (timeIn, timeOut) =>
+    `${new Date(timeIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${new Date(timeOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 
   const calendarEvents = filteredSchedules.map((s) => ({
     id: s._id,
-    title: `${s.guardId?.fullName || "Unassigned"} (${s.shiftType})`,
+    title: `${getPersonName(s.guardId, "Unassigned")} (${s.shiftType})`,
     start: s.timeIn,
     end: s.timeOut,
     backgroundColor: s.isApproved === "Approved" ? "#22c55e" : (shiftColors[s.shiftType] || "#3b82f6"),
@@ -254,6 +262,44 @@ export default function AdminSchedApproval() {
 
     return Object.values(grouped).sort((a, b) => b.latestCreatedAt - a.latestCreatedAt);
   }, [filteredSchedules]);
+
+  const getGuardSummaries = useCallback((group) => {
+    if (!group?.schedules?.length) return [];
+
+    return Object.values(
+      group.schedules.reduce((acc, schedule) => {
+        const guardKey = schedule.guardId?._id || schedule.guardId || schedule._id;
+        if (!acc[guardKey]) {
+          acc[guardKey] = {
+            guardKey,
+            guard: schedule.guardId,
+            position: schedule.position,
+            deploymentLocation: schedule.deploymentLocation,
+            shiftType: schedule.shiftType,
+            days: [],
+          };
+        }
+
+        acc[guardKey].days.push({
+          id: schedule._id,
+          timeIn: schedule.timeIn,
+          timeOut: schedule.timeOut,
+        });
+
+        return acc;
+      }, {})
+    ).map((summary) => ({
+      ...summary,
+      days: [...summary.days].sort((a, b) => new Date(a.timeIn) - new Date(b.timeIn)),
+    }));
+  }, []);
+
+  const openBatchDetails = (group) => {
+    setSelectedBatchDetails({
+      ...group,
+      guardSummaries: getGuardSummaries(group),
+    });
+  };
 
   const totalBatchPages = Math.max(1, Math.ceil(groupedForTable.length / LIST_PAGE_SIZE));
   const paginatedGroups = groupedForTable.slice(
@@ -411,7 +457,9 @@ export default function AdminSchedApproval() {
                                 </span>
                             </div>
 
-                            {paginatedGroups.map((group) => (
+                            {paginatedGroups.map((group) => {
+                                const guardSummaries = getGuardSummaries(group);
+                                return (
                                 <div key={group.batchId} className="bg-[#1e293b] border border-gray-700 rounded-xl overflow-hidden shadow-md">
                                     {/* Group Header */}
                                     <div className="p-4 bg-slate-800/50 border-b border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -435,8 +483,15 @@ export default function AdminSchedApproval() {
                                             </div>
                                         </div>
 
+                                        <div className="flex gap-2 w-full md:w-auto">
+                                            <button
+                                                onClick={() => openBatchDetails(group)}
+                                                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600/90 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+                                            >
+                                                <Eye size={16} /> View Details
+                                            </button>
                                         {group.isApproved === "Pending" && (
-                                            <div className="flex gap-2 w-full md:w-auto">
+                                            <>
                                                 <button
                                                     onClick={() => openApproveBatchModal(group.schedules.map(s => s._id))}
                                                     className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
@@ -449,42 +504,70 @@ export default function AdminSchedApproval() {
                                                 >
                                                     <ThumbsDown size={16} /> Decline
                                                 </button>
-                                            </div>
+                                            </>
                                         )}
+                                            </div>
                                     </div>
 
                                     {/* Desktop Table */}
                                     <div className="hidden md:block overflow-x-auto">
-                                        <table className="w-full text-left text-sm">
+                                        <table className="w-full table-fixed text-left text-sm">
+                                            <colgroup>
+                                                <col className="w-[28%]" />
+                                                <col className="w-[42%]" />
+                                                <col className="w-[30%]" />
+                                            </colgroup>
                                             <thead className="bg-[#0f172a] text-gray-400 border-b border-gray-700">
                                                 <tr>
                                                     <th className="py-3 px-6 font-medium">Guard Name</th>
-                                                    <th className="py-3 px-6 font-medium">Location & Position</th>
-                                                    <th className="py-3 px-6 font-medium">Schedule Time</th>
+                                                    <th className="py-3 px-6 font-medium">Assignment Summary</th>
+                                                    <th className="py-3 px-6 font-medium">Schedule Overview</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-700/50">
-                                                {group.schedules.map((s) => (
-                                                    <tr key={s._id} className="hover:bg-slate-800/30 transition">
-                                                        <td className="py-3 px-6 font-medium text-white flex items-center gap-2">
-                                                            <User size={16} className="text-gray-500"/>
-                                                            {s.guardId?.fullName || "Unassigned"}
-                                                        </td>
-                                                        <td className="py-3 px-6 text-gray-300">
-                                                            <div className="flex flex-col">
-                                                                <span className="text-white">{s.deploymentLocation}</span>
-                                                                <span className="text-xs text-blue-400">{s.position}</span>
+                                                {guardSummaries.map((summary) => (
+                                                    <tr key={summary.guardKey} className="hover:bg-slate-800/30 transition align-top">
+                                                        <td className="py-4 px-6 font-medium text-white">
+                                                            <div className="flex items-start gap-2">
+                                                                <User size={16} className="mt-0.5 shrink-0 text-gray-500"/>
+                                                                <div className="min-w-0">
+                                                                <div className="truncate text-white">{getPersonName(summary.guard, "Unassigned")}</div>
+                                                                <div className="text-xs text-slate-500">
+                                                                    {summary.days.length} scheduled day{summary.days.length > 1 ? "s" : ""}
+                                                                </div>
+                                                            </div>
                                                             </div>
                                                         </td>
-                                                        <td className="py-3 px-6">
-                                                            <div className="flex items-center gap-2 text-gray-300">
-                                                                <Clock size={14} className="text-gray-500"/>
-                                                                {new Date(s.timeIn).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} 
-                                                                <span className="text-gray-600">-</span>
-                                                                {new Date(s.timeOut).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                                        <td className="py-4 px-6 text-gray-300">
+                                                            <div className="flex min-w-0 flex-col">
+                                                                <span className="break-words text-white">{summary.deploymentLocation}</span>
+                                                                <span className="mt-1 text-xs text-blue-400">{summary.position}</span>
+                                                                <span className={`mt-2 inline-flex w-fit rounded-full px-2 py-1 text-[11px] font-medium ${
+                                                                    summary.shiftType === "Night Shift"
+                                                                      ? "bg-red-500/10 text-red-300 border border-red-500/20"
+                                                                      : "bg-yellow-500/10 text-yellow-300 border border-yellow-500/20"
+                                                                }`}>
+                                                                    {summary.shiftType}
+                                                                </span>
+                                                                <span className="mt-2 text-xs leading-5 text-slate-400">
+                                                                    {formatTimeRange(summary.days[0]?.timeIn, summary.days[0]?.timeOut)}
+                                                                </span>
                                                             </div>
-                                                            <div className="text-xs text-gray-500 ml-6">
-                                                                {new Date(s.timeIn).toLocaleDateString()}
+                                                        </td>
+                                                        <td className="py-4 px-6">
+                                                            <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-900/50 p-3">
+                                                                <div className="flex items-center justify-between gap-3">
+                                                                    <span className="text-xs uppercase tracking-wide text-slate-500">Coverage</span>
+                                                                    <span className="text-xs font-medium text-slate-300">
+                                                                        {formatShortDate(summary.days[0]?.timeIn)} to {formatShortDate(summary.days[summary.days.length - 1]?.timeIn)}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="text-sm text-slate-200">
+                                                                    {summary.days.length} assigned day{summary.days.length > 1 ? "s" : ""}
+                                                                </div>
+                                                                <div className="text-xs leading-5 text-slate-400">
+                                                                    Open the detail panel to view the full calendar and exact scheduled dates for this deployment batch.
+                                                                </div>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -495,30 +578,45 @@ export default function AdminSchedApproval() {
 
                                     {/* Mobile Cards */}
                                     <div className="md:hidden divide-y divide-gray-700/50">
-                                        {group.schedules.map((s) => (
-                                            <div key={s._id} className="p-4 flex flex-col gap-2">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="font-medium text-white flex items-center gap-2">
-                                                        <Shield size={16} className="text-blue-500"/>
-                                                        {s.guardId?.fullName}
+                                        {guardSummaries.map((summary) => (
+                                            <div key={summary.guardKey} className="p-4 flex flex-col gap-3">
+                                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                                    <div className="font-medium text-white flex min-w-0 items-center gap-2">
+                                                        <Shield size={16} className="shrink-0 text-blue-500"/>
+                                                        <span className="truncate">{getPersonName(summary.guard)}</span>
                                                     </div>
-                                                    <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">{s.position}</span>
+                                                    <span className="w-fit text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">{summary.position}</span>
                                                 </div>
                                                 <div className="text-sm text-gray-400 flex items-start gap-2">
                                                     <MapPin size={16} className="mt-0.5 text-gray-600 shrink-0"/>
-                                                    {s.deploymentLocation}
+                                                    <span className="break-words">{summary.deploymentLocation}</span>
                                                 </div>
-                                                <div className="text-sm text-gray-300 flex items-center gap-2 bg-slate-800/50 p-2 rounded mt-1">
-                                                    <Clock size={16} className="text-gray-500"/>
-                                                    <span>
-                                                        {new Date(s.timeIn).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} - {new Date(s.timeOut).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-800/50 px-3 py-2 text-sm">
+                                                    <span className={`rounded-full px-2 py-1 text-[11px] font-medium ${
+                                                        summary.shiftType === "Night Shift"
+                                                          ? "bg-red-500/10 text-red-300 border border-red-500/20"
+                                                          : "bg-yellow-500/10 text-yellow-300 border border-yellow-500/20"
+                                                    }`}>
+                                                        {summary.shiftType}
                                                     </span>
+                                                    <span className="text-slate-300">{summary.days.length} day(s)</span>
+                                                </div>
+                                                <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3 text-sm text-slate-300">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <span>Coverage window</span>
+                                                        <span className="text-xs text-slate-400">
+                                                            {formatShortDate(summary.days[0]?.timeIn)} to {formatShortDate(summary.days[summary.days.length - 1]?.timeIn)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="mt-2 text-xs text-slate-500">
+                                                        Tap View Details to inspect the full batch calendar and all scheduled dates.
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
-                            ))}
+                            )})}
 
                             <TablePagination
                                 page={currentPage}
@@ -538,6 +636,255 @@ export default function AdminSchedApproval() {
       </div>
 
       {/* ===== MODALS ===== */}
+
+      <Transition appear show={Boolean(selectedBatchDetails)} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setSelectedBatchDetails(null)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-hidden">
+            <div className="absolute inset-y-0 right-0 flex max-w-full pl-4 sm:pl-10">
+              <Transition.Child
+                as={Fragment}
+                enter="transform transition ease-in-out duration-500 sm:duration-700"
+                enterFrom="translate-x-full"
+                enterTo="translate-x-0"
+                leave="transform transition ease-in-out duration-500 sm:duration-700"
+                leaveFrom="translate-x-0"
+                leaveTo="translate-x-full"
+              >
+                <Dialog.Panel className="pointer-events-auto w-screen max-w-4xl">
+                  <div className="flex h-full flex-col overflow-y-auto bg-gradient-to-br from-[#0f172a] to-[#1e293b] shadow-2xl border-l border-slate-700/50">
+                    
+                    {/* Header */}
+                    <div className="sticky top-0 z-20 border-b border-slate-700/50 bg-[#0f172a]/90 backdrop-blur-md px-6 sm:px-8 py-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <Dialog.Title className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-4">
+                            <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 shadow-inner">
+                              <CalendarDays className="text-blue-400" size={28} />
+                            </div>
+                            {selectedBatchDetails?.client || "Deployment Details"}
+                          </Dialog.Title>
+                          <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-slate-300 font-medium">
+                            <span className="flex items-center gap-1.5"><MapPin size={14} className="text-slate-400"/> {selectedBatchDetails?.deploymentLocation}</span>
+                            <span className="text-slate-600">•</span>
+                            <span className="flex items-center gap-1.5"><Clock size={14} className="text-slate-400"/> {selectedBatchDetails?.shiftType}</span>
+                            <span className="text-slate-600">•</span>
+                            <span className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+                              selectedBatchDetails?.isApproved === "Approved"
+                                ? "border-green-500/30 bg-green-500/10 text-green-400 shadow-[0_0_10px_rgba(34,197,94,0.1)]"
+                                : selectedBatchDetails?.isApproved === "Declined"
+                                  ? "border-red-500/30 bg-red-500/10 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.1)]"
+                                  : "border-yellow-500/30 bg-yellow-500/10 text-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.1)]"
+                            }`}>
+                              {selectedBatchDetails?.isApproved}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setSelectedBatchDetails(null)}
+                          className="rounded-full bg-slate-800/80 p-2.5 text-slate-400 hover:bg-red-500 hover:text-white transition-all duration-200 border border-slate-700/50"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                  <div className="p-6 sm:p-8 flex-1 space-y-8">
+                    <div className="rounded-3xl border border-slate-700/50 bg-[#1e293b]/40 p-6 sm:p-8 shadow-xl backdrop-blur-sm">
+                      <h3 className="text-xl sm:text-2xl font-bold text-white mb-8 flex items-center gap-3">
+                         <LayoutGrid size={24} className="text-emerald-400" />
+                         Deployment Info
+                      </h3>
+                      <div className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
+                        <div className="space-y-5">
+                          <div className="rounded-2xl border border-slate-700/30 bg-[#0f172a]/60 p-5 transition hover:bg-[#0f172a]/80 shadow-sm hover:shadow-md">
+                            <div className="flex items-center gap-3 mb-2">
+                                <User size={16} className="text-emerald-400"/>
+                                <div className="text-xs uppercase tracking-widest font-bold text-slate-400">Client</div>
+                            </div>
+                            <div className="text-lg font-bold text-white ml-7">{selectedBatchDetails?.client}</div>
+                          </div>
+                          <div className="rounded-2xl border border-slate-700/30 bg-[#0f172a]/60 p-5 transition hover:bg-[#0f172a]/80 shadow-sm hover:shadow-md">
+                            <div className="flex items-center gap-3 mb-2">
+                                <MapPin size={16} className="text-emerald-400"/>
+                                <div className="text-xs uppercase tracking-widest font-bold text-slate-400">Address</div>
+                            </div>
+                            <div className="text-base font-semibold text-slate-200 ml-7 leading-relaxed">{selectedBatchDetails?.deploymentLocation}</div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-5">
+                          <div className="rounded-2xl border border-slate-700/30 bg-[#0f172a]/60 p-5 transition hover:bg-[#0f172a]/80 shadow-sm hover:shadow-md">
+                            <div className="flex items-center gap-3 mb-2">
+                                <Clock size={16} className="text-emerald-400"/>
+                                <div className="text-xs uppercase tracking-widest font-bold text-slate-400">Shift</div>
+                            </div>
+                            <div className="text-base font-bold text-white ml-7">{selectedBatchDetails?.shiftType}</div>
+                          </div>
+                          <div className="rounded-2xl border border-slate-700/30 bg-[#0f172a]/60 p-5 transition hover:bg-[#0f172a]/80 shadow-sm hover:shadow-md">
+                            <div className="flex items-center gap-3 mb-2">
+                                <Shield size={16} className="text-emerald-400"/>
+                                <div className="text-xs uppercase tracking-widest font-bold text-slate-400">Guards</div>
+                            </div>
+                            <div className="text-base font-bold text-white ml-7">{selectedBatchDetails?.guardSummaries?.length || 0} assigned</div>
+                          </div>
+                          <div className="rounded-2xl border border-slate-700/30 bg-[#0f172a]/60 p-5 transition hover:bg-[#0f172a]/80 shadow-sm hover:shadow-md col-span-2">
+                            <div className="flex items-center gap-3 mb-2">
+                                <CalendarDays size={16} className="text-emerald-400"/>
+                                <div className="text-xs uppercase tracking-widest font-bold text-slate-400">Batch Range</div>
+                            </div>
+                            <div className="text-base font-bold text-blue-400 ml-7">
+                              {(selectedBatchDetails?.schedules?.length || 0) > 0
+                                ? `${formatShortDate(selectedBatchDetails.schedules.slice().sort((a, b) => new Date(a.timeIn) - new Date(b.timeIn))[0].timeIn)}  -  ${formatShortDate(selectedBatchDetails.schedules.slice().sort((a, b) => new Date(a.timeIn) - new Date(b.timeIn))[selectedBatchDetails.schedules.length - 1].timeIn)}`
+                                : "No dates"}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                  <div className="grid gap-8">
+                    {/* Left Column */}
+                    <div className="space-y-8">
+                        
+                        {/* Deployment Calendar */}
+                        <div className="rounded-3xl border border-slate-700/50 bg-[#1e293b]/40 p-6 sm:p-8 shadow-xl backdrop-blur-sm relative overflow-hidden">
+                          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+                          
+                          <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative z-10">
+                            <div>
+                              <h3 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-3">
+                                <CalendarDays size={24} className="text-blue-400" />
+                                Deployment Calendar
+                              </h3>
+                              <p className="text-sm text-slate-400 mt-2">Scheduled days in this batch</p>
+                            </div>
+                            <div className="rounded-2xl border border-slate-700/50 bg-[#0f172a]/60 px-6 py-4 text-right flex flex-col items-center justify-center sm:items-end shadow-inner">
+                              <div className="text-xs uppercase tracking-widest text-slate-400 font-bold">Total shifts</div>
+                              <div className="text-3xl font-black text-blue-400 leading-none mt-2">{selectedBatchDetails?.schedules?.length || 0}</div>
+                            </div>
+                          </div>
+                          <div className="rounded-2xl overflow-hidden border border-slate-700/50 bg-[#0f172a]/50 p-4 shadow-inner relative z-10">
+                            <FullCalendar
+                              plugins={[dayGridPlugin]}
+                              initialView="dayGridMonth"
+                              height="auto"
+                              headerToolbar={{ left: "prev,next", center: "title", right: "" }}
+                              events={(selectedBatchDetails?.schedules || []).map((schedule) => ({
+                                id: schedule._id,
+                                title: getPersonName(schedule.guardId, "Guard"),
+                                start: schedule.timeIn,
+                                end: schedule.timeOut,
+                                backgroundColor: shiftColors[schedule.shiftType] || "#3b82f6",
+                                borderColor: shiftColors[schedule.shiftType] || "#3b82f6",
+                                textColor: "#fff",
+                              }))}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Guard Coverage */}
+                        <div className="rounded-3xl border border-slate-700/50 bg-[#1e293b]/40 p-6 sm:p-8 shadow-xl backdrop-blur-sm relative overflow-hidden">
+                          <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none"></div>
+
+                          <h3 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-3 relative z-10">
+                            <Shield size={24} className="text-indigo-400" />
+                            Guard Coverage
+                          </h3>
+                          <p className="mt-2 text-sm text-slate-400 mb-8 relative z-10">Assigned guards and their coverage window</p>
+                          <div className="space-y-4 relative z-10">
+                            {(selectedBatchDetails?.guardSummaries || []).map((summary) => (
+                              <div key={summary.guardKey} className="group rounded-2xl border border-slate-700/50 bg-[#0f172a]/60 hover:bg-[#0f172a]/80 transition-all duration-300 p-5 shadow-md hover:shadow-xl hover:border-slate-600/50 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+                                <div className="flex items-center gap-5">
+                                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-bold text-xl shadow-lg transform group-hover:scale-105 transition-transform duration-300 shrink-0">
+                                    {getPersonName(summary.guard).charAt(0)}
+                                  </div>
+                                  <div>
+                                    <div className="text-lg font-bold text-white">{getPersonName(summary.guard)}</div>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2.5 text-xs font-medium text-slate-400">
+                                      <span className="bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-md text-slate-300">{summary.position}</span>
+                                      <span className="text-slate-600">•</span>
+                                      <span className="text-blue-400 font-semibold">{summary.days.length} shift(s)</span>
+                                      <span className="text-slate-600">•</span>
+                                      <span className="text-slate-300 bg-slate-800/50 px-2 py-0.5 rounded flex items-center gap-1.5">
+                                        <CalendarDays size={12} className="text-slate-500"/>
+                                        {summary.days.length > 0 
+                                          ? `${formatShortDate(summary.days[0].timeIn)} - ${formatShortDate(summary.days[summary.days.length - 1].timeIn)}` 
+                                          : "No dates"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <span className={`w-fit rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider shrink-0 sm:self-center ${
+                                  summary.shiftType === "Night Shift"
+                                    ? "border border-red-500/30 bg-red-500/10 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.15)]"
+                                    : "border border-yellow-500/30 bg-yellow-500/10 text-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.15)]"
+                                }`}>
+                                  {summary.shiftType}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Action Footer if Pending */}
+                    {selectedBatchDetails?.isApproved === "Pending" && (
+                      <div className="sticky bottom-0 z-20 border-t border-slate-700/50 bg-[#0f172a]/90 backdrop-blur-lg px-6 py-5 mt-auto">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-5">
+                           <div className="text-sm text-slate-400 hidden sm:flex items-center gap-3">
+                             <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400">
+                                <Shield size={20} />
+                             </div>
+                             <div>
+                               <p className="font-bold text-slate-300 text-base">Pending Action</p>
+                               <p className="text-xs mt-0.5">Review the batch details before making a decision.</p>
+                             </div>
+                           </div>
+                           <div className="flex gap-4 w-full sm:w-auto">
+                              <button
+                                onClick={() => {
+                                  setSelectedBatchDetails(null);
+                                  openDeclineBatchModal(selectedBatchDetails.schedules.map(s => s._id));
+                                }}
+                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-800 hover:bg-red-600 border border-slate-600 hover:border-red-500 text-white px-8 py-3 rounded-xl text-sm font-bold transition-all duration-300 hover:shadow-[0_0_20px_rgba(220,38,38,0.4)]"
+                              >
+                                <ThumbsDown size={18} /> Decline
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedBatchDetails(null);
+                                  openApproveBatchModal(selectedBatchDetails.schedules.map(s => s._id));
+                                }}
+                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-10 py-3 rounded-xl text-sm font-bold transition-all duration-300 shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:shadow-[0_0_30px_rgba(59,130,246,0.6)]"
+                              >
+                                <ThumbsUp size={18} /> Approve Batch
+                              </button>
+                           </div>
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
       
       {/* Approve Modal */}
       <Transition appear show={showApproveBatchModal} as={Fragment}>

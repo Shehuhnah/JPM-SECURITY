@@ -528,7 +528,6 @@ export const sendHireEmail = async (req, res) => {
   }
 };
 
-// 🎉 Finalize hire email
 export const finalizeHiring = async (req, res) => {
   try {
     const { id } = req.params;

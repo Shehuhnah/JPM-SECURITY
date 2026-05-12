@@ -202,7 +202,7 @@ export default function GuardLeaves() {
                   mode="multiple"
                   selected={selectedDays}
                   onSelect={(days) => setSelectedDays(days || [])}
-                  disabled={[{ before: new Date() }, ...disabledDates]}
+                  disabled={disabledDates}
                 />
               </div>
 

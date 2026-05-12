@@ -18,9 +18,11 @@ import { Dialog, Transition } from "@headlessui/react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import TablePagination from "../components/admin/TablePagination.jsx";
+import { getPersonName } from "../utils/name";
 
 const api = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
+const todayDateOnly = new Date().toISOString().split("T")[0];
 
 export default function RequestedIDs() {
   const { user, loading } = useAuth(); 
@@ -115,6 +117,10 @@ export default function RequestedIDs() {
 
   const handleConfirmApprove = async () => {
     if (!pickupDate) return alert("Please select a pickup date.");
+    if (pickupDate < todayDateOnly) {
+      alert("Pickup date cannot be in the past.");
+      return;
+    }
     try {
       setSubmitting(true);
       const res = await fetch(`${api}/api/idrequests/${selectedId}`, {
@@ -274,7 +280,7 @@ export default function RequestedIDs() {
                           <div>
                              {/* Support both Guard and Subadmin names */}
                              <div className="font-medium text-white">
-                                {req.guard?.fullName || req.admin?.name || "Unknown"}
+                                {req.guard ? getPersonName(req.guard) : req.admin?.name || "Unknown"}
                              </div>
                              <div className="text-xs text-blue-400">
                                 {req.guard?.position || req.admin?.role || "N/A"}
@@ -361,7 +367,7 @@ export default function RequestedIDs() {
                          <div>
                             <p className="text-xs font-medium text-gray-500">#{(currentPage - 1) * PAGE_SIZE + index + 1}</p>
                             <h3 className="font-semibold text-white">
-                                {req.guard?.fullName || req.admin?.name || "Unknown"}
+                                {req.guard ? getPersonName(req.guard) : req.admin?.name || "Unknown"}
                             </h3>
                             <span className="text-xs text-blue-400">
                                 {req.guard?.position || req.admin?.role}
@@ -459,6 +465,7 @@ export default function RequestedIDs() {
                           type="date"
                           value={pickupDate}
                           onChange={(e) => setPickupDate(e.target.value)}
+                          min={todayDateOnly}
                           className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2.5 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                       />
                   </div>

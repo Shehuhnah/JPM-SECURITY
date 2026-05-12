@@ -2,6 +2,16 @@ import COERequest from "../models/COERequest.model.js";
 import mongoose from "mongoose";
 import { generateAndSaveCOE } from "../utils/pdfGenerator.js";
 
+const getDisplayName = (person) => {
+  if (!person) return "";
+
+  const firstName = person.firstName?.trim() || "";
+  const lastName = person.lastName?.trim() || "";
+  const combinedName = `${firstName} ${lastName}`.trim();
+
+  return combinedName || person.fullName?.trim() || person.name?.trim() || "";
+};
+
 // Create new COE request (guard or subadmin)
 export const createRequest = async (req, res) => {
   try {
@@ -46,7 +56,7 @@ export const listRequests = async (req, res) => {
     if (userId) filter.$or = [{ guard: userId }, { subadmin: userId }];
 
     const items = await COERequest.find(filter)
-      .populate('guard', 'fullName email guardId phoneNumber position createdAt')
+      .populate('guard', 'firstName lastName fullName email guardId phoneNumber position createdAt')
       .populate('subadmin', 'name email position contactNumber createdAt')
       .sort({ requestedAt: -1 });
 
@@ -56,7 +66,7 @@ export const listRequests = async (req, res) => {
       const person = isGuard ? item.guard : item.subadmin;
       return {
         id: item._id,
-        name: person?.fullName || person?.name || "N/A",
+        name: getDisplayName(person) || "N/A",
         guardId: isGuard ? item.guard?.guardId || "N/A" : item.subadmin?._id.toString(),
         phone: isGuard ? item.guard?.phoneNumber || "N/A" : item.subadmin?.contactNumber || "N/A",
         email: person?.email || "N/A",
@@ -109,7 +119,7 @@ export const getMyRequests = async (req, res) => {
     }
 
     const items = await COERequest.find(filter)
-      .populate('guard', 'fullName email guardId createdAt')
+      .populate('guard', 'firstName lastName fullName email guardId createdAt')
       .populate('subadmin', 'name email position contactNumber createdAt')
       .sort({ requestedAt: -1 });
 
@@ -126,7 +136,7 @@ export const getRequest = async (req, res) => {
     const id = req.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: "Invalid id" });
     const reqObj = await COERequest.findById(id)
-    .populate('guard', 'fullName email guardId phoneNumber position createdAt')
+    .populate('guard', 'firstName lastName fullName email guardId phoneNumber position createdAt')
     .populate('subadmin', 'name email position contactNumber createdAt'); // <-- add this
 
     if (!reqObj) return res.status(404).json({ message: "Not found" });
@@ -148,7 +158,7 @@ export const updateStatus = async (req, res) => {
 
     // Populate both guard and subadmin
     const reqObj = await COERequest.findById(id)
-      .populate('guard', 'fullName email guardId phoneNumber position createdAt')
+      .populate('guard', 'firstName lastName fullName email guardId phoneNumber position createdAt')
       .populate('subadmin', 'name email position contactNumber createdAt');
 
     if (!reqObj) return res.status(404).json({ message: "Request not found" });
@@ -221,7 +231,7 @@ export const downloadCOE = async (req, res) => {
   try {
     const id = req.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: "Invalid id" });
-    const reqObj = await COERequest.findById(id).populate('guard', 'fullName email guardId');
+    const reqObj = await COERequest.findById(id).populate('guard', 'firstName lastName fullName email guardId');
     if (!reqObj) return res.status(404).json({ message: "Not found" });
 
     if (reqObj.status !== "Accepted" || !reqObj.approvedCOE) return res.status(404).json({ message: "COE not available" });

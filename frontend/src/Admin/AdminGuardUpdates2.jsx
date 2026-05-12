@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { getPersonName } from "../utils/name";
 import {
   Activity,
   AlertCircle,
@@ -230,7 +231,7 @@ export default function AdminGuardUpdates2() {
     );
   }
 
-  const displayName = profile.fullName || profile.name || "Unknown";
+  const displayName = getPersonName(profile);
   const profileStatus = profile.status || "Unknown";
   const isActive = isGuardView ? profileStatus === "Active" : profileStatus === "active";
 

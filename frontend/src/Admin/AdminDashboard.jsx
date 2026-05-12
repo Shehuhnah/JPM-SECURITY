@@ -16,6 +16,7 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { DayPicker } from 'react-day-picker';
 import "react-day-picker/dist/style.css";
 import { Dialog, Transition, Menu } from "@headlessui/react";
+import { getPersonName } from "../utils/name";
 import {
   Shield,
   Users,
@@ -445,7 +446,7 @@ export default function AdminDashboard() {
                             {recentActivities.map((a) => (
                                 <tr key={a.id} className="hover:bg-slate-800/50 transition">
                                     <td className="px-6 py-3 font-medium text-blue-400">{a.type}</td>
-                                    <td className="px-6 py-3 text-white">{a.guard.fullName || "Unknown"}</td>
+                                    <td className="px-6 py-3 text-white">{getPersonName(a.guard)}</td>
                                     <td className="px-6 py-3 text-gray-400 max-w-xs truncate">{a.remarks}</td>
                                     <td className="px-6 py-3 text-right text-gray-500 text-xs">
                                         <div>{a.date}</div>

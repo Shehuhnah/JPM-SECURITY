@@ -3,6 +3,7 @@ import { Paperclip, Send, CircleUserRound, Search, ArrowLeft, MessageSquare, Bri
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { socket } from "../utils/socket";
+import { getPersonName } from "../utils/name";
 
 const api = import.meta.env.VITE_API_URL;
 
@@ -62,14 +63,14 @@ export default function SubadminApplicantMessage() {
     // Check populated user object
     if (applicant?.user?.firstName && applicant?.user?.lastName) return `${applicant.user.firstName} ${applicant.user.lastName}`;
     if (applicant?.user?.name) return applicant.user.name;
-    if (applicant?.user?.fullName) return applicant.user.fullName;
+    if (applicant?.user) return getPersonName(applicant.user);
     
     // Check direct name property
     if (applicant?.name) return applicant.name;
     
     // Check nested userId object
     if (typeof applicant?.userId === "object") {
-       return applicant?.userId?.name || applicant?.userId?.fullName || "Unknown Applicant";
+       return getPersonName(applicant?.userId, "Unknown Applicant");
     }
 
     return "Unknown Applicant";

@@ -3,6 +3,7 @@ import { Paperclip, Send, CircleUserRound, Search, ArrowLeft, MessageSquare, X, 
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { socket } from "../utils/socket";
+import { getPersonName } from "../utils/name";
 
 const api = import.meta.env.VITE_API_URL;
 
@@ -73,17 +74,17 @@ export default function SubAdminMessagePage() {
   const getGuardName = (conversation) => {
     const guard = getGuardParticipant(conversation);
     // Prefer populated participant name
-    const populated = guard?.user?.fullName || guard?.user?.name || guard?.name || "";
+    const populated = getPersonName(guard?.user || guard, "");
     if (populated) return populated;
     // Fallback: lookup from guards list by id
     const gid = getGuardId(conversation);
     const found = guards.find((g) => normalizeId(g._id) === gid);
-    return found?.fullName || found?.name || "Unknown";
+    return getPersonName(found);
   };
 
   const getSenderLabel = (msg) => {
     const sender = msg?.sender?.userId;
-    const senderName = sender?.fullName || sender?.name || msg?.sender?.name || "";
+    const senderName = getPersonName(sender || msg?.sender, "");
     const senderRole = msg?.sender?.role || sender?.role || "";
 
     if (senderRole === "Guard") {
@@ -416,7 +417,7 @@ export default function SubAdminMessagePage() {
       _id: `temp-${Date.now()}`,
       participants: [
         { userId: user._id, role: user.role, name: user.name },
-        { userId: guard._id, role: guard.role, name: guard.fullName || guard.name },
+        { userId: guard._id, role: guard.role, name: getPersonName(guard) },
       ],
       type: user.role === "Admin" ? "admin-guard" : "subadmin-guard",
       lastMessage: null,
@@ -438,7 +439,7 @@ export default function SubAdminMessagePage() {
   });
 
   const filteredAvailableGuards = guardsWithoutConversation.filter((guard) =>
-    (guard.fullName || guard.name || "").toLowerCase().includes(search.trim().toLowerCase())
+    getPersonName(guard, "").toLowerCase().includes(search.trim().toLowerCase())
   );
 
  return (
@@ -531,7 +532,7 @@ export default function SubAdminMessagePage() {
                             </div>
                             {isUserOnline(normalizeId(guard._id)) && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-green-500 ring-2 ring-[#0b1220]"/>}
                         </div>
-                        <span className="text-sm text-gray-300 truncate">{guard.fullName || guard.name}</span>
+                        <span className="text-sm text-gray-300 truncate">{getPersonName(guard)}</span>
                     </div>
                 ))}
             </div>
