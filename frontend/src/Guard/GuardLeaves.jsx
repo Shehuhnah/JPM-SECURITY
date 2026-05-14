@@ -16,6 +16,11 @@ import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "../hooks/useAuth";
 
 const api = import.meta.env.VITE_API_URL;
+const LEAVE_TYPE_OPTIONS = {
+  default: ["Sick Leave", "Vacation Leave"],
+  Male: ["Sick Leave", "Vacation Leave", "Paternity Leave"],
+  Female: ["Sick Leave", "Vacation Leave", "Maternity Leave"],
+};
 
 const datePickerStyles = `
   .rdp {
@@ -64,9 +69,15 @@ export default function GuardLeaves() {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [scheduleDates, setScheduleDates] = useState([]);
   const [selectedDays, setSelectedDays] = useState([]);
+  const [leaveType, setLeaveType] = useState("");
   const [reason, setReason] = useState("");
   const [loadingPage, setLoadingPage] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const availableLeaveTypes = useMemo(
+    () => LEAVE_TYPE_OPTIONS[user?.sex] || LEAVE_TYPE_OPTIONS.default,
+    [user]
+  );
 
   const fetchData = async (guardId) => {
     setLoadingPage(true);
@@ -122,6 +133,12 @@ export default function GuardLeaves() {
     [scheduleDates, reservedLeaveDates]
   );
 
+  useEffect(() => {
+    if (!availableLeaveTypes.includes(leaveType)) {
+      setLeaveType(availableLeaveTypes[0] || "");
+    }
+  }, [availableLeaveTypes, leaveType]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -136,13 +153,18 @@ export default function GuardLeaves() {
       return;
     }
 
+    if (!leaveType) {
+      toast.error("Type of leave is required.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const response = await fetch(`${api}/api/leaves`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dates, reason: reason.trim() }),
+        body: JSON.stringify({ dates, leaveType, reason: reason.trim() }),
       });
 
       const data = await response.json();
@@ -150,6 +172,7 @@ export default function GuardLeaves() {
 
       toast.success("Leave request submitted.");
       setSelectedDays([]);
+      setLeaveType(availableLeaveTypes[0] || "");
       setReason("");
       await fetchData(user._id);
     } catch (error) {
@@ -229,6 +252,20 @@ export default function GuardLeaves() {
                 </div>
 
                 <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Type of Leave</label>
+                  <select
+                    value={leaveType}
+                    onChange={(event) => setLeaveType(event.target.value)}
+                    required
+                    className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {availableLeaveTypes.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">Reason for Leave</label>
                   <textarea
                     value={reason}
@@ -273,6 +310,9 @@ export default function GuardLeaves() {
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div>
                           <p className="text-sm text-slate-400">Requested on {new Date(request.createdAt).toLocaleDateString()}</p>
+                          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-blue-300">
+                            {request.leaveType || "Unspecified"}
+                          </p>
                           <p className="text-sm text-slate-300 mt-1">{request.reason}</p>
                         </div>
                         <span className={`inline-flex items-center gap-2 text-xs font-bold uppercase px-3 py-1.5 rounded-full border ${statusClassMap[request.status] || statusClassMap.Pending}`}>

@@ -206,7 +206,7 @@ export default function AdminCOE() {
       const person = data.requesterRole === 'guard' ? data.guard : data.subadmin || {};
       const approvedCOE = data.approvedCOE || {};
 
-      const empStartDate = approvedCOE.employmentStartDate || (person.createdAt ? new Date(person.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : "Undefined");
+      const empStartDate = approvedCOE.employmentStartDate || (person.createdAt ? new Date(person.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "Undefined");
 
       generateAndDownloadCOE(
         {

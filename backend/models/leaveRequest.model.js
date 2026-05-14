@@ -25,6 +25,12 @@ const leaveRequestSchema = new mongoose.Schema(
         message: "At least one leave date is required.",
       },
     },
+    leaveType: {
+      type: String,
+      enum: ["Sick Leave", "Vacation Leave", "Paternity Leave", "Maternity Leave"],
+      required: true,
+      trim: true,
+    },
     reason: {
       type: String,
       required: true,

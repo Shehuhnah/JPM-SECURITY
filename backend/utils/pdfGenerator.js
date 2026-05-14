@@ -69,8 +69,8 @@ export const generateAndSaveCOE = async (requestObj, opts = {}) => {
       const person = isGuard ? requestObj.guard : requestObj.subadmin;
       const createdAtVal = person?.createdAt || person?._doc?.createdAt; // handle potential mongoose doc structure
       const defaultStart = createdAtVal 
-        ? new Date(createdAtVal).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) 
-        : 'November 2023';
+        ? new Date(createdAtVal).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) 
+        : 'November 1, 2023';
 
       const startDate = approved.employmentStartDate || defaultStart;
       const endDate = approved.employmentEndDate || 'Present';

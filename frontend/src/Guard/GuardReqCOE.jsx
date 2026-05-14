@@ -125,7 +125,7 @@ export default function GuardReqCOE() {
 
   const handleClientGenerateAndDownload = (coe) => {
     try {
-      const empStartDate = coe.approvedCOE?.employmentStartDate || (coe.user?.createdAt ? new Date(coe.user.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "November 2023");
+      const empStartDate = coe.approvedCOE?.employmentStartDate || (coe.user?.createdAt ? new Date(coe.user.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "November 1, 2023");
 
       const payload = {
         name: coe.user?.name || "Employee Name",
@@ -394,7 +394,7 @@ export default function GuardReqCOE() {
                     {selectedCOE.user?.guardId}) has been employed with{" "}
                     <strong>{selectedCOE.approvedCOE.companyName || "JPM SECURITY AGENCY CORP"}</strong> as a{" "}
                     <strong>{selectedCOE.approvedCOE.position}</strong> from{" "}
-                    <strong>{selectedCOE.approvedCOE.employmentStartDate || (selectedCOE.user?.createdAt ? new Date(selectedCOE.user.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "Undefined")}</strong> to{" "}
+                    <strong>{selectedCOE.approvedCOE.employmentStartDate || (selectedCOE.user?.createdAt ? new Date(selectedCOE.user.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "Undefined")}</strong> to{" "}
                     <strong>{selectedCOE.approvedCOE.employmentEndDate || "Present"}</strong>.
                   </p>
                   <p>

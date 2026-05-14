@@ -21,6 +21,11 @@ const attendanceSchema = new mongoose.Schema(
       enum: ["On Duty", "Off Duty", "Absent"],
       default: "Off Duty",
     },
+    remarks: {
+      type: String,
+      default: "",
+      trim: true,
+    },
 
     location: { type: Object },
     photo: { type: String },

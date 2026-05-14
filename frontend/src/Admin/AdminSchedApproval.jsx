@@ -216,6 +216,39 @@ export default function AdminSchedApproval() {
   // --- Data Processing ---
 
   const shiftColors = { "Night Shift": "#ef4444", "Day Shift": "#eab308" };
+  const formatMonthValue = (value) => {
+    if (!value) return "Unknown month";
+    const [year, month] = String(value).split("-").map(Number);
+    if (!year || !month) return value;
+    return new Date(year, month - 1, 1).toLocaleDateString([], { month: "short", year: "numeric" });
+  };
+  const getCoveredMonths = (items = []) => {
+    const metadataMonths = items[0]?.batchMeta?.coveredMonths;
+    if (Array.isArray(metadataMonths) && metadataMonths.length > 0) {
+      return [...metadataMonths].sort();
+    }
+
+    return [...new Set(
+      items
+        .map((item) => String(item?.timeIn || "").slice(0, 7))
+        .filter((value) => /^\d{4}-\d{2}$/.test(value))
+    )].sort();
+  };
+  const getScopeLabel = (batchMeta, coveredMonths) => {
+    if (batchMeta?.scopeType === "count") {
+      return `Next ${batchMeta?.monthCount || coveredMonths.length || 1} Months`;
+    }
+    if (batchMeta?.scopeType === "custom") {
+      return "Custom Months";
+    }
+    return "One Month";
+  };
+  const getBatchRangeLabel = (items = []) => {
+    if (items.length === 0) return "No dates";
+
+    const ordered = items.slice().sort((a, b) => new Date(a.timeIn) - new Date(b.timeIn));
+    return `${formatShortDate(ordered[0].timeIn)} - ${formatShortDate(ordered[ordered.length - 1].timeIn)}`;
+  };
 
   const filteredSchedules = schedules.filter((s) => {
     const matchesClient = !selectedClient || selectedClient === "All" || s.client === selectedClient;
@@ -245,17 +278,24 @@ export default function AdminSchedApproval() {
     const grouped = filteredSchedules.reduce((acc, schedule) => {
       const key = schedule.batchId || schedule._id;
       if (!acc[key]) {
+        const seedSchedules = [schedule];
+        const coveredMonths = getCoveredMonths(seedSchedules);
         acc[key] = {
           batchId: schedule.batchId || schedule._id,
           client: schedule.client,
           deploymentLocation: schedule.deploymentLocation,
           shiftType: schedule.shiftType,
           isApproved: schedule.isApproved,
+          batchMeta: schedule.batchMeta || null,
+          coveredMonths,
+          scopeLabel: getScopeLabel(schedule.batchMeta, coveredMonths),
           schedules: [],
           latestCreatedAt: 0,
         };
       }
       acc[key].schedules.push(schedule);
+      acc[key].coveredMonths = getCoveredMonths(acc[key].schedules);
+      acc[key].scopeLabel = getScopeLabel(acc[key].batchMeta, acc[key].coveredMonths);
       acc[key].latestCreatedAt = Math.max(acc[key].latestCreatedAt, getCreatedAtValue(schedule));
       return acc;
     }, {});
@@ -297,6 +337,9 @@ export default function AdminSchedApproval() {
   const openBatchDetails = (group) => {
     setSelectedBatchDetails({
       ...group,
+      coveredMonths: getCoveredMonths(group.schedules),
+      scopeLabel: getScopeLabel(group.batchMeta, getCoveredMonths(group.schedules)),
+      rangeLabel: getBatchRangeLabel(group.schedules),
       guardSummaries: getGuardSummaries(group),
     });
   };
@@ -478,6 +521,20 @@ export default function AdminSchedApproval() {
                                                         "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
                                                     }`}>
                                                         {group.isApproved}
+                                                    </span>
+                                                </div>
+                                                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                                                    <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 font-semibold text-blue-300">
+                                                        {group.scopeLabel}
+                                                    </span>
+                                                    <span className="rounded-full border border-slate-600 bg-slate-900/60 px-2.5 py-1 text-slate-300">
+                                                        {group.coveredMonths.length} month{group.coveredMonths.length === 1 ? "" : "s"}
+                                                    </span>
+                                                    <span className="rounded-full border border-slate-600 bg-slate-900/60 px-2.5 py-1 text-slate-300">
+                                                        {group.schedules.length} shift{group.schedules.length === 1 ? "" : "s"}
+                                                    </span>
+                                                    <span className="text-slate-500">
+                                                        {group.coveredMonths.map(formatMonthValue).join(", ")}
                                                     </span>
                                                 </div>
                                             </div>
@@ -679,6 +736,9 @@ export default function AdminSchedApproval() {
                             <span className="flex items-center gap-1.5"><MapPin size={14} className="text-slate-400"/> {selectedBatchDetails?.deploymentLocation}</span>
                             <span className="text-slate-600">•</span>
                             <span className="flex items-center gap-1.5"><Clock size={14} className="text-slate-400"/> {selectedBatchDetails?.shiftType}</span>
+                            <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-300">
+                              {selectedBatchDetails?.scopeLabel}
+                            </span>
                             <span className="text-slate-600">•</span>
                             <span className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider ${
                               selectedBatchDetails?.isApproved === "Approved"
@@ -702,52 +762,125 @@ export default function AdminSchedApproval() {
 
                     {/* Content */}
                   <div className="p-6 sm:p-8 flex-1 space-y-8">
-                    <div className="rounded-3xl border border-slate-700/50 bg-[#1e293b]/40 p-6 sm:p-8 shadow-xl backdrop-blur-sm">
-                      <h3 className="text-xl sm:text-2xl font-bold text-white mb-8 flex items-center gap-3">
-                         <LayoutGrid size={24} className="text-emerald-400" />
-                         Deployment Info
-                      </h3>
-                      <div className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
-                        <div className="space-y-5">
-                          <div className="rounded-2xl border border-slate-700/30 bg-[#0f172a]/60 p-5 transition hover:bg-[#0f172a]/80 shadow-sm hover:shadow-md">
-                            <div className="flex items-center gap-3 mb-2">
-                                <User size={16} className="text-emerald-400"/>
-                                <div className="text-xs uppercase tracking-widest font-bold text-slate-400">Client</div>
-                            </div>
-                            <div className="text-lg font-bold text-white ml-7">{selectedBatchDetails?.client}</div>
+                    <div className="relative overflow-hidden rounded-3xl border border-slate-700/50 bg-[#1e293b]/50 p-6 sm:p-8 shadow-xl backdrop-blur-sm">
+                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.18),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.08),transparent_28%)]" />
+                      <div className="relative">
+                        <div className="mb-8 flex flex-col gap-4 border-b border-slate-700/50 pb-6 lg:flex-row lg:items-start lg:justify-between">
+                          <div>
+                            <h3 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-3">
+                               <LayoutGrid size={24} className="text-emerald-400" />
+                               Deployment Info
+                            </h3>
+                            <p className="mt-2 text-sm text-slate-400">
+                              Overview of this deployment batch and its scheduling coverage.
+                            </p>
                           </div>
-                          <div className="rounded-2xl border border-slate-700/30 bg-[#0f172a]/60 p-5 transition hover:bg-[#0f172a]/80 shadow-sm hover:shadow-md">
-                            <div className="flex items-center gap-3 mb-2">
-                                <MapPin size={16} className="text-emerald-400"/>
-                                <div className="text-xs uppercase tracking-widest font-bold text-slate-400">Address</div>
-                            </div>
-                            <div className="text-base font-semibold text-slate-200 ml-7 leading-relaxed">{selectedBatchDetails?.deploymentLocation}</div>
+                          <div className="flex flex-wrap gap-2">
+                            <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">
+                              {selectedBatchDetails?.scopeLabel}
+                            </span>
+                            <span className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] ${
+                              selectedBatchDetails?.shiftType === "Night Shift"
+                                ? "border-red-500/20 bg-red-500/10 text-red-300"
+                                : "border-yellow-500/20 bg-yellow-500/10 text-yellow-300"
+                            }`}>
+                              {selectedBatchDetails?.shiftType}
+                            </span>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-5">
-                          <div className="rounded-2xl border border-slate-700/30 bg-[#0f172a]/60 p-5 transition hover:bg-[#0f172a]/80 shadow-sm hover:shadow-md">
-                            <div className="flex items-center gap-3 mb-2">
-                                <Clock size={16} className="text-emerald-400"/>
-                                <div className="text-xs uppercase tracking-widest font-bold text-slate-400">Shift</div>
+
+                        <div className="grid gap-5 xl:grid-cols-[1.35fr_0.95fr]">
+                          <div className="rounded-[28px] border border-slate-700/50 bg-[#0b1220]/85 p-6 shadow-[inset_0_1px_0_rgba(148,163,184,0.08)]">
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                                  Primary Deployment
+                                </div>
+                                <div className="mt-3 text-2xl font-semibold tracking-tight text-white">
+                                  {selectedBatchDetails?.client || "No client"}
+                                </div>
+                              </div>
+                              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10">
+                                <User size={18} className="text-emerald-300" />
+                              </div>
                             </div>
-                            <div className="text-base font-bold text-white ml-7">{selectedBatchDetails?.shiftType}</div>
+
+                            <div className="mt-6 grid gap-4">
+                              <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+                                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                  <MapPin size={14} className="text-slate-400" />
+                                  Deployment Address
+                                </div>
+                                <div className="mt-3 text-sm leading-6 text-slate-200">
+                                  {selectedBatchDetails?.deploymentLocation || "No deployment address"}
+                                </div>
+                              </div>
+
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+                                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                    Batch Range
+                                  </div>
+                                  <div className="mt-3 text-base font-semibold text-blue-300">
+                                    {selectedBatchDetails?.rangeLabel || "No dates"}
+                                  </div>
+                                </div>
+                                <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+                                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                    Covered Months
+                                  </div>
+                                  <div className="mt-3 text-sm font-semibold leading-6 text-white">
+                                    {selectedBatchDetails?.coveredMonths?.map(formatMonthValue).join(", ") || "No months"}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                          <div className="rounded-2xl border border-slate-700/30 bg-[#0f172a]/60 p-5 transition hover:bg-[#0f172a]/80 shadow-sm hover:shadow-md">
-                            <div className="flex items-center gap-3 mb-2">
-                                <Shield size={16} className="text-emerald-400"/>
-                                <div className="text-xs uppercase tracking-widest font-bold text-slate-400">Guards</div>
+
+                          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                            <div className="rounded-[26px] border border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-5 shadow-[inset_0_1px_0_rgba(148,163,184,0.08)]">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                                  Assigned Guards
+                                </div>
+                                <Shield size={16} className="text-emerald-300" />
+                              </div>
+                              <div className="mt-4 text-3xl font-black tracking-tight text-white">
+                                {selectedBatchDetails?.guardSummaries?.length || 0}
+                              </div>
+                              <div className="mt-2 text-sm text-slate-400">
+                                Personnel scheduled in this batch
+                              </div>
                             </div>
-                            <div className="text-base font-bold text-white ml-7">{selectedBatchDetails?.guardSummaries?.length || 0} assigned</div>
-                          </div>
-                          <div className="rounded-2xl border border-slate-700/30 bg-[#0f172a]/60 p-5 transition hover:bg-[#0f172a]/80 shadow-sm hover:shadow-md col-span-2">
-                            <div className="flex items-center gap-3 mb-2">
-                                <CalendarDays size={16} className="text-emerald-400"/>
-                                <div className="text-xs uppercase tracking-widest font-bold text-slate-400">Batch Range</div>
+
+                            <div className="rounded-[26px] border border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-5 shadow-[inset_0_1px_0_rgba(148,163,184,0.08)]">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                                  Total Shifts
+                                </div>
+                                <CalendarDays size={16} className="text-blue-300" />
+                              </div>
+                              <div className="mt-4 text-3xl font-black tracking-tight text-white">
+                                {selectedBatchDetails?.schedules?.length || 0}
+                              </div>
+                              <div className="mt-2 text-sm text-slate-400">
+                                Scheduled duty entries across all guards
+                              </div>
                             </div>
-                            <div className="text-base font-bold text-blue-400 ml-7">
-                              {(selectedBatchDetails?.schedules?.length || 0) > 0
-                                ? `${formatShortDate(selectedBatchDetails.schedules.slice().sort((a, b) => new Date(a.timeIn) - new Date(b.timeIn))[0].timeIn)}  -  ${formatShortDate(selectedBatchDetails.schedules.slice().sort((a, b) => new Date(a.timeIn) - new Date(b.timeIn))[selectedBatchDetails.schedules.length - 1].timeIn)}`
-                                : "No dates"}
+
+                            <div className="rounded-[26px] border border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-5 shadow-[inset_0_1px_0_rgba(148,163,184,0.08)] sm:col-span-2 xl:col-span-1">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                                  Scheduling Scope
+                                </div>
+                                <Clock size={16} className="text-amber-300" />
+                              </div>
+                              <div className="mt-4 text-lg font-bold text-white">
+                                {selectedBatchDetails?.scopeLabel}
+                              </div>
+                              <div className="mt-2 text-sm leading-6 text-slate-400">
+                                {selectedBatchDetails?.coveredMonths?.length || 0} month(s) covered for this deployment approval batch.
+                              </div>
                             </div>
                           </div>
                         </div>

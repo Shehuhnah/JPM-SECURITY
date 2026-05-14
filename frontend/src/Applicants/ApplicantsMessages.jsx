@@ -16,6 +16,18 @@ import { getPersonName } from "../utils/name";
 const api = import.meta.env.VITE_API_URL;
 
 const STORAGE_KEY = "jpm-applicant-chat";
+const ALLOWED_ATTACHMENT_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/zip",
+];
+const ATTACHMENT_ACCEPT = ".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.zip";
+const ATTACHMENT_ERROR_MESSAGE =
+  "Unsupported attachment type. Please upload JPG, PNG, GIF, PDF, DOC, DOCX, or ZIP files only.";
 
 const formatDateTime = (timestamp) =>
   timestamp
@@ -326,6 +338,13 @@ export default function ApplicantsMessages() {
   const handleFileChange = (event) => {
     const selected = event.target.files?.[0];
     if (!selected) return;
+    if (!ALLOWED_ATTACHMENT_TYPES.includes(selected.type)) {
+      setFile(null);
+      setError(ATTACHMENT_ERROR_MESSAGE);
+      event.target.value = "";
+      return;
+    }
+    setError("");
     setFile(selected);
   };
 
@@ -766,7 +785,7 @@ export default function ApplicantsMessages() {
                   <div className="rounded-full bg-white/5 border border-white/10 p-2.5 sm:p-3 hover:bg-white/10 transition cursor-pointer">
                     <Paperclip className="w-5 h-5 text-gray-300" />
                   </div>
-                  <input type="file" className="hidden" onChange={handleFileChange} />
+                  <input type="file" accept={ATTACHMENT_ACCEPT} className="hidden" onChange={handleFileChange} />
                 </label>
                 <input
                   type="text"

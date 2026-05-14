@@ -240,6 +240,14 @@ function GuardAttendanceRecords() {
                         <InfoCard icon={<Clock size={16} />} label="Actual Time Out" value={formatTime(record.timeOut)} />
                         <InfoCard icon={<Shield size={16} />} label="Status" value={record.status || "N/A"} accent />
                       </div>
+                      {record.remarks ? (
+                        <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
+                          <div className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-amber-300">
+                            Attendance Remarks
+                          </div>
+                          <div className="text-sm leading-6 text-amber-100">{record.remarks}</div>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 

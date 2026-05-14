@@ -3,6 +3,53 @@ import LeaveRequest from "../models/leaveRequest.model.js";
 import { v4 as uuidv4 } from "uuid";
 // Helper
 const getScheduleDateOnly = (value = "") => String(value).split("T")[0];
+const getScheduleMonth = (value = "") => getScheduleDateOnly(value).slice(0, 7);
+const isValidMonthValue = (value = "") => /^\d{4}-\d{2}$/.test(String(value));
+
+const deriveCoveredMonthsFromSchedules = (schedules = []) =>
+  [...new Set(
+    schedules
+      .map((schedule) => getScheduleMonth(schedule?.timeIn))
+      .filter((monthValue) => isValidMonthValue(monthValue))
+  )].sort();
+
+const normalizeBatchMeta = (batchMeta = {}, schedules = []) => {
+  const derivedCoveredMonths = deriveCoveredMonthsFromSchedules(schedules);
+  const fallbackAnchorMonth = derivedCoveredMonths[0] || null;
+
+  const scopeType = ["single", "count", "custom"].includes(batchMeta?.scopeType)
+    ? batchMeta.scopeType
+    : derivedCoveredMonths.length > 1
+      ? "custom"
+      : "single";
+
+  const coveredMonths = Array.isArray(batchMeta?.coveredMonths)
+    ? [...new Set(batchMeta.coveredMonths.filter((monthValue) => isValidMonthValue(monthValue)))]
+        .sort()
+    : derivedCoveredMonths;
+
+  const resolvedCoveredMonths = coveredMonths.length > 0 ? coveredMonths : derivedCoveredMonths;
+  const anchorMonth = isValidMonthValue(batchMeta?.anchorMonth)
+    ? batchMeta.anchorMonth
+    : fallbackAnchorMonth;
+  const numericMonthCount = Number(batchMeta?.monthCount);
+  const monthCount = Number.isFinite(numericMonthCount) && numericMonthCount > 0
+    ? numericMonthCount
+    : resolvedCoveredMonths.length || 1;
+
+  return {
+    scopeType,
+    anchorMonth,
+    monthCount,
+    coveredMonths: resolvedCoveredMonths,
+  };
+};
+
+const attachBatchMetaToSchedules = (schedules = [], batchMeta = {}) =>
+  schedules.map((schedule) => ({
+    ...schedule,
+    batchMeta,
+  }));
 
 const findConflict = async (scheduleData, options = {}) => {
   const { timeIn, _id, guardId } = scheduleData;
@@ -83,13 +130,20 @@ const findBatchDuplicateConflict = (schedules = []) => {
 // Create a Schedule
 export const createSchedule = async (req, res) => {
   try {
-    const { schedules } = req.body;
+    const { schedules, batchMeta } = req.body;
 
     // Assign a single batchId for all schedules submitted together
     const batchId = uuidv4();
 
     // Handle multiple schedule submissions
     if (Array.isArray(schedules)) {
+      if (schedules.length === 0) {
+        return res.status(400).json({
+          message: "At least one schedule is required.",
+        });
+      }
+
+      const normalizedBatchMeta = normalizeBatchMeta(batchMeta, schedules);
       const duplicateConflict = findBatchDuplicateConflict(schedules);
       if (duplicateConflict) {
         return res.status(400).json({
@@ -107,9 +161,12 @@ export const createSchedule = async (req, res) => {
           });
         }
         schedule.batchId = batchId; // attach batchId
+        schedule.batchMeta = normalizedBatchMeta;
       }
 
-      const createdSchedules = await Schedule.insertMany(schedules);
+      const createdSchedules = await Schedule.insertMany(
+        attachBatchMetaToSchedules(schedules, normalizedBatchMeta)
+      );
       return res.status(201).json(createdSchedules);
     }
 
@@ -122,7 +179,9 @@ export const createSchedule = async (req, res) => {
       });
     }
 
+    const normalizedBatchMeta = normalizeBatchMeta(batchMeta, [req.body]);
     req.body.batchId = batchId; // attach batchId
+    req.body.batchMeta = normalizedBatchMeta;
     const schedule = new Schedule(req.body);
     await schedule.save();
     res.status(201).json(schedule);
@@ -319,12 +378,14 @@ export const deleteSchedule = async (req, res) => {
 export const updateSchedulesByBatchId = async (req, res) => {
   try {
     const { id } = req.params;
-    const { schedules: newSchedules } = req.body;
+    const { schedules: newSchedules, batchMeta } = req.body;
 
     const originalSchedule = await Schedule.findById(id);
     if (!originalSchedule) {
       return res.status(404).json({ message: "Original schedule not found, cannot identify batch." });
     }
+
+    const normalizedBatchMeta = normalizeBatchMeta(batchMeta || originalSchedule.batchMeta, newSchedules);
 
     const duplicateConflict = findBatchDuplicateConflict(newSchedules);
     if (duplicateConflict) {
@@ -361,6 +422,7 @@ export const updateSchedulesByBatchId = async (req, res) => {
     const schedulesToCreate = newSchedules.map((schedule) => ({
       ...schedule,
       batchId,
+      batchMeta: normalizedBatchMeta,
     }));
 
     const createdSchedules = await Schedule.insertMany(schedulesToCreate);

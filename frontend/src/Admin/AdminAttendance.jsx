@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Fragment, useMemo } from "react";
+import React, { useState, useEffect, Fragment, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Search, X, User, Shield, CalendarDays, Clock, MapPin, 
@@ -9,7 +9,7 @@ import { getPersonName } from "../utils/name";
 import { Dialog, Transition } from "@headlessui/react";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { format, isSameDay } from 'date-fns'; // Added isSameDay
+import { format } from 'date-fns';
 import { DayPicker } from 'react-day-picker';
 import "react-day-picker/dist/style.css";
 import TablePagination from "../components/admin/TablePagination.jsx";
@@ -21,8 +21,8 @@ const DETAIL_PAGE_SIZE = 10;
 export default function GuardAttendancePage() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
-  const [loadingPage, setLoadingPage] = useState(false);
-  const [error, setError] = useState(null);
+  const [_loadingPage, setLoadingPage] = useState(false);
+  const [_error, setError] = useState(null);
   
   // Guard Details Modal State
   const [selectedGuardId, setSelectedGuardId] = useState(null);
@@ -60,7 +60,7 @@ export default function GuardAttendancePage() {
     if (!admin && !loading) { navigate("/admin/Login"); return; }
   }, [admin, loading, navigate]);
 
-  const fetchAllAttendance = async () => {
+  const fetchAllAttendance = useCallback(async () => {
     try {
       setLoadingPage(true);
       setError(null);
@@ -86,7 +86,7 @@ export default function GuardAttendancePage() {
     } finally {
       setLoadingPage(false);
     }
-  };
+  }, [currentPage, search, selectedClient, filter, selectedDateRange.from, selectedDateRange.to]);
 
   useEffect(() => {
     if (!admin && !loading) { navigate("/admin/Login"); return; }
@@ -101,7 +101,7 @@ export default function GuardAttendancePage() {
     if (admin) {
       fetchAllAttendance();
     }
-  }, [admin, currentPage, search, selectedClient, filter, selectedDateRange.from, selectedDateRange.to]);
+  }, [admin, fetchAllAttendance]);
 
   useEffect(() => {
     if (selectedGuardId) {
@@ -305,8 +305,9 @@ export default function GuardAttendancePage() {
                                           <th className="px-6 py-4 font-medium">Guard Name</th>
                                           <th className="px-6 py-4 font-medium">Duty Station</th>
                                           <th className="px-6 py-4 font-medium">Shift Info</th>
-                                          <th className="px-6 py-4 font-medium">Status</th>
-                                          <th className="px-6 py-4 font-medium text-right">Action</th>
+                                              <th className="px-6 py-4 font-medium">Status</th>
+                                              <th className="px-6 py-4 font-medium">Remarks</th>
+                                              <th className="px-6 py-4 font-medium text-right">Action</th>
                                       </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-700/50">
@@ -317,6 +318,15 @@ export default function GuardAttendancePage() {
                                               <td className="px-6 py-4 text-gray-300">{rec.scheduleId?.deploymentLocation || "—"}</td>
                                               <td className="px-6 py-4"><div className="text-gray-300">{rec.scheduleId?.position}</div><div className="text-xs text-gray-500">{rec.scheduleId?.shiftType}</div></td>
                                               <td className="px-6 py-4">{getStatusBadge(rec.status)}</td>
+                                              <td className="px-6 py-4 text-sm text-gray-300">
+                                                {rec.remarks ? (
+                                                  <span className="inline-flex rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-300">
+                                                    {rec.remarks}
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-gray-500">No remarks</span>
+                                                )}
+                                              </td>
                                               <td className="px-6 py-4 text-right"><button onClick={() => setSelectedGuardId(rec.guard._id)} className="text-blue-400 hover:text-blue-300 text-xs font-medium hover:underline">View Details</button></td>
                                           </tr>
                                       ))}
@@ -342,6 +352,11 @@ export default function GuardAttendancePage() {
                                           <div className="text-gray-400"><span className="text-gray-500 text-xs block">Shift</span>{rec.scheduleId?.shiftType} ({rec.scheduleId?.position})</div>
                                           <button onClick={() => setSelectedGuardId(rec.guard._id)} className="bg-slate-700 hover:bg-slate-600 p-2 rounded-lg text-gray-300 transition"><ChevronRight size={18} /></button>
                                       </div>
+                                      {rec.remarks ? (
+                                        <div className="ml-12 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                                          {rec.remarks}
+                                        </div>
+                                      ) : null}
                                   </div>
                               ))}
                           </div>
@@ -549,6 +564,7 @@ export default function GuardAttendancePage() {
                                 <th className="px-3 py-3">Time In</th>
                                 <th className="px-3 py-3">Time Out</th>
                                 <th className="px-3 py-3">Duration</th>
+                                <th className="px-3 py-3">Remarks</th>
                                 <th className="px-3 py-3 rounded-r-lg">Evidence</th>
                               </tr>
                             </thead>
@@ -572,6 +588,7 @@ export default function GuardAttendancePage() {
                                     <td className="px-3 py-3 text-sm font-mono text-emerald-400">{new Date(rec.timeIn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
                                     <td className="px-3 py-3 text-sm font-mono text-orange-400">{rec.timeOut ? new Date(rec.timeOut).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--:--"}</td>
                                     <td className="px-3 py-3 text-sm font-medium">{working}</td>
+                                    <td className="px-3 py-3 text-sm text-amber-300">{rec.remarks || "—"}</td>
                                     <td className="px-4 py-3"><button onClick={() => setPreviewImage(rec.photo)} className="bg-slate-700 hover:bg-blue-600 text-white p-2 rounded-lg transition" title="View Image"><FileImage size={18} /></button></td>
                                   </tr>
                                 );
@@ -605,6 +622,11 @@ export default function GuardAttendancePage() {
                                   <div className="bg-orange-900/20 border border-orange-500/20 rounded p-2 text-center"><span className="text-xs text-orange-500 block uppercase">Time Out</span><span className="text-white font-mono">{rec.timeOut ? new Date(rec.timeOut).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--:--"}</span></div>
                                 </div>
                                 <div className="flex items-start gap-2 text-sm text-gray-400"><MapPin size={16} className="shrink-0 mt-0.5 text-gray-500" /><div><p className="line-clamp-2 leading-tight">{rec.location?.address || "No location recorded"}</p>{rec.location?.latitude && (<a href={`https://maps.google.com/?q=${rec.location.latitude},${rec.location.longitude}`} target="_blank" rel="noreferrer" className="text-blue-400 text-xs mt-1 inline-block hover:underline">View on Google Maps</a>)}</div></div>
+                                {rec.remarks ? (
+                                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                                    {rec.remarks}
+                                  </div>
+                                ) : null}
                                 <button onClick={() => setPreviewImage(rec.photo)} className="w-full mt-1 bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition active:scale-[0.98]"><FileImage size={16} /> View Evidence Photo</button>
                               </div>
                              );

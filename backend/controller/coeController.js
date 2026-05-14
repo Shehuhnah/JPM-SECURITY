@@ -175,7 +175,7 @@ export const updateStatus = async (req, res) => {
       // Determine the requester (guard or subadmin)
       const person = reqObj.requesterRole === "guard" ? reqObj.guard : reqObj.subadmin;
       
-      const empStartDate = approved.employmentStartDate || (person?.createdAt ? new Date(person.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : "November 2023");
+      const empStartDate = approved.employmentStartDate || (person?.createdAt ? new Date(person.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "November 1, 2023");
 
       reqObj.approvedCOE = {
         documentNumber: approved.documentNumber || `COE-${reqObj._id}-${new Date().getFullYear()}`,

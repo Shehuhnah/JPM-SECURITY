@@ -31,6 +31,18 @@ import 'react-toastify/dist/ReactToastify.css';
 import TablePagination from "../components/admin/TablePagination.jsx";
 const api = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
+const APPLICANT_RESUME_ACCEPT = ".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.zip";
+const APPLICANT_RESUME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/zip",
+];
+const APPLICANT_RESUME_ERROR =
+  "Unsupported resume file type. Please upload JPG, PNG, GIF, PDF, DOC, DOCX, or ZIP only.";
 
 export default function ApplicantsList() {
   const [applicants, setApplicants] = useState([]);
@@ -117,6 +129,24 @@ export default function ApplicantsList() {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handleWalkInResumeChange = (e) => {
+    const selected = e.target.files?.[0];
+
+    if (!selected) {
+      setWalkInResume(null);
+      return;
+    }
+
+    if (!APPLICANT_RESUME_TYPES.includes(selected.type)) {
+      setWalkInResume(null);
+      e.target.value = "";
+      toast.error(APPLICANT_RESUME_ERROR);
+      return;
+    }
+
+    setWalkInResume(selected);
   };
 
   const resetWalkInForm = () => {
@@ -453,6 +483,10 @@ export default function ApplicantsList() {
     }
     if (interviewType === "range" && (!interviewStart || !interviewEnd)) {
       toast.error("Please select a valid start and end date.");
+      return;
+    }
+    if (!interviewTime) {
+      toast.error("Please select an interview time.");
       return;
     }
 
@@ -1196,10 +1230,11 @@ export default function ApplicantsList() {
                           />
                           <div className="mt-3">
                             <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
-                              Time (optional)
+                              Time*
                             </label>
                             <input
                               type="time"
+                              required
                               value={interviewTime}
                               onChange={(e) => setInterviewTime(e.target.value)}
                               className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/70"
@@ -1232,10 +1267,11 @@ export default function ApplicantsList() {
                           </div>
                           <div className="sm:col-span-2">
                             <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
-                              Time (optional)
+                              Time*
                             </label>
                             <input
                               type="time"
+                              required
                               value={interviewTime}
                               onChange={(e) => setInterviewTime(e.target.value)}
                               className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/70"
@@ -1490,9 +1526,9 @@ export default function ApplicantsList() {
                           <label className="block text-sm text-gray-300 mb-2">Resume</label>
                           <input
                             type="file"
-                            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                            accept={APPLICANT_RESUME_ACCEPT}
                             required
-                            onChange={(e) => setWalkInResume(e.target.files?.[0] || null)}
+                            onChange={handleWalkInResumeChange}
                             className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-gray-300 file:mr-3 file:rounded-md file:border-0 file:bg-cyan-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
                           />
                           {walkInResume && (

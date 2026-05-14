@@ -1,5 +1,22 @@
 import mongoose from "mongoose";
 
+const batchMetaSchema = new mongoose.Schema(
+  {
+    scopeType: {
+      type: String,
+      enum: ["single", "count", "custom"],
+      default: "single",
+    },
+    anchorMonth: String,
+    monthCount: Number,
+    coveredMonths: {
+      type: [String],
+      default: [],
+    },
+  },
+  { _id: false }
+);
+
 const scheduleSchema = new mongoose.Schema(
   {
     guardId: {
@@ -36,6 +53,11 @@ const scheduleSchema = new mongoose.Schema(
       type: String,
       enum: ["Pending", "Approved", "Declined"],
       default: "Pending",
+    },
+
+    batchMeta: {
+      type: batchMetaSchema,
+      default: undefined,
     },
 
     remarks: String,

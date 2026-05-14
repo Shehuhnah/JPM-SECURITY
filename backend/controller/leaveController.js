@@ -1,5 +1,9 @@
 import LeaveRequest from "../models/leaveRequest.model.js";
 import Schedule from "../models/schedule.model.js";
+import Guard from "../models/guard.model.js";
+import User from "../models/User.model.js";
+
+const LEAVE_TYPES = ["Sick Leave", "Vacation Leave", "Paternity Leave", "Maternity Leave"];
 
 const normalizeDates = (dates = []) => {
   return [...new Set(
@@ -23,15 +27,30 @@ const buildScheduleDateMatch = (dates) => ({
 
 const populateLeaveRequest = (query) =>
   query
-    .populate("guard", "fullName guardId position email")
+    .populate("guard", "firstName lastName fullName guardId position email")
     .populate("staff", "name email position role")
     .populate("reviewedBy", "name role");
 
-const getOwnLeaveFilter = (user) => {
-  if (user.role === "Guard") return { requesterRole: "Guard", guard: user._id };
-  if (["Admin", "Subadmin"].includes(user.role)) return { requesterRole: user.role, staff: user._id };
+const getGuardDisplayName = (guard) => {
+  if (!guard) return "Unknown Guard";
+  const combinedName = `${guard.firstName || ""} ${guard.lastName || ""}`.trim();
+  return combinedName || guard.fullName || "Unknown Guard";
+};
+
+const getLeaveFilterForTarget = ({ requesterRole, guardId = null, staffId = null }) => {
+  if (requesterRole === "Guard" && guardId) return { requesterRole: "Guard", guard: guardId };
+  if (["Admin", "Subadmin"].includes(requesterRole) && staffId) {
+    return { requesterRole, staff: staffId };
+  }
   return null;
 };
+
+const getOwnLeaveFilter = (user) =>
+  getLeaveFilterForTarget({
+    requesterRole: user.role,
+    guardId: user.role === "Guard" ? user._id : null,
+    staffId: ["Admin", "Subadmin"].includes(user.role) ? user._id : null,
+  });
 
 const getScheduleConflictForGuard = async (guardId, dates) => {
   if (!guardId || dates.length === 0) return null;
@@ -44,15 +63,26 @@ const getScheduleConflictForGuard = async (guardId, dates) => {
   }).populate("guardId", "fullName guardId");
 };
 
-const getExistingLeaveOverlap = async (user, dates) => {
-  const ownFilter = getOwnLeaveFilter(user);
-  if (!ownFilter) return null;
+const getExistingLeaveOverlap = async (targetFilter, dates) => {
+  if (!targetFilter) return null;
 
   return LeaveRequest.findOne({
-    ...ownFilter,
+    ...targetFilter,
     status: { $in: ["Pending", "Approved"] },
     dates: { $in: dates },
   });
+};
+
+const getAllowedLeaveTypes = (sex) => {
+  if (sex === "Male") {
+    return ["Sick Leave", "Vacation Leave", "Paternity Leave"];
+  }
+
+  if (sex === "Female") {
+    return ["Sick Leave", "Vacation Leave", "Maternity Leave"];
+  }
+
+  return ["Sick Leave", "Vacation Leave"];
 };
 
 export const createLeaveRequest = async (req, res) => {
@@ -63,36 +93,96 @@ export const createLeaveRequest = async (req, res) => {
 
     const dates = normalizeDates(req.body?.dates);
     const reason = String(req.body?.reason || "").trim();
+    const leaveType = String(req.body?.leaveType || "").trim();
 
     if (dates.length === 0) {
       return res.status(400).json({ message: "Please select at least one leave date." });
+    }
+
+    if (!LEAVE_TYPES.includes(leaveType)) {
+      return res.status(400).json({ message: "Leave type is required." });
     }
 
     if (!reason) {
       return res.status(400).json({ message: "Leave reason is required." });
     }
 
-    if (req.user.role === "Guard") {
-      const conflictingSchedule = await getScheduleConflictForGuard(req.user._id, dates);
+    let targetRole = req.user.role;
+    let targetGuardId = req.user.role === "Guard" ? req.user._id : null;
+    let targetStaffId = ["Admin", "Subadmin"].includes(req.user.role) ? req.user._id : null;
+    let targetSex = req.user.role === "Guard" ? req.user.sex || "" : "";
+
+    if (req.user.role === "Admin" && req.body?.targetRole && req.body?.targetId) {
+      targetRole = req.body.targetRole;
+
+      if (!["Guard", "Admin", "Subadmin"].includes(targetRole)) {
+        return res.status(400).json({ message: "Invalid leave target role." });
+      }
+
+      if (targetRole === "Guard") {
+        const guard = await Guard.findById(req.body.targetId).select("_id sex");
+        if (!guard) {
+          return res.status(404).json({ message: "Selected guard was not found." });
+        }
+        targetGuardId = guard._id;
+        targetStaffId = null;
+        targetSex = guard.sex || "";
+      } else {
+        const staff = await User.findOne({
+          _id: req.body.targetId,
+          role: targetRole,
+        }).select("_id");
+
+        if (!staff) {
+          return res.status(404).json({ message: "Selected staff member was not found." });
+        }
+
+        targetStaffId = staff._id;
+        targetGuardId = null;
+        targetSex = "";
+      }
+    }
+
+    const allowedLeaveTypes = getAllowedLeaveTypes(targetSex);
+    if (!allowedLeaveTypes.includes(leaveType)) {
+      return res.status(400).json({
+        message:
+          targetSex === "Male"
+            ? "Maternity leave is only allowed for female personnel."
+            : targetSex === "Female"
+              ? "Paternity leave is only allowed for male personnel."
+              : "This personnel can only request sick leave or vacation leave.",
+      });
+    }
+
+    if (targetRole === "Guard" && targetGuardId) {
+      const conflictingSchedule = await getScheduleConflictForGuard(targetGuardId, dates);
       if (conflictingSchedule) {
         return res.status(400).json({
-          message: `Leave request denied. You already have a deployment on ${conflictingSchedule.timeIn.slice(0, 10)}.`,
+          message: `Leave request denied. This guard already has a deployment on ${conflictingSchedule.timeIn.slice(0, 10)}.`,
         });
       }
     }
 
-    const overlappingLeave = await getExistingLeaveOverlap(req.user, dates);
+    const targetFilter = getLeaveFilterForTarget({
+      requesterRole: targetRole,
+      guardId: targetGuardId,
+      staffId: targetStaffId,
+    });
+
+    const overlappingLeave = await getExistingLeaveOverlap(targetFilter, dates);
     if (overlappingLeave) {
       return res.status(400).json({
-        message: "You already have a pending or approved leave request on one or more selected dates.",
+        message: "There is already a pending or approved leave request on one or more selected dates for this person.",
       });
     }
 
     const leaveRequest = await LeaveRequest.create({
-      requesterRole: req.user.role,
-      guard: req.user.role === "Guard" ? req.user._id : null,
-      staff: ["Admin", "Subadmin"].includes(req.user.role) ? req.user._id : null,
+      requesterRole: targetRole,
+      guard: targetRole === "Guard" ? targetGuardId : null,
+      staff: ["Admin", "Subadmin"].includes(targetRole) ? targetStaffId : null,
       dates,
+      leaveType,
       reason,
     });
 
@@ -168,7 +258,7 @@ export const reviewLeaveRequest = async (req, res) => {
       const conflictingSchedule = await getScheduleConflictForGuard(request.guard, request.dates);
       if (conflictingSchedule) {
         return res.status(400).json({
-          message: `Cannot approve leave. ${conflictingSchedule.guardId?.fullName || "This guard"} is scheduled on ${conflictingSchedule.timeIn.slice(0, 10)}.`,
+          message: `Cannot approve leave. ${getGuardDisplayName(conflictingSchedule.guardId) || "This guard"} is scheduled on ${conflictingSchedule.timeIn.slice(0, 10)}.`,
         });
       }
     }
@@ -198,7 +288,7 @@ export const getDeploymentLeaveAvailability = async (req, res) => {
     const payload = leaveRequests.map((request) => ({
       _id: request._id,
       guardId: request.guard?._id || null,
-      guardName: request.guard?.fullName || "Unknown Guard",
+      guardName: getGuardDisplayName(request.guard),
       dates: request.dates,
       reason: request.reason,
       status: request.status,

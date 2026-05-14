@@ -29,6 +29,33 @@ const isScheduleWithinCurrentDay = (schedule, now = new Date()) => {
   return timeInKey === todayKey || timeOutKey === todayKey;
 };
 
+const getLateRemark = (scheduledTimeIn, actualTimeIn) => {
+  if (!scheduledTimeIn || !actualTimeIn) return "";
+
+  const scheduledDate = new Date(scheduledTimeIn);
+  const actualDate = new Date(actualTimeIn);
+
+  if (Number.isNaN(scheduledDate.getTime()) || Number.isNaN(actualDate.getTime())) {
+    return "";
+  }
+
+  const diffMinutes = Math.floor((actualDate.getTime() - scheduledDate.getTime()) / (1000 * 60));
+  if (diffMinutes <= 0) return "";
+
+  const hours = Math.floor(diffMinutes / 60);
+  const minutes = diffMinutes % 60;
+
+  if (hours > 0 && minutes > 0) {
+    return `Late by ${hours}h ${minutes}m`;
+  }
+
+  if (hours > 0) {
+    return `Late by ${hours}h`;
+  }
+
+  return `Late by ${minutes} minute${minutes === 1 ? "" : "s"}`;
+};
+
 /**
  * @desc    Guard performs time-in for a specific schedule
  * @route   POST /api/attendance/time-in
@@ -65,6 +92,7 @@ export const createAttendance = async (req, res) => {
     }
 
     const now = new Date();
+    const remarks = getLateRemark(schedule.timeIn, now);
 
     const newAttendance = new Attendance({
       guard: guardId,
@@ -73,6 +101,7 @@ export const createAttendance = async (req, res) => {
       location,
       photo,
       status: "On Duty",
+      remarks,
     });
 
     await newAttendance.save();
