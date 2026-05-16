@@ -1,6 +1,8 @@
 import COERequest from "../models/COERequest.model.js";
 import mongoose from "mongoose";
 import { generateAndSaveCOE } from "../utils/pdfGenerator.js";
+import Guard from "../models/guard.model.js";
+import User from "../models/User.model.js";
 
 const getDisplayName = (person) => {
   if (!person) return "";
@@ -15,7 +17,7 @@ const getDisplayName = (person) => {
 // Create new COE request (guard or subadmin)
 export const createRequest = async (req, res) => {
   try {
-    const { purpose } = req.body;
+    const { purpose, targetRole, targetId } = req.body;
     if (!purpose || !purpose.trim()) 
       return res.status(400).json({ message: "Purpose is required" });
 
@@ -24,15 +26,45 @@ export const createRequest = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized: user not authenticated" });
 
     // Determine role
-    const requesterRole = (user.role || "guard").toLowerCase();
+    let requesterRole = (user.role || "guard").toLowerCase();
     if (!["guard", "subadmin", "admin"].includes(requesterRole)) {
       return res.status(403).json({ message: "This account cannot request a COE." });
     }
 
+    let guard = requesterRole === "guard" ? user._id : undefined;
+    let subadmin = requesterRole === "guard" ? undefined : user._id;
+
+    if (user.role === "Admin" && targetRole && targetId) {
+      const normalizedTargetRole = String(targetRole).toLowerCase();
+
+      if (!["guard", "admin", "subadmin"].includes(normalizedTargetRole)) {
+        return res.status(400).json({ message: "Invalid target role." });
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(targetId)) {
+        return res.status(400).json({ message: "Invalid target user." });
+      }
+
+      if (normalizedTargetRole === "guard") {
+        const targetGuard = await Guard.findById(targetId).select("_id");
+        if (!targetGuard) return res.status(404).json({ message: "Target guard not found." });
+        requesterRole = "guard";
+        guard = targetGuard._id;
+        subadmin = undefined;
+      } else {
+        const roleLabel = normalizedTargetRole === "admin" ? "Admin" : "Subadmin";
+        const targetStaff = await User.findOne({ _id: targetId, role: roleLabel }).select("_id");
+        if (!targetStaff) return res.status(404).json({ message: "Target staff not found." });
+        requesterRole = normalizedTargetRole;
+        guard = undefined;
+        subadmin = targetStaff._id;
+      }
+    }
+
     // Create request with correct reference based on role
     const newReq = await COERequest.create({
-      guard: requesterRole === "guard" ? user._id : undefined,
-      subadmin: requesterRole === "guard" ? undefined : user._id,
+      guard,
+      subadmin,
       purpose,
       requesterRole,
     });

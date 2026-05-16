@@ -10,6 +10,7 @@ import {
   Building2,
   Filter,
   ClipboardList,
+  Search,
   Table,
   LayoutGrid,
   ChevronDown,
@@ -91,6 +92,8 @@ export default function AdminDeployment() {
   // Filter State
   const [selectedClient, setSelectedClient] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [shiftFilter, setShiftFilter] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState("calendar");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -146,7 +149,17 @@ export default function AdminDeployment() {
   const filteredSchedules = schedules.filter((s) => {
     const matchesClient = !selectedClient || selectedClient === "All" || s.client === selectedClient;
     const matchesStatus = !statusFilter || statusFilter === "All" || s.isApproved === statusFilter;
-    return matchesClient && matchesStatus;
+    const matchesShift = shiftFilter === "All" || s.shiftType === shiftFilter;
+    const haystack = [
+      getPersonName(s.guardId, ""),
+      s.deploymentLocation,
+      s.client,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    const matchesSearch = !searchQuery.trim() || haystack.includes(searchQuery.trim().toLowerCase());
+    return matchesClient && matchesStatus && matchesShift && matchesSearch;
   });
 
   const getCreatedAtValue = (schedule) => new Date(schedule?.createdAt || 0).getTime();
@@ -181,7 +194,7 @@ export default function AdminDeployment() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedClient, statusFilter, viewMode]);
+  }, [selectedClient, statusFilter, shiftFilter, searchQuery, viewMode]);
 
   useEffect(() => {
     if (currentPage > totalBatchPages) {
@@ -316,7 +329,7 @@ export default function AdminDeployment() {
             </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(180px,220px)_minmax(200px,1fr)_minmax(160px,190px)_auto] gap-3 w-full xl:w-auto xl:items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(180px,220px)_minmax(220px,1fr)_minmax(180px,220px)_minmax(160px,190px)_minmax(150px,180px)_auto] gap-3 w-full xl:w-auto xl:items-center">
             {/* View Mode Toggle */}
             <div className="relative min-w-0">
                 <Menu>
@@ -353,6 +366,16 @@ export default function AdminDeployment() {
                 </Menu>
             </div>
 
+            <div className="relative min-w-0">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search guard, client, or address"
+                    className="w-full bg-[#1e293b] border border-gray-700 text-gray-200 text-sm rounded-lg pl-10 pr-4 py-2.5 focus:ring-2 focus:ring-blue-500"
+                />
+            </div>
+
             {/* Client Filter */}
             <div className="relative min-w-0">
                 <select
@@ -380,6 +403,16 @@ export default function AdminDeployment() {
                 <option value="Approved">Approved</option>
                 <option value="Pending">Pending</option>
                 <option value="Declined">Declined</option>
+            </select>
+
+            <select
+                value={shiftFilter}
+                onChange={(e) => setShiftFilter(e.target.value)}
+                className="w-full min-w-0 bg-[#1e293b] border border-gray-700 text-gray-200 text-sm rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+                <option value="All">All Shifts</option>
+                <option value="Day Shift">Day Shift</option>
+                <option value="Night Shift">Night Shift</option>
             </select>
 
             {/* Actions */}

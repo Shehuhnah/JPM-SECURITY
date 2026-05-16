@@ -147,7 +147,7 @@ export default function GuardProfile() {
       fieldsToUpdate.newPassword = guard.newpassword;
     }
 
-    ["phoneNumber", "address", "sssId", "philHealthId", "pagibigId"].forEach(
+    ["email", "phoneNumber", "address", "sssId", "philHealthId", "pagibigId"].forEach(
       (field) => {
         if (changedFields.hasOwnProperty(field)) {
           if (field === "sssId") fieldsToUpdate.SSSID = changedFields[field];
@@ -155,6 +155,7 @@ export default function GuardProfile() {
             fieldsToUpdate.PhilHealthID = changedFields[field];
           else if (field === "pagibigId")
             fieldsToUpdate.PagibigID = changedFields[field];
+          else if (field === "email") fieldsToUpdate.email = changedFields[field].toLowerCase();
           else fieldsToUpdate[field] = changedFields[field];
         }
       }
@@ -236,7 +237,9 @@ export default function GuardProfile() {
             label="Email"
             name="email"
             value={guard.email}
-            editable={false}
+            editable={isEditing}
+            onChange={handleChange}
+            type="email"
           />
           <ProfileField
             icon={<Phone className="text-blue-400 w-5 h-5" />}
@@ -427,7 +430,7 @@ export default function GuardProfile() {
   );
 }
 
-function ProfileField({ icon, label, name, value, editable, onChange }) {
+function ProfileField({ icon, label, name, value, editable, onChange, type = "text" }) {
   return (
     <div className="flex items-center gap-3 bg-[#0f172a]/50 rounded-lg p-3 border border-gray-700">
       {icon}
@@ -435,7 +438,7 @@ function ProfileField({ icon, label, name, value, editable, onChange }) {
         <p className="text-xs text-gray-400">{label}</p>
         {editable ? (
           <input
-            type="text"
+            type={type}
             name={name}
             value={value}
             onChange={onChange}

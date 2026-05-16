@@ -100,6 +100,7 @@ export default function AdminSchedApproval() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [viewMode, setViewMode] = useState("calendar");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [monthFilter, setMonthFilter] = useState("All");
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -250,10 +251,24 @@ export default function AdminSchedApproval() {
     return `${formatShortDate(ordered[0].timeIn)} - ${formatShortDate(ordered[ordered.length - 1].timeIn)}`;
   };
 
+  const monthOptions = useMemo(
+    () =>
+      [...new Set(
+        schedules
+          .map((schedule) => String(schedule?.timeIn || "").slice(0, 7))
+          .filter((value) => /^\d{4}-\d{2}$/.test(value))
+      )].sort(),
+    [schedules]
+  );
+
   const filteredSchedules = schedules.filter((s) => {
     const matchesClient = !selectedClient || selectedClient === "All" || s.client === selectedClient;
     const matchesStatus = !statusFilter || statusFilter === "All" || s.isApproved === statusFilter;
-    return matchesClient && matchesStatus;
+    const coveredMonths = Array.isArray(s.batchMeta?.coveredMonths) && s.batchMeta.coveredMonths.length > 0
+      ? s.batchMeta.coveredMonths
+      : [String(s.timeIn || "").slice(0, 7)];
+    const matchesMonth = monthFilter === "All" || coveredMonths.includes(monthFilter);
+    return matchesClient && matchesStatus && matchesMonth;
   });
 
   const getCreatedAtValue = (schedule) => new Date(schedule?.createdAt || 0).getTime();
@@ -352,7 +367,7 @@ export default function AdminSchedApproval() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedClient, statusFilter, viewMode]);
+  }, [selectedClient, statusFilter, monthFilter, viewMode]);
 
   useEffect(() => {
     if (currentPage > totalBatchPages) {
@@ -441,6 +456,19 @@ export default function AdminSchedApproval() {
                 <option value="Pending">Pending</option>
                 <option value="Approved">Approved</option>
                 <option value="Declined">Declined</option>
+            </select>
+
+            <select
+                value={monthFilter}
+                onChange={(e) => setMonthFilter(e.target.value)}
+                className="w-full sm:w-auto bg-[#1e293b] border border-gray-700 text-gray-200 text-sm rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+                <option value="All">All Months</option>
+                {monthOptions.map((monthValue) => (
+                    <option key={monthValue} value={monthValue}>
+                        {formatMonthValue(monthValue)}
+                    </option>
+                ))}
             </select>
 
             <button

@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DayPicker } from "react-day-picker";
-import { format } from "date-fns";
+import { eachDayOfInterval, format } from "date-fns";
 import {
   AlertCircle,
   CalendarDays,
   CheckCircle,
   Clock,
   FileText,
+  X,
   XCircle,
 } from "lucide-react";
 import { ToastContainer, toast } from "react-toastify";
@@ -16,6 +17,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "../hooks/useAuth";
 
 const api = import.meta.env.VITE_API_URL;
+
 const LEAVE_TYPE_OPTIONS = {
   default: ["Sick Leave", "Vacation Leave"],
   Male: ["Sick Leave", "Vacation Leave", "Paternity Leave"],
@@ -29,9 +31,15 @@ const datePickerStyles = `
     --rdp-background-color: #1e293b;
     margin: 0;
   }
-  .rdp-day_selected:not([disabled]) {
+  .rdp-day_selected:not([disabled]),
+  .rdp-day_range_start:not([disabled]),
+  .rdp-day_range_end:not([disabled]) {
     background-color: #2563eb;
     color: white;
+  }
+  .rdp-day_range_middle {
+    background-color: rgba(37, 99, 235, 0.18);
+    color: #dbeafe;
   }
   .rdp-day:hover:not([disabled]) {
     background-color: #334155;
@@ -46,10 +54,19 @@ const datePickerStyles = `
     color: #64748b;
     text-decoration: line-through;
   }
+  .rdp-day_scheduled {
+    position: relative;
+    box-shadow: inset 0 -3px 0 0 rgba(251, 191, 36, 0.95);
+  }
 `;
 
 const toDateOnly = (value) => (typeof value === "string" ? value.slice(0, 10) : format(value, "yyyy-MM-dd"));
 const toLocalDate = (value) => new Date(`${value}T00:00:00`);
+
+const buildRangeDates = (range) => {
+  if (!range?.from || !range?.to) return [];
+  return eachDayOfInterval({ start: range.from, end: range.to }).map((day) => format(day, "yyyy-MM-dd"));
+};
 
 const statusClassMap = {
   Pending: "bg-amber-500/10 text-amber-400 border-amber-500/20",
@@ -68,7 +85,8 @@ export default function GuardLeaves() {
   const navigate = useNavigate();
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [scheduleDates, setScheduleDates] = useState([]);
-  const [selectedDays, setSelectedDays] = useState([]);
+  const [leaveRange, setLeaveRange] = useState();
+  const [excludedDates, setExcludedDates] = useState([]);
   const [leaveType, setLeaveType] = useState("");
   const [reason, setReason] = useState("");
   const [loadingPage, setLoadingPage] = useState(true);
@@ -125,12 +143,33 @@ export default function GuardLeaves() {
     const reserved = leaveRequests
       .filter((request) => ["Pending", "Approved"].includes(request.status))
       .flatMap((request) => request.dates || []);
-    return [...new Set(reserved)];
+    return [...new Set(reserved)].sort();
   }, [leaveRequests]);
 
+  const rangeDates = useMemo(() => buildRangeDates(leaveRange), [leaveRange]);
+
+  useEffect(() => {
+    setExcludedDates((prev) => prev.filter((date) => rangeDates.includes(date)));
+  }, [rangeDates]);
+
+  const includedDates = useMemo(
+    () => rangeDates.filter((date) => !excludedDates.includes(date)),
+    [excludedDates, rangeDates]
+  );
+
+  const overlappingScheduleDates = useMemo(
+    () => includedDates.filter((date) => scheduleDates.includes(date)),
+    [includedDates, scheduleDates]
+  );
+
   const disabledDates = useMemo(
-    () => [...new Set([...scheduleDates, ...reservedLeaveDates])].map(toLocalDate),
-    [scheduleDates, reservedLeaveDates]
+    () => reservedLeaveDates.map(toLocalDate),
+    [reservedLeaveDates]
+  );
+
+  const scheduledDates = useMemo(
+    () => scheduleDates.map(toLocalDate),
+    [scheduleDates]
   );
 
   useEffect(() => {
@@ -139,12 +178,33 @@ export default function GuardLeaves() {
     }
   }, [availableLeaveTypes, leaveType]);
 
+  const toggleExcludedDate = (date) => {
+    if (!rangeDates.includes(date)) return;
+
+    setExcludedDates((prev) =>
+      prev.includes(date)
+        ? prev.filter((value) => value !== date)
+        : [...prev, date].sort()
+    );
+  };
+
+  const resetForm = () => {
+    setLeaveRange(undefined);
+    setExcludedDates([]);
+    setLeaveType(availableLeaveTypes[0] || "");
+    setReason("");
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    const dates = [...new Set((selectedDays || []).map((day) => toDateOnly(day)))].sort();
-    if (dates.length === 0) {
-      toast.error("Select at least one leave date.");
+    if (!leaveRange?.from || !leaveRange?.to) {
+      toast.error("Select a leave start date and end date.");
+      return;
+    }
+
+    if (includedDates.length === 0) {
+      toast.error("At least one leave date must remain in the selected range.");
       return;
     }
 
@@ -164,16 +224,21 @@ export default function GuardLeaves() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dates, leaveType, reason: reason.trim() }),
+        body: JSON.stringify({
+          startDate: toDateOnly(leaveRange.from),
+          endDate: toDateOnly(leaveRange.to),
+          excludedDates,
+          dates: includedDates,
+          leaveType,
+          reason: reason.trim(),
+        }),
       });
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Failed to submit leave request.");
 
       toast.success("Leave request submitted.");
-      setSelectedDays([]);
-      setLeaveType(availableLeaveTypes[0] || "");
-      setReason("");
+      resetForm();
       await fetchData(user._id);
     } catch (error) {
       console.error("Error submitting leave request:", error);
@@ -206,76 +271,66 @@ export default function GuardLeaves() {
           </div>
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-white">Leave Request</h1>
-            <p className="text-sm text-slate-400">Select your off dates and submit them for approval.</p>
+            <p className="text-sm text-slate-400">Select a leave range, remove exception dates, and submit for approval.</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[420px,1fr] gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-[430px,1fr] gap-6">
           <form onSubmit={handleSubmit} className="bg-[#1e293b] border border-slate-700 rounded-3xl p-5 md:p-6 shadow-xl space-y-5">
             <div>
               <h2 className="text-lg font-semibold text-white mb-1">New Request</h2>
               <p className="text-sm text-slate-400">
-                Dates with approved schedules or existing leave requests are blocked.
+                Existing leave dates are blocked. Approved schedules are highlighted so you can see what this request affects.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
-              <div className="bg-[#0f172a] border border-slate-700 rounded-2xl p-4 overflow-x-auto">
-                <DayPicker
-                  mode="multiple"
-                  selected={selectedDays}
-                  onSelect={(days) => setSelectedDays(days || [])}
-                  disabled={disabledDates}
-                />
+            <div className="bg-[#0f172a] border border-slate-700 rounded-2xl p-4 overflow-x-auto">
+              <DayPicker
+                mode="range"
+                selected={leaveRange}
+                onSelect={setLeaveRange}
+                disabled={disabledDates}
+                modifiers={{ scheduled: scheduledDates }}
+                modifiersClassNames={{ scheduled: "rdp-day_scheduled" }}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <SummaryTile label="Start" value={leaveRange?.from ? format(leaveRange.from, "MMM dd, yyyy") : "Not set"} />
+              <SummaryTile label="End" value={leaveRange?.to ? format(leaveRange.to, "MMM dd, yyyy") : "Not set"} />
+              <SummaryTile label="Included" value={`${includedDates.length} day${includedDates.length === 1 ? "" : "s"}`} />
+              <SummaryTile label="Excluded" value={`${excludedDates.length} day${excludedDates.length === 1 ? "" : "s"}`} />
+            </div>
+
+            {overlappingScheduleDates.length > 0 && (
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                {overlappingScheduleDates.length} selected leave day{overlappingScheduleDates.length === 1 ? "" : "s"} currently match approved schedules.
               </div>
+            )}
 
-              <div className="space-y-4">
-                <div className="bg-slate-900/70 border border-slate-700 rounded-2xl p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-400 mb-3">Selected Dates</p>
-                  <div className="text-xs text-slate-400 mb-3">
-                    Total selected: <span className="text-slate-200 font-semibold">{selectedDays.length}</span>
-                  </div>
-                  {selectedDays.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedDays
-                        .map((day) => format(day, "yyyy-MM-dd"))
-                        .sort()
-                        .map((date) => (
-                          <span key={date} className="px-3 py-1 text-xs rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                            {new Date(`${date}T00:00:00`).toLocaleDateString()}
-                          </span>
-                        ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-slate-500">No dates selected yet.</p>
-                  )}
-                </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Type of Leave</label>
+              <select
+                value={leaveType}
+                onChange={(event) => setLeaveType(event.target.value)}
+                required
+                className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {availableLeaveTypes.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Type of Leave</label>
-                  <select
-                    value={leaveType}
-                    onChange={(event) => setLeaveType(event.target.value)}
-                    required
-                    className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {availableLeaveTypes.map((type) => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Reason for Leave</label>
-                  <textarea
-                    value={reason}
-                    onChange={(event) => setReason(event.target.value)}
-                    rows={8}
-                    placeholder="Enter the reason for your leave request..."
-                    className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  />
-                </div>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Reason for Leave</label>
+              <textarea
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                rows={6}
+                placeholder="Enter the reason for your leave request..."
+                className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              />
             </div>
 
             <button
@@ -287,61 +342,139 @@ export default function GuardLeaves() {
             </button>
           </form>
 
-          <div className="bg-[#1e293b] border border-slate-700 rounded-3xl p-5 md:p-6 shadow-xl">
-            <div className="flex items-center gap-3 mb-6">
-              <FileText className="text-blue-400" size={20} />
-              <div>
-                <h2 className="text-lg font-semibold text-white">My Leave History</h2>
-                <p className="text-sm text-slate-400">Track approval status and requested dates.</p>
+          <div className="space-y-6">
+            <div className="bg-[#1e293b] border border-slate-700 rounded-3xl p-5 md:p-6 shadow-xl">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Included Leave Dates</h2>
+                  <p className="text-sm text-slate-400">Remove any dates inside the selected range that should stay on duty.</p>
+                </div>
+                <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
+                  {includedDates.length} active
+                </span>
               </div>
+
+              {includedDates.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {includedDates.map((date) => (
+                    <button
+                      key={date}
+                      type="button"
+                      onClick={() => toggleExcludedDate(date)}
+                      className="inline-flex items-center gap-2 px-3 py-2 text-xs rounded-full bg-slate-900 text-slate-200 border border-slate-700 hover:border-red-400/50 hover:text-red-300 transition"
+                    >
+                      {new Date(`${date}T00:00:00`).toLocaleDateString()}
+                      <X size={12} />
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">Select a complete date range first.</p>
+              )}
+
+              {excludedDates.length > 0 && (
+                <div className="mt-5 border-t border-slate-700 pt-5">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <h3 className="text-sm font-semibold text-white">Excluded From Leave</h3>
+                    <span className="text-xs text-slate-400">Tap to restore</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {excludedDates.map((date) => (
+                      <button
+                        key={date}
+                        type="button"
+                        onClick={() => toggleExcludedDate(date)}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-xs rounded-full bg-red-500/10 text-red-300 border border-red-500/20 hover:bg-red-500/20 transition"
+                      >
+                        {new Date(`${date}T00:00:00`).toLocaleDateString()}
+                        <CheckCircle size={12} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {leaveRequests.length === 0 ? (
-              <div className="h-64 flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-700 rounded-2xl">
-                <AlertCircle size={42} className="mb-3 opacity-30" />
-                <p>No leave requests yet.</p>
+            <div className="bg-[#1e293b] border border-slate-700 rounded-3xl p-5 md:p-6 shadow-xl">
+              <div className="flex items-center gap-3 mb-6">
+                <FileText className="text-blue-400" size={20} />
+                <div>
+                  <h2 className="text-lg font-semibold text-white">My Leave History</h2>
+                  <p className="text-sm text-slate-400">Track approval status and requested dates.</p>
+                </div>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {leaveRequests.map((request) => {
-                  const StatusIcon = statusIconMap[request.status] || Clock;
-                  return (
-                    <div key={request._id} className="bg-slate-900/40 border border-slate-700 rounded-2xl p-4 space-y-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div>
-                          <p className="text-sm text-slate-400">Requested on {new Date(request.createdAt).toLocaleDateString()}</p>
-                          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-blue-300">
-                            {request.leaveType || "Unspecified"}
-                          </p>
-                          <p className="text-sm text-slate-300 mt-1">{request.reason}</p>
-                        </div>
-                        <span className={`inline-flex items-center gap-2 text-xs font-bold uppercase px-3 py-1.5 rounded-full border ${statusClassMap[request.status] || statusClassMap.Pending}`}>
-                          <StatusIcon size={14} />
-                          {request.status}
-                        </span>
-                      </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        {(request.dates || []).map((date) => (
-                          <span key={date} className="px-3 py-1 text-xs rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                            {new Date(`${date}T00:00:00`).toLocaleDateString()}
+              {leaveRequests.length === 0 ? (
+                <div className="h-64 flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-700 rounded-2xl">
+                  <AlertCircle size={42} className="mb-3 opacity-30" />
+                  <p>No leave requests yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {leaveRequests.map((request) => {
+                    const StatusIcon = statusIconMap[request.status] || Clock;
+                    return (
+                      <div key={request._id} className="bg-slate-900/40 border border-slate-700 rounded-2xl p-4 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div>
+                            <p className="text-sm text-slate-400">Requested on {new Date(request.createdAt).toLocaleDateString()}</p>
+                            <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-blue-300">
+                              {request.leaveType || "Unspecified"}
+                            </p>
+                            <p className="text-sm text-slate-300 mt-1">{request.reason}</p>
+                          </div>
+                          <span className={`inline-flex items-center gap-2 text-xs font-bold uppercase px-3 py-1.5 rounded-full border ${statusClassMap[request.status] || statusClassMap.Pending}`}>
+                            <StatusIcon size={14} />
+                            {request.status}
                           </span>
-                        ))}
-                      </div>
-
-                      {request.reviewRemarks ? (
-                        <div className="text-sm text-slate-400 border-t border-slate-700 pt-3">
-                          Review note: <span className="text-slate-200">{request.reviewRemarks}</span>
                         </div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <SummaryTile label="Range Start" value={request.startDate || request.dates?.[0] || "N/A"} compact />
+                          <SummaryTile label="Range End" value={request.endDate || request.dates?.[request.dates.length - 1] || "N/A"} compact />
+                          <SummaryTile label="Included Days" value={`${request.dates?.length || 0}`} compact />
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {(request.dates || []).map((date) => (
+                            <span key={date} className="px-3 py-1 text-xs rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                              {new Date(`${date}T00:00:00`).toLocaleDateString()}
+                            </span>
+                          ))}
+                        </div>
+
+                        {request.excludedDates?.length > 0 && (
+                          <div className="text-sm text-slate-400">
+                            Excluded dates:{" "}
+                            <span className="text-slate-200">
+                              {request.excludedDates.join(", ")}
+                            </span>
+                          </div>
+                        )}
+
+                        {request.reviewRemarks ? (
+                          <div className="text-sm text-slate-400 border-t border-slate-700 pt-3">
+                            Review note: <span className="text-slate-200">{request.reviewRemarks}</span>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SummaryTile({ label, value, compact = false }) {
+  return (
+    <div className={`rounded-2xl border border-slate-700 bg-slate-900/60 ${compact ? "p-3" : "p-4"}`}>
+      <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{label}</div>
+      <div className={`mt-2 font-semibold text-slate-100 ${compact ? "text-sm" : "text-base"}`}>{value}</div>
     </div>
   );
 }

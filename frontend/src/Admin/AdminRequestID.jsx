@@ -12,7 +12,8 @@ import {
   User,
   FileText,
   Lock,
-  MessageSquare
+  MessageSquare,
+  Plus
 } from "lucide-react";
 import { Dialog, Transition } from "@headlessui/react";
 import { useAuth } from "../hooks/useAuth";
@@ -46,9 +47,15 @@ export default function RequestedIDs() {
   const [declineReason, setDeclineReason] = useState("");
   const [approveNotes, setApproveNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [staffOptions, setStaffOptions] = useState([]);
+  const [createTarget, setCreateTarget] = useState("");
+  const [createRequestType, setCreateRequestType] = useState("");
+  const [createRequestReason, setCreateRequestReason] = useState("");
 
   // --- ROLE CHECK ---
-  const canManage = user?.role === "Admin"; 
+  const canManage = user?.role === "Admin" || user?.role === "Subadmin"; 
+  const canCreateForOthers = user?.role === "Admin";
 
   // Fetch Requests
   const fetchRequests = async () => {
@@ -98,6 +105,56 @@ export default function RequestedIDs() {
   useEffect(() => {
     setCurrentPage(1);
   }, [search, filter]);
+
+  useEffect(() => {
+    if (!canCreateForOthers) return;
+
+    const fetchStaffOptions = async () => {
+      try {
+        const [guardsRes, subadminsRes, adminsRes] = await Promise.all([
+          fetch(`${api}/api/auth/guards`, { credentials: "include" }),
+          fetch(`${api}/api/auth/subadmins`, { credentials: "include" }),
+          fetch(`${api}/api/auth/admins`, { credentials: "include" }),
+        ]);
+
+        const [guardsData, subadminsData, adminsData] = await Promise.all([
+          guardsRes.json(),
+          subadminsRes.json(),
+          adminsRes.json(),
+        ]);
+
+        const options = [
+          ...((Array.isArray(adminsData) ? adminsData : []).map((staff) => ({
+            value: `admin:${staff._id}`,
+            label: `${staff.name} (Admin)`,
+            role: "admin",
+            id: staff._id,
+          }))),
+          ...((Array.isArray(subadminsData) ? subadminsData : []).map((staff) => ({
+            value: `subadmin:${staff._id}`,
+            label: `${staff.name} (Subadmin)`,
+            role: "subadmin",
+            id: staff._id,
+          }))),
+          ...((Array.isArray(guardsData) ? guardsData : []).map((guard) => ({
+            value: `guard:${guard._id}`,
+            label: `${getPersonName(guard)} (${guard.guardId || "Guard"})`,
+            role: "guard",
+            id: guard._id,
+          }))),
+        ];
+
+        setStaffOptions(options);
+        setCreateTarget((current) => current || options[0]?.value || "");
+      } catch (error) {
+        console.error("Failed to load employee options:", error);
+      }
+    };
+
+    fetchStaffOptions();
+  }, [canCreateForOthers]);
+
+  const selectedCreateTarget = staffOptions.find((option) => option.value === createTarget) || null;
 
   // Handlers
   const handleApproveID = (id) => {
@@ -181,6 +238,43 @@ export default function RequestedIDs() {
     }
   };
 
+  const handleCreateRequest = async () => {
+    if (!selectedCreateTarget || !createRequestType.trim() || !createRequestReason.trim()) {
+      alert("Please complete all fields.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const res = await fetch(`${api}/api/idrequests`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestType: createRequestType.trim(),
+          requestReason: createRequestReason.trim(),
+          targetRole: selectedCreateTarget.role,
+          targetId: selectedCreateTarget.id,
+        }),
+      });
+
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.message || "Failed to create ID request.");
+      }
+
+      setShowCreateModal(false);
+      setCreateRequestType("");
+      setCreateRequestReason("");
+      await fetchRequests();
+    } catch (error) {
+      console.error("Error creating ID request:", error);
+      alert(error.message || "Failed to create ID request.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-slate-900/50 text-gray-100 font-sans">
       <div className="flex-1 flex flex-col p-4 md:p-6">
@@ -235,6 +329,14 @@ export default function RequestedIDs() {
             >
               <RefreshCw className="size-5" />
             </button>
+            {canCreateForOthers && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-white text-sm font-medium transition whitespace-nowrap shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2"
+              >
+                <Plus size={16} /> Create Request
+              </button>
+            )}
           </div>
         </header>
 
@@ -447,6 +549,72 @@ export default function RequestedIDs() {
             />
           </>
         )}
+
+        {/* ===== Approve Modal ===== */}
+        <Transition appear show={showCreateModal} as={Fragment}>
+          <Dialog as="div" className="relative z-50" onClose={() => setShowCreateModal(false)}>
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="fixed inset-0 flex items-center justify-center p-4">
+              <Dialog.Panel className="bg-[#1e293b] border border-gray-700 rounded-xl shadow-2xl p-6 max-w-xl w-full">
+                <Dialog.Title className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <IdCard className="text-blue-500" /> Create ID Request
+                </Dialog.Title>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1.5">Employee</label>
+                    <select
+                      value={createTarget}
+                      onChange={(e) => setCreateTarget(e.target.value)}
+                      className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2.5 text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition"
+                    >
+                      {staffOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1.5">Request Type</label>
+                    <select
+                      value={createRequestType}
+                      onChange={(e) => setCreateRequestType(e.target.value)}
+                      className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2.5 text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition"
+                    >
+                      <option value="">Select request type</option>
+                      <option value="ID only">ID only</option>
+                      <option value="Lanyard only">Lanyard only</option>
+                      <option value="ID with lanyard">ID with lanyard</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1.5">Reason</label>
+                    <textarea
+                      rows={4}
+                      value={createRequestReason}
+                      onChange={(e) => setCreateRequestReason(e.target.value)}
+                      placeholder="Reason for this ID request..."
+                      className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2.5 text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition resize-none"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
+                  <button
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-800 transition text-sm font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateRequest}
+                    disabled={submitting}
+                    className="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded-lg text-white font-medium disabled:opacity-50 text-sm shadow-lg shadow-blue-500/20"
+                  >
+                    {submitting ? "Processing..." : "Submit Request"}
+                  </button>
+                </div>
+              </Dialog.Panel>
+            </div>
+          </Dialog>
+        </Transition>
 
         {/* ===== Approve Modal ===== */}
         <Transition appear show={approveModal} as={Fragment}>

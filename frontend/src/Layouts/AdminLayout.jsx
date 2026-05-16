@@ -69,7 +69,9 @@ export default function AdminLayout() {
     }
   };
 
-  const idRequestLabel = user?.role === "Subadmin" ? "Manage ID Request" : "View Request ID";
+  const idRequestLabel = user?.role === "Subadmin" ? "Manage ID Request" : "View ID Request";
+  const coeRequestLabel = user?.role === "Subadmin" ? "View COE Request" : "Manage COE Request";
+
 
   // Main Navigation Items (Removed Request ID/COE to put in dropdown)
   const navItems = [
@@ -81,12 +83,12 @@ export default function AdminLayout() {
     { to: "/admin/schedule-approval", label: "Schedules Approval", icon: <Calendar size={18} /> },
     { to: "/admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
     { to: "/admin/manage-clients", label: "Clients", icon: <Building size={18} /> },
-    { to: "/admin/leaves", label: "Leaves", icon: <CalendarDays size={18} /> },
+    { to: "/admin/leaves", label: "Manage Leaves", icon: <CalendarDays size={18} /> },
     { to: "/admin/AdminGuardUpdates", label: "Updates", icon: <Shield size={18} /> },
     { to: "/admin/gallery-manager", label: "Gallery", icon: <ImagePlus size={18} /> },
     { to: "/admin/AdminAttendance", label: "Guards Attendance", icon: <Clock size={18} /> },
-    { to: "/admin/Request-ID", label: idRequestLabel, icon: <IdCardLanyard size={18} /> },
-    { to: "/admin/AdminCOE", label: "View COE", icon: <FileText size={18} /> },
+    { to: "/admin/Request-ID", label: "Manage ID Request", icon: <IdCardLanyard size={18} /> },
+    { to: "/admin/AdminCOE", label: coeRequestLabel, icon: <FileText size={18} /> },
   ];
 
   // New Dropdown Items
@@ -194,7 +196,7 @@ export default function AdminLayout() {
           {navItems
             .filter(item => {
               if (user?.role === "Subadmin") {
-                return !["/admin/AdminCOE", "/admin/schedule-approval"].includes(item.to);
+                return !["/admin/schedule-approval"].includes(item.to);
               }
               return true;
             })

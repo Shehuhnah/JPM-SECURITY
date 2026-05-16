@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Shield, Clock, Search, CalendarCheck2, Pencil, MapPin, Briefcase, User, Calendar as CalendarIcon, ChevronLeft, X, Users } from "lucide-react";
+import { Shield, Clock, Search, CalendarCheck2, Pencil, MapPin, Briefcase, User, Calendar as CalendarIcon, ChevronLeft, Trash2, X, Users } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  addMonths,
   eachDayOfInterval,
   endOfMonth,
   format,
@@ -71,9 +70,7 @@ export default function AdminAddSchedule() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDays, setSelectedDays] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
-  const [scheduleMode, setScheduleMode] = useState("single");
-  const [monthCount, setMonthCount] = useState(1);
-  const [customMonths, setCustomMonths] = useState([format(new Date(), "yyyy-MM")]);
+  const [targetMonths, setTargetMonths] = useState([format(new Date(), "yyyy-MM")]);
   const [selectedWeekdays, setSelectedWeekdays] = useState([1, 2, 3, 4, 5]);
   const [loadingPage, setLoadingPage] = useState(false);
   
@@ -153,16 +150,10 @@ export default function AdminAddSchedule() {
               const uniqueMonths = [...new Set(days.map((day) => format(day, "yyyy-MM")))].sort();
               const persistedBatchMeta = firstSched.batchMeta || null;
               setSelectedMonth(persistedBatchMeta?.anchorMonth || uniqueMonths[0]);
-              setCustomMonths(
+              setTargetMonths(
                 Array.isArray(persistedBatchMeta?.coveredMonths) && persistedBatchMeta.coveredMonths.length > 0
                   ? [...persistedBatchMeta.coveredMonths].sort()
                   : uniqueMonths
-              );
-              setScheduleMode(persistedBatchMeta?.scopeType || (uniqueMonths.length > 1 ? "custom" : "single"));
-              setMonthCount(
-                Number.isFinite(Number(persistedBatchMeta?.monthCount))
-                  ? Number(persistedBatchMeta.monthCount)
-                  : Math.max(uniqueMonths.length, 1)
               );
             }
           }
@@ -187,32 +178,23 @@ export default function AdminAddSchedule() {
   }, []);
 
   const getTargetMonths = useCallback(() => {
-    if (!selectedMonth) return [];
-
-    if (scheduleMode === "count") {
-      return Array.from({ length: monthCount }, (_, index) =>
-        format(addMonths(new Date(`${selectedMonth}-01T00:00:00`), index), "yyyy-MM")
-      );
+    if (targetMonths.length > 0) {
+      return [...targetMonths].sort();
     }
 
-    if (scheduleMode === "custom") {
-      const months = customMonths.length > 0 ? customMonths : [selectedMonth];
-      return [...months].sort();
-    }
-
-    return [selectedMonth];
-  }, [customMonths, monthCount, scheduleMode, selectedMonth]);
+    return selectedMonth ? [selectedMonth] : [];
+  }, [selectedMonth, targetMonths]);
 
   const buildBatchMeta = useCallback((days = selectedDays) => {
     const coveredMonths = [...new Set(days.map((day) => format(day, "yyyy-MM")))].sort();
 
     return {
-      scopeType: scheduleMode,
+      scopeType: coveredMonths.length > 1 ? "custom" : "single",
       anchorMonth: selectedMonth,
-      monthCount: scheduleMode === "count" ? monthCount : coveredMonths.length || 1,
+      monthCount: coveredMonths.length || 1,
       coveredMonths,
     };
-  }, [monthCount, scheduleMode, selectedDays, selectedMonth]);
+  }, [selectedDays, selectedMonth]);
 
   const getMonthDaysByWeekdays = useCallback((monthValue, weekdayValues) => {
     if (!monthValue || weekdayValues.length === 0) return [];
@@ -295,21 +277,36 @@ export default function AdminAddSchedule() {
     removeDaysFromMonths(targetMonths);
   };
 
-  const addFocusedMonthToCustomSelection = () => {
-    if (!selectedMonth) return;
+  const addTargetMonth = (monthValue) => {
+    if (!monthValue) return;
 
-    setCustomMonths((prev) => {
-      if (prev.includes(selectedMonth)) {
-        toast.info(`${getMonthLabel(selectedMonth)} is already selected.`);
+    setTargetMonths((prev) => {
+      if (prev.includes(monthValue)) {
+        toast.info(`${getMonthLabel(monthValue)} is already in target months.`);
         return prev;
       }
 
-      return [...prev, selectedMonth].sort();
+      return [...prev, monthValue].sort();
     });
   };
 
-  const removeCustomMonth = (monthValue) => {
-    setCustomMonths((prev) => prev.filter((value) => value !== monthValue));
+  const addFocusedMonthToTargetSelection = () => {
+    if (!selectedMonth) return;
+    addTargetMonth(selectedMonth);
+  };
+
+  const addNextTargetMonth = () => {
+    const months = getTargetMonths();
+    const baseMonth = months[months.length - 1] || selectedMonth;
+    if (!baseMonth) return;
+
+    const [year, month] = baseMonth.split("-").map(Number);
+    const nextMonth = format(new Date(year, month, 1), "yyyy-MM");
+    addTargetMonth(nextMonth);
+  };
+
+  const removeTargetMonth = (monthValue) => {
+    setTargetMonths((prev) => prev.filter((value) => value !== monthValue));
     removeDaysFromMonths([monthValue]);
   };
 
@@ -655,6 +652,9 @@ export default function AdminAddSchedule() {
                                     <option value="Night Shift">Night Shift (7:00 PM - 7:00 AM)</option>
                                 </select>
                             </div>
+                            <p className="mt-2 text-xs text-slate-500">
+                                Guards must have at least 8 hours of rest between shifts. Back-to-back 24-hour duty is blocked.
+                            </p>
                         </div>
 
                         <div className="rounded-2xl border border-gray-700 bg-slate-900/40 p-4">
@@ -663,7 +663,7 @@ export default function AdminAddSchedule() {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1.5 ml-1">Anchor Month</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1.5 ml-1">Browse Month</label>
                                     <input
                                         type="month"
                                         value={selectedMonth}
@@ -672,109 +672,59 @@ export default function AdminAddSchedule() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1.5 ml-1">Schedule Scope</label>
-                                    <div className="grid grid-cols-3 gap-2">
+                                    <label className="block text-sm font-medium text-gray-400 mb-1.5 ml-1">Add Target Months</label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                         <button
                                             type="button"
-                                            onClick={() => setScheduleMode("single")}
-                                            className={`rounded-xl border px-3 py-3 text-xs font-medium transition ${
-                                              scheduleMode === "single"
-                                                ? "border-blue-500 bg-blue-600/20 text-white"
-                                                : "border-gray-600 bg-[#0f172a] text-gray-200 hover:border-blue-500 hover:text-white"
-                                            }`}
+                                            onClick={addFocusedMonthToTargetSelection}
+                                            className="rounded-xl border border-blue-500/30 bg-blue-600/20 px-3 py-3 text-xs font-medium text-white transition hover:bg-blue-600/30"
                                         >
-                                            One Month
+                                            Add Selected Month
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => setScheduleMode("count")}
-                                            className={`rounded-xl border px-3 py-3 text-xs font-medium transition ${
-                                              scheduleMode === "count"
-                                                ? "border-blue-500 bg-blue-600/20 text-white"
-                                                : "border-gray-600 bg-[#0f172a] text-gray-200 hover:border-blue-500 hover:text-white"
-                                            }`}
+                                            onClick={addNextTargetMonth}
+                                            className="rounded-xl border border-gray-600 bg-[#0f172a] px-3 py-3 text-xs font-medium text-gray-200 transition hover:border-blue-500 hover:text-white"
                                         >
-                                            Next (N) Months
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setScheduleMode("custom")}
-                                            className={`rounded-xl border px-3 py-3 text-xs font-medium transition ${
-                                              scheduleMode === "custom"
-                                                ? "border-blue-500 bg-blue-600/20 text-white"
-                                                : "border-gray-600 bg-[#0f172a] text-gray-200 hover:border-blue-500 hover:text-white"
-                                            }`}
-                                        >
-                                            Pick Months
+                                            Add Next Month
                                         </button>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="mt-4 rounded-xl border border-slate-700 bg-[#0f172a] p-4">
-                                {scheduleMode === "single" ? (
-                                  <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 text-sm text-gray-300">
-                                    Schedule will be created only for {getMonthLabel(selectedMonth)}.
-                                  </div>
-                                ) : null}
-
-                                {scheduleMode === "count" ? (
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-start">
                                     <div>
-                                      <label className="block text-sm font-medium text-gray-400 mb-1.5 ml-1">How Many Months</label>
-                                      <input
-                                        type="number"
-                                        min="1"
-                                        max="12"
-                                        value={monthCount}
-                                        onChange={(e) => {
-                                          const nextCount = Number(e.target.value);
-                                          setMonthCount(Number.isNaN(nextCount) ? 1 : Math.min(Math.max(nextCount, 1), 12));
-                                        }}
-                                        className="w-full bg-slate-900 border border-gray-600 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                      />
+                                        <p className="text-sm font-medium text-white">Target Months</p>
+                                        <p className="mt-1 text-sm text-gray-400">
+                                            Add only the months you want included in this schedule batch. You can remove any exact month below.
+                                        </p>
                                     </div>
                                     <div className="rounded-xl border border-blue-500/20 bg-blue-900/20 px-4 py-3 text-sm text-blue-100">
-                                      Creates recurring duty days starting from {getMonthLabel(selectedMonth)} for {monthCount} month(s).
+                                        {getTargetMonths().length} month{getTargetMonths().length === 1 ? "" : "s"} selected
                                     </div>
-                                  </div>
-                                ) : null}
+                                </div>
 
-                                {scheduleMode === "custom" ? (
-                                  <div className="space-y-4">
-                                    <div className="flex flex-col sm:flex-row gap-3">
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                  {getTargetMonths().length > 0 ? getTargetMonths().map((monthValue) => (
+                                    <div
+                                      key={monthValue}
+                                      className="flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-900/20 px-3 py-1.5 text-sm text-white"
+                                    >
+                                      <span>{getMonthLabel(monthValue)}</span>
                                       <button
                                         type="button"
-                                        onClick={addFocusedMonthToCustomSelection}
-                                        className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500"
+                                        onClick={() => removeTargetMonth(monthValue)}
+                                        className="rounded-full bg-blue-800/70 p-1 text-blue-100 transition-colors hover:bg-red-600"
+                                        title={`Remove ${getMonthLabel(monthValue)}`}
                                       >
-                                        Add Anchor Month
+                                        <Trash2 size={12} />
                                       </button>
-                                      <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm text-gray-300">
-                                        Current anchor: {getMonthLabel(selectedMonth)}
-                                      </div>
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
-                                      {customMonths.length > 0 ? customMonths.map((monthValue) => (
-                                        <div
-                                          key={monthValue}
-                                          className="flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-900/20 px-3 py-1.5 text-sm text-white"
-                                        >
-                                          <span>{getMonthLabel(monthValue)}</span>
-                                          <button
-                                            type="button"
-                                            onClick={() => removeCustomMonth(monthValue)}
-                                            className="rounded-full bg-blue-800/70 p-0.5 text-blue-100 transition-colors hover:bg-blue-700"
-                                          >
-                                            <X size={12} />
-                                          </button>
-                                        </div>
-                                      )) : (
-                                        <p className="text-sm text-gray-400">No custom months selected yet.</p>
-                                      )}
-                                    </div>
-                                  </div>
-                                ) : null}
+                                  )) : (
+                                    <p className="text-sm text-gray-400">No target months selected yet.</p>
+                                  )}
+                                </div>
                             </div>
 
                             <div className="mt-4">
@@ -804,11 +754,7 @@ export default function AdminAddSchedule() {
                                 </div>
                             </div>
 
-                            <div className="mt-4 rounded-xl border border-dashed border-slate-600 bg-slate-900/30 px-4 py-3 text-sm text-gray-300">
-                                Target month{getTargetMonths().length === 1 ? "" : "s"}: {getTargetMonths().map(getMonthLabel).join(", ") || "None selected"}
-                            </div>
-
-                            <div className="mt-4">
+                            {/* <div className="mt-4">
                                 <label className="block text-sm font-medium text-gray-400 mb-2 ml-1">Repeat On</label>
                                 <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
                                     {WEEKDAY_OPTIONS.map((option) => {
@@ -829,7 +775,7 @@ export default function AdminAddSchedule() {
                                       );
                                     })}
                                 </div>
-                            </div>
+                            </div> */}
 
                             <div className="mt-4 flex flex-wrap gap-2">
                                 <button
@@ -857,7 +803,7 @@ export default function AdminAddSchedule() {
                                   onClick={clearCurrentMonthSelection}
                                   className="rounded-xl border border-gray-600 bg-[#0f172a] px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:border-red-500 hover:text-white"
                                 >
-                                  Clear Anchor Month
+                                  Clear Browse Month Dates
                                 </button>
                             </div>
                         </div>

@@ -23,12 +23,16 @@ export default function AdminCOE() {
   const [salaryModal, setSalaryModal] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   
   // Selection States
   const [selectedAction, setSelectedAction] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [declineReason, setDeclineReason] = useState("");
   const [salary, setSalary] = useState("");
+  const [staffOptions, setStaffOptions] = useState([]);
+  const [createTarget, setCreateTarget] = useState("");
+  const [createPurpose, setCreatePurpose] = useState("");
   
   // UI States
   const [isFading, setIsFading] = useState(false);
@@ -38,6 +42,9 @@ export default function AdminCOE() {
   const [totalPages, setTotalPages] = useState(1);
 
   const { user, loading } = useAuth();
+  const canManage = user?.role === "Admin";
+
+  const selectedCreateTarget = staffOptions.find((option) => option.value === createTarget) || null;
 
   const fetchRequests = async () => {
     try {
@@ -92,6 +99,54 @@ export default function AdminCOE() {
   useEffect(() => {
     setCurrentPage(1);
   }, [search, statusFilter]);
+
+  useEffect(() => {
+    if (!canManage) return;
+
+    const fetchStaffOptions = async () => {
+      try {
+        const [guardsRes, subadminsRes, adminsRes] = await Promise.all([
+          fetch(`${api}/api/auth/guards`, { credentials: "include" }),
+          fetch(`${api}/api/auth/subadmins`, { credentials: "include" }),
+          fetch(`${api}/api/auth/admins`, { credentials: "include" }),
+        ]);
+
+        const [guardsData, subadminsData, adminsData] = await Promise.all([
+          guardsRes.json(),
+          subadminsRes.json(),
+          adminsRes.json(),
+        ]);
+
+        const options = [
+          ...((Array.isArray(adminsData) ? adminsData : []).map((staff) => ({
+            value: `admin:${staff._id}`,
+            label: `${staff.name} (Admin)`,
+            role: "admin",
+            id: staff._id,
+          }))),
+          ...((Array.isArray(subadminsData) ? subadminsData : []).map((staff) => ({
+            value: `subadmin:${staff._id}`,
+            label: `${staff.name} (Subadmin)`,
+            role: "subadmin",
+            id: staff._id,
+          }))),
+          ...((Array.isArray(guardsData) ? guardsData : []).map((guard) => ({
+            value: `guard:${guard._id}`,
+            label: `${getPersonName(guard)} (${guard.guardId || "Guard"})`,
+            role: "guard",
+            id: guard._id,
+          }))),
+        ];
+
+        setStaffOptions(options);
+        setCreateTarget((current) => current || options[0]?.value || "");
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    fetchStaffOptions();
+  }, [canManage]);
 
   // Toast helper
   const showToast = (message, type) => {
@@ -242,6 +297,37 @@ export default function AdminCOE() {
     }
   };
 
+  const handleCreateRequest = async () => {
+    if (!selectedCreateTarget || !createPurpose.trim()) {
+      showToast("Please select an employee and enter a purpose.", "error");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${api}/api/coe`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          purpose: createPurpose.trim(),
+          targetRole: selectedCreateTarget.role,
+          targetId: selectedCreateTarget.id,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || "Failed to create COE request");
+
+      setShowCreateModal(false);
+      setCreatePurpose("");
+      await fetchRequests();
+      showToast("COE request created successfully.", "success");
+    } catch (error) {
+      console.error(error);
+      showToast(error.message || "Failed to create COE request", "error");
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-slate-900/50 text-gray-100 font-sans">
       <main className="flex-1 flex flex-col p-4 md:p-6">
@@ -254,7 +340,9 @@ export default function AdminCOE() {
              </div>
              <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">COE Requests</h1>
-                <p className="text-slate-400 text-sm mt-1">Manage and issue Certificates of Employment.</p>
+                <p className="text-slate-400 text-sm mt-1">
+                  {canManage ? "Manage and issue Certificates of Employment." : "View submitted Certificate of Employment requests."}
+                </p>
              </div>
           </div>
 
@@ -296,6 +384,14 @@ export default function AdminCOE() {
             >
               <RefreshCw className="size-5" />
             </button>
+            {canManage && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-white text-sm font-medium transition whitespace-nowrap shadow-lg shadow-blue-900/20"
+              >
+                Create Request
+              </button>
+            )}
           </div>
         </div>
 
@@ -322,7 +418,7 @@ export default function AdminCOE() {
                         <th className="px-6 py-4 font-semibold">Purpose</th>
                         <th className="px-6 py-4 font-semibold">Date Requested</th>
                         <th className="px-6 py-4 font-semibold">Status</th>
-                        <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                        <th className="px-6 py-4 font-semibold text-right">{canManage ? "Actions" : "View"}</th>
                     </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-700/50">
@@ -370,7 +466,7 @@ export default function AdminCOE() {
                                     <Eye size={18} />
                                 </button>
                                 
-                                {r.status === "Pending" && (
+                                {canManage && r.status === "Pending" && (
                                     <>
                                     <button
                                         onClick={() => handleActionClick("accept", r)}
@@ -389,7 +485,7 @@ export default function AdminCOE() {
                                     </>
                                 )}
                                 
-                                {r.status === "Accepted" && (
+                                {canManage && r.status === "Accepted" && (
                                     <button
                                         onClick={() => handleExportCOE(r.id)}
                                         className="p-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-lg transition"
@@ -443,7 +539,7 @@ export default function AdminCOE() {
                                 <Eye size={18} />
                             </button>
 
-                            {r.status === "Pending" ? (
+                            {canManage && r.status === "Pending" ? (
                                 <>
                                     <button
                                         onClick={() => handleActionClick("accept", r)}
@@ -458,7 +554,7 @@ export default function AdminCOE() {
                                         <XCircle size={18} />
                                     </button>
                                 </>
-                            ) : r.status === "Accepted" ? (
+                            ) : canManage && r.status === "Accepted" ? (
                                 <button
                                     onClick={() => handleExportCOE(r.id)}
                                     className="col-span-3 flex items-center justify-center gap-2 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition"
@@ -466,7 +562,9 @@ export default function AdminCOE() {
                                     <Download size={16} /> Download
                                 </button>
                             ) : (
-                                <div className="col-span-3"></div>
+                                <div className="col-span-3 flex items-center justify-center rounded-lg border border-gray-700 bg-slate-900/40 text-xs text-gray-500">
+                                  View only
+                                </div>
                             )}
                         </div>
                     </div>
@@ -486,6 +584,47 @@ export default function AdminCOE() {
         )}
 
         {/* ================= MODALS ================= */}
+        {showCreateModal && canManage && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50">
+            <div className="bg-[#1e293b] text-white rounded-2xl border border-gray-700 w-full max-w-xl mx-4 shadow-2xl">
+              <div className="p-6 border-b border-gray-700 flex justify-between items-center">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <FileText className="text-blue-500" size={22} />
+                  Create COE Request
+                </h2>
+                <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-white"><X size={20} /></button>
+              </div>
+              <div className="p-6 space-y-5">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Employee</label>
+                  <select
+                    value={createTarget}
+                    onChange={(e) => setCreateTarget(e.target.value)}
+                    className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    {staffOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Purpose</label>
+                  <textarea
+                    rows={4}
+                    value={createPurpose}
+                    onChange={(e) => setCreatePurpose(e.target.value)}
+                    placeholder="Reason for requesting this COE..."
+                    className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                  />
+                </div>
+              </div>
+              <div className="p-6 pt-0 flex justify-end gap-3">
+                <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-800 transition text-sm font-medium">Cancel</button>
+                <button onClick={handleCreateRequest} className="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded-lg text-white font-medium text-sm shadow-lg shadow-blue-500/20">Submit Request</button>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* 1. Confirmation / Decline Popup */}
         {showPopup && (
@@ -633,7 +772,7 @@ export default function AdminCOE() {
               <div className="p-6 border-t border-gray-700 flex justify-end gap-3 bg-[#1e293b] rounded-b-2xl">
                  <button onClick={closeDetailModal} className="px-5 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition">Close</button>
                  
-                 {selectedRequest.status === "Pending" && (
+                 {canManage && selectedRequest.status === "Pending" && (
                      <>
                         <button 
                             onClick={() => { closeDetailModal(); handleActionClick("decline", selectedRequest); }}
@@ -649,7 +788,7 @@ export default function AdminCOE() {
                         </button>
                      </>
                  )}
-                 {selectedRequest.status === "Accepted" && (
+                 {canManage && selectedRequest.status === "Accepted" && (
                       <button 
                         onClick={() => { closeDetailModal(); handleExportCOE(selectedRequest.id); }}
                         className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium shadow-lg shadow-purple-900/20 transition flex items-center gap-2"

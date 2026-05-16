@@ -5,6 +5,7 @@ const IDRequestSchema = new mongoose.Schema(
     requestType: {
       type: String,
       required: [true, "Request type is required."],
+      enum: ["ID only", "Lanyard only", "ID with lanyard"],
       trim: true,
     },
     

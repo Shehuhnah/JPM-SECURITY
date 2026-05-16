@@ -19,15 +19,14 @@ const STORAGE_KEY = "jpm-applicant-chat";
 const ALLOWED_ATTACHMENT_TYPES = [
   "image/jpeg",
   "image/png",
-  "image/gif",
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/zip",
 ];
-const ATTACHMENT_ACCEPT = ".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.zip";
+const ATTACHMENT_ACCEPT = ".jpg,.jpeg,.png,.pdf,.doc,.docx,.zip";
 const ATTACHMENT_ERROR_MESSAGE =
-  "Unsupported attachment type. Please upload JPG, PNG, GIF, PDF, DOC, DOCX, or ZIP files only.";
+  "Unsupported attachment type. Please upload JPG, PNG, PDF, DOC, DOCX, or ZIP files only.";
 
 const formatDateTime = (timestamp) =>
   timestamp

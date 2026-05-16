@@ -1,5 +1,4 @@
 import LeaveRequest from "../models/leaveRequest.model.js";
-import Schedule from "../models/schedule.model.js";
 import Guard from "../models/guard.model.js";
 import User from "../models/User.model.js";
 
@@ -21,9 +20,25 @@ const normalizeDates = (dates = []) => {
   )].sort();
 };
 
-const buildScheduleDateMatch = (dates) => ({
-  $or: dates.map((date) => ({ timeIn: { $regex: `^${date}` } })),
-});
+const expandDateRange = (startDate, endDate) => {
+  if (!startDate || !endDate) return [];
+
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
+    return [];
+  }
+
+  const dates = [];
+  const cursor = new Date(start);
+
+  while (cursor <= end) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return dates;
+};
 
 const populateLeaveRequest = (query) =>
   query
@@ -51,17 +66,6 @@ const getOwnLeaveFilter = (user) =>
     guardId: user.role === "Guard" ? user._id : null,
     staffId: ["Admin", "Subadmin"].includes(user.role) ? user._id : null,
   });
-
-const getScheduleConflictForGuard = async (guardId, dates) => {
-  if (!guardId || dates.length === 0) return null;
-
-  return Schedule.findOne({
-    guardId,
-    isApproved: { $ne: "Declined" },
-    status: { $ne: "Cancelled" },
-    ...buildScheduleDateMatch(dates),
-  }).populate("guardId", "fullName guardId");
-};
 
 const getExistingLeaveOverlap = async (targetFilter, dates) => {
   if (!targetFilter) return null;
@@ -91,12 +95,25 @@ export const createLeaveRequest = async (req, res) => {
       return res.status(403).json({ message: "This account cannot request leave." });
     }
 
-    const dates = normalizeDates(req.body?.dates);
+    const startDate = String(req.body?.startDate || "").slice(0, 10);
+    const endDate = String(req.body?.endDate || "").slice(0, 10);
+    const excludedDates = normalizeDates(req.body?.excludedDates);
+    const explicitDates = normalizeDates(req.body?.dates);
+    const rangedDates = expandDateRange(startDate, endDate).filter((date) => !excludedDates.includes(date));
+    const dates = explicitDates.length > 0 ? explicitDates : rangedDates;
     const reason = String(req.body?.reason || "").trim();
     const leaveType = String(req.body?.leaveType || "").trim();
 
     if (dates.length === 0) {
-      return res.status(400).json({ message: "Please select at least one leave date." });
+      return res.status(400).json({ message: "Please select a valid leave date range with at least one included date." });
+    }
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: "Leave start date and end date are required." });
+    }
+
+    if (startDate > endDate) {
+      return res.status(400).json({ message: "Leave end date must be on or after the start date." });
     }
 
     if (!LEAVE_TYPES.includes(leaveType)) {
@@ -112,7 +129,7 @@ export const createLeaveRequest = async (req, res) => {
     let targetStaffId = ["Admin", "Subadmin"].includes(req.user.role) ? req.user._id : null;
     let targetSex = req.user.role === "Guard" ? req.user.sex || "" : "";
 
-    if (req.user.role === "Admin" && req.body?.targetRole && req.body?.targetId) {
+    if (["Admin", "Subadmin"].includes(req.user.role) && req.body?.targetRole && req.body?.targetId) {
       targetRole = req.body.targetRole;
 
       if (!["Guard", "Admin", "Subadmin"].includes(targetRole)) {
@@ -155,15 +172,6 @@ export const createLeaveRequest = async (req, res) => {
       });
     }
 
-    if (targetRole === "Guard" && targetGuardId) {
-      const conflictingSchedule = await getScheduleConflictForGuard(targetGuardId, dates);
-      if (conflictingSchedule) {
-        return res.status(400).json({
-          message: `Leave request denied. This guard already has a deployment on ${conflictingSchedule.timeIn.slice(0, 10)}.`,
-        });
-      }
-    }
-
     const targetFilter = getLeaveFilterForTarget({
       requesterRole: targetRole,
       guardId: targetGuardId,
@@ -182,6 +190,9 @@ export const createLeaveRequest = async (req, res) => {
       guard: targetRole === "Guard" ? targetGuardId : null,
       staff: ["Admin", "Subadmin"].includes(targetRole) ? targetStaffId : null,
       dates,
+      startDate,
+      endDate,
+      excludedDates,
       leaveType,
       reason,
     });
@@ -220,10 +231,7 @@ export const getLeaveRequests = async (req, res) => {
       query.status = status;
     }
 
-    if (req.user.role === "Subadmin") {
-      query.requesterRole = "Subadmin";
-      query.staff = req.user._id;
-    } else if (req.user.role !== "Admin") {
+    if (!["Admin", "Subadmin"].includes(req.user.role)) {
       return res.status(403).json({ message: "Not authorized to view leave requests." });
     }
 
@@ -240,9 +248,18 @@ export const getLeaveRequests = async (req, res) => {
 export const reviewLeaveRequest = async (req, res) => {
   try {
     const { status, reviewRemarks = "" } = req.body;
+    const trimmedRemarks = String(reviewRemarks).trim();
+
+    if (!["Admin", "Subadmin"].includes(req.user?.role)) {
+      return res.status(403).json({ message: "Not authorized to review leave requests." });
+    }
 
     if (!["Approved", "Declined"].includes(status)) {
       return res.status(400).json({ message: "Invalid review status." });
+    }
+
+    if (status === "Declined" && !trimmedRemarks) {
+      return res.status(400).json({ message: "A reason is required when declining a leave request." });
     }
 
     const request = await LeaveRequest.findById(req.params.id);
@@ -254,17 +271,8 @@ export const reviewLeaveRequest = async (req, res) => {
       return res.status(400).json({ message: "Only pending leave requests can be reviewed." });
     }
 
-    if (status === "Approved" && request.requesterRole === "Guard" && request.guard) {
-      const conflictingSchedule = await getScheduleConflictForGuard(request.guard, request.dates);
-      if (conflictingSchedule) {
-        return res.status(400).json({
-          message: `Cannot approve leave. ${getGuardDisplayName(conflictingSchedule.guardId) || "This guard"} is scheduled on ${conflictingSchedule.timeIn.slice(0, 10)}.`,
-        });
-      }
-    }
-
     request.status = status;
-    request.reviewRemarks = String(reviewRemarks).trim();
+    request.reviewRemarks = trimmedRemarks;
     request.reviewedBy = req.user._id;
     request.reviewedAt = new Date();
     await request.save();

@@ -4,6 +4,11 @@ import Guard from "../models/guard.model.js";
 import { generateWorkHoursPDF, generateWorkHoursByClientPDF } from "../utils/workingHoursPdfGenerator.js";
 import { getAttendanceMinutesBreakdown } from "../utils/attendanceHours.js";
 
+const getGuardDisplayName = (guard = {}) => {
+  const combinedName = `${guard?.firstName || ""} ${guard?.lastName || ""}`.trim();
+  return combinedName || guard?.fullName || "Unknown Guard";
+};
+
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -40,20 +45,7 @@ const getLateRemark = (scheduledTimeIn, actualTimeIn) => {
   }
 
   const diffMinutes = Math.floor((actualDate.getTime() - scheduledDate.getTime()) / (1000 * 60));
-  if (diffMinutes <= 0) return "";
-
-  const hours = Math.floor(diffMinutes / 60);
-  const minutes = diffMinutes % 60;
-
-  if (hours > 0 && minutes > 0) {
-    return `Late by ${hours}h ${minutes}m`;
-  }
-
-  if (hours > 0) {
-    return `Late by ${hours}h`;
-  }
-
-  return `Late by ${minutes} minute${minutes === 1 ? "" : "s"}`;
+  return diffMinutes > 0 ? "late" : "";
 };
 
 /**
@@ -156,7 +148,7 @@ export const updateAttendance = async (req, res) => {
         select: 'client deploymentLocation timeIn timeOut'
     }).populate({
         path: 'guard',
-        select: 'fullName'
+        select: 'firstName lastName fullName'
     });
 
     res.status(200).json({
@@ -193,7 +185,7 @@ export const getAttendances = async (req, res) => {
       const attendances = await Attendance.find()
         .populate({
             path: 'guard',
-            select: 'fullName email guardId'
+            select: 'firstName lastName fullName email guardId'
         })
         .populate({
             path: 'scheduleId',
@@ -215,7 +207,7 @@ export const getAttendances = async (req, res) => {
     const attendances = await Attendance.find()
       .populate({
           path: 'guard',
-          select: 'fullName email guardId' 
+          select: 'firstName lastName fullName email guardId' 
       })
       .populate({
           path: 'scheduleId',
@@ -225,7 +217,7 @@ export const getAttendances = async (req, res) => {
 
     const filteredAttendances = attendances.filter((attendance) => {
       const recordClient = attendance.scheduleId?.client || "";
-      const guardName = attendance.guard?.fullName?.toLowerCase() || "";
+      const guardName = getGuardDisplayName(attendance.guard).toLowerCase();
       const recordStatus = attendance.status || "";
 
       if (status && status !== "All" && recordStatus.toLowerCase() !== status.toLowerCase()) {
@@ -393,7 +385,8 @@ export const downloadWorkHours = async (req, res) => {
         const pdfBuffer = await generateWorkHoursPDF(guard, attendanceRecords, periodCover);
 
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=DTR_${guard.fullName.replace(' ', '_')}_${periodCover.replace(/, /g, '_').replace(/ /g, '_')}.pdf`);
+        const guardFileName = getGuardDisplayName(guard).replace(/\s+/g, "_");
+        res.setHeader('Content-Disposition', `attachment; filename=DTR_${guardFileName}_${periodCover.replace(/, /g, '_').replace(/ /g, '_')}.pdf`);
         res.send(pdfBuffer);
 
     } catch (error) {

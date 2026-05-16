@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 const getScheduleDateOnly = (value = "") => String(value).split("T")[0];
 const getScheduleMonth = (value = "") => getScheduleDateOnly(value).slice(0, 7);
 const isValidMonthValue = (value = "") => /^\d{4}-\d{2}$/.test(String(value));
+const MIN_REST_HOURS = 8;
 
 const deriveCoveredMonthsFromSchedules = (schedules = []) =>
   [...new Set(
@@ -51,9 +52,34 @@ const attachBatchMetaToSchedules = (schedules = [], batchMeta = {}) =>
     batchMeta,
   }));
 
+const getScheduleWindow = (schedule = {}) => {
+  const start = new Date(schedule.timeIn);
+  const end = new Date(schedule.timeOut);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return null;
+  }
+
+  return { start, end };
+};
+
+const getRestGapHours = (firstWindow, secondWindow) => {
+  if (!firstWindow || !secondWindow) return null;
+
+  if (firstWindow.end <= secondWindow.start) {
+    return (secondWindow.start.getTime() - firstWindow.end.getTime()) / (1000 * 60 * 60);
+  }
+
+  if (secondWindow.end <= firstWindow.start) {
+    return (firstWindow.start.getTime() - secondWindow.end.getTime()) / (1000 * 60 * 60);
+  }
+
+  return -1;
+};
+
 const findConflict = async (scheduleData, options = {}) => {
   const { timeIn, _id, guardId } = scheduleData;
   const { excludedBatchId, excludedIds = [] } = options;
+  const newWindow = getScheduleWindow(scheduleData);
 
   const newScheduleDateOnly = getScheduleDateOnly(timeIn);
 
@@ -90,6 +116,25 @@ const findConflict = async (scheduleData, options = {}) => {
     return {
       ...scheduleData,
       reason: `This guard is already scheduled on ${newScheduleDateOnly} at "${guardConflict.deploymentLocation}".`,
+    };
+  }
+
+  const nearbySchedules = await Schedule.find({
+    guardId,
+    ...(excludedBatchId ? { batchId: { $ne: excludedBatchId } } : {}),
+    ...(excludedIds.length > 0 ? { _id: { $nin: excludedIds } } : {}),
+  }).select("timeIn timeOut deploymentLocation");
+
+  const restGapConflict = nearbySchedules.find((existingSchedule) => {
+    const existingWindow = getScheduleWindow(existingSchedule);
+    const gapHours = getRestGapHours(existingWindow, newWindow);
+    return gapHours !== null && gapHours < MIN_REST_HOURS;
+  });
+
+  if (restGapConflict) {
+    return {
+      ...scheduleData,
+      reason: `This guard must have at least ${MIN_REST_HOURS} hours of rest between shifts. Another duty ends or starts too close to ${newScheduleDateOnly}.`,
     };
   }
 

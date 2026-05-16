@@ -44,6 +44,15 @@ const APPLICANT_RESUME_TYPES = [
 const APPLICANT_RESUME_ERROR =
   "Unsupported resume file type. Please upload JPG, PNG, GIF, PDF, DOC, DOCX, or ZIP only.";
 
+const toPhilippinesMobile = (value) => {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("639") && digits.length >= 12) return `+${digits.slice(0, 12)}`;
+  if (digits.startsWith("09") && digits.length >= 11) return `+63${digits.slice(1, 11)}`;
+  if (digits.startsWith("9") && digits.length >= 10) return `+63${digits.slice(0, 10)}`;
+  return "";
+};
+
 export default function ApplicantsList() {
   const [applicants, setApplicants] = useState([]);
   const [search, setSearch] = useState("");
@@ -261,6 +270,7 @@ export default function ApplicantsList() {
       lastName: preLastName,
       email: selectedApplicant?.email || "",
       position: selectedApplicant?.position || "",
+      phoneNumber: toPhilippinesMobile(selectedApplicant?.phone || ""),
     }));
     setGuardConfirmModalOpen(true);
   };
@@ -1373,7 +1383,6 @@ export default function ApplicantsList() {
                         <InfoRow label="Sex" value={form.sex} />
                         <InfoRow label="Guard ID" value={form.guardId} />
                         <InfoRow label="Email" value={form.email} />
-                        <InfoRow label="Password" value={form.password} />
                         <InfoRow label="Position" value={form.position} />
                         <InfoRow label="Address" value={form.address} />
                       </div>
@@ -1705,7 +1714,7 @@ export default function ApplicantsList() {
                         </div>
 
                         <div>
-                          <label className="text-gray-300 text-sm mb-1 block">Address <span className="text-red-400">*</span></label>
+                          <label className="text-gray-300 text-sm mb-1 block">Home Address <span className="text-red-400">*</span></label>
                           <input
                             type="text"
                             name="address"

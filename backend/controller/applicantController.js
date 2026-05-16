@@ -235,7 +235,7 @@ export const sendInterviewEmail = async (req, res) => {
       timeSummary || undefined,
       message?.trim() ? `\n${message.trim()}` : undefined,
       "",
-      "If you have any questions or need to reschedule, feel free to reply to this email or respond through the applicant portal.",
+      "If you have any questions or need to reschedule, feel free to  respond through the applicant portal.",
       "",
       "Best regards,",
       "JPM Security Agency Recruitment Team",
@@ -251,7 +251,7 @@ export const sendInterviewEmail = async (req, res) => {
             <td align="center" style="padding:24px;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
                 <tr>
-                  <td align="center" style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#334155 100%);padding:36px 24px;">
+                  <td align="center" style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#334155 100%);padding:36px 24px;color:#ffffff;">
                     <img src="${logoUrl}" alt="JPM Security Agency" width="160" style="display:block;height:auto;margin:0 auto 12px auto;" />
                     <div style="font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:.2px;">Interview Invitation</div>
                   </td>
@@ -304,7 +304,7 @@ export const sendInterviewEmail = async (req, res) => {
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;">
                       <tr>
                         <td style="padding:14px 16px;font-family:Arial,Helvetica,sans-serif;color:#1e3a8a;font-size:13px;line-height:1.7;">
-                          Need to reschedule? Reply to this email or contact us through the applicant portal.
+                          Need to reschedule? contact us through the applicant portal.
                         </td>
                       </tr>
                     </table>

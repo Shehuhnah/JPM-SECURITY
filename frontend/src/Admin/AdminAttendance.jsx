@@ -33,6 +33,7 @@ export default function GuardAttendancePage() {
   
   // Image Preview Modal State
   const [previewImage, setPreviewImage] = useState(null);
+  const [previewImageType, setPreviewImageType] = useState("timeIn");
   
   // Download Report Modal State
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
@@ -233,6 +234,25 @@ export default function GuardAttendancePage() {
       };
       return <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${styles[status] || styles["Off Duty"]}`}>{status}</span>;
   };
+
+  const openEvidencePreview = (record, preferredType = "timeIn") => {
+    const hasTimeInPhoto = Boolean(record?.photo);
+    const hasTimeOutPhoto = Boolean(record?.timeOutPhoto);
+    const resolvedType =
+      preferredType === "timeOut"
+        ? (hasTimeOutPhoto ? "timeOut" : hasTimeInPhoto ? "timeIn" : "timeOut")
+        : (hasTimeInPhoto ? "timeIn" : hasTimeOutPhoto ? "timeOut" : "timeIn");
+
+    setPreviewImage(record || null);
+    setPreviewImageType(resolvedType);
+  };
+
+  const closeEvidencePreview = () => {
+    setPreviewImage(null);
+    setPreviewImageType("timeIn");
+  };
+
+  const activePreviewSrc = previewImageType === "timeOut" ? previewImage?.timeOutPhoto : previewImage?.photo;
 
   return (
     <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
@@ -589,7 +609,7 @@ export default function GuardAttendancePage() {
                                     <td className="px-3 py-3 text-sm font-mono text-orange-400">{rec.timeOut ? new Date(rec.timeOut).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--:--"}</td>
                                     <td className="px-3 py-3 text-sm font-medium">{working}</td>
                                     <td className="px-3 py-3 text-sm text-amber-300">{rec.remarks || "—"}</td>
-                                    <td className="px-4 py-3"><button onClick={() => setPreviewImage(rec.photo)} className="bg-slate-700 hover:bg-blue-600 text-white p-2 rounded-lg transition" title="View Image"><FileImage size={18} /></button></td>
+                                    <td className="px-4 py-3"><button onClick={() => openEvidencePreview(rec)} className="bg-slate-700 hover:bg-blue-600 text-white p-2 rounded-lg transition" title="View Image"><FileImage size={18} /></button></td>
                                   </tr>
                                 );
                               })}
@@ -627,7 +647,7 @@ export default function GuardAttendancePage() {
                                     {rec.remarks}
                                   </div>
                                 ) : null}
-                                <button onClick={() => setPreviewImage(rec.photo)} className="w-full mt-1 bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition active:scale-[0.98]"><FileImage size={16} /> View Evidence Photo</button>
+                                <button onClick={() => openEvidencePreview(rec)} className="w-full mt-1 bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition active:scale-[0.98]"><FileImage size={16} /> View Evidence Photo</button>
                               </div>
                              );
                           })}
@@ -660,19 +680,77 @@ export default function GuardAttendancePage() {
       {/* --- Image Preview Modal (Existing) --- */}
       {previewImage && (
         <Transition appear show={Boolean(previewImage)} as={Fragment}>
-          <Dialog as="div" className="relative z-50" onClose={() => setPreviewImage(null)}>
+          <Dialog as="div" className="relative z-50" onClose={closeEvidencePreview}>
             <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0">
               <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
             </Transition.Child>
             <div className="fixed inset-0 flex items-center justify-center p-4">
               <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-150" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
-                <Dialog.Panel className="w-full max-w-3xl bg-[#0f172a]/95 border border-gray-700 rounded-2xl p-4 shadow-2xl">
+                <Dialog.Panel className="w-full max-w-4xl bg-[#0f172a]/95 border border-gray-700 rounded-2xl p-4 shadow-2xl">
                   <div className="flex justify-between items-center mb-4">
-                    <Dialog.Title className="text-lg text-white font-semibold">Attendance Image</Dialog.Title>
-                    <button className="text-gray-400 hover:text-white" onClick={() => setPreviewImage(null)}><X size={20} /></button>
+                    <div>
+                      <Dialog.Title className="text-lg text-white font-semibold">Attendance Evidence</Dialog.Title>
+                      <p className="text-sm text-slate-400">
+                        {getPersonName(selectedGuardInfo || previewImage?.guard, "Guard Record")} • {previewImage?.timeIn ? new Date(previewImage.timeIn).toLocaleDateString() : "No date"}
+                      </p>
+                    </div>
+                    <button className="text-gray-400 hover:text-white" onClick={closeEvidencePreview}><X size={20} /></button>
                   </div>
-                  <div className="flex justify-center">
-                    {previewImage ? <img src={previewImage} alt="Attendance Evidence" className="max-h-[70vh] w-auto rounded-xl border border-gray-700 shadow-lg" /> : <p className="text-gray-400">No image available</p>}
+
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewImageType("timeIn")}
+                      disabled={!previewImage?.photo}
+                      className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                        previewImageType === "timeIn"
+                          ? "bg-blue-600 text-white"
+                          : "border border-gray-700 bg-[#1e293b] text-gray-300 hover:border-blue-500"
+                      } disabled:cursor-not-allowed disabled:opacity-40`}
+                    >
+                      Time In Image
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewImageType("timeOut")}
+                      disabled={!previewImage?.timeOutPhoto}
+                      className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                        previewImageType === "timeOut"
+                          ? "bg-blue-600 text-white"
+                          : "border border-gray-700 bg-[#1e293b] text-gray-300 hover:border-blue-500"
+                      } disabled:cursor-not-allowed disabled:opacity-40`}
+                    >
+                      Time Out Image
+                    </button>
+                  </div>
+
+                  <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="rounded-xl border border-gray-700 bg-[#111827] px-4 py-3">
+                      <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Time In</div>
+                      <div className="mt-1 text-sm font-medium text-emerald-300">
+                        {previewImage?.timeIn ? new Date(previewImage.timeIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--:--"}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-gray-700 bg-[#111827] px-4 py-3">
+                      <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Time Out</div>
+                      <div className="mt-1 text-sm font-medium text-orange-300">
+                        {previewImage?.timeOut ? new Date(previewImage.timeOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--:--"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center min-h-[320px]">
+                    {activePreviewSrc ? (
+                      <img
+                        src={activePreviewSrc}
+                        alt={previewImageType === "timeOut" ? "Attendance Time Out Evidence" : "Attendance Time In Evidence"}
+                        className="max-h-[70vh] w-auto rounded-xl border border-gray-700 shadow-lg"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center rounded-xl border border-dashed border-gray-700 bg-[#111827] px-8 text-gray-400 min-h-[320px] w-full">
+                        No {previewImageType === "timeOut" ? "time out" : "time in"} image available
+                      </div>
+                    )}
                   </div>
                 </Dialog.Panel>
               </Transition.Child>

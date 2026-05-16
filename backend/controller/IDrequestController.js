@@ -1,10 +1,14 @@
 import IDRequest from "../models/IDRequest.model.js";
 import mongoose from "mongoose";
+import Guard from "../models/guard.model.js";
+import User from "../models/User.model.js";
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
+
+const ALLOWED_REQUEST_TYPES = ["ID only", "Lanyard only", "ID with lanyard"];
 
 const getDisplayName = (person) => {
   if (!person) return "";
@@ -19,10 +23,14 @@ const getDisplayName = (person) => {
 // --- CREATE REQUEST ---
 export const createRequest = async (req, res) => {
   try {
-    const { requestType, requestReason } = req.body;
+    const { requestType, requestReason, targetRole, targetId } = req.body;
 
     if (!requestType || !requestReason) {
       return res.status(400).json({ message: "All fields are required." });
+    }
+
+    if (!ALLOWED_REQUEST_TYPES.includes(String(requestType).trim())) {
+      return res.status(400).json({ message: "Invalid request type selected." });
     }
 
     // Identify user type based on the decoded token
@@ -34,8 +42,28 @@ export const createRequest = async (req, res) => {
       requestReason,
     };
 
-    // Logic: If role is Guard, save to 'guard', otherwise save to 'admin'
-    if (userRole === "Guard") {
+    if (userRole === "Admin" && targetRole && targetId) {
+      const normalizedTargetRole = String(targetRole).toLowerCase();
+
+      if (!["guard", "admin", "subadmin"].includes(normalizedTargetRole)) {
+        return res.status(400).json({ message: "Invalid target role." });
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(targetId)) {
+        return res.status(400).json({ message: "Invalid target user." });
+      }
+
+      if (normalizedTargetRole === "guard") {
+        const targetGuard = await Guard.findById(targetId).select("_id");
+        if (!targetGuard) return res.status(404).json({ message: "Target guard not found." });
+        requestData.guard = targetGuard._id;
+      } else {
+        const roleLabel = normalizedTargetRole === "admin" ? "Admin" : "Subadmin";
+        const targetStaff = await User.findOne({ _id: targetId, role: roleLabel }).select("_id");
+        if (!targetStaff) return res.status(404).json({ message: "Target staff not found." });
+        requestData.admin = targetStaff._id;
+      }
+    } else if (userRole === "Guard") {
       requestData.guard = userId;
     } else {
       requestData.admin = userId; // <--- Uses the new field for Admin/Subadmin

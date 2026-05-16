@@ -143,9 +143,9 @@ export default function RequestIDPage() {
               className="w-full bg-[#0f172a] border border-gray-700 rounded-lg p-3 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
             >
               <option value="">Select an option</option>
-              <option value="ID Only">ID Only</option>
-              <option value="Lanyard Only">Lanyard Only</option>
-              <option value="ID with Lanyard">ID with Lanyard</option>
+              <option value="ID only">ID only</option>
+              <option value="Lanyard only">Lanyard only</option>
+              <option value="ID with lanyard">ID with lanyard</option>
             </select>
           </div>
 

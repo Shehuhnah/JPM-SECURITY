@@ -94,7 +94,11 @@ export const createGuard = async (req, res) => {
       return res.status(400).json({ message: "Guard with this email already exists." });
     }
 
-    const newGuard = new Guard(req.body);
+    const generatedPassword = crypto.randomBytes(16).toString("hex");
+    const newGuard = new Guard({
+      ...req.body,
+      password: req.body.password || generatedPassword,
+    });
 
     // 2. Generate Reset Token
     const resetToken = crypto.randomBytes(32).toString("hex");
@@ -317,7 +321,7 @@ export const updateGuardProfile = async (req, res) => {
       return res.status(404).json({ success: false, message: "Guard not found." });
     }
 
-    const { fullName, address, phoneNumber, currentPassword, newPassword, SSSID, PhilHealthID, PagibigID } = req.body;
+    const { fullName, email, address, phoneNumber, currentPassword, newPassword, SSSID, PhilHealthID, PagibigID } = req.body;
     
     // ALWAYS require currentPassword to authorize any changes.
     if (!currentPassword) {
@@ -337,6 +341,22 @@ export const updateGuardProfile = async (req, res) => {
 
     // At this point, the user is authenticated. We can apply changes.
     if (fullName) guard.fullName = fullName;
+    if (typeof email === "string" && email.trim() && email.trim().toLowerCase() !== guard.email) {
+      const normalizedEmail = email.trim().toLowerCase();
+      const existingGuard = await Guard.findOne({
+        email: normalizedEmail,
+        _id: { $ne: guard._id },
+      });
+
+      if (existingGuard) {
+        return res.status(400).json({
+          success: false,
+          message: "Email is already in use by another guard.",
+        });
+      }
+
+      guard.email = normalizedEmail;
+    }
     if (address) guard.address = address;
     if (phoneNumber) guard.phoneNumber = phoneNumber;
     if (SSSID) guard.SSSID = SSSID;
