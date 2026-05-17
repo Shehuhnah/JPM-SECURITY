@@ -9,6 +9,7 @@ import {
   addInterviewRemarks,
   downloadHiredList,
   finalizeHiring,
+  deleteApplicant,
 } from "../controller/applicantController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { createUpload } from "../middleware/uploadMiddleware.js";
@@ -26,7 +27,7 @@ router.post("/:id/interview-email", protect, sendInterviewEmail);
 router.post("/:id/hire-email", protect, sendHireEmail);
 router.post("/:id/finalize-hiring", protect, finalizeHiring);
 
-router.route("/:id").put(protect, updateApplicant);
+router.route("/:id").put(protect, updateApplicant).delete(protect, deleteApplicant);
 router.patch("/:id/decline", protect, declineApplicant);
 router.patch("/:id/remarks", protect, addInterviewRemarks);
 

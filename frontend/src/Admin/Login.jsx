@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lock, User, Eye, EyeOff, Loader2, ShieldCheck, AlertCircle } from "lucide-react";
+import { Lock, User, Eye, EyeOff, Loader2, ShieldCheck, AlertCircle, ChevronLeft } from "lucide-react";
 import logo from "../assets/jpmlogo.png";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -57,7 +57,7 @@ export default function Login() {
 
   return (
     <section
-        className="min-h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden px-4 sm:px-6 lg:px-8 font-sans"
+        className="min-h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden px-4 pb-8 pt-20 sm:px-6 sm:pb-10 sm:pt-24 lg:px-8 font-sans"
         style={{
             backgroundImage: `url(${bg})`,
             backgroundSize: "cover",
@@ -71,8 +71,19 @@ export default function Login() {
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none"></div>
 
+      <div className="absolute left-4 top-4 z-20 sm:left-6 sm:top-6 lg:left-8 lg:top-8">
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm font-medium text-slate-200 backdrop-blur-md transition hover:bg-slate-900/80"
+        >
+          <ChevronLeft size={16} />
+          Back to Home
+        </button>
+      </div>
+
       {/* Login Card */}
-      <div className="relative z-10 w-full max-w-md bg-slate-900/70 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl p-8 transition-all duration-300 mx-auto animate-in fade-in zoom-in-95 duration-500">
+      <div className="relative z-10 mx-auto w-full max-w-md rounded-[28px] border border-slate-700/50 bg-slate-900/75 p-6 shadow-2xl backdrop-blur-xl transition-all duration-300 animate-in fade-in zoom-in-95 duration-500 sm:p-8">
         
         {/* Header */}
         <div className="flex flex-col items-center mb-8 text-center">
@@ -84,7 +95,7 @@ export default function Login() {
                      <ShieldCheck size={40} className="text-blue-400 drop-shadow-md" />
                  )}
             </div>
-            <h1 className="text-3xl font-bold text-white tracking-tight">Admin Portal</h1>
+            <h1 className="text-2xl font-bold text-white tracking-tight sm:text-3xl">Admin Portal</h1>
             <p className="text-slate-400 text-sm mt-2 font-medium">JPM Security Agency • Administrative Access</p>
         </div>
 

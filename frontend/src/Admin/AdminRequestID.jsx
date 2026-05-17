@@ -13,17 +13,27 @@ import {
   FileText,
   Lock,
   MessageSquare,
-  Plus
+  Plus,
+  Trash2
 } from "lucide-react";
 import { Dialog, Transition } from "@headlessui/react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import TablePagination from "../components/admin/TablePagination.jsx";
 import { getPersonName } from "../utils/name";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const api = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
 const todayDateOnly = new Date().toISOString().split("T")[0];
+const getEmployeeDisplayName = (person, fallbackRole = "") => {
+  if (!person) return fallbackRole || "Unknown";
+  const firstName = person.firstName?.trim() || "";
+  const lastName = person.lastName?.trim() || "";
+  const combined = `${firstName} ${lastName}`.trim();
+  return combined || person.name?.trim() || fallbackRole || "Unknown";
+};
 
 export default function RequestedIDs() {
   const { user, loading } = useAuth(); 
@@ -52,10 +62,12 @@ export default function RequestedIDs() {
   const [createTarget, setCreateTarget] = useState("");
   const [createRequestType, setCreateRequestType] = useState("");
   const [createRequestReason, setCreateRequestReason] = useState("");
+  const [deleteModal, setDeleteModal] = useState({ open: false, request: null });
+  const [deletingId, setDeletingId] = useState("");
 
   // --- ROLE CHECK ---
   const canManage = user?.role === "Admin" || user?.role === "Subadmin"; 
-  const canCreateForOthers = user?.role === "Admin";
+  const canCreateForOthers = user?.role === "Admin" || user?.role === "Subadmin";
 
   // Fetch Requests
   const fetchRequests = async () => {
@@ -93,6 +105,7 @@ export default function RequestedIDs() {
       }
     } catch (err) {
       console.error("❌ Failed to load ID requests:", err);
+      toast.error("Failed to load ID requests.");
     } finally {
       setLoadingPage(false);
     }
@@ -126,13 +139,13 @@ export default function RequestedIDs() {
         const options = [
           ...((Array.isArray(adminsData) ? adminsData : []).map((staff) => ({
             value: `admin:${staff._id}`,
-            label: `${staff.name} (Admin)`,
+            label: `${getEmployeeDisplayName(staff, "Admin")} (Admin)`,
             role: "admin",
             id: staff._id,
           }))),
           ...((Array.isArray(subadminsData) ? subadminsData : []).map((staff) => ({
             value: `subadmin:${staff._id}`,
-            label: `${staff.name} (Subadmin)`,
+            label: `${getEmployeeDisplayName(staff, "Subadmin")} (Subadmin)`,
             role: "subadmin",
             id: staff._id,
           }))),
@@ -148,6 +161,7 @@ export default function RequestedIDs() {
         setCreateTarget((current) => current || options[0]?.value || "");
       } catch (error) {
         console.error("Failed to load employee options:", error);
+        toast.error("Failed to load employee options.");
       }
     };
 
@@ -173,9 +187,12 @@ export default function RequestedIDs() {
   };
 
   const handleConfirmApprove = async () => {
-    if (!pickupDate) return alert("Please select a pickup date.");
+    if (!pickupDate) {
+      toast.error("Please select a pickup date.");
+      return;
+    }
     if (pickupDate < todayDateOnly) {
-      alert("Pickup date cannot be in the past.");
+      toast.error("Pickup date cannot be in the past.");
       return;
     }
     try {
@@ -201,16 +218,21 @@ export default function RequestedIDs() {
           )
         );
         setApproveModal(false);
+        toast.success("ID request approved.");
       }
     } catch (err) {
       console.error("Error approving ID:", err);
+      toast.error("Failed to approve ID request.");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleConfirmDecline = async () => {
-    if (!declineReason.trim()) return alert("Please provide a reason for declining.");
+    if (!declineReason.trim()) {
+      toast.error("Please provide a reason for declining.");
+      return;
+    }
     try {
       setSubmitting(true);
       const res = await fetch(`${api}/api/idrequests/${selectedId}`, {
@@ -230,9 +252,11 @@ export default function RequestedIDs() {
           )
         );
         setDeclineModal(false);
+        toast.success("ID request declined.");
       }
     } catch (err) {
       console.error("Error declining ID:", err);
+      toast.error("Failed to decline ID request.");
     } finally {
       setSubmitting(false);
     }
@@ -240,7 +264,7 @@ export default function RequestedIDs() {
 
   const handleCreateRequest = async () => {
     if (!selectedCreateTarget || !createRequestType.trim() || !createRequestReason.trim()) {
-      alert("Please complete all fields.");
+      toast.error("Please complete all required fields.");
       return;
     }
 
@@ -266,17 +290,54 @@ export default function RequestedIDs() {
       setShowCreateModal(false);
       setCreateRequestType("");
       setCreateRequestReason("");
+      toast.success("ID request created successfully.");
       await fetchRequests();
     } catch (error) {
       console.error("Error creating ID request:", error);
-      alert(error.message || "Failed to create ID request.");
+      toast.error(error.message || "Failed to create ID request.");
     } finally {
       setSubmitting(false);
     }
   };
 
+  const openDeleteModal = (request) => {
+    setDeleteModal({ open: true, request });
+  };
+
+  const closeDeleteModal = () => {
+    if (deletingId) return;
+    setDeleteModal({ open: false, request: null });
+  };
+
+  const handleDeleteRequest = async () => {
+    const request = deleteModal.request;
+    if (!request?._id) return;
+
+    try {
+      setDeletingId(request._id);
+      const res = await fetch(`${api}/api/idrequests/${request._id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const result = await res.json().catch(() => null);
+      if (!res.ok || !result?.success) {
+        throw new Error(result?.message || "Failed to delete ID request.");
+      }
+
+      setDeleteModal({ open: false, request: null });
+      toast.success("ID request deleted.");
+      await fetchRequests();
+    } catch (error) {
+      console.error("Error deleting ID request:", error);
+      toast.error(error.message || "Failed to delete ID request.");
+    } finally {
+      setDeletingId("");
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-slate-900/50 text-gray-100 font-sans">
+      <ToastContainer theme="dark" position="top-right" autoClose={3000} />
       <div className="flex-1 flex flex-col p-4 md:p-6">
         
         {/* ===== Header ===== */}
@@ -382,7 +443,7 @@ export default function RequestedIDs() {
                           <div>
                              {/* Support both Guard and Subadmin names */}
                              <div className="font-medium text-white">
-                                {req.guard ? getPersonName(req.guard) : req.admin?.name || "Unknown"}
+                                {req.guard ? getPersonName(req.guard) : getEmployeeDisplayName(req.admin, req.admin?.role)}
                              </div>
                              <div className="text-xs text-blue-400">
                                 {req.guard?.position || req.admin?.role || "N/A"}
@@ -438,15 +499,22 @@ export default function RequestedIDs() {
                              >
                                <CheckCircle size={18} />
                              </button>
-                             <button
-                               onClick={() => handleDeclineID(req._id)}
-                               disabled={req.status !== "Pending"}
-                               className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition"
-                               title="Decline"
-                             >
-                               <XCircle size={18} />
-                             </button>
-                           </div>
+                            <button
+                              onClick={() => handleDeclineID(req._id)}
+                              disabled={req.status !== "Pending"}
+                              className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition"
+                              title="Decline"
+                            >
+                              <XCircle size={18} />
+                            </button>
+                            <button
+                              onClick={() => openDeleteModal(req)}
+                              className="p-2 bg-slate-700/60 hover:bg-red-500/20 text-gray-300 hover:text-red-400 rounded-lg transition"
+                              title="Delete"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
                          ) : (
                            <div className="text-xs text-gray-600 italic">View only</div>
                          )}
@@ -469,7 +537,7 @@ export default function RequestedIDs() {
                          <div>
                             <p className="text-xs font-medium text-gray-500">#{(currentPage - 1) * PAGE_SIZE + index + 1}</p>
                             <h3 className="font-semibold text-white">
-                                {req.guard ? getPersonName(req.guard) : req.admin?.name || "Unknown"}
+                                {req.guard ? getPersonName(req.guard) : getEmployeeDisplayName(req.admin, req.admin?.role)}
                             </h3>
                             <span className="text-xs text-blue-400">
                                 {req.guard?.position || req.admin?.role}
@@ -513,7 +581,7 @@ export default function RequestedIDs() {
                    </div>
 
                    {canManage && req.status === "Pending" && (
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-3 gap-3">
                          <button
                            onClick={() => handleApproveID(req._id)}
                            className="flex items-center justify-center gap-2 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-medium transition"
@@ -526,7 +594,22 @@ export default function RequestedIDs() {
                          >
                            <XCircle size={16} className="text-gray-400 group-hover:text-white" /> Decline
                          </button>
+                         <button
+                           onClick={() => openDeleteModal(req)}
+                           className="flex items-center justify-center gap-2 py-2 bg-slate-700 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition group"
+                         >
+                           <Trash2 size={16} className="text-gray-400 group-hover:text-white" /> Delete
+                         </button>
                       </div>
+                   )}
+
+                   {canManage && req.status !== "Pending" && (
+                      <button
+                        onClick={() => openDeleteModal(req)}
+                        className="flex items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-500 hover:text-white"
+                      >
+                        <Trash2 size={16} /> Delete Request
+                      </button>
                    )}
                    
                    {!canManage && (
@@ -561,7 +644,7 @@ export default function RequestedIDs() {
                 </Dialog.Title>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1.5">Employee</label>
+                    <label className="block text-sm font-medium text-gray-400 mb-1.5">Assign To</label>
                     <select
                       value={createTarget}
                       onChange={(e) => setCreateTarget(e.target.value)}
@@ -609,6 +692,48 @@ export default function RequestedIDs() {
                     className="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded-lg text-white font-medium disabled:opacity-50 text-sm shadow-lg shadow-blue-500/20"
                   >
                     {submitting ? "Processing..." : "Submit Request"}
+                  </button>
+                </div>
+              </Dialog.Panel>
+            </div>
+          </Dialog>
+        </Transition>
+
+        <Transition appear show={deleteModal.open} as={Fragment}>
+          <Dialog as="div" className="relative z-50" onClose={closeDeleteModal}>
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="fixed inset-0 flex items-center justify-center p-4">
+              <Dialog.Panel className="bg-[#1e293b] border border-red-500/20 rounded-xl shadow-2xl p-6 max-w-md w-full">
+                <Dialog.Title className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <Trash2 className="text-red-400" /> Delete ID Request
+                </Dialog.Title>
+                <p className="text-sm text-gray-300 leading-6">
+                  Delete this ID request for{" "}
+                  <span className="font-semibold text-white">
+                    {deleteModal.request?.guard
+                      ? getPersonName(deleteModal.request.guard)
+                      : getEmployeeDisplayName(deleteModal.request?.admin, deleteModal.request?.admin?.role)}
+                  </span>
+                  ?
+                </p>
+                <p className="mt-2 text-xs text-gray-500">
+                  This action permanently removes the request record.
+                </p>
+
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
+                  <button
+                    onClick={closeDeleteModal}
+                    disabled={Boolean(deletingId)}
+                    className="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-800 transition text-sm font-medium disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteRequest}
+                    disabled={Boolean(deletingId)}
+                    className="bg-red-600 hover:bg-red-500 px-5 py-2 rounded-lg text-white font-medium disabled:opacity-50 text-sm shadow-lg shadow-red-500/20"
+                  >
+                    {deletingId ? "Deleting..." : "Delete Request"}
                   </button>
                 </div>
               </Dialog.Panel>

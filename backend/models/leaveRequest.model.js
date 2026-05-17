@@ -52,7 +52,7 @@ const leaveRequestSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["Pending", "Approved", "Declined"],
+      enum: ["Pending", "Approved", "Declined", "Revoked"],
       default: "Pending",
     },
     reviewRemarks: {
@@ -68,6 +68,35 @@ const leaveRequestSchema = new mongoose.Schema(
     reviewedAt: {
       type: Date,
       default: null,
+    },
+    revokedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
+      default: null,
+    },
+    revokedAt: {
+      type: Date,
+      default: null,
+    },
+    revokeReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    editHistory: {
+      type: [
+        {
+          editedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Admin" },
+          editedAt: { type: Date, default: Date.now },
+          editReason: { type: String, trim: true },
+          previousDates: { type: [String] },
+          previousStartDate: { type: String },
+          previousEndDate: { type: String },
+          previousLeaveType: { type: String },
+          previousReason: { type: String },
+        },
+      ],
+      default: [],
     },
   },
   { timestamps: true }

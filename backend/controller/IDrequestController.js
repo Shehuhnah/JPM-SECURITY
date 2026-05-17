@@ -42,7 +42,7 @@ export const createRequest = async (req, res) => {
       requestReason,
     };
 
-    if (userRole === "Admin" && targetRole && targetId) {
+    if ((userRole === "Admin" || userRole === "Subadmin") && targetRole && targetId) {
       const normalizedTargetRole = String(targetRole).toLowerCase();
 
       if (!["guard", "admin", "subadmin"].includes(normalizedTargetRole)) {
@@ -94,7 +94,7 @@ export const getAllRequests = async (req, res) => {
     if (!shouldPaginate) {
       const requests = await IDRequest.find()
         .populate("guard", "firstName lastName fullName position email guardId")
-        .populate("admin", "name email position role")
+        .populate("admin", "name firstName lastName email position role")
         .sort({ createdAt: -1 });
 
       return res.status(200).json({
@@ -117,13 +117,13 @@ export const getAllRequests = async (req, res) => {
 
     const requests = await IDRequest.find(filter)
       .populate("guard", "firstName lastName fullName position email guardId")
-      .populate("admin", "name email position role")        // Admin fields (Note: 'name' not 'fullName')
+      .populate("admin", "name firstName lastName email position role")
       .sort({ createdAt: -1 });
 
     const filteredRequests = q
       ? requests.filter((request) => {
           const guardName = getDisplayName(request.guard).toLowerCase();
-          const adminName = request.admin?.name?.toLowerCase() || "";
+          const adminName = getDisplayName(request.admin).toLowerCase();
           const requestType = request.requestType?.toLowerCase() || "";
           return guardName.includes(q) || adminName.includes(q) || requestType.includes(q);
         })
@@ -162,7 +162,7 @@ export const getMyRequests = async (req, res) => {
       ]
     })
     .populate("guard", "firstName lastName fullName email guardId")
-    .populate("admin", "name email role")
+    .populate("admin", "name firstName lastName email role")
     .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -187,7 +187,7 @@ export const getRequestById = async (req, res) => {
 
     const request = await IDRequest.findById(id)
       .populate("guard", "firstName lastName fullName email guardId")
-      .populate("admin", "name email position");
+      .populate("admin", "name firstName lastName email position role");
 
     if (!request) {
       return res.status(404).json({ message: "ID request not found." });
@@ -225,7 +225,7 @@ export const updateRequest = async (req, res) => {
       { new: true }
     )
     .populate("guard", "firstName lastName fullName email guardId")
-    .populate("admin", "name email position");
+    .populate("admin", "name firstName lastName email position role");
 
     if (!updatedRequest) {
       return res.status(404).json({ message: "Request not found." });

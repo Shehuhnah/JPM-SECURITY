@@ -25,6 +25,18 @@ import { getPersonName } from "../utils/name";
 
 const api = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
+const REQUIRED_GUARD_FIELDS = [
+  "firstName",
+  "lastName",
+  "sex",
+  "email",
+  "guardId",
+  "address",
+  "position",
+  "phoneNumber",
+  "EmergencyPerson",
+  "EmergencyContact",
+];
 
 export default function GuardTable() {
   const { user: admin, loading } = useAuth();
@@ -162,8 +174,7 @@ export default function GuardTable() {
   // Submit New Guard
   const handleAddGuard = async () => {
     setErrorMsg("");
-    const requiredFields = ["firstName", "lastName", "sex", "email", "guardId", "address", "position", "phoneNumber", "EmergencyPerson", "EmergencyContact"];
-    const nextFieldErrors = requiredFields.reduce((acc, field) => {
+    const nextFieldErrors = REQUIRED_GUARD_FIELDS.reduce((acc, field) => {
       if (!String(form[field] || "").trim()) acc[field] = true;
       return acc;
     }, {});
@@ -236,11 +247,26 @@ export default function GuardTable() {
   const handleEdit = (guard) => {
     setForm(guard);
     setErrorMsg("");
+    setFieldErrors({});
     setEditIsOpen(true);
   };
 
   const handleSaveEdit = async () => {
     try {
+      setErrorMsg("");
+      const nextFieldErrors = REQUIRED_GUARD_FIELDS.reduce((acc, field) => {
+        if (!String(form[field] || "").trim()) acc[field] = true;
+        return acc;
+      }, {});
+      setFieldErrors(nextFieldErrors);
+
+      if (Object.keys(nextFieldErrors).length > 0) {
+        const msg = "Complete the highlighted required fields before saving.";
+        setErrorMsg(msg);
+        toast.error(msg, { theme: "dark", transition: Bounce });
+        return;
+      }
+
       setLoadingPage(true);
 
       const originalGuard = guards.find((g) => g._id === form._id);
@@ -274,11 +300,12 @@ export default function GuardTable() {
       );
 
       setEditIsOpen(false);
-      setErrorMsg("")
+      setErrorMsg("");
+      setFieldErrors({});
       toast.success("✅ Guard updated successfully!", { theme: "dark" });
     } catch (err) {
       console.error("Update guard error:", err);
-      toast.error("❌ Failed to update guard.", { theme: "dark" });
+      toast.error("Failed to update guard details.", { theme: "dark" });
     } finally {
       setLoadingPage(false);
     }
@@ -677,13 +704,13 @@ export default function GuardTable() {
                   {errorMsg && (<div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-4">{errorMsg}</div>)}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-3">
-                      <div><label className="text-gray-300 text-sm mb-1 block">First Name</label><input type="text" name="firstName" value={form.firstName} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
-                      <div><label className="text-gray-300 text-sm mb-1 block">Last Name</label><input type="text" name="lastName" value={form.lastName} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
-                      <div><label className="text-gray-300 text-sm mb-1 block">Sex</label><select name="sex" value={form.sex} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500"><option value="Male">Male</option><option value="Female">Female</option></select></div>
-                      <div><label className="text-gray-300 text-sm mb-1 block">Guard ID</label><input type="text" name="guardId" value={form.guardId} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
-                      <div><label className="text-gray-300 text-sm mb-1 block">Email</label><input type="email" name="email" value={form.email} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
-                      <div><label className="text-gray-300 text-sm mb-1 block">Position</label><input type="text" name="position" value={form.position} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
-                      <div><label className="text-gray-300 text-sm mb-1 block">Address</label><input type="text" name="address" value={form.address} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">First Name <span className="text-red-400">*</span></label><input type="text" name="firstName" value={form.firstName} onChange={handleChange} className={getFieldClass("firstName")} /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Last Name <span className="text-red-400">*</span></label><input type="text" name="lastName" value={form.lastName} onChange={handleChange} className={getFieldClass("lastName")} /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Sex <span className="text-red-400">*</span></label><select name="sex" value={form.sex} onChange={handleChange} className={getFieldClass("sex")}><option value="Male">Male</option><option value="Female">Female</option></select></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Guard ID <span className="text-red-400">*</span></label><input type="text" name="guardId" value={form.guardId} onChange={handleChange} className={getFieldClass("guardId")} /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Email <span className="text-red-400">*</span></label><input type="email" name="email" value={form.email} onChange={handleChange} className={getFieldClass("email")} /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Position <span className="text-red-400">*</span></label><input type="text" name="position" value={form.position} onChange={handleChange} className={getFieldClass("position")} /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Address <span className="text-red-400">*</span></label><input type="text" name="address" value={form.address} onChange={handleChange} className={getFieldClass("address")} /></div>
                       <div>
                         <label className="text-gray-300 text-sm mb-1 block">Status</label>
                         <select name="status" value={form.status} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500">
@@ -695,30 +722,30 @@ export default function GuardTable() {
                     </div>
                     <div className="space-y-3">
                       <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Phone Number</label>
-                        <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                        <label className="text-gray-300 text-sm mb-1 block">Phone Number <span className="text-red-400">*</span></label>
+                        <div className={getPhoneWrapperClass("phoneNumber")}>
                           <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none">+63</span>
                           {/* FIX: Phone handler uses setForm with callback to ensure latest state */}
                           <input type="tel" name="phoneNumber" value={form.phoneNumber.replace(/^\+63/, "")} onChange={(e) => {
                             let value = e.target.value.replace(/\D/g, "");
                             if (value.length > 10) value = value.slice(0, 10);
-                            setForm(prev => ({ ...prev, phoneNumber: "+63" + value }));
+                            setFieldValue("phoneNumber", "+63" + value);
                           }} className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none" />
                         </div>
                       </div>
                       <div><label className="text-gray-300 text-sm mb-1 block">SSS ID</label><input type="text" name="SSSID" value={form.SSSID} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">PhilHealth ID</label><input type="text" name="PhilHealthID" value={form.PhilHealthID} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Pag-IBIG ID</label><input type="text" name="PagibigID" value={form.PagibigID} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
-                      <div><label className="text-gray-300 text-sm mb-1 block">Emergency Contact Person</label><input type="text" name="EmergencyPerson" value={form.EmergencyPerson} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Emergency Contact Person <span className="text-red-400">*</span></label><input type="text" name="EmergencyPerson" value={form.EmergencyPerson} onChange={handleChange} className={getFieldClass("EmergencyPerson")} /></div>
                       <div>
-                        <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Number</label>
-                        <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                        <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Number <span className="text-red-400">*</span></label>
+                        <div className={getPhoneWrapperClass("EmergencyContact")}>
                           <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none">+63</span>
                           {/* FIX: Phone handler uses setForm with callback to ensure latest state */}
                           <input type="tel" name="EmergencyContact" value={form.EmergencyContact.replace(/^\+63/, "")} onChange={(e) => {
                             let value = e.target.value.replace(/\D/g, "");
                             if (value.length > 10) value = value.slice(0, 10);
-                            setForm(prev => ({ ...prev, EmergencyContact: "+63" + value }));
+                            setFieldValue("EmergencyContact", "+63" + value);
                           }} className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none" />
                         </div>
                       </div>

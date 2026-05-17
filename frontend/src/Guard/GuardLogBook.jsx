@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ClipboardList, Clock, FileText, Image as ImageIcon, LogIn, MapPin } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ClipboardList, Clock, FileText, Image as ImageIcon, LogIn, MapPin, Building2, Filter, Search } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { getPersonName } from "../utils/name";
@@ -20,6 +20,8 @@ export default function GuardLogBook() {
   const [message, setMessage] = useState("");
   const [scheduleInfo, setScheduleInfo] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
+  const [deploymentFilter, setDeploymentFilter] = useState("All");
+  const [logSearch, setLogSearch] = useState("");
 
   useEffect(() => {
     if (!guard && !loading) {
@@ -143,6 +145,32 @@ export default function GuardLogBook() {
       ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/80"
       : "bg-red-500/20 text-red-400 border-red-500/80";
 
+  const deploymentOptions = useMemo(() => {
+    const values = logs
+      .map((log) => log.scheduleId?.client || log.scheduleId?.deploymentLocation || "")
+      .filter(Boolean);
+    return ["All", ...new Set(values)];
+  }, [logs]);
+
+  const filteredLogs = useMemo(() => {
+    return logs.filter((log) => {
+      const deploymentValue = log.scheduleId?.client || log.scheduleId?.deploymentLocation || "";
+      const haystack = [
+        deploymentValue,
+        log.scheduleId?.deploymentLocation || "",
+        log.post || "",
+        log.type || "",
+        log.remarks || "",
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      const matchesDeployment = deploymentFilter === "All" || deploymentValue === deploymentFilter;
+      const matchesSearch = !logSearch.trim() || haystack.includes(logSearch.trim().toLowerCase());
+      return matchesDeployment && matchesSearch;
+    });
+  }, [deploymentFilter, logSearch, logs]);
+
   return (
     <div className="min-h-screen bg-[#0f172a] p-6 text-gray-100">
       <div className="mb-8 flex items-center justify-center">
@@ -261,13 +289,46 @@ export default function GuardLogBook() {
         </div>
       )}
 
+      <div className="mb-5 rounded-2xl border border-gray-700 bg-[#1e293b] p-4 shadow-lg">
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-blue-300">
+          <Filter size={16} />
+          Past Deployment Filter
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_260px]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+            <input
+              type="text"
+              value={logSearch}
+              onChange={(e) => setLogSearch(e.target.value)}
+              placeholder="Search log type, post, remarks, or deployment..."
+              className="w-full rounded-lg border border-gray-700 bg-[#0f172a] py-2.5 pl-10 pr-4 text-sm text-gray-100 focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div className="relative">
+            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+            <select
+              value={deploymentFilter}
+              onChange={(e) => setDeploymentFilter(e.target.value)}
+              className="w-full appearance-none rounded-lg border border-gray-700 bg-[#0f172a] py-2.5 pl-10 pr-4 text-sm text-gray-100 focus:ring-2 focus:ring-blue-500"
+            >
+              {deploymentOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option === "All" ? "All Past Deployments" : option}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div className="space-y-5">
         {loadingPage && logs.length === 0 ? (
           <p className="text-center italic text-gray-400">Loading logs...</p>
-        ) : logs.length === 0 ? (
+        ) : filteredLogs.length === 0 ? (
           <p className="text-center italic text-gray-400">No log entries yet.</p>
         ) : (
-          logs.map((log) => (
+          filteredLogs.map((log) => (
             <div
               key={log._id}
               className="rounded-2xl border border-gray-700 bg-[#1e293b] p-5 shadow-lg transition hover:shadow-blue-500/10"
@@ -282,6 +343,22 @@ export default function GuardLogBook() {
               </div>
 
               <h3 className="mb-1 text-lg font-semibold text-blue-400">{log.type}</h3>
+              {(log.scheduleId?.client || log.scheduleId?.deploymentLocation) ? (
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                  {log.scheduleId?.client ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 font-medium text-blue-300">
+                      <Building2 size={12} />
+                      {log.scheduleId.client}
+                    </span>
+                  ) : null}
+                  {log.scheduleId?.deploymentLocation ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-600 bg-slate-800 px-2.5 py-1 text-slate-300">
+                      <MapPin size={12} />
+                      {log.scheduleId.deploymentLocation}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
               <p className="mb-2 text-sm text-gray-300">
                 <MapPin className="mr-1 inline h-4 w-4 text-blue-400" />
                 <span className="font-semibold">{log.post}</span> - {log.shift}

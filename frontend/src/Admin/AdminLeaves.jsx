@@ -10,10 +10,13 @@ import {
   Clock,
   FileText,
   Filter,
+  History,
+  Pencil,
   Plus,
   RefreshCcw,
   Search,
   Shield,
+  ShieldOff,
   User,
   X,
   XCircle,
@@ -87,6 +90,11 @@ const statusConfig = {
     bg: "bg-red-500/10",
     border: "border-red-500/20",
   },
+  Revoked: {
+    color: "text-orange-300",
+    bg: "bg-orange-500/10",
+    border: "border-orange-500/20",
+  },
 };
 
 const roleConfig = {
@@ -102,6 +110,13 @@ const buildRangeDates = (range) => {
 
 const toDateOnly = (value) => (typeof value === "string" ? value.slice(0, 10) : format(value, "yyyy-MM-dd"));
 const toLocalDate = (value) => new Date(`${value}T00:00:00`);
+const getEmployeeLabel = (person, fallbackRole = "") => {
+  if (!person) return fallbackRole || "Unknown";
+  const firstName = person.firstName?.trim() || "";
+  const lastName = person.lastName?.trim() || "";
+  const combined = `${firstName} ${lastName}`.trim();
+  return combined || person.name?.trim() || fallbackRole || "Unknown";
+};
 
 export default function AdminLeaves() {
   const { user, loading } = useAuth();
@@ -122,8 +137,18 @@ export default function AdminLeaves() {
   const [submitting, setSubmitting] = useState(false);
   const [reviewingId, setReviewingId] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [approveModal, setApproveModal] = useState({ open: false, request: null });
   const [declineModal, setDeclineModal] = useState({ open: false, requestId: "", name: "" });
   const [declineReason, setDeclineReason] = useState("");
+  const [revokeModal, setRevokeModal] = useState({ open: false, request: null });
+  const [revokeReason, setRevokeReason] = useState("");
+  const [editModal, setEditModal] = useState({ open: false, request: null });
+  const [editReason, setEditReason] = useState("");
+  const [editLeaveType, setEditLeaveType] = useState("");
+  const [editReasonText, setEditReasonText] = useState("");
+  const [editRange, setEditRange] = useState();
+  const [editExcluded, setEditExcluded] = useState([]);
+  const [editingId, setEditingId] = useState("");
 
   const isAdmin = user?.role === "Admin";
   const canRequestLeave = user?.role === "Admin" || user?.role === "Subadmin";
@@ -185,13 +210,13 @@ export default function AdminLeaves() {
         adminsRes.json(),
       ]);
 
-      const options = [
-        { value: `${user.role}:${user._id}`, label: `${user.name} (My leave)`, role: user.role, id: user._id, sex: user.sex || "" },
+        const options = [
+        { value: `${user.role}:${user._id}`, label: `${getEmployeeLabel(user, user.role)} (My leave)`, role: user.role, id: user._id, sex: user.sex || "" },
         ...((Array.isArray(adminsData) ? adminsData : [])
           .filter((admin) => admin._id !== user._id)
           .map((admin) => ({
             value: `Admin:${admin._id}`,
-            label: `${admin.name} (Admin)`,
+            label: `${getEmployeeLabel(admin, "Admin")} (Admin)`,
             role: "Admin",
             id: admin._id,
             sex: admin.sex || "",
@@ -200,7 +225,7 @@ export default function AdminLeaves() {
           .filter((staff) => staff._id !== user._id)
           .map((staff) => ({
             value: `Subadmin:${staff._id}`,
-            label: `${staff.name} (Subadmin)`,
+            label: `${getEmployeeLabel(staff, "Subadmin")} (Subadmin)`,
             role: "Subadmin",
             id: staff._id,
             sex: staff.sex || "",
@@ -276,7 +301,7 @@ export default function AdminLeaves() {
   };
 
   const getRequestDisplayName = useCallback(
-    (request) => (request.guard ? getPersonName(request.guard) : request.staff?.name || "Unknown"),
+    (request) => (request.guard ? getPersonName(request.guard) : getEmployeeLabel(request.staff, request.requesterRole)),
     []
   );
 
@@ -362,6 +387,15 @@ export default function AdminLeaves() {
     setDeclineReason("");
   };
 
+  const openApproveModal = (request) => {
+    setApproveModal({ open: true, request });
+  };
+
+  const closeApproveModal = () => {
+    if (reviewingId) return;
+    setApproveModal({ open: false, request: null });
+  };
+
   const closeDeclineModal = () => {
     if (reviewingId) return;
     setDeclineModal({ open: false, requestId: "", name: "" });
@@ -380,6 +414,132 @@ export default function AdminLeaves() {
     if (didSucceed) {
       setDeclineModal({ open: false, requestId: "", name: "" });
       setDeclineReason("");
+    }
+  };
+
+  const submitApprove = async () => {
+    const request = approveModal.request;
+    if (!request?._id) return;
+
+    const didSucceed = await handleReview(request._id, "Approved");
+    if (didSucceed) {
+      setApproveModal({ open: false, request: null });
+    }
+  };
+
+  // ---- Revoke helpers ----
+  const openRevokeModal = (request) => {
+    setRevokeModal({ open: true, request });
+    setRevokeReason("");
+  };
+  const closeRevokeModal = () => {
+    if (editingId) return;
+    setRevokeModal({ open: false, request: null });
+    setRevokeReason("");
+  };
+  const submitRevoke = async () => {
+    const trimmed = revokeReason.trim();
+    if (!trimmed) { toast.error("A revoke reason is required."); return; }
+    const id = revokeModal.request?._id;
+    setEditingId(id);
+    try {
+      const res = await fetch(`${api}/api/leaves/${id}/revoke`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revokeReason: trimmed }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || "Failed to revoke.");
+      toast.success("Leave revoked.");
+      setRevokeModal({ open: false, request: null });
+      setRevokeReason("");
+      await fetchRequests();
+    } catch (err) {
+      toast.error(err.message || "Failed to revoke leave.");
+    } finally {
+      setEditingId("");
+    }
+  };
+
+  // ---- Edit helpers ----
+  const openEditModal = (request) => {
+    setEditModal({ open: true, request });
+    setEditReason("");
+    setEditLeaveType(request.leaveType || "");
+    setEditReasonText(request.reason || "");
+    setEditExcluded(request.excludedDates || []);
+    if (request.startDate && request.endDate) {
+      setEditRange({
+        from: new Date(`${request.startDate}T00:00:00`),
+        to: new Date(`${request.endDate}T00:00:00`),
+      });
+    } else if (request.dates?.length) {
+      const sorted = [...request.dates].sort();
+      setEditRange({
+        from: new Date(`${sorted[0]}T00:00:00`),
+        to: new Date(`${sorted[sorted.length - 1]}T00:00:00`),
+      });
+    } else {
+      setEditRange(undefined);
+    }
+  };
+  const closeEditModal = () => {
+    if (editingId) return;
+    setEditModal({ open: false, request: null });
+    setEditReason("");
+    setEditRange(undefined);
+    setEditExcluded([]);
+  };
+
+  const editRangeDates = useMemo(() => buildRangeDates(editRange), [editRange]);
+  useEffect(() => {
+    setEditExcluded((prev) => prev.filter((d) => editRangeDates.includes(d)));
+  }, [editRangeDates]);
+  const editIncludedDates = useMemo(
+    () => editRangeDates.filter((d) => !editExcluded.includes(d)),
+    [editRangeDates, editExcluded]
+  );
+  const toggleEditExcluded = (date) => {
+    if (!editRangeDates.includes(date)) return;
+    setEditExcluded((prev) =>
+      prev.includes(date) ? prev.filter((d) => d !== date) : [...prev, date].sort()
+    );
+  };
+
+  const submitEdit = async () => {
+    const trimmedReason = editReason.trim();
+    if (!trimmedReason) { toast.error("An edit reason is required."); return; }
+    if (!editRange?.from || !editRange?.to || editIncludedDates.length === 0) {
+      toast.error("Please select a valid date range with at least one included date.");
+      return;
+    }
+    const id = editModal.request?._id;
+    setEditingId(id);
+    try {
+      const res = await fetch(`${api}/api/leaves/${id}/edit`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: toDateOnly(editRange.from),
+          endDate: toDateOnly(editRange.to),
+          excludedDates: editExcluded,
+          dates: editIncludedDates,
+          leaveType: editLeaveType,
+          reason: editReasonText.trim() || editModal.request?.reason,
+          editReason: trimmedReason,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || "Failed to save edits.");
+      toast.success("Leave updated.");
+      closeEditModal();
+      await fetchRequests();
+    } catch (err) {
+      toast.error(err.message || "Failed to save edits.");
+    } finally {
+      setEditingId("");
     }
   };
 
@@ -417,6 +577,82 @@ export default function AdminLeaves() {
       <ToastContainer theme="dark" position="top-right" autoClose={3000} />
 
       <div className="mx-auto max-w-8xl space-y-6">
+        {approveModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 px-4 backdrop-blur-sm">
+            <div className="w-full max-w-2xl overflow-hidden rounded-3xl border border-emerald-500/20 bg-[#162131] shadow-2xl shadow-black/40">
+              <div className="border-b border-emerald-500/10 bg-[linear-gradient(135deg,rgba(5,150,105,0.18),rgba(30,41,59,0.92))] px-6 py-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Approve Leave Request</div>
+                    <h3 className="mt-2 text-xl font-semibold text-white">
+                      {approveModal.request ? getRequestDisplayName(approveModal.request) : "Leave Request"}
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                      Review the leave coverage below before marking this request as approved.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeApproveModal}
+                    disabled={Boolean(reviewingId)}
+                    className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 px-6 py-5 sm:grid-cols-2">
+                <InfoCard compact label="Personnel" value={approveModal.request ? getRequestDisplayName(approveModal.request) : "N/A"} />
+                <InfoCard compact label="Role" value={approveModal.request?.requesterRole || "N/A"} />
+                <InfoCard compact label="Leave Type" value={approveModal.request?.leaveType || "Unspecified"} />
+                <InfoCard compact label="Included Dates" value={`${approveModal.request?.dates?.length || 0} day${(approveModal.request?.dates?.length || 0) === 1 ? "" : "s"}`} />
+                <InfoCard compact label="Range Start" value={approveModal.request?.startDate || approveModal.request?.dates?.[0] || "N/A"} />
+                <InfoCard compact label="Range End" value={approveModal.request?.endDate || approveModal.request?.dates?.[approveModal.request?.dates?.length - 1] || "N/A"} />
+              </div>
+
+              <div className="px-6 pb-6">
+                <div className="rounded-2xl border border-slate-700 bg-[#0f172a] p-4">
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Reason</div>
+                  <p className="text-sm leading-6 text-slate-300">{approveModal.request?.reason || "No reason provided."}</p>
+                </div>
+
+                {approveModal.request?.dates?.length ? (
+                  <div className="mt-4 rounded-2xl border border-slate-700 bg-[#0f172a] p-4">
+                    <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Approved Dates</div>
+                    <div className="flex flex-wrap gap-2">
+                      {approveModal.request.dates.map((date) => (
+                        <span key={date} className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-300">
+                          {format(new Date(`${date}T00:00:00`), "MMM dd, yyyy")}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col-reverse gap-3 border-t border-slate-700 bg-[#132033] px-6 py-4 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeApproveModal}
+                  disabled={Boolean(reviewingId)}
+                  className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={submitApprove}
+                  disabled={Boolean(reviewingId)}
+                  className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {reviewingId === approveModal.request?._id ? "Approving..." : "Confirm Approval"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {declineModal.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 px-4 backdrop-blur-sm">
             <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-red-500/20 bg-[#162131] shadow-2xl shadow-black/40">
@@ -780,27 +1016,34 @@ export default function AdminLeaves() {
                           ) : null}
                         </td>
                         <td className="px-6 py-4">
-                          <StatusBadge status={request.status} />
+                          <div className="flex flex-col gap-1">
+                            <StatusBadge status={request.status} />
+                            {request.editHistory?.length > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-blue-400">
+                                <History size={10} />
+                                Edited {request.editHistory.length}×
+                              </span>
+                            )}
+                          </div>
                         </td>
                         {canReview && (
                           <td className="px-6 py-4 text-right">
                             {request.status === "Pending" ? (
-                              <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                  onClick={() => handleReview(request._id, "Approved")}
-                                  disabled={reviewingId === request._id}
-                                  className="p-2 hover:bg-emerald-500/10 text-gray-400 hover:text-emerald-400 rounded-lg transition disabled:opacity-50"
-                                  title="Approve Request"
-                                >
+                              <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => openApproveModal(request)} disabled={reviewingId === request._id} className="p-2 hover:bg-emerald-500/10 text-gray-400 hover:text-emerald-400 rounded-lg transition disabled:opacity-50" title="Approve">
                                   <CheckCircle size={18} />
                                 </button>
-                                <button
-                                  onClick={() => openDeclineModal(request)}
-                                  disabled={reviewingId === request._id}
-                                  className="p-2 hover:bg-red-500/10 text-gray-400 hover:text-red-400 rounded-lg transition disabled:opacity-50"
-                                  title="Decline Request"
-                                >
+                                <button onClick={() => openDeclineModal(request)} disabled={reviewingId === request._id} className="p-2 hover:bg-red-500/10 text-gray-400 hover:text-red-400 rounded-lg transition disabled:opacity-50" title="Decline">
                                   <XCircle size={18} />
+                                </button>
+                              </div>
+                            ) : request.status === "Approved" ? (
+                              <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => openEditModal(request)} disabled={editingId === request._id} className="p-2 hover:bg-blue-500/10 text-gray-400 hover:text-blue-400 rounded-lg transition disabled:opacity-50" title="Edit Leave">
+                                  <Pencil size={16} />
+                                </button>
+                                <button onClick={() => openRevokeModal(request)} disabled={editingId === request._id} className="p-2 hover:bg-orange-500/10 text-gray-400 hover:text-orange-400 rounded-lg transition disabled:opacity-50" title="Revoke Leave">
+                                  <ShieldOff size={16} />
                                 </button>
                               </div>
                             ) : (
@@ -885,20 +1128,30 @@ export default function AdminLeaves() {
 
                   {canReview && request.status === "Pending" && (
                     <div className="mt-5 flex gap-2">
-                      <button
-                        onClick={() => handleReview(request._id, "Approved")}
-                        disabled={reviewingId === request._id}
-                        className="flex-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-sm font-medium text-emerald-400 transition hover:bg-emerald-500 hover:text-white"
-                      >
-                        Approve
+                      <button onClick={() => openApproveModal(request)} disabled={reviewingId === request._id} className="flex-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-sm font-medium text-emerald-400 transition hover:bg-emerald-500 hover:text-white">Approve</button>
+                      <button onClick={() => openDeclineModal(request)} disabled={reviewingId === request._id} className="flex-1 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-500 hover:text-white">Decline</button>
+                    </div>
+                  )}
+                  {canReview && request.status === "Approved" && (
+                    <div className="mt-5 flex gap-2">
+                      <button onClick={() => openEditModal(request)} disabled={editingId === request._id} className="flex-1 rounded-lg border border-blue-500/20 bg-blue-500/10 px-4 py-2.5 text-sm font-medium text-blue-400 transition hover:bg-blue-500 hover:text-white flex items-center justify-center gap-2">
+                        <Pencil size={14} /> Edit
                       </button>
-                      <button
-                        onClick={() => openDeclineModal(request)}
-                        disabled={reviewingId === request._id}
-                        className="flex-1 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-500 hover:text-white"
-                      >
-                        Decline
+                      <button onClick={() => openRevokeModal(request)} disabled={editingId === request._id} className="flex-1 rounded-lg border border-orange-500/20 bg-orange-500/10 px-4 py-2.5 text-sm font-medium text-orange-400 transition hover:bg-orange-500 hover:text-white flex items-center justify-center gap-2">
+                        <ShieldOff size={14} /> Revoke
                       </button>
+                    </div>
+                  )}
+                  {request.editHistory?.length > 0 && (
+                    <div className="mt-4 rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
+                      <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-blue-400"><History size={10} /> Edit History</p>
+                      <ul className="space-y-1.5">
+                        {request.editHistory.map((h, i) => (
+                          <li key={i} className="text-xs text-slate-400">
+                            <span className="font-medium text-slate-200">{h.editedBy?.name || "Admin"}</span>{" — "}{h.editReason}{" on "}{h.editedAt ? format(new Date(h.editedAt), "MMM dd, yyyy") : "–"}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                 </div>
@@ -907,6 +1160,148 @@ export default function AdminLeaves() {
           </div>
         </section>
       </div>
+
+      {/* REVOKE MODAL */}
+      {revokeModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-orange-500/20 bg-[#162131] shadow-2xl">
+            <div className="border-b border-orange-500/10 bg-[linear-gradient(135deg,rgba(234,88,12,0.15),rgba(30,41,59,0.92))] px-6 py-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-widest text-orange-300">Revoke Leave</div>
+                  <h3 className="mt-1.5 text-lg font-semibold text-white">{revokeModal.request ? getRequestDisplayName(revokeModal.request) : ""}</h3>
+                  <p className="mt-1 text-xs text-slate-400">{revokeModal.request?.leaveType} &middot; {revokeModal.request?.dates?.length} day{revokeModal.request?.dates?.length !== 1 ? "s" : ""}</p>
+                </div>
+                <button onClick={closeRevokeModal} disabled={Boolean(editingId)} className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 hover:text-white transition disabled:opacity-50">
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="rounded-xl border border-orange-400/20 bg-orange-400/5 p-3 text-sm text-orange-200">
+                Revoking this leave will change its status to <strong>Revoked</strong>. The guard/staff will no longer be considered on leave for these dates.
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-400">
+                  Reason for Revocation <span className="text-red-400">*</span>
+                </label>
+                <textarea
+                  value={revokeReason}
+                  onChange={(e) => setRevokeReason(e.target.value)}
+                  rows={3}
+                  placeholder="Explain why this leave is being revoked..."
+                  className="w-full rounded-xl border border-slate-700 bg-[#0f172a] px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:border-orange-500/50 focus:outline-none focus:ring-1 focus:ring-orange-500/30 resize-none"
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button onClick={closeRevokeModal} disabled={Boolean(editingId)} className="flex-1 rounded-xl border border-slate-700 py-3 text-sm font-medium text-slate-300 hover:bg-slate-800 transition">Cancel</button>
+                <button
+                  onClick={submitRevoke}
+                  disabled={!revokeReason.trim() || Boolean(editingId)}
+                  className="flex-1 rounded-xl bg-orange-600 py-3 text-sm font-semibold text-white hover:bg-orange-500 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {editingId ? <RefreshCcw size={14} className="animate-spin" /> : <ShieldOff size={14} />}
+                  {editingId ? "Revoking…" : "Revoke Leave"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT MODAL */}
+      {editModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl border border-blue-500/20 bg-[#162131] shadow-2xl">
+            <div className="sticky top-0 border-b border-blue-500/10 bg-[linear-gradient(135deg,rgba(37,99,235,0.15),rgba(30,41,59,0.97))] px-6 py-5 z-10">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-widest text-blue-300">Edit Approved Leave</div>
+                  <h3 className="mt-1.5 text-lg font-semibold text-white">{editModal.request ? getRequestDisplayName(editModal.request) : ""}</h3>
+                  <p className="mt-1 text-xs text-slate-400">Changes will be logged in the edit history.</p>
+                </div>
+                <button onClick={closeEditModal} disabled={Boolean(editingId)} className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 hover:text-white transition disabled:opacity-50">
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+            <div className="px-6 py-5 space-y-5">
+              {/* Leave Type */}
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-400">Leave Type</label>
+                <select value={editLeaveType} onChange={(e) => setEditLeaveType(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-[#0f172a] px-4 py-3 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none">
+                  {["Sick Leave", "Vacation Leave", "Paternity Leave", "Maternity Leave"].map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+
+              {/* Date Range */}
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-400">
+                  Date Range <span className="normal-case font-normal text-slate-500">(click selected days to toggle exclusion)</span>
+                </label>
+                <div className="rounded-xl border border-slate-700 bg-[#0f172a] p-2 flex justify-center">
+                  <DayPicker
+                    mode="range"
+                    selected={editRange}
+                    onSelect={setEditRange}
+                    modifiers={{ excluded: editRangeDates.filter((d) => editExcluded.includes(d)).map((d) => new Date(`${d}T00:00:00`)) }}
+                    modifiersClassNames={{ excluded: "rdp-day_excluded" }}
+                    onDayClick={(day) => { const k = format(day, "yyyy-MM-dd"); if (editRangeDates.includes(k)) toggleEditExcluded(k); }}
+                  />
+                </div>
+                {editRangeDates.length > 0 && (
+                  <p className="mt-2 text-xs text-slate-500">{editIncludedDates.length} of {editRangeDates.length} day{editRangeDates.length !== 1 ? "s" : ""} included</p>
+                )}
+              </div>
+
+              {/* Leave Reason */}
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-400">Leave Reason</label>
+                <textarea value={editReasonText} onChange={(e) => setEditReasonText(e.target.value)} rows={2} placeholder="Reason for leave..." className="w-full rounded-xl border border-slate-700 bg-[#0f172a] px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:border-blue-500/50 focus:outline-none resize-none" />
+              </div>
+
+              {/* Edit Reason — required, stored in history */}
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-400">
+                  Reason for Edit <span className="text-red-400">*</span>
+                  <span className="ml-2 normal-case font-normal text-slate-500">(logged in history)</span>
+                </label>
+                <textarea value={editReason} onChange={(e) => setEditReason(e.target.value)} rows={2} placeholder="Why are you editing this leave record?" className="w-full rounded-xl border border-blue-500/20 bg-[#0f172a] px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30 resize-none" />
+              </div>
+
+              {/* Previous edits */}
+              {editModal.request?.editHistory?.length > 0 && (
+                <div className="rounded-xl border border-slate-700 bg-slate-900/50 p-4">
+                  <p className="mb-3 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                    <History size={11} /> Previous Edits
+                  </p>
+                  <ul className="space-y-3">
+                    {editModal.request.editHistory.map((h, i) => (
+                      <li key={i} className="text-xs">
+                        <div className="font-semibold text-slate-200">{h.editedBy?.name || "Admin"}</div>
+                        <div className="mt-0.5 text-slate-400">&ldquo;{h.editReason}&rdquo;</div>
+                        <div className="mt-0.5 text-slate-600">{h.editedAt ? format(new Date(h.editedAt), "MMM dd, yyyy · HH:mm") : "–"}</div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <button onClick={closeEditModal} disabled={Boolean(editingId)} className="flex-1 rounded-xl border border-slate-700 py-3 text-sm font-medium text-slate-300 hover:bg-slate-800 transition">Cancel</button>
+                <button
+                  onClick={submitEdit}
+                  disabled={!editReason.trim() || editIncludedDates.length === 0 || Boolean(editingId)}
+                  className="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-500 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {editingId ? <RefreshCcw size={14} className="animate-spin" /> : <Pencil size={14} />}
+                  {editingId ? "Saving…" : "Save Changes"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

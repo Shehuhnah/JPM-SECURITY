@@ -167,6 +167,22 @@ export const declineApplicant = async (req, res) => {
   }
 };
 
+export const deleteApplicant = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deletedApplicant = await Applicant.findByIdAndDelete(id);
+    if (!deletedApplicant) {
+      return res.status(404).json({ message: "Applicant not found." });
+    }
+
+    res.status(200).json({ message: "Applicant deleted successfully.", applicant: deletedApplicant });
+  } catch (error) {
+    console.error("Error deleting applicant:", error);
+    res.status(500).json({ message: "Failed to delete applicant." });
+  }
+};
+
 // Helper functions for formatting dates and times
 const formatDate = (value) => {
   if (!value) return "";

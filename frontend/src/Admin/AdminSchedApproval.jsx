@@ -101,6 +101,7 @@ export default function AdminSchedApproval() {
   const [viewMode, setViewMode] = useState("calendar");
   const [statusFilter, setStatusFilter] = useState("All");
   const [monthFilter, setMonthFilter] = useState("All");
+  const [yearFilter, setYearFilter] = useState("All");
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -260,6 +261,21 @@ export default function AdminSchedApproval() {
       )].sort(),
     [schedules]
   );
+  const yearOptions = useMemo(
+    () =>
+      [...new Set(
+        schedules
+          .flatMap((schedule) => {
+            const months = Array.isArray(schedule?.batchMeta?.coveredMonths) && schedule.batchMeta.coveredMonths.length > 0
+              ? schedule.batchMeta.coveredMonths
+              : [String(schedule?.timeIn || "").slice(0, 7)];
+            return months
+              .filter((value) => /^\d{4}-\d{2}$/.test(value))
+              .map((value) => value.slice(0, 4));
+          })
+      )].sort(),
+    [schedules]
+  );
 
   const filteredSchedules = schedules.filter((s) => {
     const matchesClient = !selectedClient || selectedClient === "All" || s.client === selectedClient;
@@ -268,7 +284,11 @@ export default function AdminSchedApproval() {
       ? s.batchMeta.coveredMonths
       : [String(s.timeIn || "").slice(0, 7)];
     const matchesMonth = monthFilter === "All" || coveredMonths.includes(monthFilter);
-    return matchesClient && matchesStatus && matchesMonth;
+    const coveredYears = coveredMonths
+      .filter((value) => /^\d{4}-\d{2}$/.test(value))
+      .map((value) => value.slice(0, 4));
+    const matchesYear = yearFilter === "All" || coveredYears.includes(yearFilter);
+    return matchesClient && matchesStatus && matchesMonth && matchesYear;
   });
 
   const getCreatedAtValue = (schedule) => new Date(schedule?.createdAt || 0).getTime();
@@ -367,7 +387,7 @@ export default function AdminSchedApproval() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedClient, statusFilter, monthFilter, viewMode]);
+  }, [selectedClient, statusFilter, monthFilter, yearFilter, viewMode]);
 
   useEffect(() => {
     if (currentPage > totalBatchPages) {
@@ -467,6 +487,19 @@ export default function AdminSchedApproval() {
                 {monthOptions.map((monthValue) => (
                     <option key={monthValue} value={monthValue}>
                         {formatMonthValue(monthValue)}
+                    </option>
+                ))}
+            </select>
+
+            <select
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value)}
+                className="w-full sm:w-auto bg-[#1e293b] border border-gray-700 text-gray-200 text-sm rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+                <option value="All">All Years</option>
+                {yearOptions.map((yearValue) => (
+                    <option key={yearValue} value={yearValue}>
+                        {yearValue}
                     </option>
                 ))}
             </select>

@@ -44,7 +44,9 @@ const populateLeaveRequest = (query) =>
   query
     .populate("guard", "firstName lastName fullName guardId position email")
     .populate("staff", "name email position role")
-    .populate("reviewedBy", "name role");
+    .populate("reviewedBy", "name role")
+    .populate("revokedBy", "name role")
+    .populate("editHistory.editedBy", "name role");
 
 const getGuardDisplayName = (guard) => {
   if (!guard) return "Unknown Guard";
@@ -305,5 +307,115 @@ export const getDeploymentLeaveAvailability = async (req, res) => {
     res.status(200).json(payload);
   } catch (error) {
     res.status(500).json({ message: "Error fetching deployment leave availability", error: error.message });
+  }
+};
+
+/**
+ * @desc    Revoke an approved leave request
+ * @route   PATCH /api/leaves/:id/revoke
+ * @access  Admin, Subadmin
+ */
+export const revokeLeaveRequest = async (req, res) => {
+  try {
+    if (!["Admin", "Subadmin"].includes(req.user?.role)) {
+      return res.status(403).json({ message: "Not authorized to revoke leave requests." });
+    }
+
+    const revokeReason = String(req.body?.revokeReason || "").trim();
+    if (!revokeReason) {
+      return res.status(400).json({ message: "A reason is required to revoke an approved leave." });
+    }
+
+    const request = await LeaveRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: "Leave request not found." });
+    }
+
+    if (request.status !== "Approved") {
+      return res.status(400).json({ message: "Only approved leave requests can be revoked." });
+    }
+
+    request.status = "Revoked";
+    request.revokeReason = revokeReason;
+    request.revokedBy = req.user._id;
+    request.revokedAt = new Date();
+    await request.save();
+
+    const populated = await populateLeaveRequest(LeaveRequest.findById(request._id));
+    res.status(200).json(populated);
+  } catch (error) {
+    console.error("Error revoking leave request:", error);
+    res.status(500).json({ message: "Error revoking leave request", error: error.message });
+  }
+};
+
+/**
+ * @desc    Edit an approved leave request (dates, type, reason) — logs history
+ * @route   PATCH /api/leaves/:id/edit
+ * @access  Admin, Subadmin
+ */
+export const editLeaveRequest = async (req, res) => {
+  try {
+    if (!["Admin", "Subadmin"].includes(req.user?.role)) {
+      return res.status(403).json({ message: "Not authorized to edit leave requests." });
+    }
+
+    const editReason = String(req.body?.editReason || "").trim();
+    if (!editReason) {
+      return res.status(400).json({ message: "An edit reason is required." });
+    }
+
+    const request = await LeaveRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: "Leave request not found." });
+    }
+
+    if (request.status !== "Approved") {
+      return res.status(400).json({ message: "Only approved leave requests can be edited." });
+    }
+
+    // Snapshot previous values before applying changes
+    const historyEntry = {
+      editedBy: req.user._id,
+      editedAt: new Date(),
+      editReason,
+      previousDates: [...(request.dates || [])],
+      previousStartDate: request.startDate,
+      previousEndDate: request.endDate,
+      previousLeaveType: request.leaveType,
+      previousReason: request.reason,
+    };
+
+    // Apply new values if provided
+    const newStartDate = String(req.body?.startDate || request.startDate).slice(0, 10);
+    const newEndDate   = String(req.body?.endDate   || request.endDate).slice(0, 10);
+    const newExcluded  = req.body?.excludedDates ? normalizeDates(req.body.excludedDates) : request.excludedDates;
+    const newDates     = req.body?.dates ? normalizeDates(req.body.dates) : request.dates;
+    const newLeaveType = String(req.body?.leaveType || request.leaveType).trim();
+    const newReason    = String(req.body?.reason    || request.reason).trim();
+
+    if (!LEAVE_TYPES.includes(newLeaveType)) {
+      return res.status(400).json({ message: "Invalid leave type." });
+    }
+
+    if (newDates.length === 0) {
+      return res.status(400).json({ message: "At least one leave date is required." });
+    }
+
+    request.startDate    = newStartDate;
+    request.endDate      = newEndDate;
+    request.excludedDates = newExcluded;
+    request.dates        = newDates;
+    request.leaveType    = newLeaveType;
+    request.reason       = newReason;
+    request.editHistory.push(historyEntry);
+
+    await request.save();
+
+    const populated = await populateLeaveRequest(LeaveRequest.findById(request._id));
+    res.status(200).json(populated);
+  } catch (error) {
+    console.error("Error editing leave request:", error);
+    res.status(500).json({ message: "Error editing leave request", error: error.message });
   }
 };

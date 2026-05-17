@@ -263,7 +263,7 @@ export const getAdmins = async (req, res) => {
 export const getGuards = async (req, res) => {
   try {
     const guards = await Guard.find({ role: "Guard" }).select(
-      "fullName email guardId phoneNumber address position status" // Removed dutyStation and shift
+      "firstName lastName fullName sex email guardId phoneNumber address position status"
     );
     const guardsWithStatus = await attachCurrentLeaveStatusToGuards(guards);
     res.json(guardsWithStatus);

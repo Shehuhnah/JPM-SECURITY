@@ -69,7 +69,8 @@ export const getLogbooks = async (req, res) => {
         }
         
         const logbooks = await Logbook.find(query)
-            .populate("guard", "fullName guardId dutyStation position") // Populate guard details
+            .populate("guard", "firstName lastName fullName guardId position")
+            .populate("scheduleId", "client deploymentLocation shiftType timeIn timeOut")
             .sort({ createdAt: -1 });
         res.json(logbooks);
     } catch (error) {
@@ -80,7 +81,9 @@ export const getLogbooks = async (req, res) => {
 
 export const getLogbookById = async (req, res) => {
     try {
-        const logbook = await Logbook.findById(req.params.id).populate("guard", "fullName email guardId"); // Populate with correct guard fields
+        const logbook = await Logbook.findById(req.params.id)
+          .populate("guard", "firstName lastName fullName email guardId")
+          .populate("scheduleId", "client deploymentLocation shiftType timeIn timeOut");
         if (!logbook) {
             return res.status(404).json({ message: "Logbook entry not found" });
         }
@@ -129,7 +132,8 @@ export const getLogsByGuard = async (req, res) => {
     try {
       const { guardId } = req.params; // This guardId is an ObjectId from the route
       const logs = await Logbook.find({ guard: guardId }) // Filter by guard ObjectId
-        .populate('guard', 'fullName guardId dutyStation position') // Populate guard details
+        .populate('guard', 'firstName lastName fullName guardId position')
+        .populate('scheduleId', 'client deploymentLocation shiftType timeIn timeOut')
         .sort({ createdAt: -1 });
       
       res.status(200).json(logs);

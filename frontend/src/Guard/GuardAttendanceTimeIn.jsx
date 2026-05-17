@@ -37,6 +37,10 @@ function GuardAttendanceTimeIn() {
   const [availableSchedules, setAvailableSchedules] = useState([]);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
 
+  // On-leave detection
+  const [isOnLeave, setIsOnLeave] = useState(false);
+  const [activeLeave, setActiveLeave] = useState(null);
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -113,7 +117,41 @@ function GuardAttendanceTimeIn() {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch today's schedules and auto-select a reasonable default.
+  // Check if guard is on approved leave today
+  useEffect(() => {
+    const checkLeaveStatus = async () => {
+      if (!guard?._id) return;
+      try {
+        const res = await fetch(`${api}/api/leaves/my`, { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!Array.isArray(data)) return;
+
+        const todayKey = new Date().toISOString().slice(0, 10);
+        const approvedLeave = data.find(
+          (leave) =>
+            leave.status === "Approved" &&
+            Array.isArray(leave.dates) &&
+            leave.dates.includes(todayKey)
+        );
+
+        if (approvedLeave) {
+          setIsOnLeave(true);
+          setActiveLeave(approvedLeave);
+        } else {
+          setIsOnLeave(false);
+          setActiveLeave(null);
+        }
+      } catch (err) {
+        console.warn("Leave status check failed:", err);
+      }
+    };
+
+    checkLeaveStatus();
+  }, [guard?._id, api]);
+
+  // Fetch today's schedules, auto-select a reasonable default,
+  // and filter out any shift already fully completed (timed-in + timed-out).
   useEffect(() => {
     const fetchSchedules = async () => {
       if (!guard?._id) return;
@@ -121,24 +159,48 @@ function GuardAttendanceTimeIn() {
       setChecking(true);
       setCheckError(null);
       try {
-        const res = await fetch(`${api}/api/schedules/today/${guard._id}`, {
-          method: "GET",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-        });
+        const [schedRes, attRes] = await Promise.all([
+          fetch(`${api}/api/schedules/today/${guard._id}`, {
+            method: "GET",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+          }),
+          fetch(`${api}/api/attendance/${guard._id}`, {
+            credentials: "include",
+          }),
+        ]);
 
-        if (!res.ok) throw new Error("Failed to fetch today's schedules.");
+        if (!schedRes.ok) throw new Error("Failed to fetch today's schedules.");
 
-        const { schedules } = await res.json();
-        setAvailableSchedules(schedules);
+        const { schedules } = await schedRes.json();
 
-        // Prefer an ongoing shift for convenience, otherwise fall back to the first available schedule.
-        const ongoing = schedules.find((s) => isShiftOngoing(s));
-        
+        // Build a set of scheduleIds that are fully completed (both timeIn + timeOut set).
+        // These shifts are "done" and should not appear as time-in options again.
+        let completedScheduleIds = new Set();
+        if (attRes.ok) {
+          const attData = await attRes.json();
+          const allRecords = Array.isArray(attData) ? attData : attData?.items || [];
+          allRecords.forEach((rec) => {
+            if (rec.scheduleId?._id && rec.timeIn && rec.timeOut) {
+              completedScheduleIds.add(rec.scheduleId._id);
+            }
+          });
+        }
+
+        // Exclude fully-completed shifts so a finished overnight shift
+        // doesn't block time-in for a new shift on the next day.
+        const openSchedules = schedules.filter(
+          (s) => !completedScheduleIds.has(s._id)
+        );
+
+        setAvailableSchedules(openSchedules);
+
+        // Prefer an ongoing shift for convenience, otherwise fall back to the first available.
+        const ongoing = openSchedules.find((s) => isShiftOngoing(s));
         if (ongoing) {
           setSelectedSchedule(ongoing);
-        } else if (schedules.length > 0) {
-          setSelectedSchedule(schedules[0]);
+        } else if (openSchedules.length > 0) {
+          setSelectedSchedule(openSchedules[0]);
         }
       } catch (err) {
         console.error("Schedule fetch failed:", err);
@@ -155,17 +217,22 @@ function GuardAttendanceTimeIn() {
   // Check Attendance Status for Selected Schedule
   useEffect(() => {
     const checkAttendance = async () => {
-      if (!selectedSchedule?._id) return;
+      if (!selectedSchedule?._id || !guard?._id) return;
 
       setChecking(true);
       setCheckError(null);
       try {
-        const res = await fetch(`${api}/api/attendance`, {
+        // Use the guard-specific endpoint — avoids fetching all guards' records
+        // and ensures we only look at this guard's own attendance history.
+        const res = await fetch(`${api}/api/attendance/${guard._id}`, {
           credentials: "include",
         });
-        const allAttendance = await res.json();
+        const guardAttendance = await res.json();
+        const allRecords = Array.isArray(guardAttendance)
+          ? guardAttendance
+          : guardAttendance?.items || [];
 
-        const existingRecord = allAttendance.find(
+        const existingRecord = allRecords.find(
           (rec) => rec.scheduleId?._id === selectedSchedule._id && !rec.timeOut
         );
 
@@ -189,7 +256,7 @@ function GuardAttendanceTimeIn() {
       }
     };
     checkAttendance();
-  }, [selectedSchedule?._id, api]);
+  }, [selectedSchedule?._id, guard?._id, api]);
 
   useEffect(() => {
     if (!isSubmitted || !attendanceData?.timeIn || attendanceData?.timeOut) {
@@ -471,6 +538,23 @@ function GuardAttendanceTimeIn() {
             </div>
           )}
 
+          {/* On Leave Banner */}
+          {isOnLeave && (
+            <div className="mb-5 flex items-start gap-3 rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-4">
+              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-yellow-400/20 text-yellow-300">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                  <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                </svg>
+              </span>
+              <div>
+                <p className="text-sm font-bold text-yellow-300">On Leave</p>
+                <p className="mt-0.5 text-xs text-yellow-200/80">
+                  You have an approved {activeLeave?.leaveType || "leave"} today. Time-in is not allowed while you are on leave.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Profile */}
           <div className="text-center mb-6">
             <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-blue-500 to-blue-600 flex items-center justify-center shadow-lg mb-4 mx-auto">
@@ -489,7 +573,10 @@ function GuardAttendanceTimeIn() {
             </label>
             <Menu as="div" className="relative block text-left">
               <div>
-                <Menu.Button className="inline-flex justify-between w-full rounded-md border border-gray-700 shadow-sm px-4 py-3 bg-[#0f172a] text-sm font-medium text-white hover:bg-[#1e293b] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500">
+                <Menu.Button
+                  disabled={isOnLeave}
+                  className={`inline-flex justify-between w-full rounded-md border border-gray-700 shadow-sm px-4 py-3 bg-[#0f172a] text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 ${isOnLeave ? "opacity-50 cursor-not-allowed" : "hover:bg-[#1e293b]"}`}
+                >
                   {selectedSchedule ? (
                     <div className="flex flex-col items-start w-full">
                       <div className="flex items-center gap-2 w-full">
@@ -659,7 +746,14 @@ function GuardAttendanceTimeIn() {
                 {submitError}
               </div>
             )}
-            {!isSubmitted ? (
+            {isOnLeave ? (
+              <div className="w-full flex items-center justify-center gap-2 rounded-xl border border-yellow-400/30 bg-yellow-400/10 py-3.5 text-sm font-semibold text-yellow-300 cursor-not-allowed select-none">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                  <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                </svg>
+                On Leave — Time-in Unavailable
+              </div>
+            ) : !isSubmitted ? (
               <button
                 onClick={capturedImage ? handleTimeIn : startCamera}
                 disabled={submitting || checking || !selectedSchedule}

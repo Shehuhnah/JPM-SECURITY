@@ -25,6 +25,20 @@ const WEEKDAY_OPTIONS = [
   { label: "Fri", value: 5 },
   { label: "Sat", value: 6 },
 ];
+const MONTH_OPTIONS = [
+  { value: "01", label: "January" },
+  { value: "02", label: "February" },
+  { value: "03", label: "March" },
+  { value: "04", label: "April" },
+  { value: "05", label: "May" },
+  { value: "06", label: "June" },
+  { value: "07", label: "July" },
+  { value: "08", label: "August" },
+  { value: "09", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
+];
 
 // Custom CSS to force Dark Mode on React Day Picker with Responsive Cell Sizes
 const datePickerStyles = `
@@ -388,6 +402,26 @@ export default function AdminAddSchedule() {
     [selectedDays]
   );
 
+  const browseMonthParts = useMemo(() => {
+    const [year = format(new Date(), "yyyy"), month = format(new Date(), "MM")] = String(selectedMonth || "").split("-");
+    return { year, month };
+  }, [selectedMonth]);
+
+  const browseYearOptions = useMemo(() => {
+    const explicitYears = getTargetMonths()
+      .map((monthValue) => String(monthValue).slice(0, 4))
+      .filter(Boolean);
+    const currentYear = new Date().getFullYear();
+    const rangeYears = Array.from({ length: 9 }, (_, index) => String(currentYear - 2 + index));
+    return [...new Set([...explicitYears, ...rangeYears])].sort((a, b) => Number(a) - Number(b));
+  }, [getTargetMonths]);
+
+  const handleBrowseMonthPartChange = (part, value) => {
+    const nextYear = part === "year" ? value : browseMonthParts.year;
+    const nextMonth = part === "month" ? value : browseMonthParts.month;
+    setSelectedMonth(`${nextYear}-${nextMonth}`);
+  };
+
   const getGuardLeaveConflict = useCallback((guardId) => {
     if (!guardId || selectedDateStrings.length === 0) return null;
 
@@ -664,12 +698,33 @@ export default function AdminAddSchedule() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-400 mb-1.5 ml-1">Browse Month</label>
-                                    <input
-                                        type="month"
-                                        value={selectedMonth}
-                                        onChange={(e) => setSelectedMonth(e.target.value)}
-                                        className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                    />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <select
+                                            value={browseMonthParts.month}
+                                            onChange={(e) => handleBrowseMonthPartChange("month", e.target.value)}
+                                            className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none appearance-none cursor-pointer"
+                                        >
+                                            {MONTH_OPTIONS.map((monthOption) => (
+                                                <option key={monthOption.value} value={monthOption.value}>
+                                                    {monthOption.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            value={browseMonthParts.year}
+                                            onChange={(e) => handleBrowseMonthPartChange("year", e.target.value)}
+                                            className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none appearance-none cursor-pointer"
+                                        >
+                                            {browseYearOptions.map((yearValue) => (
+                                                <option key={yearValue} value={yearValue}>
+                                                    {yearValue}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <p className="mt-2 text-xs text-slate-500">
+                                        Choose the exact month and year you want to browse in the calendar.
+                                    </p>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-400 mb-1.5 ml-1">Add Target Months</label>
@@ -778,19 +833,6 @@ export default function AdminAddSchedule() {
                             </div> */}
 
                             <div className="mt-4 flex flex-wrap gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    mergeSelectedDays(
-                                      getTargetMonths().flatMap((monthValue) =>
-                                        getMonthDaysByWeekdays(monthValue, selectedWeekdays)
-                                      )
-                                    )
-                                  }
-                                  className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500"
-                                >
-                                  Apply Selected Days To Target Months
-                                </button>
                                 <button
                                   type="button"
                                   onClick={clearTargetMonthSelection}

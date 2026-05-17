@@ -5,8 +5,10 @@ import {
   CalendarDays,
   Clock,
   FileImage,
+  Filter,
   Route,
   MapPin,
+  Search,
   Shield,
   X,
 } from "lucide-react";
@@ -22,6 +24,12 @@ function GuardAttendanceRecords() {
   const [loadingPage, setLoadingPage] = useState(true);
   const [error, setError] = useState("");
   const [previewImage, setPreviewImage] = useState(null);
+
+  // ── Filter state ────────────────────────────────────────────
+  const [searchClient, setSearchClient] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterShiftType, setFilterShiftType] = useState("");
 
   useEffect(() => {
     if (!guard && !loading) {
@@ -63,6 +71,47 @@ function GuardAttendanceRecords() {
     () => [...records].sort((a, b) => new Date(b.timeIn || 0) - new Date(a.timeIn || 0)),
     [records]
   );
+
+  // ── Derived filter options ───────────────────────────────────
+  const shiftTypes = useMemo(() => {
+    const types = new Set();
+    records.forEach((r) => { if (r.scheduleId?.shiftType) types.add(r.scheduleId.shiftType); });
+    return [...types].sort();
+  }, [records]);
+
+  // ── Filtered records ─────────────────────────────────────────
+  const filteredRecords = useMemo(() => {
+    return sortedRecords.filter((record) => {
+      // Client search
+      if (searchClient.trim()) {
+        const q = searchClient.trim().toLowerCase();
+        const client = (record.scheduleId?.client || "").toLowerCase();
+        if (!client.includes(q)) return false;
+      }
+
+      // Shift type
+      if (filterShiftType && record.scheduleId?.shiftType !== filterShiftType) return false;
+
+      // Date range — compare against the actual timeIn date
+      if (filterDateFrom || filterDateTo) {
+        const timeIn = record.timeIn ? new Date(record.timeIn) : null;
+        if (!timeIn || Number.isNaN(timeIn.getTime())) return false;
+        const recKey = timeIn.toISOString().slice(0, 10);
+        if (filterDateFrom && recKey < filterDateFrom) return false;
+        if (filterDateTo   && recKey > filterDateTo)   return false;
+      }
+
+      return true;
+    });
+  }, [sortedRecords, searchClient, filterShiftType, filterDateFrom, filterDateTo]);
+
+  const hasActiveFilters = searchClient.trim() || filterShiftType || filterDateFrom || filterDateTo;
+  const clearFilters = () => {
+    setSearchClient("");
+    setFilterShiftType("");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+  };
 
   const formatDate = (value) => {
     if (!value) return "N/A";
@@ -123,7 +172,86 @@ function GuardAttendanceRecords() {
           </div>
           <div className="rounded-2xl border border-slate-700 bg-[#0f172a]/60 px-5 py-4 text-center md:min-w-44">
             <div className="text-xs uppercase tracking-widest text-slate-500">Total Records</div>
-            <div className="mt-2 text-3xl font-black text-blue-400">{sortedRecords.length}</div>
+            <div className="mt-2 text-3xl font-black text-blue-400">
+              {hasActiveFilters ? (
+                <>
+                  <span>{filteredRecords.length}</span>
+                  <span className="ml-1 text-lg font-semibold text-slate-500">/ {sortedRecords.length}</span>
+                </>
+              ) : sortedRecords.length}
+            </div>
+            {hasActiveFilters && <div className="mt-1 text-[10px] uppercase tracking-widest text-slate-500">Filtered</div>}
+          </div>
+        </div>
+
+        {/* ── Filter Bar ──────────────────────────────────────── */}
+        <div className="mb-6 rounded-2xl border border-slate-700 bg-[#1e293b]/70 p-4 shadow-lg">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
+              <Filter size={14} />
+              Filters
+            </div>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30"
+              >
+                <X size={12} /> Clear filters
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Client search */}
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                value={searchClient}
+                onChange={(e) => setSearchClient(e.target.value)}
+                placeholder="Search client…"
+                className="w-full rounded-xl border border-slate-700 bg-[#0f172a] py-2.5 pl-8 pr-3 text-sm text-slate-200 placeholder-slate-500 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+              />
+            </div>
+
+            {/* Shift type */}
+            <div className="relative">
+              <Shield size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+              <select
+                value={filterShiftType}
+                onChange={(e) => setFilterShiftType(e.target.value)}
+                className="w-full appearance-none rounded-xl border border-slate-700 bg-[#0f172a] py-2.5 pl-8 pr-3 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+              >
+                <option value="">All shift types</option>
+                {shiftTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+
+            {/* Date from */}
+            <div className="relative">
+              <CalendarDays size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+              <input
+                type="date"
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+                className="w-full rounded-xl border border-slate-700 bg-[#0f172a] py-2.5 pl-8 pr-3 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30 [color-scheme:dark]"
+                title="From date"
+              />
+              {!filterDateFrom && <span className="pointer-events-none absolute left-8 top-1/2 -translate-y-1/2 text-sm text-slate-500"></span>}
+            </div>
+
+            {/* Date to */}
+            <div className="relative">
+              <CalendarDays size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+              <input
+                type="date"
+                value={filterDateTo}
+                min={filterDateFrom || undefined}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+                className="w-full rounded-xl border border-slate-700 bg-[#0f172a] py-2.5 pl-8 pr-3 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30 [color-scheme:dark]"
+                title="To date"
+              />
+              {!filterDateTo && <span className="pointer-events-none absolute left-8 top-1/2 -translate-y-1/2 text-sm text-slate-500"></span>}
+            </div>
           </div>
         </div>
 
@@ -145,9 +273,16 @@ function GuardAttendanceRecords() {
           </div>
         )}
 
-        {!loadingPage && !error && sortedRecords.length > 0 && (
+        {!loadingPage && !error && sortedRecords.length > 0 && filteredRecords.length === 0 && (
+          <div className="rounded-2xl border border-slate-700 bg-[#1e293b] p-8 text-center">
+            <p className="text-slate-400">No records match the current filters.</p>
+            <button onClick={clearFilters} className="mt-3 text-sm text-blue-400 hover:underline">Clear filters</button>
+          </div>
+        )}
+
+        {!loadingPage && !error && filteredRecords.length > 0 && (
           <div className="grid gap-5">
-            {sortedRecords.map((record) => (
+            {filteredRecords.map((record) => (
               <div
                 key={record._id}
                 className="overflow-hidden rounded-[28px] border border-slate-700 bg-[#1e293b]/85 shadow-xl backdrop-blur-sm"

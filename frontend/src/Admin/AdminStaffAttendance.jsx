@@ -262,9 +262,22 @@ export default function AdminStaffAttendance() {
   const hasTimedIn = Boolean(todayRecord?.timeIn);
   const hasTimedOut = Boolean(todayRecord?.timeOut);
   const liveTimeInLabel = getWorkedDurationLabel(todayRecord, liveNow);
-  const primaryAction = !hasTimedIn || hasTimedOut
+
+  // Determine if the logged-in staff member is on approved leave today
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const activeLeave = leaveRequests.find(
+    (leave) =>
+      leave.status === "Approved" &&
+      Array.isArray(leave.dates) &&
+      leave.dates.map(normalizeLeaveDateKey).includes(todayKey)
+  ) || null;
+  const isOnLeave = Boolean(activeLeave);
+
+  const primaryAction = !isOnLeave && (!hasTimedIn || hasTimedOut)
     ? { label: "Time In", icon: <LogIn size={18} />, onClick: handleTimeIn }
-    : { label: "Time Out", icon: <LogOut size={18} />, onClick: handleTimeOut };
+    : !isOnLeave
+      ? { label: "Time Out", icon: <LogOut size={18} />, onClick: handleTimeOut }
+      : null;
 
   const recentAttendance = useMemo(() => dashboard?.recentRecords || [], [dashboard]);
 
@@ -396,15 +409,24 @@ export default function AdminStaffAttendance() {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          {primaryAction && (
-            <button
-              onClick={primaryAction.onClick}
-              disabled={submitting}
-              className="px-5 py-3 rounded-xl bg-[#2B7FFF] hover:bg-[#2460b9] text-white font-semibold flex items-center gap-2 transition disabled:opacity-60"
-            >
-              {submitting ? <RefreshCcw className="animate-spin" size={18} /> : primaryAction.icon}
-              {primaryAction.label}
-            </button>
+          {isOnLeave ? (
+            <div className="flex items-center gap-2 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-5 py-3 text-sm font-semibold text-yellow-300 select-none">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 shrink-0">
+                <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+              </svg>
+              On Leave
+            </div>
+          ) : (
+            primaryAction && (
+              <button
+                onClick={primaryAction.onClick}
+                disabled={submitting}
+                className="px-5 py-3 rounded-xl bg-[#2B7FFF] hover:bg-[#2460b9] text-white font-semibold flex items-center gap-2 transition disabled:opacity-60"
+              >
+                {submitting ? <RefreshCcw className="animate-spin" size={18} /> : primaryAction.icon}
+                {primaryAction.label}
+              </button>
+            )
           )}
 
           <button
@@ -457,11 +479,26 @@ export default function AdminStaffAttendance() {
               Loading attendance...
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <PanelItem label="Time In" value={formatDateTime(todayRecord?.firstTimeIn || todayRecord?.timeIn)} />
-              <PanelItem label="Time Out" value={formatDateTime(todayRecord?.timeOut)} />
-              <PanelItem label="Worked Hours" value={getWorkedHoursLabel(todayRecord, liveNow)} />
-            </div>
+            <>
+              {isOnLeave && (
+                <div className="mb-4 flex items-start gap-3 rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="mt-0.5 h-5 w-5 shrink-0 text-yellow-300">
+                    <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-bold text-yellow-300">On Leave</p>
+                    <p className="mt-0.5 text-xs text-yellow-200/70">
+                      You have an approved {activeLeave?.leaveType || "leave"} today. Time-in is not available.
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <PanelItem label="Time In" value={formatDateTime(todayRecord?.firstTimeIn || todayRecord?.timeIn)} />
+                <PanelItem label="Time Out" value={formatDateTime(todayRecord?.timeOut)} />
+                <PanelItem label="Worked Hours" value={getWorkedHoursLabel(todayRecord, liveNow)} />
+              </div>
+            </>
           )}
 
           <div className="mt-6 p-4 rounded-xl bg-slate-950/50 border border-slate-800">

@@ -4,7 +4,6 @@ import {
   Mail,
   Phone,
   MapPin,
-  Clock,
   BadgeCheck,
   Pencil,
   Eye,
@@ -45,8 +44,6 @@ export default function GuardProfile() {
     email: "",
     phoneNumber: "",
     address: "",
-    dutyStation: "",
-    shift: "",
     position: "",
     currentPassword: "",
     newpassword: "",
@@ -84,8 +81,6 @@ export default function GuardProfile() {
           email: p.email || "",
           phoneNumber: p.phoneNumber || "",
           address: p.address || "",
-          dutyStation: p.dutyStation || "",
-          shift: p.shift || "",
           position: p.position || "",
           sssId: p.SSSID || "",
           philHealthId: p.PhilHealthID || "",
@@ -256,18 +251,6 @@ export default function GuardProfile() {
             value={guard.address}
             editable={isEditing}
             onChange={handleChange}
-          />
-          <ProfileField
-            icon={<BadgeCheck className="text-blue-400 w-5 h-5" />}
-            label="Duty Station"
-            value={guard.dutyStation}
-            editable={false}
-          />
-          <ProfileField
-            icon={<Clock className="text-blue-400 w-5 h-5" />}
-            label="Shift"
-            value={guard.shift}
-            editable={false}
           />
           <ProfileField
             icon={<BadgeCheck className="text-blue-400 w-5 h-5" />}

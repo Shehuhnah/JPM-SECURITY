@@ -27,9 +27,16 @@ const isScheduleWithinCurrentDay = (schedule, now = new Date()) => {
     return false;
   }
 
+  // Use the Manila calendar date for "now" so PHT midnight boundaries are respected.
   const todayKey = getManilaDateKey(now);
-  const timeInKey = getManilaDateKey(schedule.timeIn);
-  const timeOutKey = getManilaDateKey(schedule.timeOut);
+
+  // IMPORTANT: schedule.timeIn / timeOut are stored as timezone-naive strings
+  // (e.g. "2026-05-17T19:00:00"). Passing them through `new Date()` on a UTC
+  // server incorrectly shifts them +8 h, turning a 7 PM PHT night-shift into
+  // "2026-05-18" and blocking the guard from timing in.
+  // Fix: treat the stored string as PHT by slicing the raw YYYY-MM-DD prefix.
+  const timeInKey  = String(schedule.timeIn).slice(0, 10);
+  const timeOutKey = String(schedule.timeOut).slice(0, 10);
 
   return timeInKey === todayKey || timeOutKey === todayKey;
 };

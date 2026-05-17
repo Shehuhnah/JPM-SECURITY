@@ -97,6 +97,9 @@ export default function ApplicantsList() {
   });
   const [walkInResume, setWalkInResume] = useState(null);
   const [warningModal, setWarningModal] = useState({ open: false, title: "", message: "" });
+  const [deleteApplicantModal, setDeleteApplicantModal] = useState({ open: false, applicant: null });
+  const [deletingApplicant, setDeletingApplicant] = useState(false);
+  const [hireFieldErrors, setHireFieldErrors] = useState({});
   
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -130,7 +133,23 @@ export default function ApplicantsList() {
       ...prev,
       [name]: name === "email" ? value.toLowerCase() : value,
     }));
+    setHireFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
   };
+
+  const getHireFieldClass = (name) =>
+    `w-full bg-[#0f172a] rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600 ${
+      hireFieldErrors[name] ? "border border-red-500 ring-1 ring-red-500/60" : "border border-gray-700"
+    }`;
+
+  const getHirePhoneWrapperClass = (name) =>
+    `flex items-center rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 ${
+      hireFieldErrors[name] ? "border border-red-500 ring-1 ring-red-500/60" : "border border-gray-700"
+    }`;
 
   const handleWalkInChange = (e) => {
     const { name, value } = e.target;
@@ -245,6 +264,7 @@ export default function ApplicantsList() {
       toast.success(data.message);
       fetchApplicants(); 
       setGuardConfirmModalOpen(false);
+      setHireFieldErrors({});
     } catch (err) {
       console.error("Error finalizing hiring:", err);
       setErrorMsg(err.message);
@@ -272,23 +292,33 @@ export default function ApplicantsList() {
       position: selectedApplicant?.position || "",
       phoneNumber: toPhilippinesMobile(selectedApplicant?.phone || ""),
     }));
+    setHireFieldErrors({});
+    setErrorMsg("");
     setGuardConfirmModalOpen(true);
   };
 
   const openConfirmHireModal = () => {
     setErrorMsg("");
+    const requiredFields = ["firstName", "lastName", "sex", "email", "guardId", "address", "position", "phoneNumber", "EmergencyPerson", "EmergencyContact"];
+    const nextFieldErrors = requiredFields.reduce((acc, field) => {
+      if (!String(form[field] || "").trim()) acc[field] = true;
+      return acc;
+    }, {});
+    setHireFieldErrors(nextFieldErrors);
 
     // Check required fields
-    if(!form.firstName || !form.lastName || !form.sex || !form.email || !form.guardId || !form.address || !form.position || !form.phoneNumber || !form.EmergencyPerson || !form.EmergencyContact){
+    if (Object.keys(nextFieldErrors).length > 0) {
       return setErrorMsg("Please fill out all required fields.");
     }
     
     // Check Phone Number Validity (Must be +63 followed by 10 digits)
     const phoneRegex = /^\+63\d{10}$/;
     if (!phoneRegex.test(form.phoneNumber)) {
+      setHireFieldErrors((prev) => ({ ...prev, phoneNumber: true }));
       return setErrorMsg("Phone Number must be valid (10 digits starting with 9).");
     }
     if (!phoneRegex.test(form.EmergencyContact)) {
+      setHireFieldErrors((prev) => ({ ...prev, EmergencyContact: true }));
       return setErrorMsg("Emergency Contact must be valid (10 digits starting with 9).");
     }
 
@@ -306,6 +336,14 @@ export default function ApplicantsList() {
   const closePanel = () => {
     setSelectedApplicant(null);
     setIsPanelOpen(false);
+  };
+
+  const openDeleteApplicantModal = (applicant) => {
+    setDeleteApplicantModal({ open: true, applicant });
+  };
+
+  const closeDeleteApplicantModal = () => {
+    setDeleteApplicantModal({ open: false, applicant: null });
   };
 
   useEffect(() => {
@@ -332,6 +370,7 @@ export default function ApplicantsList() {
       EmergencyPerson: "",
       EmergencyContact: ""
     });
+    setHireFieldErrors({});
     setErrorMsg("");
     try {
       const params = new URLSearchParams({
@@ -400,6 +439,39 @@ export default function ApplicantsList() {
   };
 
   const closeConfirmModal = () => setConfirmModal({ open: false, applicant: null, status: null });
+
+  const handleDeleteApplicant = async () => {
+    const applicant = deleteApplicantModal.applicant;
+    if (!applicant) return;
+
+    try {
+      setDeletingApplicant(true);
+      const res = await fetch(`${api}/api/applicants/${applicant._id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || "Failed to delete applicant.");
+
+      setApplicants((prev) => prev.filter((item) => item._id !== applicant._id));
+      if (selectedApplicant?._id === applicant._id) {
+        closePanel();
+      }
+      closeDeleteApplicantModal();
+      toast.success("Applicant deleted successfully.");
+      if (currentPage !== 1 && applicants.length === 1) {
+        setCurrentPage((prev) => Math.max(prev - 1, 1));
+      } else {
+        fetchApplicants();
+      }
+    } catch (err) {
+      console.error("Delete applicant error:", err);
+      toast.error(err.message || "Failed to delete applicant.");
+    } finally {
+      setDeletingApplicant(false);
+    }
+  };
 
   //FOR DECLINE STATUS
   const confirmStatusChange = async () => {
@@ -988,6 +1060,17 @@ export default function ApplicantsList() {
                                         </dd>
                                       </div>
                                     }
+                                    {["Admin", "Subadmin"].includes(user?.role) && (
+                                      <div className="py-4">
+                                        <button
+                                          type="button"
+                                          onClick={() => openDeleteApplicantModal(selectedApplicant)}
+                                          className="w-full flex items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-600/10 px-4 py-2.5 text-sm font-medium text-red-300 transition hover:bg-red-600/20 hover:text-red-200"
+                                        >
+                                          <AlertTriangle size={14} /> Delete Applicant
+                                        </button>
+                                      </div>
+                                    )}
                                   </dl>
                                 </div>
                                 
@@ -1153,6 +1236,102 @@ export default function ApplicantsList() {
                         className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white"
                       >
                         Confirm
+                      </button>
+                    </div>
+                  </Dialog.Panel>
+                </Transition.Child>
+              </div>
+            </div>
+          </Dialog>
+        </Transition>
+
+        <Transition appear show={deleteApplicantModal.open} as={Fragment}>
+          <Dialog as="div" className="relative z-[60]" onClose={deletingApplicant ? () => {} : closeDeleteApplicantModal}>
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-200"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="ease-in duration-150"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
+              <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm" />
+            </Transition.Child>
+
+            <div className="fixed inset-0 overflow-y-auto">
+              <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+                <Transition.Child
+                  as={Fragment}
+                  enter="ease-out duration-200"
+                  enterFrom="opacity-0 scale-95"
+                  enterTo="opacity-100 scale-100"
+                  leave="ease-in duration-150"
+                  leaveFrom="opacity-100 scale-100"
+                  leaveTo="opacity-0 scale-95"
+                >
+                  <Dialog.Panel className="w-full max-w-md overflow-hidden rounded-3xl border border-red-500/20 bg-slate-900 shadow-2xl shadow-black/40">
+                    <div className="border-b border-white/10 bg-gradient-to-r from-red-500/10 via-red-500/5 to-transparent px-6 py-5">
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/10">
+                          <AlertTriangle className="text-red-300" size={22} />
+                        </div>
+                        <div className="min-w-0">
+                          <Dialog.Title className="text-lg font-semibold text-white">
+                            Delete Applicant
+                          </Dialog.Title>
+                          <p className="mt-1 text-sm text-slate-300">
+                            This will permanently remove the applicant record from the list.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="px-6 py-5">
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
+                          Applicant
+                        </p>
+                        <p className="mt-2 text-base font-semibold text-white">
+                          {deleteApplicantModal.applicant?.name || "Unknown applicant"}
+                        </p>
+                        <div className="mt-3 space-y-1 text-sm text-slate-300">
+                          <p>{deleteApplicantModal.applicant?.position || "No position provided"}</p>
+                          <p>{deleteApplicantModal.applicant?.email || "No email provided"}</p>
+                        </div>
+                      </div>
+
+                      <p className="mt-4 text-sm leading-6 text-slate-300">
+                        Continue only if this applicant should no longer appear in the recruitment records.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col-reverse gap-3 border-t border-white/10 bg-slate-950/40 px-6 py-4 sm:flex-row sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={closeDeleteApplicantModal}
+                        disabled={deletingApplicant}
+                        className="inline-flex items-center justify-center rounded-xl border border-white/10 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteApplicant}
+                        disabled={deletingApplicant}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {deletingApplicant ? (
+                          <>
+                            <RefreshCcw size={15} className="animate-spin" />
+                            Deleting...
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle size={15} />
+                            Delete Applicant
+                          </>
+                        )}
                       </button>
                     </div>
                   </Dialog.Panel>
@@ -1643,7 +1822,7 @@ export default function ApplicantsList() {
                             placeholder="e.g. Juan"
                             value={form.firstName}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                            className={getHireFieldClass("firstName")}
                           />
                         </div>
 
@@ -1656,7 +1835,7 @@ export default function ApplicantsList() {
                             placeholder="e.g. Dela Cruz"
                             value={form.lastName}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                            className={getHireFieldClass("lastName")}
                           />
                         </div>
 
@@ -1667,7 +1846,7 @@ export default function ApplicantsList() {
                             required
                             value={form.sex}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                            className={getHireFieldClass("sex")}
                           >
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
@@ -1683,7 +1862,7 @@ export default function ApplicantsList() {
                             placeholder="e.g. G-2025-001"
                             value={form.guardId}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                            className={getHireFieldClass("guardId")}
                           />
                         </div>
 
@@ -1696,7 +1875,7 @@ export default function ApplicantsList() {
                             placeholder="jpm@example.com" 
                             value={form.email}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                            className={getHireFieldClass("email")}
                           />
                         </div>
 
@@ -1709,7 +1888,7 @@ export default function ApplicantsList() {
                             placeholder="e.g. Security Guard"
                             value={form.position}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                            className={getHireFieldClass("position")}
                           />
                         </div>
 
@@ -1722,7 +1901,7 @@ export default function ApplicantsList() {
                             placeholder="e.g. Brgy. 1, Tanza, Cavite"
                             value={form.address}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                            className={getHireFieldClass("address")}
                           />
                         </div>
                       </div>
@@ -1731,7 +1910,7 @@ export default function ApplicantsList() {
                       <div className="space-y-3">
                         <div>
                           <label className="text-gray-300 text-sm mb-1 block">Phone Number <span className="text-red-400">*</span></label>
-                          <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                          <div className={getHirePhoneWrapperClass("phoneNumber")}>
                             <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none text-sm sm:text-base">+63</span>
                             <input
                               type="tel"
@@ -1749,6 +1928,12 @@ export default function ApplicantsList() {
                                 
                                 // Store with prefix
                                 setForm((prev) => ({ ...prev, phoneNumber: "+63" + value }));
+                                setHireFieldErrors((prev) => {
+                                  if (!prev.phoneNumber) return prev;
+                                  const next = { ...prev };
+                                  delete next.phoneNumber;
+                                  return next;
+                                });
                               }}
                               className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-600 focus:outline-none text-sm sm:text-base"
                             />
@@ -1767,7 +1952,7 @@ export default function ApplicantsList() {
                             placeholder="Enter SSS ID (Optional)"
                             value={form.SSSID}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                            className={getHireFieldClass("EmergencyPerson")}
                           />
                         </div>
 
@@ -1819,7 +2004,7 @@ export default function ApplicantsList() {
                         {/* Emergency Contact Number */}
                         <div>
                           <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Number <span className="text-red-400">*</span></label>
-                          <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                          <div className={getHirePhoneWrapperClass("EmergencyContact")}>
                             <span className="text-gray-100 bg-[#2e3e58] px-3 py-2 select-none text-sm sm:text-base">+63</span>
                             <input
                               type="tel"
@@ -1837,6 +2022,12 @@ export default function ApplicantsList() {
                                 
                                 // Store with prefix
                                 setForm((prev) => ({ ...prev, EmergencyContact: "+63" + value }));
+                                setHireFieldErrors((prev) => {
+                                  if (!prev.EmergencyContact) return prev;
+                                  const next = { ...prev };
+                                  delete next.EmergencyContact;
+                                  return next;
+                                });
                               }}
                               className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-600 focus:outline-none text-sm sm:text-base"
                             />

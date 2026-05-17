@@ -57,11 +57,11 @@ export default function GuardsLayout() {
   };
 
   const navItems = [
+    { to: "/guard/announcements", label: "Announcement", icon: <Megaphone size={18} /> },
     { to: "/guard/detachment", label: "Detachment / Deployment", icon: <Shield size={18} /> },
     { to: "/guard/my-attendance", label: "My Attendance", icon: <Clock size={18} /> },
     { to: "/guard/leaves", label: "Leave Request", icon: <CalendarDays size={18} /> },
     { to: "/guard/messages", label: "Messages", icon: <MessageCircle size={18} /> },
-    { to: "/guard/announcements", label: "Announcement", icon: <Megaphone size={18} /> },
     { to: "/guard/logbook", label: "Log Book", icon: <BookOpen size={18} /> },
     { to: "/guard/request-coe", label: "Request COE", icon: <FileText size={18} /> },
     { to: "/guard/request-id", label: "Request ID", icon: <IdCardLanyard size={18}/> },
