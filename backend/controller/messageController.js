@@ -435,3 +435,27 @@ export const markMessagesAsSeen = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+export const bulkDeleteConversations = async (req, res) => {
+  try {
+    const { conversationIds } = req.body;
+
+    if (!Array.isArray(conversationIds) || conversationIds.length === 0) {
+      return res.status(400).json({ message: "No conversation IDs provided." });
+    }
+
+    // Delete messages belonging to these conversations
+    await Message.deleteMany({ conversationId: { $in: conversationIds } });
+
+    // Delete the conversations themselves
+    await Conversation.deleteMany({ _id: { $in: conversationIds } });
+
+    // Notify all connected clients so their sidebars update in real-time
+    io.emit("conversationsDeleted", { conversationIds });
+
+    res.status(200).json({ success: true, deleted: conversationIds.length });
+  } catch (err) {
+    console.error("Error bulk deleting conversations:", err);
+    res.status(500).json({ message: "Failed to delete conversations." });
+  }
+};

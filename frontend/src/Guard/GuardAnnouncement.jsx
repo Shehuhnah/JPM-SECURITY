@@ -5,6 +5,7 @@ import {
   Megaphone,
   FileText,
   Loader2,
+  CheckCircle,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -15,6 +16,37 @@ export default function GuardAnnouncement() {
   const navigate = useNavigate();
   const [announcements, setAnnouncements] = useState([]);
   const [loadingPage, setLoadingPage] = useState(true);
+  const [viewedIds, setViewedIds] = useState([]);
+
+  // Load viewed announcements from localStorage
+  useEffect(() => {
+    if (guard?._id) {
+      const stored = localStorage.getItem(`viewedAnnouncements_${guard._id}`);
+      if (stored) {
+        try {
+          setViewedIds(JSON.parse(stored));
+        } catch (e) {
+          console.error("Error parsing viewed announcements", e);
+        }
+      }
+    }
+  }, [guard]);
+
+  const markAsRead = (id) => {
+    const updated = [...viewedIds, id];
+    setViewedIds(updated);
+    if (guard?._id) {
+      localStorage.setItem(`viewedAnnouncements_${guard._id}`, JSON.stringify(updated));
+    }
+  };
+
+  const isNewAnnouncement = (createdAt) => {
+    const today = new Date();
+    const createdDate = new Date(createdAt);
+    const diffTime = Math.abs(today - createdDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+    return diffDays <= 7; // Announcement is new if created within the last 7 days
+  };
 
   useEffect(() => {
     document.title = "Guard Announcement | JPM Security Agency";
@@ -89,8 +121,19 @@ export default function GuardAnnouncement() {
             announcements.map((a) => (
               <div
                 key={a._id}
-                className="relative bg-gradient-to-br from-[#1e293b] to-[#0f172a] border border-gray-700 rounded-2xl shadow-lg p-6 sm:p-8 hover:border-blue-600/60 hover:shadow-blue-500/20 transition duration-300 group"
+                className={`relative bg-gradient-to-br from-[#1e293b] to-[#0f172a] border ${
+                  !viewedIds.includes(a._id) && isNewAnnouncement(a.createdAt)
+                    ? "border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+                    : "border-gray-700"
+                } rounded-2xl shadow-lg p-6 sm:p-8 hover:border-blue-600/60 hover:shadow-blue-500/20 transition duration-300 group`}
               >
+                {/* NEW Badge */}
+                {!viewedIds.includes(a._id) && isNewAnnouncement(a.createdAt) && (
+                  <div className="absolute -top-3 -right-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-pulse flex items-center gap-1 z-10">
+                    <Megaphone size={12} /> NEW
+                  </div>
+                )}
+                
                 {/* Header */}
                 <div className="flex flex-wrap justify-between items-center gap-3 mb-4 border-b border-gray-700 pb-3">
                   <div className="flex items-center gap-3">
@@ -130,8 +173,16 @@ export default function GuardAnnouncement() {
                 </p>
 
                 {/* Footer */}
-                <div className="mt-5 border-t border-gray-700 pt-3 text-xs text-gray-500 text-center italic">
-                  📢 JPM Security Agency — “Duty. Discipline. Integrity.”
+                <div className="mt-5 border-t border-gray-700 pt-3 text-xs text-gray-500 flex flex-col sm:flex-row justify-between items-center gap-3">
+                  <span className="italic text-center sm:text-left">📢 JPM Security Agency — “Duty. Discipline. Integrity.”</span>
+                  {!viewedIds.includes(a._id) && isNewAnnouncement(a.createdAt) && (
+                    <button
+                      onClick={() => markAsRead(a._id)}
+                      className="flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-md"
+                    >
+                      <CheckCircle size={14} /> Mark as Read
+                    </button>
+                  )}
                 </div>
               </div>
             ))

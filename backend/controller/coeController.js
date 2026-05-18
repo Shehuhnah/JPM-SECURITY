@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import { generateAndSaveCOE } from "../utils/pdfGenerator.js";
 import Guard from "../models/guard.model.js";
 import User from "../models/User.model.js";
+import fs from "fs";
+import path from "path";
 
 const getDisplayName = (person) => {
   if (!person) return "";
@@ -281,6 +283,39 @@ export const downloadCOE = async (req, res) => {
   }
 };
 
+// Delete requests (bulk)
+export const deleteRequests = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "No IDs provided" });
+    }
+
+    // Optional: Delete associated PDF files if they exist
+    const uploadsDir = path.join(process.cwd(), 'backend', 'uploads', 'coe');
+    for (const id of ids) {
+      const filePath = path.join(uploadsDir, `COE_${id}.pdf`);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (fileErr) {
+          console.error(`Failed to delete file for request ${id}:`, fileErr);
+        }
+      }
+    }
+
+    const result = await COERequest.deleteMany({ _id: { $in: ids } });
+
+    res.json({ 
+      message: `${result.deletedCount} request(s) deleted successfully`,
+      deletedCount: result.deletedCount 
+    });
+  } catch (err) {
+    console.error("deleteRequests error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 export default {
   createRequest,
   listRequests,
@@ -288,4 +323,5 @@ export default {
   getRequest,
   updateStatus,
   downloadCOE,
+  deleteRequests,
 };

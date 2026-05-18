@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Paperclip, Send, Search, CircleUserRound, ArrowLeft, MessageSquare, X } from "lucide-react";
+import { Paperclip, Send, Search, CircleUserRound, ArrowLeft, MessageSquare, X, Trash2, CheckSquare } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { socket } from "../utils/socket";
 import { getPersonName } from "../utils/name";
@@ -13,6 +13,8 @@ export default function MessagesPage() {
   const messagesEndRef = useRef(null);
   const hasNotifiedOnline = useRef(false);
   const fileInputRef = useRef();
+  // Ref keeps selected conversation ID current inside all socket closures.
+  const selectedConversationIdRef = useRef(null);
   
   // State
   const [previewImage, setPreviewImage] = useState(null);
@@ -24,12 +26,27 @@ export default function MessagesPage() {
   const [newMessage, setNewMessage] = useState("");
   const [search, setSearch] = useState("");
   const [file, setFile] = useState(null);
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [selectedForDelete, setSelectedForDelete] = useState([]);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
 
-  const fetchConversationMessages = async (conversationId) => {
+  // Keep ref in sync so socket handlers always see the latest conversation ID.
+  useEffect(() => {
+    selectedConversationIdRef.current = selectedConversation?._id ?? null;
+  }, [selectedConversation?._id]);
+
+  const fetchConversationMessages = async (conversationId, hardReset = false) => {
     try {
       const res = await fetch(`${api}/api/messages/${conversationId}`, { credentials: "include" });
       const data = await res.json();
-      setMessages((prev) => mergeMessages(prev, Array.isArray(data) ? data : []));
+      const msgs = Array.isArray(data) ? data : [];
+      // Hard reset: replace all messages (used when switching conversations).
+      // Soft merge: deduplicate & append (used by polling interval).
+      if (hardReset) {
+        setMessages(msgs);
+      } else {
+        setMessages((prev) => mergeMessages(prev, msgs));
+      }
     } catch (err) {
       console.error("Error loading messages:", err);
     }
@@ -192,52 +209,42 @@ export default function MessagesPage() {
       return;
     }
 
-    setMessages((prev) =>
-      prev.length > 0 &&
-      normalizeId(prev[0]?.conversationId) !== normalizeId(selectedConversation._id)
-        ? []
-        : prev
-    );
+    // Hard-reset messages immediately so old conversation's messages never bleed through.
+    setMessages([]);
 
     const joinActiveConversation = () => {
       socket.emit("joinConversation", selectedConversation._id);
-      console.log("[admin-message] joinConversation", {
-        conversationId: selectedConversation._id,
-        userId: user._id,
-        role: user.role,
-        socketId: socket.id,
-      });
     };
 
-    // 1. Join the socket room
     joinActiveConversation();
     socket.on("connect", joinActiveConversation);
-    
-    // 2. Tell Server we saw it
     socket.emit("mark_seen", { conversationId: selectedConversation._id, userId: user._id });
 
-    // 3. OPTIMISTIC UPDATE: Update the sidebar immediately (Don't wait for socket response)
-    setConversations(prev => 
-      prev.map(conv => {
-        if (normalizeId(conv._id) === normalizeId(selectedConversation._id)) {
-          // Force the last message to be seen visually immediately
-          return { 
-            ...conv, 
-            lastMessage: { ...conv.lastMessage, seen: true } 
-          };
-        }
-        return conv;
-      })
+    setConversations(prev =>
+      prev.map(conv =>
+        normalizeId(conv._id) === normalizeId(selectedConversation._id)
+          ? { ...conv, lastMessage: { ...conv.lastMessage, seen: true } }
+          : conv
+      )
     );
 
-    fetchConversationMessages(selectedConversation._id);
+    // Initial load: hard reset so only this conversation's messages appear.
+    fetchConversationMessages(selectedConversation._id, true);
+
+    // Polling fallback: mirrors GuardMessage — guarantees real-time updates
+    // even when a socket event is missed or delayed.
+    const refreshMessages = async (conversationId = selectedConversation._id) => {
+      try {
+        const res = await fetch(`${api}/api/messages/${conversationId}`, { credentials: "include" });
+        const data = await res.json();
+        setMessages((prev) => mergeMessages(prev, Array.isArray(data) ? data : []));
+      } catch (err) {
+        console.error("[AdminMessage] poll error:", err);
+      }
+    };
+    const refreshInterval = setInterval(() => refreshMessages(), 1500);
 
     const handleReceiveMessage = (msg) => {
-      console.log("[admin-message] receiveMessage", {
-        conversationId: msg.conversationId,
-        messageId: msg._id,
-        selectedConversationId: selectedConversation._id,
-      });
       // Update sidebar preview
       setConversations(prev =>
         sortConversations(
@@ -259,27 +266,21 @@ export default function MessagesPage() {
         )
       );
 
-      // Append to active chat if visible
-      if (normalizeId(selectedConversation._id) === normalizeId(msg.conversationId)) {
+      // Append to active chat — use ref to avoid stale closure
+      if (normalizeId(selectedConversationIdRef.current) === normalizeId(msg.conversationId)) {
         setMessages(prev =>
           prev.some(m => normalizeId(m._id || m._tempId) === normalizeId(msg._id || msg._tempId))
             ? prev
             : [...prev, msg]
         );
         socket.emit("mark_seen", { conversationId: msg.conversationId, userId: user._id });
+        refreshMessages(msg.conversationId);
       }
     };
 
     const handleMessageSeen = ({ conversationId }) => {
-      console.log("[admin-message] messages_seen", {
-        conversationId,
-        selectedConversationId: selectedConversation?._id,
-      });
-      if (normalizeId(conversationId) === normalizeId(selectedConversation?._id)) {
-        // Update UI inside active chat
+      if (normalizeId(conversationId) === normalizeId(selectedConversationIdRef.current)) {
         setMessages(prev => prev.map(m => ({ ...m, seen: true })));
-        
-        // Update Sidebar preview
         setConversations((prev) =>
           prev.map((conv) =>
             normalizeId(conv._id) === normalizeId(conversationId)
@@ -293,20 +294,17 @@ export default function MessagesPage() {
     socket.on("receiveMessage", handleReceiveMessage);
     socket.on("messages_seen", handleMessageSeen);
     return () => {
+      clearInterval(refreshInterval);
       socket.off("connect", joinActiveConversation);
       socket.off("receiveMessage", handleReceiveMessage);
       socket.off("messages_seen", handleMessageSeen);
     };
   }, [selectedConversation?._id, user]);
 
-  // --- Conversation Updates ---
+  // Global listener — keeps sidebar updated for all conversations including
+  // the active one, without re-registering on every conversation change.
   useEffect(() => {
-    const handleConversationUpdated = async (updatedConv) => {
-      console.log("[admin-message] conversationUpdated", {
-        conversationId: updatedConv?._id,
-        type: updatedConv?.type,
-        selectedConversationId: selectedConversation?._id,
-      });
+    const handleConversationUpdated = (updatedConv) => {
       if (!isStaffConversation(updatedConv)) return;
 
       setConversations(prev => {
@@ -317,13 +315,13 @@ export default function MessagesPage() {
         return sortConversations(updated);
       });
 
-      if (normalizeId(selectedConversation?._id) === normalizeId(updatedConv._id)) {
+      if (normalizeId(selectedConversationIdRef.current) === normalizeId(updatedConv._id)) {
         setSelectedConversation(updatedConv);
       }
     };
     socket.on("conversationUpdated", handleConversationUpdated);
     return () => socket.off("conversationUpdated", handleConversationUpdated);
-  }, [selectedConversation?._id, user]);
+  }, []);
 
   // --- Handlers ---
   const getReceiver = () => {
@@ -384,6 +382,34 @@ export default function MessagesPage() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedForDelete.length === 0) return;
+    try {
+      const res = await fetch(`${api}/api/messages/bulk-delete`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationIds: selectedForDelete }),
+      });
+      if (!res.ok) return;
+      setConversations((prev) => prev.filter((c) => !selectedForDelete.includes(normalizeId(c._id))));
+      if (selectedForDelete.includes(normalizeId(selectedConversation?._id))) {
+        setSelectedConversation(null);
+      }
+      setSelectedForDelete([]);
+      setIsDeleteMode(false);
+      setShowBulkDeleteModal(false);
+    } catch (err) {
+      console.error("Error bulk deleting:", err);
+    }
+  };
+
+  const toggleSelectConversation = (id) => {
+    setSelectedForDelete((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
   const handleStartChat = (targetUser) => {
     if (!targetUser?.role) return;
     
@@ -436,10 +462,42 @@ export default function MessagesPage() {
       {/* Sidebar - Remains mostly the same, hidden on mobile when chat is open */}
       <aside className={`w-full md:w-80 bg-[#0b1220] border-r border-gray-800 flex flex-col h-full ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-5 bg-gradient-to-r from-[#1e293b] to-[#0f172a] border-b border-gray-800 flex-none">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <MessageSquare className="text-blue-500" size={24}/> Messages
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <MessageSquare className="text-blue-500" size={24}/> Messages
+              </h2>
+              <button
+                onClick={() => { setIsDeleteMode((p) => !p); setSelectedForDelete([]); }}
+                className={`p-2 rounded-lg transition text-sm flex items-center gap-1.5 ${
+                  isDeleteMode ? "bg-red-600/20 text-red-400 hover:bg-red-600/30" : "text-gray-400 hover:text-white hover:bg-white/10"
+                }`}
+                title="Bulk Delete"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
         </div>
+
+        {isDeleteMode && (
+          <div className="px-3 py-2 bg-red-950/30 border-b border-red-900/40 flex items-center justify-between gap-2 flex-none">
+            <span className="text-xs text-red-300">{selectedForDelete.length} selected</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelectedForDelete(conversations.map(c => normalizeId(c._id)))}
+                className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded"
+              >Select All</button>
+              <button
+                onClick={() => setShowBulkDeleteModal(true)}
+                disabled={selectedForDelete.length === 0}
+                className="text-xs bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white px-3 py-1 rounded-lg transition"
+              >Delete ({selectedForDelete.length})</button>
+              <button
+                onClick={() => { setIsDeleteMode(false); setSelectedForDelete([]); }}
+                className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded"
+              ><X size={14} /></button>
+            </div>
+          </div>
+        )}
         
         <div className="p-3 flex-none">
           <div className="relative">
@@ -470,15 +528,26 @@ export default function MessagesPage() {
                  const senderId = normalizeId(item.data.lastMessage?.senderId || item.data.lastMessage?.sender?._id);
                  const isUnread = !item.data.lastMessage?.seen && senderId !== normalizeId(user._id);
 
+                 const convId = normalizeId(item.data._id);
+                 const isChecked = selectedForDelete.includes(convId);
                  return (
                   <div
                     key={item.id}
-                    onClick={() => setSelectedConversation(item.data)}
-                    className={`p-3 rounded-xl cursor-pointer transition-all border border-transparent ${
-                      isActive ? "bg-blue-600/10 border-blue-500/50" : "hover:bg-[#1e293b]"
+                    onClick={() => isDeleteMode ? toggleSelectConversation(convId) : setSelectedConversation(item.data)}
+                    className={`p-3 rounded-xl cursor-pointer transition-all border ${
+                      isDeleteMode && isChecked
+                        ? "bg-red-600/10 border-red-500/50"
+                        : isActive ? "bg-blue-600/10 border-blue-500/50" : "border-transparent hover:bg-[#1e293b]"
                     }`}
                   >
                     <div className="flex items-center gap-3">
+                       {isDeleteMode && (
+                         <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
+                           isChecked ? "bg-red-500 border-red-500" : "border-gray-500"
+                         }`}>
+                           {isChecked && <CheckSquare size={12} className="text-white" />}
+                         </div>
+                       )}
                       <div className="relative">
                         <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-gray-300">
                             {otherName.charAt(0).toUpperCase()}
@@ -674,6 +743,39 @@ export default function MessagesPage() {
                 <X size={24}/>
             </button>
             <img src={previewImage} alt="Full Preview" className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()}/>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-[#1e293b] border border-red-500/20 rounded-2xl shadow-2xl p-6 max-w-sm w-full">
+            <div className="text-center">
+              <div className="mx-auto w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
+                <Trash2 className="text-red-400" size={22} />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">Delete Conversations?</h3>
+              <p className="text-sm text-gray-400 mb-6">
+                You are about to permanently delete{" "}
+                <span className="text-white font-semibold">{selectedForDelete.length}</span>{" "}
+                conversation{selectedForDelete.length !== 1 ? "s" : ""} and all their messages. This cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowBulkDeleteModal(false)}
+                  className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm font-medium text-white transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 rounded-xl text-white text-sm font-bold shadow-lg shadow-red-900/30 transition"
+                >
+                  Delete {selectedForDelete.length}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

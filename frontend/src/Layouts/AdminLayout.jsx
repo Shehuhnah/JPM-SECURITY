@@ -299,7 +299,7 @@ export default function AdminLayout() {
               >
                 <div className="flex items-center gap-3">
                   <ClipboardList size={18} />
-                  <span>Requests</span>
+                  <span>My Requests</span>
                 </div>
                 <ChevronDown
                   size={16}

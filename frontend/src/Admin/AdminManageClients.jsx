@@ -463,11 +463,19 @@ export default function AdminManageClients() {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => openModal(client)} className="p-2 hover:bg-blue-500/10 text-gray-400 hover:text-blue-400 rounded-lg transition" title="Edit">
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button 
+                                                onClick={() => openModal(client)} 
+                                                className="p-2 bg-blue-500/5 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-all border border-blue-500/10 hover:border-blue-500/30" 
+                                                title="Edit"
+                                            >
                                                 <Pencil size={18} />
                                             </button>
-                                            <button onClick={() => openDeleteModal(client)} className="p-2 hover:bg-red-500/10 text-gray-400 hover:text-red-400 rounded-lg transition" title="Delete">
+                                            <button 
+                                                onClick={() => openDeleteModal(client)} 
+                                                className="p-2 bg-red-500/5 hover:bg-red-500/20 text-red-400 rounded-lg transition-all border border-red-500/10 hover:border-red-500/30" 
+                                                title="Delete"
+                                            >
                                                 <Trash size={18} />
                                             </button>
                                         </div>

@@ -14,7 +14,8 @@ import {
   Lock,
   MessageSquare,
   Plus,
-  Trash2
+  Trash2,
+  X
 } from "lucide-react";
 import { Dialog, Transition } from "@headlessui/react";
 import { useAuth } from "../hooks/useAuth";
@@ -46,6 +47,10 @@ export default function RequestedIDs() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Selection States
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
 
   // Modal States
   const [approveModal, setApproveModal] = useState(false);
@@ -98,6 +103,7 @@ export default function RequestedIDs() {
         setRequests(result.data);
         setTotalItems(result.total || result.count || 0);
         setTotalPages(result.totalPages || 1);
+        setSelectedIds([]); // Clear selection on fetch
       } else {
         setRequests([]);
         setTotalItems(0);
@@ -169,6 +175,48 @@ export default function RequestedIDs() {
   }, [canCreateForOthers]);
 
   const selectedCreateTarget = staffOptions.find((option) => option.value === createTarget) || null;
+
+  // Selection handlers
+  const handleSelectRow = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === requests.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(requests.map(r => r._id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      setSubmitting(true);
+      const res = await fetch(`${api}/api/idrequests`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+
+      const result = await res.json().catch(() => null);
+      if (!res.ok || !result?.success) {
+        throw new Error(result?.message || "Failed to delete requests");
+      }
+
+      toast.success(`Successfully deleted ${selectedIds.length} request(s)`);
+      setSelectedIds([]);
+      setShowBulkDeleteModal(false);
+      await fetchRequests();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || "Error deleting requests");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   // Handlers
   const handleApproveID = (id) => {
@@ -348,10 +396,12 @@ export default function RequestedIDs() {
              </div>
              <div>
                 <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Requested IDs</h2>
-                <p className="text-slate-400 text-sm mt-1">
-                  Manage ID issuance and renewals. 
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-slate-400 text-sm">
+                    Manage ID issuance and renewals. 
+                  </p>
                   {!canManage && <span className="text-yellow-500 ml-2 text-xs border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 rounded">View Only</span>}
-                </p>
+                </div>
              </div>
           </div>
 
@@ -419,21 +469,44 @@ export default function RequestedIDs() {
               <table className="w-full text-left border-collapse">
                 <thead className="bg-[#0f172a]/50 text-gray-400 border-b border-gray-700/50 text-xs uppercase tracking-wider">
                   <tr>
-                    <th className="px-6 py-4 font-semibold">#</th>
+                    <th className="px-6 py-4 font-semibold w-16">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox"
+                          checked={requests.length > 0 && selectedIds.length === requests.length}
+                          onChange={handleSelectAll}
+                          className="w-4 h-4 rounded border-gray-700 bg-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                        <span>#</span>
+                      </div>
+                    </th>
                     <th className="px-6 py-4 font-semibold">User Details</th>
                     <th className="px-6 py-4 font-semibold">Request Type</th>
                     <th className="px-6 py-4 font-semibold">Date Requested</th>
-                    <th className="px-6 py-4 font-semibold">Pickup Date</th> {/* NEW COLUMN */}
-                    <th className="px-6 py-4 font-semibold">Admin Notes</th> {/* NEW COLUMN */}
+                    <th className="px-6 py-4 font-semibold">Pickup Date</th>
+                    <th className="px-6 py-4 font-semibold">Admin Notes</th>
                     <th className="px-6 py-4 font-semibold">Status</th>
                     <th className="px-6 py-4 font-semibold text-right">{canManage ? "Actions" : ""}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700/50">
                   {requests.map((req, index) => (
-                    <tr key={req._id} className="hover:bg-white/5 transition">
-                      <td className="px-6 py-4 text-sm text-gray-400">
-                        {(currentPage - 1) * PAGE_SIZE + index + 1}
+                    <tr 
+                      key={req._id} 
+                      className={`transition group ${selectedIds.includes(req._id) ? 'bg-blue-600/5' : 'hover:bg-white/5'}`}
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <input 
+                            type="checkbox"
+                            checked={selectedIds.includes(req._id)}
+                            onChange={() => handleSelectRow(req._id)}
+                            className="w-4 h-4 rounded border-gray-700 bg-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                          <span className="text-sm text-gray-400">
+                            {(currentPage - 1) * PAGE_SIZE + index + 1}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -441,7 +514,6 @@ export default function RequestedIDs() {
                              <User size={16} />
                           </div>
                           <div>
-                             {/* Support both Guard and Subadmin names */}
                              <div className="font-medium text-white">
                                 {req.guard ? getPersonName(req.guard) : getEmployeeDisplayName(req.admin, req.admin?.role)}
                              </div>
@@ -528,9 +600,18 @@ export default function RequestedIDs() {
             {/* --- MOBILE CARDS --- */}
             <div className="md:hidden grid gap-4">
                {requests.map((req, index) => (
-                 <div key={req._id} className="bg-[#1e293b] border border-gray-700 rounded-xl p-4 shadow-sm flex flex-col gap-4">
+                 <div 
+                  key={req._id} 
+                  className={`bg-[#1e293b] border transition-colors ${selectedIds.includes(req._id) ? 'border-blue-500 bg-blue-500/5' : 'border-gray-700'} rounded-xl p-4 shadow-sm flex flex-col gap-4`}
+                 >
                    <div className="flex justify-between items-start">
                       <div className="flex items-center gap-3">
+                         <input 
+                           type="checkbox"
+                           checked={selectedIds.includes(req._id)}
+                           onChange={() => handleSelectRow(req._id)}
+                           className="w-5 h-5 rounded border-gray-700 bg-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                         />
                          <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-blue-500 border border-slate-700">
                             <User size={20} />
                          </div>
@@ -633,7 +714,66 @@ export default function RequestedIDs() {
           </>
         )}
 
-        {/* ===== Approve Modal ===== */}
+        {/* Floating Bulk Action Bar */}
+        {selectedIds.length > 0 && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 duration-300 px-4 w-full max-w-lg">
+            <div className="flex items-center gap-3 bg-[#0f172a]/95 backdrop-blur-xl border border-blue-500/20 rounded-2xl px-5 py-3 shadow-2xl shadow-black/60">
+              <div className="flex items-center gap-2 bg-blue-600/15 border border-blue-500/25 rounded-xl px-3 py-1.5">
+                <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"/>
+                <span className="text-sm font-bold text-blue-300">{selectedIds.length} selected</span>
+              </div>
+              <div className="w-px h-5 bg-slate-700"/>
+              <button onClick={handleSelectAll} className="text-xs font-medium text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-white/5 transition">
+                {selectedIds.length === requests.length ? 'Deselect All' : 'Select All'}
+              </button>
+              <div className="flex-1"/>
+              <button onClick={() => setShowBulkDeleteModal(true)} className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl text-white text-sm font-bold transition shadow-lg shadow-red-900/30">
+                <Trash2 size={14}/> Delete {selectedIds.length}
+              </button>
+              <button onClick={() => setSelectedIds([])} className="p-1.5 rounded-lg text-slate-600 hover:text-slate-200 hover:bg-white/8 transition" title="Clear selection">
+                <X size={14}/>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ===== Bulk Delete Modal ===== */}
+        <Transition appear show={showBulkDeleteModal} as={Fragment}>
+          <Dialog as="div" className="relative z-[70]" onClose={() => setShowBulkDeleteModal(false)}>
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="fixed inset-0 flex items-center justify-center p-4">
+              <Dialog.Panel className="bg-[#1e293b] border border-red-500/20 rounded-xl shadow-2xl p-6 max-w-sm w-full">
+                <div className="text-center">
+                  <div className="mx-auto bg-red-500/10 w-12 h-12 rounded-full flex items-center justify-center mb-4">
+                    <Trash2 className="text-red-400" size={24} />
+                  </div>
+                  <Dialog.Title className="text-lg font-bold text-white mb-2">Delete Selected?</Dialog.Title>
+                  <p className="text-sm text-gray-400 mb-6">
+                    Are you sure you want to delete <span className="text-white font-medium">{selectedIds.length}</span> request(s)? This action cannot be undone.
+                  </p>
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => setShowBulkDeleteModal(false)} 
+                      disabled={submitting}
+                      className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm font-medium transition disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={handleBulkDelete} 
+                      disabled={submitting}
+                      className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 rounded-xl text-white text-sm font-medium shadow-lg shadow-red-900/20 transition disabled:opacity-50"
+                    >
+                      {submitting ? "Deleting..." : "Delete All"}
+                    </button>
+                  </div>
+                </div>
+              </Dialog.Panel>
+            </div>
+          </Dialog>
+        </Transition>
+
+        {/* ===== Create Request Modal ===== */}
         <Transition appear show={showCreateModal} as={Fragment}>
           <Dialog as="div" className="relative z-50" onClose={() => setShowCreateModal(false)}>
             <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
@@ -825,7 +965,7 @@ export default function RequestedIDs() {
                   <button
                     onClick={handleConfirmDecline}
                     disabled={submitting}
-                    className="bg-red-600 hover:bg-red-500 px-5 py-2 rounded-lg text-white font-medium disabled:opacity-50 text-sm shadow-lg shadow-red-500/20"
+                    className="bg-red-600 hover:bg-red-500 px-5 py-2 rounded-lg text-white font-medium disabled:opacity-50 text-sm shadow-lg shadow-red-900/20"
                   >
                     {submitting ? "Processing..." : "Decline Request"}
                   </button>

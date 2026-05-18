@@ -5,6 +5,7 @@ import {
   getRequestById,
   updateRequest,
   deleteRequest,
+  deleteRequests,
   getMyRequests,
 } from "../controller/IDrequestController.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
@@ -18,6 +19,7 @@ router.get("/:id", protect, getRequestById);
 
 // Admins can view all requests or modify them
 router.get("/", protect, authorizeRoles("Admin", "Subadmin"), getAllRequests);
+router.delete("/", protect, authorizeRoles("Admin", "Subadmin"), deleteRequests);
 router.put("/:id", protect, authorizeRoles("Admin", "Subadmin"), updateRequest);
 router.delete("/:id", protect, authorizeRoles("Admin", "Subadmin"), deleteRequest);
 

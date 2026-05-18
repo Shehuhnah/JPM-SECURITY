@@ -263,3 +263,24 @@ export const deleteRequest = async (req, res) => {
     res.status(500).json({ message: "Server error deleting ID request." });
   }
 };
+
+// --- DELETE REQUEST (Bulk) ---
+export const deleteRequests = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "No IDs provided." });
+    }
+
+    const result = await IDRequest.deleteMany({ _id: { $in: ids } });
+
+    res.status(200).json({ 
+      success: true, 
+      message: `${result.deletedCount} request(s) deleted successfully.`,
+      deletedCount: result.deletedCount 
+    });
+  } catch (error) {
+    console.error("Error bulk deleting ID requests:", error);
+    res.status(500).json({ message: "Server error bulk deleting ID requests." });
+  }
+};

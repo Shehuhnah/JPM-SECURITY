@@ -331,32 +331,43 @@ export default function AdminAddSchedule() {
 
     setLoadingPage(true);
 
-    const shiftTimes = form.shiftType === "Night Shift"
-      ? { timeIn: "19:00", timeOut: "07:00" }
-      : { timeIn: "07:00", timeOut: "19:00" };
+    // For "24-Hour Cover", each selected day expands into two shifts.
+    // For Day/Night only, it stays as one entry per day.
+    const buildShiftEntries = (day) => {
+      const dateStr = format(day, "yyyy-MM-dd");
+      if (form.shiftType === "24-Hour Cover") {
+        return [
+          // Day Shift 07:00 → 19:00
+          { timeIn: `${dateStr}T07:00`, timeOut: `${dateStr}T19:00`, shiftType: "Day Shift" },
+          // Night Shift 19:00 → 07:00 next day
+          (() => {
+            const nextDay = new Date(day);
+            nextDay.setDate(nextDay.getDate() + 1);
+            return { timeIn: `${dateStr}T19:00`, timeOut: `${format(nextDay, "yyyy-MM-dd")}T07:00`, shiftType: "Night Shift" };
+          })(),
+        ];
+      }
+      if (form.shiftType === "Night Shift") {
+        const nextDay = new Date(day);
+        nextDay.setDate(nextDay.getDate() + 1);
+        return [{ timeIn: `${dateStr}T19:00`, timeOut: `${format(nextDay, "yyyy-MM-dd")}T07:00`, shiftType: "Night Shift" }];
+      }
+      // Day Shift
+      return [{ timeIn: `${dateStr}T07:00`, timeOut: `${dateStr}T19:00`, shiftType: "Day Shift" }];
+    };
 
     const schedules = selectedGuards.flatMap((guard) =>
-      selectedDays.map((day) => {
-        const dateStr = format(day, "yyyy-MM-dd");
-        const timeInFull = `${dateStr}T${shiftTimes.timeIn}`;
-        let timeOutFull = `${dateStr}T${shiftTimes.timeOut}`;
-
-        if (form.shiftType === "Night Shift") {
-          const nextDay = new Date(day);
-          nextDay.setDate(nextDay.getDate() + 1);
-          timeOutFull = `${format(nextDay, "yyyy-MM-dd")}T${shiftTimes.timeOut}`;
-        }
-
-        return {
+      selectedDays.flatMap((day) =>
+        buildShiftEntries(day).map((entry) => ({
           guardId: guard._id,
           deploymentLocation: form.deploymentLocation,
           client: form.client,
           position: form.position,
-          shiftType: form.shiftType,
-          timeIn: timeInFull,
-          timeOut: timeOutFull,
-        };
-      })
+          shiftType: entry.shiftType,
+          timeIn: entry.timeIn,
+          timeOut: entry.timeOut,
+        }))
+      )
     );
     const batchMeta = buildBatchMeta(selectedDays);
 
@@ -682,13 +693,23 @@ export default function AdminAddSchedule() {
                                     required
                                 >
                                     <option value="">Select Shift</option>
-                                    <option value="Day Shift">Day Shift (7:00 AM - 7:00 PM)</option>
-                                    <option value="Night Shift">Night Shift (7:00 PM - 7:00 AM)</option>
+                                    <option value="Day Shift">Day Shift (7:00 AM – 7:00 PM)</option>
+                                    <option value="Night Shift">Night Shift (7:00 PM – 7:00 AM)</option>
+                                    <option value="24-Hour Cover">24-Hour Cover (Both Shifts)</option>
                                 </select>
                             </div>
-                            <p className="mt-2 text-xs text-slate-500">
-                                Guards must have at least 8 hours of rest between shifts. Back-to-back 24-hour duty is blocked.
-                            </p>
+                            {form.shiftType === "24-Hour Cover" ? (
+                              <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-300">
+                                <span className="mt-0.5 shrink-0">⚡</span>
+                                <span>
+                                  <strong>24-Hour Cover</strong> creates <strong>2 attendance records per day</strong> — one Day Shift (7AM–7PM) and one Night Shift (7PM–7AM). The guard must time in and time out separately for each shift.
+                                </span>
+                              </div>
+                            ) : (
+                              <p className="mt-2 text-xs text-slate-500">
+                                Each shift is 12 hours. Guards work 7AM–7PM (Day) or 7PM–7AM (Night).
+                              </p>
+                            )}
                         </div>
 
                         <div className="rounded-2xl border border-gray-700 bg-slate-900/40 p-4">

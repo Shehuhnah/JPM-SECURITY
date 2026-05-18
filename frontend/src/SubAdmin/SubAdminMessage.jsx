@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, MessageSquare, Paperclip, Search, Send, Shield, X } from "lucide-react";
+import { ArrowLeft, MessageSquare, Paperclip, Search, Send, Shield, X, Trash2, CheckSquare } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { socket } from "../utils/socket";
@@ -13,16 +13,27 @@ export default function SubAdminMessagePage() {
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef();
   const hasNotifiedOnline = useRef(false);
+  // Ref keeps the selected conversation ID current inside socket closures,
+  // preventing stale-closure mismatches when the component re-renders.
+  const selectedConversationIdRef = useRef(null);
 
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [guards, setGuards] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
+
+  // Keep ref in sync so socket handlers always read the latest value.
+  useEffect(() => {
+    selectedConversationIdRef.current = selectedConversation?._id ?? null;
+  }, [selectedConversation?._id]);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [search, setSearch] = useState("");
   const [file, setFile] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [selectedForDelete, setSelectedForDelete] = useState([]);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
 
   const normalizeId = (id) => {
     if (!id) return "";
@@ -94,11 +105,16 @@ export default function SubAdminMessagePage() {
     return senderName || "Unknown";
   };
 
-  const fetchConversationMessages = async (conversationId) => {
+  const fetchConversationMessages = async (conversationId, hardReset = false) => {
     try {
       const res = await fetch(`${api}/api/messages/${conversationId}`, { credentials: "include" });
       const data = await res.json();
-      setMessages((prev) => mergeMessages(prev, Array.isArray(data) ? data : []));
+      const msgs = Array.isArray(data) ? data : [];
+      if (hardReset) {
+        setMessages(msgs);
+      } else {
+        setMessages((prev) => mergeMessages(prev, msgs));
+      }
     } catch (err) {
       console.error("Error loading messages:", err);
     }
@@ -169,12 +185,8 @@ export default function SubAdminMessagePage() {
       return;
     }
 
-    setMessages((prev) =>
-      prev.length > 0 &&
-      normalizeId(prev[0]?.conversationId) !== normalizeId(selectedConversation._id)
-        ? []
-        : prev
-    );
+    // Hard-reset immediately — prevents old conversation messages bleeding through.
+    setMessages([]);
 
     const joinActiveConversation = () => {
       socket.emit("joinConversation", selectedConversation._id);
@@ -192,24 +204,42 @@ export default function SubAdminMessagePage() {
       )
     );
 
-    fetchConversationMessages(selectedConversation._id);
+    fetchConversationMessages(selectedConversation._id, true);
+
+    // Polling fallback: mirrors GuardMessage's pattern to guarantee real-time
+    // updates even when the socket event is missed or slightly delayed.
+    const refreshMessages = async (conversationId = selectedConversation._id) => {
+      try {
+        const res = await fetch(`${api}/api/messages/${conversationId}`, { credentials: "include" });
+        const data = await res.json();
+        setMessages((prev) => mergeMessages(prev, Array.isArray(data) ? data : []));
+      } catch (err) {
+        console.error("[SubAdminMessage] poll error:", err);
+      }
+    };
+    const refreshInterval = setInterval(() => refreshMessages(), 1500);
 
     const handleReceiveMessage = (msg) => {
+      // Always update the sidebar conversation list.
       setConversations((prev) =>
         sortConversations(
           prev.map((conv) =>
-            normalizeId(conv._id) === normalizeId(msg.conversationId) ? { ...conv, lastMessage: msg } : conv
+            normalizeId(conv._id) === normalizeId(msg.conversationId)
+              ? { ...conv, lastMessage: msg }
+              : conv
           )
         )
       );
 
-      if (normalizeId(selectedConversation?._id) === normalizeId(msg.conversationId)) {
+      // Use the ref (not closure) so we always compare against the CURRENT conversation.
+      if (normalizeId(selectedConversationIdRef.current) === normalizeId(msg.conversationId)) {
         setMessages((prev) =>
           prev.some((message) => normalizeId(message._id || message._tempId) === normalizeId(msg._id || msg._tempId))
             ? prev
             : [...prev, msg]
         );
         socket.emit("mark_seen", { conversationId: msg.conversationId, userId: user._id });
+        refreshMessages(msg.conversationId);
       }
     };
 
@@ -246,6 +276,7 @@ export default function SubAdminMessagePage() {
     socket.on("messages_seen", handleMessagesSeen);
 
     return () => {
+      clearInterval(refreshInterval);
       socket.off("connect", joinActiveConversation);
       socket.off("receiveMessage", handleReceiveMessage);
       socket.off("conversationUpdated", handleConversationUpdated);
@@ -253,11 +284,27 @@ export default function SubAdminMessagePage() {
     };
   }, [selectedConversation?._id, user]);
 
+  // Global listener: keeps sidebar updated for conversations OTHER than the active one.
+  // (The active-conversation handler above already covers the open chat panel.)
   useEffect(() => {
-    const handleConversationUpdated = (updatedConv) => {
-      if (!isGuardConversation(updatedConv)) return;
-      if (normalizeId(selectedConversation?._id) === normalizeId(updatedConv._id)) return;
+    const handleGlobalReceive = (msg) => {
+      // Skip if already handled by the active-conversation effect.
+      if (normalizeId(selectedConversationIdRef.current) === normalizeId(msg.conversationId)) return;
+      setConversations((prev) =>
+        sortConversations(
+          prev.map((conv) =>
+            normalizeId(conv._id) === normalizeId(msg.conversationId)
+              ? { ...conv, lastMessage: msg }
+              : conv
+          )
+        )
+      );
+    };
 
+    const handleGlobalConvUpdated = (updatedConv) => {
+      if (!isGuardConversation(updatedConv)) return;
+      // Skip if the active-conversation handler already processed it.
+      if (normalizeId(selectedConversationIdRef.current) === normalizeId(updatedConv._id)) return;
       setConversations((prev) => {
         const exists = prev.some((conv) => normalizeId(conv._id) === normalizeId(updatedConv._id));
         const updated = exists
@@ -267,9 +314,13 @@ export default function SubAdminMessagePage() {
       });
     };
 
-    socket.on("conversationUpdated", handleConversationUpdated);
-    return () => socket.off("conversationUpdated", handleConversationUpdated);
-  }, [selectedConversation?._id]);
+    socket.on("receiveMessage", handleGlobalReceive);
+    socket.on("conversationUpdated", handleGlobalConvUpdated);
+    return () => {
+      socket.off("receiveMessage", handleGlobalReceive);
+      socket.off("conversationUpdated", handleGlobalConvUpdated);
+    };
+  }, []);
 
   const handleSend = async () => {
     if (!newMessage.trim() && !file) return;
@@ -323,6 +374,34 @@ export default function SubAdminMessagePage() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedForDelete.length === 0) return;
+    try {
+      const res = await fetch(`${api}/api/messages/bulk-delete`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationIds: selectedForDelete }),
+      });
+      if (!res.ok) return;
+      setConversations((prev) => prev.filter((c) => !selectedForDelete.includes(normalizeId(c._id))));
+      if (selectedForDelete.includes(normalizeId(selectedConversation?._id))) {
+        setSelectedConversation(null);
+      }
+      setSelectedForDelete([]);
+      setIsDeleteMode(false);
+      setShowBulkDeleteModal(false);
+    } catch (err) {
+      console.error("Error bulk deleting:", err);
+    }
+  };
+
+  const toggleSelectConversation = (id) => {
+    setSelectedForDelete((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
   const handleStartChat = (guard) => {
     if (!guard?.role) return;
 
@@ -357,14 +436,46 @@ export default function SubAdminMessagePage() {
     <div className="flex flex-col md:flex-row h-[100dvh] w-full bg-[#0f172a] text-gray-100 font-sans overflow-hidden">
       <aside className={`w-full md:w-80 bg-[#0b1220] border-r border-gray-800 flex flex-col h-full ${selectedConversation ? "hidden md:flex" : "flex"}`}>
         <div className="p-5 bg-gradient-to-r from-[#1e293b] to-[#0f172a] border-b border-gray-800 flex-none">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <MessageSquare className="text-blue-500" size={24} /> Guard Chats
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <MessageSquare className="text-blue-500" size={24} /> Guard Chats
+            </h2>
+            <button
+              onClick={() => { setIsDeleteMode((p) => !p); setSelectedForDelete([]); }}
+              className={`p-2 rounded-lg transition ${
+                isDeleteMode ? "bg-red-600/20 text-red-400 hover:bg-red-600/30" : "text-gray-400 hover:text-white hover:bg-white/10"
+              }`}
+              title="Bulk Delete"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
           <div className="text-xs text-blue-400 mt-1 flex items-center gap-1">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
             {onlineUsers.filter((onlineUser) => guards.some((guard) => normalizeId(guard._id) === normalizeId(onlineUser))).length} Guards Online
           </div>
         </div>
+
+        {isDeleteMode && (
+          <div className="px-3 py-2 bg-red-950/30 border-b border-red-900/40 flex items-center justify-between gap-2 flex-none">
+            <span className="text-xs text-red-300">{selectedForDelete.length} selected</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelectedForDelete(conversations.map(c => normalizeId(c._id)))}
+                className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded"
+              >Select All</button>
+              <button
+                onClick={() => setShowBulkDeleteModal(true)}
+                disabled={selectedForDelete.length === 0}
+                className="text-xs bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white px-3 py-1 rounded-lg transition"
+              >Delete ({selectedForDelete.length})</button>
+              <button
+                onClick={() => { setIsDeleteMode(false); setSelectedForDelete([]); }}
+                className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded"
+              ><X size={14} /></button>
+            </div>
+          </div>
+        )}
 
         <div className="p-3 flex-none">
           <div className="relative">
@@ -391,13 +502,26 @@ export default function SubAdminMessagePage() {
               const senderId = normalizeId(conv.lastMessage?.senderId || conv.lastMessage?.sender?._id);
               const isUnread = !conv.lastMessage?.seen && senderId !== normalizeId(user?._id);
 
+              const convId = normalizeId(conv._id);
+              const isChecked = selectedForDelete.includes(convId);
               return (
                 <div
                   key={conv._id}
-                  onClick={() => setSelectedConversation(conv)}
-                  className={`p-3 rounded-xl cursor-pointer transition-all border border-transparent ${isActive ? "bg-blue-600/10 border-blue-500/50" : "hover:bg-[#1e293b]"}`}
+                  onClick={() => isDeleteMode ? toggleSelectConversation(convId) : setSelectedConversation(conv)}
+                  className={`p-3 rounded-xl cursor-pointer transition-all border ${
+                    isDeleteMode && isChecked
+                      ? "bg-red-600/10 border-red-500/50"
+                      : isActive ? "bg-blue-600/10 border-blue-500/50" : "border-transparent hover:bg-[#1e293b]"
+                  }`}
                 >
                   <div className="flex items-center gap-3">
+                    {isDeleteMode && (
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
+                        isChecked ? "bg-red-500 border-red-500" : "border-gray-500"
+                      }`}>
+                        {isChecked && <CheckSquare size={12} className="text-white" />}
+                      </div>
+                    )}
                     <div className="relative">
                       <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-gray-300">
                         <Shield size={20} />
@@ -569,6 +693,39 @@ export default function SubAdminMessagePage() {
           <img src={previewImage} alt="Full Preview" className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
         </div>
       ) : null}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-[#1e293b] border border-red-500/20 rounded-2xl shadow-2xl p-6 max-w-sm w-full">
+            <div className="text-center">
+              <div className="mx-auto w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
+                <Trash2 className="text-red-400" size={22} />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">Delete Conversations?</h3>
+              <p className="text-sm text-gray-400 mb-6">
+                You are about to permanently delete{" "}
+                <span className="text-white font-semibold">{selectedForDelete.length}</span>{" "}
+                conversation{selectedForDelete.length !== 1 ? "s" : ""} and all their messages. This cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowBulkDeleteModal(false)}
+                  className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm font-medium text-white transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 rounded-xl text-white text-sm font-bold shadow-lg shadow-red-900/30 transition"
+                >
+                  Delete {selectedForDelete.length}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

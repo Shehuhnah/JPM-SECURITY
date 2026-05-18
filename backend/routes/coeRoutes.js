@@ -13,5 +13,6 @@ router.get("/", protect,  coeController.listRequests);
 router.get("/:id", protect,  coeController.getRequest);
 router.patch("/:id/status", protect,  coeController.updateStatus);
 router.get("/:id/download", protect, coeController.downloadCOE);
+router.delete("/", protect, coeController.deleteRequests);
 
 export default router;

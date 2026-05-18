@@ -6,6 +6,10 @@ const getScheduleDateOnly = (value = "") => String(value).split("T")[0];
 const getScheduleMonth = (value = "") => getScheduleDateOnly(value).slice(0, 7);
 const isValidMonthValue = (value = "") => /^\d{4}-\d{2}$/.test(String(value));
 const MIN_REST_HOURS = 8;
+// When a guard covers both the Day Shift (07:00-19:00) and Night Shift (19:00-07:00)
+// on the same calendar day the rest gap between them is exactly 0 hours — this is
+// intentional and must not trigger the rest-gap conflict check.
+const SHIFT_GAP_EXEMPT_HOURS = 0;
 
 const deriveCoveredMonthsFromSchedules = (schedules = []) =>
   [...new Set(
@@ -76,49 +80,73 @@ const getRestGapHours = (firstWindow, secondWindow) => {
   return -1;
 };
 
+// Canonical 12-hour shift times (stored as HH:MM in timeIn / timeOut strings)
+const DAY_SHIFT_START   = "07:00";
+const NIGHT_SHIFT_START = "19:00";
+const getShiftTime  = (isoString = "") => String(isoString).slice(11, 16); // "HH:MM"
+const isDayShift    = (isoString) => getShiftTime(isoString) === DAY_SHIFT_START;
+const isNightShift  = (isoString) => getShiftTime(isoString) === NIGHT_SHIFT_START;
+
 const findConflict = async (scheduleData, options = {}) => {
   const { timeIn, _id, guardId } = scheduleData;
   const { excludedBatchId, excludedIds = [] } = options;
   const newWindow = getScheduleWindow(scheduleData);
 
   const newScheduleDateOnly = getScheduleDateOnly(timeIn);
+  const newIsDay   = isDayShift(timeIn);
+  const newIsNight = isNightShift(timeIn);
 
-  // Prevent guard from working in ANY OTHER CLIENT on the same day
-  const guardConflictQuery = {
+  // ── Same-day check ───────────────────────────────────────────────────────
+  // A guard may appear on the same calendar date at most TWICE: once as
+  // Day Shift (07:00) and once as Night Shift (19:00).  Any existing record
+  // from a DIFFERENT client/batch on the same date is allowed only when it
+  // is the complementary shift.  A duplicate shift type is always rejected.
+  const sameDayQuery = {
     guardId,
-    $expr: {
-      $eq: [
-        { $substrCP: ["$timeIn", 0, 10] },
-        newScheduleDateOnly,
-      ],
-    },
+    $expr: { $eq: [{ $substrCP: ["$timeIn", 0, 10] }, newScheduleDateOnly] },
+    ...(excludedBatchId ? { batchId: { $ne: excludedBatchId } } : {}),
+    ...(excludedIds.length > 0 ? { _id: { $nin: excludedIds } } : {}),
+    ...(_id ? { _id: { $ne: _id } } : {}),
   };
 
-  // Exclude itself if updating
-  if (_id) {
-    guardConflictQuery._id = { $ne: _id };
+  const sameDaySchedules = await Schedule.find(sameDayQuery).select("timeIn deploymentLocation client");
+
+  for (const existing of sameDaySchedules) {
+    const existIsDay   = isDayShift(existing.timeIn);
+    const existIsNight = isNightShift(existing.timeIn);
+
+    // Two schedules of the same shift type → conflict
+    if (newIsDay && existIsDay) {
+      return {
+        ...scheduleData,
+        reason: `This guard already has a Day Shift on ${newScheduleDateOnly} at "${existing.deploymentLocation}".`,
+      };
+    }
+    if (newIsNight && existIsNight) {
+      return {
+        ...scheduleData,
+        reason: `This guard already has a Night Shift on ${newScheduleDateOnly} at "${existing.deploymentLocation}".`,
+      };
+    }
+
+    // Custom (non-canonical) time + any other same-day schedule → conflict
+    if (!newIsDay && !newIsNight) {
+      return {
+        ...scheduleData,
+        reason: `This guard is already scheduled on ${newScheduleDateOnly} at "${existing.deploymentLocation}".`,
+      };
+    }
+    if (!existIsDay && !existIsNight) {
+      return {
+        ...scheduleData,
+        reason: `This guard is already scheduled on ${newScheduleDateOnly} at "${existing.deploymentLocation}".`,
+      };
+    }
+    // Day + Night (or Night + Day) → allowed — fall through
   }
 
-  if (excludedIds.length > 0) {
-    guardConflictQuery._id = {
-      ...(guardConflictQuery._id || {}),
-      $nin: excludedIds,
-    };
-  }
-
-  if (excludedBatchId) {
-    guardConflictQuery.batchId = { $ne: excludedBatchId };
-  }
-
-  const guardConflict = await Schedule.findOne(guardConflictQuery);
-
-  if (guardConflict) {
-    return {
-      ...scheduleData,
-      reason: `This guard is already scheduled on ${newScheduleDateOnly} at "${guardConflict.deploymentLocation}".`,
-    };
-  }
-
+  // ── Rest-gap check ───────────────────────────────────────────────────────
+  // Skip the rest-gap for the canonical Day↔Night back-to-back (gap = 0 h).
   const nearbySchedules = await Schedule.find({
     guardId,
     ...(excludedBatchId ? { batchId: { $ne: excludedBatchId } } : {}),
@@ -128,7 +156,15 @@ const findConflict = async (scheduleData, options = {}) => {
   const restGapConflict = nearbySchedules.find((existingSchedule) => {
     const existingWindow = getScheduleWindow(existingSchedule);
     const gapHours = getRestGapHours(existingWindow, newWindow);
-    return gapHours !== null && gapHours < MIN_REST_HOURS;
+    if (gapHours === null) return false;
+
+    // Allow the 0-hour gap that arises from a Day→Night or Night→Day 24-h cover
+    const existIsDay12   = isDayShift(existingSchedule.timeIn);
+    const existIsNight12 = isNightShift(existingSchedule.timeIn);
+    const isComplement   = (newIsDay && existIsNight12) || (newIsNight && existIsDay12);
+    if (isComplement && gapHours === SHIFT_GAP_EXEMPT_HOURS) return false;
+
+    return gapHours < MIN_REST_HOURS;
   });
 
   if (restGapConflict) {
@@ -138,6 +174,7 @@ const findConflict = async (scheduleData, options = {}) => {
     };
   }
 
+  // ── Leave check ──────────────────────────────────────────────────────────
   const leaveConflict = await LeaveRequest.findOne({
     requesterRole: "Guard",
     guard: guardId,
@@ -155,18 +192,49 @@ const findConflict = async (scheduleData, options = {}) => {
   return null;
 };
 
+/**
+ * A guard may have at most TWO schedules on the same calendar date,
+ * provided one is a Day Shift and the other is a Night Shift (24-hour cover).
+ * Any third entry — or two entries of the same shift — is a duplicate conflict.
+ */
 const findBatchDuplicateConflict = (schedules = []) => {
-  const seen = new Set();
+  // Map: "guardId-date" -> { dayCount, nightCount }
+  const seen = new Map();
 
   for (const schedule of schedules) {
-    const key = `${schedule.guardId}-${getScheduleDateOnly(schedule.timeIn)}`;
-    if (seen.has(key)) {
+    const dateKey  = getScheduleDateOnly(schedule.timeIn);
+    const mapKey   = `${schedule.guardId}-${dateKey}`;
+    const isDay    = isDayShift(schedule.timeIn);
+    const isNight  = isNightShift(schedule.timeIn);
+
+    if (!seen.has(mapKey)) {
+      seen.set(mapKey, { dayCount: 0, nightCount: 0, otherCount: 0 });
+    }
+
+    const entry = seen.get(mapKey);
+    if (isDay)        { entry.dayCount++;   }
+    else if (isNight) { entry.nightCount++; }
+    else              { entry.otherCount++; }
+
+    // Block: duplicate Day shift, duplicate Night shift, or a third shift of any kind
+    if (entry.dayCount > 1) {
       return {
         ...schedule,
-        reason: `This guard is already included in the selected batch on ${getScheduleDateOnly(schedule.timeIn)}.`,
+        reason: `This guard already has a Day Shift on ${dateKey} in this batch.`,
       };
     }
-    seen.add(key);
+    if (entry.nightCount > 1) {
+      return {
+        ...schedule,
+        reason: `This guard already has a Night Shift on ${dateKey} in this batch.`,
+      };
+    }
+    if (entry.otherCount > 0) {
+      return {
+        ...schedule,
+        reason: `This guard already has a custom-time schedule on ${dateKey} in this batch.`,
+      };
+    }
   }
 
   return null;

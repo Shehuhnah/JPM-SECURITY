@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { 
   Filter, RefreshCw, CheckCircle, XCircle, Clock, IdCardLanyard, 
   Eye, Download, FileText, Calendar, User, Phone, Mail, Shield, 
-  ReceiptText, X, ChevronRight, Search 
+  ReceiptText, X, ChevronRight, Search, Trash2 
 } from "lucide-react";
 import { generateAndDownloadCOE } from "../utils/pdfGenerator";
 import { useAuth } from "../hooks/useAuth";
@@ -24,10 +24,12 @@ export default function AdminCOE() {
   const [showPopup, setShowPopup] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   
   // Selection States
   const [selectedAction, setSelectedAction] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [declineReason, setDeclineReason] = useState("");
   const [salary, setSalary] = useState("");
   const [staffOptions, setStaffOptions] = useState([]);
@@ -85,6 +87,7 @@ export default function AdminCOE() {
       setRequests(mapped);
       setTotalItems(data.total || 0);
       setTotalPages(data.totalPages || 1);
+      setSelectedIds([]); // Clear selection on fetch
     } catch (err) {
       console.error(err);
     } finally {
@@ -153,6 +156,42 @@ export default function AdminCOE() {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 2500);
+  };
+
+  // Selection handlers
+  const handleSelectRow = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === requests.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(requests.map(r => r.id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      const res = await fetch(`${api}/api/coe`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+
+      if (!res.ok) throw new Error("Failed to delete requests");
+
+      showToast(`Successfully deleted ${selectedIds.length} request(s)`, "success");
+      setSelectedIds([]);
+      setShowDeleteModal(false);
+      fetchRequests();
+    } catch (err) {
+      console.error(err);
+      showToast("Error deleting requests", "error");
+    }
   };
 
   // Popup controls
@@ -340,9 +379,11 @@ export default function AdminCOE() {
              </div>
              <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">COE Requests</h1>
-                <p className="text-slate-400 text-sm mt-1">
-                  {canManage ? "Manage and issue Certificates of Employment." : "View submitted Certificate of Employment requests."}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-slate-400 text-sm">
+                    {canManage ? "Manage and issue Certificates of Employment." : "View submitted Certificate of Employment requests."}
+                  </p>
+                </div>
              </div>
           </div>
 
@@ -413,7 +454,17 @@ export default function AdminCOE() {
                 <table className="w-full text-left border-collapse">
                     <thead className="bg-[#0f172a]/50 text-gray-400 border-b border-gray-700/50 text-xs uppercase tracking-wider">
                     <tr>
-                        <th className="px-6 py-4 font-semibold">#</th>
+                        <th className="px-6 py-4 font-semibold w-16">
+                          <div className="flex items-center gap-3">
+                            <input 
+                              type="checkbox"
+                              checked={requests.length > 0 && selectedIds.length === requests.length}
+                              onChange={handleSelectAll}
+                              className="w-4 h-4 rounded border-gray-700 bg-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                            <span>#</span>
+                          </div>
+                        </th>
                         <th className="px-6 py-4 font-semibold">Requester Details</th>
                         <th className="px-6 py-4 font-semibold">Purpose</th>
                         <th className="px-6 py-4 font-semibold">Date Requested</th>
@@ -423,9 +474,22 @@ export default function AdminCOE() {
                     </thead>
                     <tbody className="divide-y divide-gray-700/50">
                     {requests.map((r, index) => (
-                        <tr key={r.id} className="hover:bg-white/5 transition">
-                        <td className="px-6 py-4 text-sm text-gray-400">
-                            {(currentPage - 1) * PAGE_SIZE + index + 1}
+                        <tr 
+                          key={r.id} 
+                          className={`transition group ${selectedIds.includes(r.id) ? 'bg-blue-600/5' : 'hover:bg-white/5'}`}
+                        >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <input 
+                              type="checkbox"
+                              checked={selectedIds.includes(r.id)}
+                              onChange={() => handleSelectRow(r.id)}
+                              className="w-4 h-4 rounded border-gray-700 bg-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                            <span className="text-sm text-gray-400">
+                                {(currentPage - 1) * PAGE_SIZE + index + 1}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
@@ -505,9 +569,18 @@ export default function AdminCOE() {
                 {/* --- MOBILE CARDS --- */}
                 <div className="md:hidden grid gap-4">
                 {requests.map((r, index) => (
-                    <div key={r.id} className="bg-[#1e293b] border border-gray-700 rounded-xl p-4 shadow-sm flex flex-col gap-4">
+                    <div 
+                      key={r.id} 
+                      className={`bg-[#1e293b] border transition-colors ${selectedIds.includes(r.id) ? 'border-blue-500 bg-blue-500/5' : 'border-gray-700'} rounded-xl p-4 shadow-sm flex flex-col gap-4`}
+                    >
                         <div className="flex justify-between items-start">
                             <div className="flex items-center gap-3">
+                                <input 
+                                  type="checkbox"
+                                  checked={selectedIds.includes(r.id)}
+                                  onChange={() => handleSelectRow(r.id)}
+                                  className="w-5 h-5 rounded border-gray-700 bg-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                />
                                 <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-blue-500 border border-slate-700">
                                     <User size={20} />
                                 </div>
@@ -583,7 +656,60 @@ export default function AdminCOE() {
             </>
         )}
 
+        {/* Floating Bulk Action Bar */}
+        {selectedIds.length > 0 && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 duration-300 px-4 w-full max-w-lg">
+            <div className="flex items-center gap-3 bg-[#0f172a]/95 backdrop-blur-xl border border-blue-500/20 rounded-2xl px-5 py-3 shadow-2xl shadow-black/60">
+              <div className="flex items-center gap-2 bg-blue-600/15 border border-blue-500/25 rounded-xl px-3 py-1.5">
+                <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"/>
+                <span className="text-sm font-bold text-blue-300">{selectedIds.length} selected</span>
+              </div>
+              <div className="w-px h-5 bg-slate-700"/>
+              <button onClick={handleSelectAll} className="text-xs font-medium text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-white/5 transition">
+                {selectedIds.length === requests.length ? 'Deselect All' : 'Select All'}
+              </button>
+              <div className="flex-1"/>
+              <button onClick={() => setShowDeleteModal(true)} className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl text-white text-sm font-bold transition shadow-lg shadow-red-900/30">
+                <Trash2 size={14}/> Delete {selectedIds.length}
+              </button>
+              <button onClick={() => setSelectedIds([])} className="p-1.5 rounded-lg text-slate-600 hover:text-slate-200 hover:bg-white/8 transition" title="Clear selection">
+                <X size={14}/>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ================= MODALS ================= */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-[70]">
+            <div className="bg-[#1e293b] text-white p-6 rounded-2xl border border-gray-700 w-full max-w-sm mx-4 shadow-2xl">
+              <div className="text-center">
+                <div className="mx-auto bg-red-500/10 w-12 h-12 rounded-full flex items-center justify-center mb-4">
+                  <Trash2 className="text-red-400" size={24} />
+                </div>
+                <h2 className="text-lg font-bold mb-2">Delete Selected?</h2>
+                <p className="text-gray-400 text-sm mb-6">
+                  Are you sure you want to delete <span className="text-white font-medium">{selectedIds.length}</span> request(s)? This action cannot be undone.
+                </p>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowDeleteModal(false)} 
+                    className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm font-medium transition"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleBulkDelete} 
+                    className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 rounded-xl text-white text-sm font-medium shadow-lg shadow-red-900/20 transition"
+                  >
+                    Delete All
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showCreateModal && canManage && (
           <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50">
             <div className="bg-[#1e293b] text-white rounded-2xl border border-gray-700 w-full max-w-xl mx-4 shadow-2xl">

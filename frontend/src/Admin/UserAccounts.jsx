@@ -30,6 +30,26 @@ const PAGE_SIZE = 10;
 // --- Sub-Components ---
 
 const AddUserModal = ({ isOpen, onClose, onSave }) => {
+  const formatPHPhoneNumber = (value) => {
+    if (!value) return "+63";
+
+    let digits = value.replace(/\D/g, "");
+
+    // Remove leading 63
+    if (digits.startsWith("63")) {
+        digits = digits.slice(2);
+    }
+
+    // Remove leading 0
+    if (digits.startsWith("0")) {
+        digits = digits.slice(1);
+    }
+
+    // Limit to 10 digits
+    digits = digits.slice(0, 10);
+
+    return digits ? `+63${digits}` : "+63";
+    };
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -37,78 +57,272 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
     role: "",
     accessLevel: "",
     position: "",
-    contactNumber: "",
+    contactNumber: "+63",
   });
+
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    let { name, value } = e.target;
+
+    // Auto PH format
+    if (name === "contactNumber") {
+      value = formatPHPhoneNumber(value);
+    }
+
+    // Auto set Admin access
+    if (name === "role") {
+        setForm((prev) => ({
+            ...prev,
+            role: value,
+            accessLevel: value === "Admin" ? "1" : "",
+        }));
+        return;
+        }
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
 
   const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave(form);
-    setForm({ name: "", email: "", password: "", role: "", accessLevel: "", position: "", contactNumber: "" });
+  e.preventDefault();
+
+  // Trim values
+  const payload = {
+    ...form,
+    name: form.name.trim(),
+    email: form.email.trim(),
+    password: form.password.trim(),
+    position: form.position.trim(),
+    contactNumber: form.contactNumber.trim(),
   };
+
+  // Validate all required fields
+  if (
+    !payload.name ||
+    !payload.email ||
+    !payload.password ||
+    !payload.position ||
+    !payload.role ||
+    !payload.accessLevel
+  ) {
+    toast.error("Please fill in all required fields.", {
+      theme: "dark",
+      transition: Bounce,
+    });
+    return;
+  }
+
+  // Validate PH contact number
+  const phoneRegex = /^\+639\d{9}$/;
+
+  if (!phoneRegex.test(payload.contactNumber)) {
+    toast.error("Please enter a valid contact number.", {
+      theme: "dark",
+      transition: Bounce,
+    });
+    return;
+  }
+
+  onSave(payload);
+
+  setForm({
+    name: "",
+    email: "",
+    password: "",
+    role: "",
+    accessLevel: "",
+    position: "",
+    contactNumber: "+63",
+  });
+};
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <Dialog.Panel className="w-full max-w-2xl bg-[#1e293b] rounded-2xl border border-gray-700 shadow-2xl p-6 text-white">
             <div className="flex justify-between items-center mb-6">
-                <Dialog.Title className="text-xl font-bold flex items-center gap-2">
-                    <UserPlus className="text-blue-500" size={24} /> Add New Staff
-                </Dialog.Title>
-                <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={24}/></button>
+              <Dialog.Title className="text-xl font-bold flex items-center gap-2">
+                <UserPlus className="text-blue-500" size={24} />
+                Add New Staff
+              </Dialog.Title>
+
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-white"
+              >
+                <X size={24} />
+              </button>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Full Name */}
                 <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Full Name</label>
-                    <input name="name" value={form.name} onChange={handleChange} placeholder="e.g. Juan Dela Cruz" className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none" required />
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
+
+                  <input
+                    name="name"
+                    value={form.name}
+                    onChange={handleChange}
+                    placeholder="e.g. Juan Dela Cruz"
+                    className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                    required
+                  />
                 </div>
+
+                {/* Email */}
                 <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Email Address</label>
-                    <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="juan@example.com" className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none" required />
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Email Address <span className="text-red-500">*</span>
+                  </label>
+
+                  <input
+                    name="email"
+                    type="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    placeholder="juan@example.com"
+                    className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                    required
+                  />
                 </div>
+
+                {/* Position */}
                 <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Position</label>
-                    <input name="position" value={form.position} onChange={handleChange} placeholder="e.g. HR Manager" className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Position <span className="text-red-500">*</span>
+                  </label>
+
+                  <input
+                    name="position"
+                    value={form.position}
+                    onChange={handleChange}
+                    placeholder="e.g. HR Manager"
+                    className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                    required
+                  />
                 </div>
+
+                {/* Contact */}
                 <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Contact Number</label>
-                    <input name="contactNumber" value={form.contactNumber} onChange={handleChange} placeholder="09xxxxxxxxx" className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Contact Number <span className="text-red-500">*</span>
+                  </label>
+
+                  <input
+                        name="contactNumber"
+                        value={form.contactNumber}
+                        onChange={handleChange}
+                        placeholder="+639123456789"
+                        inputMode="tel"
+                        maxLength={13}
+                        className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                        required
+                    />
                 </div>
+
+                {/* Role */}
                 <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Role</label>
-                    <select name="role" value={form.role} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none" required>
-                        <option value="">Select Role</option>
-                        <option value="Admin">Admin</option>
-                        <option value="Subadmin">Subadmin</option>
-                    </select>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Role <span className="text-red-500">*</span>
+                  </label>
+
+                  <select
+                    name="role"
+                    value={form.role}
+                    onChange={handleChange}
+                    className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                    required
+                  >
+                    <option value="">Select Role</option>
+                    <option value="Admin">Admin</option>
+                    <option value="Subadmin">Subadmin</option>
+                  </select>
                 </div>
+
+                {/* Access Level */}
                 <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Access Level</label>
-                    <select name="accessLevel" value={form.accessLevel} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none" required>
-                        <option value="">Select Level</option>
-                        <option value="1">Level 1 (Full Access)</option>
-                        <option value="2">Level 2 (Limited)</option>
-                    </select>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Access Level <span className="text-red-500">*</span>
+                  </label>
+
+                  <select
+                    name="accessLevel"
+                    value={form.accessLevel}
+                    onChange={handleChange}
+                    disabled={form.role === "Admin"}
+                    className={`w-full rounded-lg px-4 py-2.5 outline-none border ${
+                      form.role === "Admin"
+                        ? "bg-gray-700 border-gray-600 text-gray-300 cursor-not-allowed"
+                        : "bg-[#0f172a] border-gray-600"
+                    }`}
+                    required
+                  >
+                    <option value="">Select Level</option>
+                    <option value="1">
+                      Admin (Full Access)
+                    </option>
+                    <option value="2">
+                      Subadmin (Limited)
+                    </option>
+                  </select>
                 </div>
+
+                {/* Password */}
                 <div className="md:col-span-2 relative">
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Password</label>
-                    <div className="relative">
-                        <input type={showPassword ? "text" : "password"} name="password" value={form.password} onChange={handleChange} placeholder="••••••••" className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 pr-10 focus:ring-2 focus:ring-blue-500 outline-none" required />
-                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
-                            {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
-                        </button>
-                    </div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Password <span className="text-red-500">*</span>
+                  </label>
+
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      value={form.password}
+                      onChange={handleChange}
+                      placeholder="••••••••"
+                      className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 pr-10 focus:ring-2 focus:ring-blue-500 outline-none"
+                      required
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    >
+                      {showPassword ? (
+                        <EyeOff size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
+
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-700">
-                <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition">Cancel</button>
-                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium transition shadow-lg shadow-blue-900/20">Create Account</button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium transition shadow-lg shadow-blue-900/20"
+                >
+                  Create Account
+                </button>
               </div>
             </form>
           </Dialog.Panel>
@@ -304,6 +518,8 @@ export default function UserAccounts() {
       setLoadingPage(false);
     }
   };
+
+  
 
   const handleAddUser = async (formData) => {
     try {

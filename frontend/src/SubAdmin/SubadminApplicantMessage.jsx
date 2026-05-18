@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Paperclip, Send, CircleUserRound, Search, ArrowLeft, MessageSquare, Briefcase, MapPin, Clock, Calendar, X } from "lucide-react";
+import { Paperclip, Send, CircleUserRound, Search, ArrowLeft, MessageSquare, Briefcase, MapPin, Clock, Calendar, X, Trash2, CheckSquare } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { socket } from "../utils/socket";
@@ -13,16 +13,26 @@ export default function SubadminApplicantMessage() {
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef();
   const hasNotifiedOnline = useRef(false);
+  // Tracks the active conversation ID for use inside socket closures (avoids stale closure).
+  const selectedConversationIdRef = useRef(null);
 
   // State
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
+
+  // Keep ref in sync so socket closures always read the current conversation ID.
+  useEffect(() => {
+    selectedConversationIdRef.current = selectedConversation?._id ?? null;
+  }, [selectedConversation?._id]);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [search, setSearch] = useState("");
   const [file, setFile] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [selectedForDelete, setSelectedForDelete] = useState([]);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
 
   useEffect(() => {
     document.title = "Applicant Messages | JPM Security Agency";
@@ -50,6 +60,17 @@ export default function SubadminApplicantMessage() {
     conversation?.type === "subadmin-applicant" || conversation?.type === "applicant-subadmin";
 
   const sortApplicantConversations = (list) => sortConversations(list.filter(isApplicantConversation));
+
+  const mergeMessages = (current, incoming) => {
+    const merged = [...current];
+    for (const msg of incoming) {
+      const exists = merged.some(
+        (m) => normalizeId(m?._id || m?._tempId) === normalizeId(msg?._id || msg?._tempId)
+      );
+      if (!exists) merged.push(msg);
+    }
+    return merged.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+  };
 
   const getApplicantParticipant = (conversation) =>
     (conversation?.participants ?? []).find((p) => p.role === "Applicant");
@@ -229,26 +250,31 @@ export default function SubadminApplicantMessage() {
     }
 
     setMessages([]);
-    socket.emit("joinConversation", selectedConversation._id);
+
+    const joinActiveConversation = () => socket.emit("joinConversation", selectedConversation._id);
+    joinActiveConversation();
+    socket.on("connect", joinActiveConversation);
     socket.emit("mark_seen", { conversationId: selectedConversation._id, userId: user._id });
 
-    const fetchMessages = async () => {
+    const refreshMessages = async (conversationId = selectedConversation._id) => {
       try {
-        const res = await fetch(`${api}/api/messages/${selectedConversation._id}`, { credentials: "include" });
+        const res = await fetch(`${api}/api/messages/${conversationId}`, { credentials: "include" });
         const data = await res.json();
-        setMessages(Array.isArray(data) ? data : []);
+        setMessages((prev) => mergeMessages(prev, Array.isArray(data) ? data : []));
       } catch (err) {
-        console.error("Error loading messages:", err);
+        console.error("[SubadminApplicantMessage] poll error:", err);
       }
     };
-    fetchMessages();
+    refreshMessages();
+    const refreshInterval = setInterval(() => refreshMessages(), 1500);
 
     // Socket Listeners for Active Chat
     const handleReceiveMessage = (msg) => {
-      // 1. Update Messages if current chat
-      if (normalizeId(selectedConversation?._id) === normalizeId(msg.conversationId)) {
+      // 1. Update Messages if current chat — use ref to avoid stale closure
+      if (normalizeId(selectedConversationIdRef.current) === normalizeId(msg.conversationId)) {
         setMessages((prev) => prev.some((m) => normalizeId(m._id) === normalizeId(msg._id)) ? prev : [...prev, msg]);
         socket.emit("mark_seen", { conversationId: msg.conversationId, userId: user._id });
+        refreshMessages(msg.conversationId);
       }
     
       // 2. Update Conversations List (Preview)
@@ -256,7 +282,7 @@ export default function SubadminApplicantMessage() {
         const msgConvId = normalizeId(msg.conversationId);
         const existingConv = prev.find((c) => normalizeId(c._id) === msgConvId);
         
-        if (!existingConv) return prev; // If new convo, usually fetchConversations handles it or explicit add
+        if (!existingConv) return prev;
         
         return sortApplicantConversations(
           prev.map((conv) => {
@@ -269,7 +295,7 @@ export default function SubadminApplicantMessage() {
                   ...existingLM,
                   ...msg,
                   sender: nextSender,
-                  seen: normalizeId(selectedConversation?._id) === msgConvId ? true : msg.seen,
+                  seen: normalizeId(selectedConversationIdRef.current) === msgConvId ? true : msg.seen,
                 },
                 applicantDisplayName: conv.applicantDisplayName || getApplicantName(conv)
               };
@@ -281,11 +307,8 @@ export default function SubadminApplicantMessage() {
     };
 
     const handleMessageSeen = ({ conversationId }) => {
-        if (normalizeId(conversationId) === normalizeId(selectedConversation?._id)) {
-            // Update UI inside active chat
-            setMessages(prev => prev.map(m => ({...m, seen: true}))); // simplified logic
-            
-            // Update Sidebar preview
+        if (normalizeId(conversationId) === normalizeId(selectedConversationIdRef.current)) {
+            setMessages(prev => prev.map(m => ({...m, seen: true})));
             setConversations((prev) =>
                 prev.map((conv) =>
                 normalizeId(conv._id) === normalizeId(conversationId)
@@ -300,19 +323,20 @@ export default function SubadminApplicantMessage() {
     socket.on("messages_seen", handleMessageSeen);
     
     return () => {
+      clearInterval(refreshInterval);
+      socket.off("connect", joinActiveConversation);
       socket.off("receiveMessage", handleReceiveMessage);
       socket.off("messages_seen", handleMessageSeen);
     };
   }, [selectedConversation?._id, user]);
 
-  // General Updates (New conversations, etc.)
+  // Global listener: keeps sidebar + active chat updated for conversationUpdated events.
   useEffect(() => {
     const handleConversationUpdated = (updatedConv) => {
       if (!isApplicantConversation(updatedConv)) return;
       const updatedConvId = normalizeId(updatedConv._id);
 
-      // If active chat updated, merge details
-      if (normalizeId(selectedConversation?._id) === updatedConvId) {
+      if (normalizeId(selectedConversationIdRef.current) === updatedConvId) {
          setSelectedConversation((prev) => ({
              ...prev, 
              ...updatedConv,
@@ -320,11 +344,9 @@ export default function SubadminApplicantMessage() {
          }));
       }
 
-      // Update List
       setConversations((prev) => {
         const unique = prev.filter((c, index, self) => index === self.findIndex((conv) => normalizeId(conv._id) === normalizeId(c._id)));
         const exists = unique.some((c) => normalizeId(c._id) === updatedConvId);
-        
         if (exists) {
           return sortApplicantConversations(
             unique.map((c) => normalizeId(c._id) === updatedConvId ? { ...c, ...updatedConv, applicantDisplayName: c.applicantDisplayName || getApplicantName(updatedConv) } : c)
@@ -337,7 +359,7 @@ export default function SubadminApplicantMessage() {
 
     socket.on("conversationUpdated", handleConversationUpdated);
     return () => socket.off("conversationUpdated", handleConversationUpdated);
-  }, [selectedConversation?._id]);
+  }, []);
 
 
   // --- Handlers ---
@@ -382,6 +404,34 @@ export default function SubadminApplicantMessage() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedForDelete.length === 0) return;
+    try {
+      const res = await fetch(`${api}/api/messages/bulk-delete`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationIds: selectedForDelete }),
+      });
+      if (!res.ok) return;
+      setConversations((prev) => prev.filter((c) => !selectedForDelete.includes(normalizeId(c._id))));
+      if (selectedForDelete.includes(normalizeId(selectedConversation?._id))) {
+        setSelectedConversation(null);
+      }
+      setSelectedForDelete([]);
+      setIsDeleteMode(false);
+      setShowBulkDeleteModal(false);
+    } catch (err) {
+      console.error("Error bulk deleting:", err);
+    }
+  };
+
+  const toggleSelectConversation = (id) => {
+    setSelectedForDelete((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
   const filteredConversations = conversations.filter((conv) => {
     const applicantName = (conv.applicantDisplayName || getApplicantName(conv)).toLowerCase();
     return applicantName.includes(search.trim().toLowerCase());
@@ -393,13 +443,45 @@ export default function SubadminApplicantMessage() {
       {/* Sidebar */}
       <aside className={`w-full md:w-80 bg-[#0b1220] border-r border-gray-800 flex flex-col h-full ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-5 bg-gradient-to-r from-[#1e293b] to-[#0f172a] border-b border-gray-800 flex-none">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <MessageSquare className="text-blue-500" size={24}/> Inquiries
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <MessageSquare className="text-blue-500" size={24}/> Inquiries
+              </h2>
+              <button
+                onClick={() => { setIsDeleteMode((p) => !p); setSelectedForDelete([]); }}
+                className={`p-2 rounded-lg transition ${
+                  isDeleteMode ? "bg-red-600/20 text-red-400 hover:bg-red-600/30" : "text-gray-400 hover:text-white hover:bg-white/10"
+                }`}
+                title="Bulk Delete"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
             <div className="text-xs text-blue-400 mt-1 flex items-center gap-1">
                 {conversations.length} Active Conversations
             </div>
         </div>
+
+        {isDeleteMode && (
+          <div className="px-3 py-2 bg-red-950/30 border-b border-red-900/40 flex items-center justify-between gap-2 flex-none">
+            <span className="text-xs text-red-300">{selectedForDelete.length} selected</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelectedForDelete(conversations.map(c => normalizeId(c._id)))}
+                className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded"
+              >Select All</button>
+              <button
+                onClick={() => setShowBulkDeleteModal(true)}
+                disabled={selectedForDelete.length === 0}
+                className="text-xs bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white px-3 py-1 rounded-lg transition"
+              >Delete ({selectedForDelete.length})</button>
+              <button
+                onClick={() => { setIsDeleteMode(false); setSelectedForDelete([]); }}
+                className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded"
+              ><X size={14} /></button>
+            </div>
+          </div>
+        )}
 
         <div className="p-3 flex-none">
           <div className="relative">
@@ -429,17 +511,26 @@ export default function SubadminApplicantMessage() {
               const senderId = normalizeId(conv.lastMessage?.senderId || conv.lastMessage?.sender?._id);
               const isUnread = !conv.lastMessage?.seen && senderId !== normalizeId(user._id);
 
+              const convId = normalizeId(conv._id);
+              const isChecked = selectedForDelete.includes(convId);
               return (
                 <div
                   key={conv._id}
-                  onClick={() => setSelectedConversation(conv)}
-                  className={`p-3 rounded-xl cursor-pointer transition-all border border-transparent ${
-                    isActive 
-                        ? "bg-blue-600/10 border-blue-500/50" 
-                        : "hover:bg-[#1e293b] border-transparent"
+                  onClick={() => isDeleteMode ? toggleSelectConversation(convId) : setSelectedConversation(conv)}
+                  className={`p-3 rounded-xl cursor-pointer transition-all border ${
+                    isDeleteMode && isChecked
+                      ? "bg-red-600/10 border-red-500/50"
+                      : isActive ? "bg-blue-600/10 border-blue-500/50" : "border-transparent hover:bg-[#1e293b]"
                   }`}
                 >
                   <div className="flex items-center gap-3">
+                    {isDeleteMode && (
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
+                        isChecked ? "bg-red-500 border-red-500" : "border-gray-500"
+                      }`}>
+                        {isChecked && <CheckSquare size={12} className="text-white" />}
+                      </div>
+                    )}
                     <div className="relative">
                       <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-gray-300 font-bold border border-slate-600">
                         {applicantName.charAt(0).toUpperCase()}
@@ -614,6 +705,39 @@ export default function SubadminApplicantMessage() {
                 <X size={24}/>
             </button>
             <img src={previewImage} alt="Full Preview" className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" />
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-[#1e293b] border border-red-500/20 rounded-2xl shadow-2xl p-6 max-w-sm w-full">
+            <div className="text-center">
+              <div className="mx-auto w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
+                <Trash2 className="text-red-400" size={22} />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">Delete Conversations?</h3>
+              <p className="text-sm text-gray-400 mb-6">
+                You are about to permanently delete{" "}
+                <span className="text-white font-semibold">{selectedForDelete.length}</span>{" "}
+                conversation{selectedForDelete.length !== 1 ? "s" : ""} and all their messages. This cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowBulkDeleteModal(false)}
+                  className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm font-medium text-white transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 rounded-xl text-white text-sm font-bold shadow-lg shadow-red-900/30 transition"
+                >
+                  Delete {selectedForDelete.length}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

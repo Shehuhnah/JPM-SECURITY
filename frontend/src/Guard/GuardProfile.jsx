@@ -13,14 +13,37 @@ import {
 import { Dialog, Transition } from "@headlessui/react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { getPersonName } from "../utils/name";
+
 const api = import.meta.env.VITE_API_URL;
+
+const formatPHPhoneNumber = (value) => {
+  if (!value) return "+63";
+
+  let digits = value.replace(/\D/g, "");
+
+  // Remove leading 63
+  if (digits.startsWith("63")) {
+    digits = digits.slice(2);
+  }
+
+  // Remove leading 0
+  if (digits.startsWith("0")) {
+    digits = digits.slice(1);
+  }
+
+  // Limit to 10 digits
+  digits = digits.slice(0, 10);
+
+  return digits ? `+63${digits}` : "+63";
+};
 
 export default function GuardProfile() {
   const { user: guardData, loading } = useAuth();
   const navigate = useNavigate();
+
   const [isEditing, setIsEditing] = useState(false);
   const [changedFields, setChangedFields] = useState({});
 
@@ -30,11 +53,10 @@ export default function GuardProfile() {
   const [modalError, setModalError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Separate visibility states for each password field
-  const [showCurrent, setShowCurrent] = useState(false);
+  // Password visibility
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [showConfirmation, setShowConfirmation] = useState(false); // For modal password
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const [guard, setGuard] = useState({
     fullName: "",
@@ -42,15 +64,15 @@ export default function GuardProfile() {
     lastName: "",
     guardId: "",
     email: "",
-    phoneNumber: "",
+    phoneNumber: "+63",
     address: "",
     position: "",
     currentPassword: "",
     newpassword: "",
     confirmNewPassword: "",
-    SSSID: "",
-    PhilHealthID: "",
-    PagibigID: "",
+    sssId: "",
+    philHealthId: "",
+    pagibigId: "",
   });
 
   useEffect(() => {
@@ -68,6 +90,7 @@ export default function GuardProfile() {
         });
 
         const result = await res.json();
+
         if (!result.success) return;
 
         const p = result.data;
@@ -79,7 +102,7 @@ export default function GuardProfile() {
           lastName: p.lastName || "",
           guardId: p.guardId || "",
           email: p.email || "",
-          phoneNumber: p.phoneNumber || "",
+          phoneNumber: formatPHPhoneNumber(p.phoneNumber || ""),
           address: p.address || "",
           position: p.position || "",
           sssId: p.SSSID || "",
@@ -87,6 +110,7 @@ export default function GuardProfile() {
           pagibigId: p.PagibigID || "",
           confirmNewPassword: "",
         }));
+
         setChangedFields({});
       } catch (error) {
         console.error("Error fetching profile:", error);
@@ -97,7 +121,6 @@ export default function GuardProfile() {
   }, [guardData, navigate, loading]);
 
   const handleInitiateSave = () => {
-    const fieldsToUpdate = {};
     const hasPasswordChange = !!guard.newpassword;
 
     if (hasPasswordChange) {
@@ -105,14 +128,18 @@ export default function GuardProfile() {
         alert("⚠️ Passwords do not match!");
         return;
       }
+
       if (guard.newpassword.length < 8) {
-        alert("⚠️ Passwords must be at least 8 Characters!");
+        alert("⚠️ Password must be at least 8 characters!");
         return;
       }
     }
 
     const hasProfileInfoChange = Object.keys(changedFields).some(
-      (key) => !["currentPassword", "newpassword", "confirmNewPassword"].includes(key)
+      (key) =>
+        !["currentPassword", "newpassword", "confirmNewPassword"].includes(
+          key
+        )
     );
 
     if (!hasPasswordChange && !hasProfileInfoChange) {
@@ -142,19 +169,28 @@ export default function GuardProfile() {
       fieldsToUpdate.newPassword = guard.newpassword;
     }
 
-    ["email", "phoneNumber", "address", "sssId", "philHealthId", "pagibigId"].forEach(
-      (field) => {
-        if (changedFields.hasOwnProperty(field)) {
-          if (field === "sssId") fieldsToUpdate.SSSID = changedFields[field];
-          else if (field === "philHealthId")
-            fieldsToUpdate.PhilHealthID = changedFields[field];
-          else if (field === "pagibigId")
-            fieldsToUpdate.PagibigID = changedFields[field];
-          else if (field === "email") fieldsToUpdate.email = changedFields[field].toLowerCase();
-          else fieldsToUpdate[field] = changedFields[field];
+    [
+      "email",
+      "phoneNumber",
+      "address",
+      "sssId",
+      "philHealthId",
+      "pagibigId",
+    ].forEach((field) => {
+      if (changedFields.hasOwnProperty(field)) {
+        if (field === "sssId") {
+          fieldsToUpdate.SSSID = changedFields[field];
+        } else if (field === "philHealthId") {
+          fieldsToUpdate.PhilHealthID = changedFields[field];
+        } else if (field === "pagibigId") {
+          fieldsToUpdate.PagibigID = changedFields[field];
+        } else if (field === "email") {
+          fieldsToUpdate.email = changedFields[field].toLowerCase();
+        } else {
+          fieldsToUpdate[field] = changedFields[field];
         }
       }
-    );
+    });
 
     try {
       const res = await fetch(`${api}/api/guards/update-guard-profile`, {
@@ -170,19 +206,16 @@ export default function GuardProfile() {
 
       if (result.success) {
         toast.success("Profile updated successfully!", {
-            position: "top-right",
-            autoClose: 3000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            progress: undefined,
-            theme: "dark",
+          position: "top-right",
+          autoClose: 3000,
+          theme: "dark",
         });
+
         setIsModalOpen(false);
         setConfirmationPassword("");
         setIsEditing(false);
         setChangedFields({});
+
         setGuard((prev) => ({
           ...prev,
           currentPassword: "",
@@ -201,15 +234,31 @@ export default function GuardProfile() {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setGuard((prevGuard) => ({ ...prevGuard, [name]: value }));
-    setChangedFields((prevChanged) => ({ ...prevChanged, [name]: value }));
+    let { name, value } = e.target;
+
+    // Phone number formatting
+    if (name === "phoneNumber") {
+      value = formatPHPhoneNumber(value);
+    }
+
+    // Numeric-only fields
+    if (["sssId", "philHealthId", "pagibigId"].includes(name)) {
+      value = value.replace(/\D/g, "");
+    }
+
+    setGuard((prevGuard) => ({
+      ...prevGuard,
+      [name]: value,
+    }));
+
+    setChangedFields((prevChanged) => ({
+      ...prevChanged,
+      [name]: value,
+    }));
   };
-  
+
   const handleCancelEdit = () => {
     setIsEditing(false);
-    // You may want to refetch the profile or reset the state to discard changes
-    // For simplicity, we just toggle the editing state here
   };
 
   return (
@@ -219,8 +268,13 @@ export default function GuardProfile() {
           <div className="mx-auto mb-4 w-24 h-24 bg-[#0f172a] flex items-center justify-center rounded-full border border-gray-600">
             <ShieldUser size={50} className="text-blue-400" />
           </div>
-          <h2 className="text-2xl font-bold text-white">{getPersonName(guard)}</h2>
+
+          <h2 className="text-2xl font-bold text-white">
+            {getPersonName(guard)}
+          </h2>
+
           <p className="text-gray-400 text-sm">{guard.position}</p>
+
           <p className="text-blue-400 text-xs font-mono mt-1">
             ID: {guard.guardId}
           </p>
@@ -236,6 +290,7 @@ export default function GuardProfile() {
             onChange={handleChange}
             type="email"
           />
+
           <ProfileField
             icon={<Phone className="text-blue-400 w-5 h-5" />}
             label="Phone Number"
@@ -243,7 +298,9 @@ export default function GuardProfile() {
             value={guard.phoneNumber}
             editable={isEditing}
             onChange={handleChange}
+            placeholder="+639123456789"
           />
+
           <ProfileField
             icon={<MapPin className="text-blue-400 w-5 h-5" />}
             label="Address"
@@ -252,6 +309,7 @@ export default function GuardProfile() {
             editable={isEditing}
             onChange={handleChange}
           />
+
           <ProfileField
             icon={<BadgeCheck className="text-blue-400 w-5 h-5" />}
             label="SSS ID"
@@ -290,6 +348,7 @@ export default function GuardProfile() {
               show={showNew}
               setShow={setShowNew}
             />
+
             <PasswordField
               label="Confirm New Password"
               name="confirmNewPassword"
@@ -310,6 +369,7 @@ export default function GuardProfile() {
               >
                 Cancel
               </button>
+
               <button
                 onClick={handleInitiateSave}
                 className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-6 py-2 rounded-lg shadow-md"
@@ -322,15 +382,20 @@ export default function GuardProfile() {
               onClick={() => setIsEditing(true)}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg shadow-md transition"
             >
-              <Pencil size={16} /> Edit Profile
+              <Pencil size={16} />
+              Edit Profile
             </button>
           )}
         </div>
       </div>
-      
+
       {/* Confirmation Modal */}
       <Transition appear show={isModalOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-10" onClose={() => setIsModalOpen(false)}>
+        <Dialog
+          as="div"
+          className="relative z-10"
+          onClose={() => setIsModalOpen(false)}
+        >
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
@@ -355,28 +420,27 @@ export default function GuardProfile() {
                 leaveTo="opacity-0 scale-95"
               >
                 <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 text-left align-middle shadow-xl transition-all border border-gray-700">
-                  <Dialog.Title
-                    as="h3"
-                    className="text-lg font-medium leading-6 text-white"
-                  >
+                  <Dialog.Title className="text-lg font-medium text-white">
                     Confirm Changes
                   </Dialog.Title>
+
                   <div className="mt-2">
                     <p className="text-sm text-gray-400">
-                      To save your changes, please enter your current password.
+                      Enter your current password to confirm changes.
                     </p>
                   </div>
 
                   <div className="mt-4 text-white">
-                     <PasswordField
-
-                        label="Current Password"
-                        name="confirmationPassword"
-                        value={confirmationPassword}
-                        onChange={(e) => setConfirmationPassword(e.target.value)}
-                        show={showConfirmation}
-                        setShow={setShowConfirmation}
-                      />
+                    <PasswordField
+                      label="Current Password"
+                      name="confirmationPassword"
+                      value={confirmationPassword}
+                      onChange={(e) =>
+                        setConfirmationPassword(e.target.value)
+                      }
+                      show={showConfirmation}
+                      setShow={setShowConfirmation}
+                    />
                   </div>
 
                   {modalError && (
@@ -388,14 +452,15 @@ export default function GuardProfile() {
                   <div className="mt-6 flex justify-end space-x-3">
                     <button
                       type="button"
-                      className="inline-flex justify-center rounded-md border border-transparent bg-gray-600 px-4 py-2 text-sm font-medium text-white hover:bg-gray-500 focus:outline-none"
+                      className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-md text-white"
                       onClick={() => setIsModalOpen(false)}
                     >
                       Cancel
                     </button>
+
                     <button
                       type="button"
-                      className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 focus:outline-none disabled:bg-gray-500"
+                      className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-md text-white disabled:bg-gray-500"
                       onClick={handleConfirmUpdate}
                       disabled={isSubmitting}
                     >
@@ -408,23 +473,43 @@ export default function GuardProfile() {
           </div>
         </Dialog>
       </Transition>
+
       <ToastContainer />
     </section>
   );
 }
 
-function ProfileField({ icon, label, name, value, editable, onChange, type = "text" }) {
+function ProfileField({
+  icon,
+  label,
+  name,
+  value,
+  editable,
+  onChange,
+  type = "text",
+  placeholder = "",
+}) {
   return (
     <div className="flex items-center gap-3 bg-[#0f172a]/50 rounded-lg p-3 border border-gray-700">
       {icon}
+
       <div className="flex-1">
         <p className="text-xs text-gray-400">{label}</p>
+
         {editable ? (
           <input
             type={type}
             name={name}
             value={value}
             onChange={onChange}
+            placeholder={placeholder}
+            inputMode={
+              name === "phoneNumber"
+                ? "tel"
+                : ["sssId", "philHealthId", "pagibigId"].includes(name)
+                ? "numeric"
+                : undefined
+            }
             className="w-full bg-transparent border-b border-gray-500 focus:outline-none focus:border-blue-400 text-sm"
           />
         ) : (
@@ -435,12 +520,21 @@ function ProfileField({ icon, label, name, value, editable, onChange, type = "te
   );
 }
 
-function PasswordField({ label, name, value, onChange, show, setShow }) {
+function PasswordField({
+  label,
+  name,
+  value,
+  onChange,
+  show,
+  setShow,
+}) {
   return (
     <div className="relative bg-[#0f172a]/50 rounded-lg p-3 border border-gray-700 flex flex-col">
       <p className="text-xs text-gray-400 mb-1 flex items-center gap-2">
-        <Lock className="text-blue-400 w-4 h-4" /> {label}
+        <Lock className="text-blue-400 w-4 h-4" />
+        {label}
       </p>
+
       <input
         type={show ? "text" : "password"}
         name={name}
@@ -449,6 +543,7 @@ function PasswordField({ label, name, value, onChange, show, setShow }) {
         className="bg-transparent border-b border-gray-500 focus:outline-none focus:border-blue-400 text-sm pr-8"
         placeholder="••••••••"
       />
+
       <button
         type="button"
         onClick={() => setShow(!show)}

@@ -85,12 +85,34 @@ export const createAttendance = async (req, res) => {
       });
     }
 
+    // --- Shift time-window enforcement ---
+    // Schedule strings are stored as naive PHT datetimes ("YYYY-MM-DDTHH:MM").
+    // Append +08:00 so Date() parses them correctly against UTC server time.
+    const parseAsPHT = (s) => s ? new Date(`${String(s).slice(0, 16)}:00+08:00`) : null;
+    const shiftStart = parseAsPHT(schedule.timeIn);
+    const shiftEnd   = parseAsPHT(schedule.timeOut);
+    const now        = new Date();
+    const EARLY_BUFFER_MS = 2 * 60 * 60 * 1000; // allow time-in up to 2 h before shift starts
+
+    if (shiftEnd && now > shiftEnd) {
+      return res.status(400).json({
+        message: `This ${schedule.shiftType} has already ended. Please select the correct shift.`,
+      });
+    }
+
+    if (shiftStart && now < new Date(shiftStart.getTime() - EARLY_BUFFER_MS)) {
+      const startLabel = String(schedule.timeIn).slice(11, 16);
+      return res.status(400).json({
+        message: `This ${schedule.shiftType} starts at ${startLabel}. Time-in is only available from 2 hours before the shift begins.`,
+      });
+    }
+
     const existingAttendance = await Attendance.findOne({ scheduleId });
     if (existingAttendance) {
       return res.status(400).json({ message: "You have already timed in for this schedule." });
     }
 
-    const now = new Date();
+
     const remarks = getLateRemark(schedule.timeIn, now);
 
     const newAttendance = new Attendance({

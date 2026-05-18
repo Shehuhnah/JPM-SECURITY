@@ -218,6 +218,19 @@ export default function AdminSchedApproval() {
   // --- Data Processing ---
 
   const shiftColors = { "Night Shift": "#ef4444", "Day Shift": "#eab308" };
+
+  // Returns "7:00 AM – 7:00 PM" style label for a schedule entry
+  const getShiftTimeRange = (shiftType) => {
+    if (shiftType === "Day Shift")   return "7:00 AM – 7:00 PM";
+    if (shiftType === "Night Shift") return "7:00 PM – 7:00 AM";
+    return "";
+  };
+
+  // True when a batch contains both Day Shift and Night Shift entries
+  const batchHas24HourCover = (schedules = []) => {
+    const types = new Set(schedules.map((s) => s.shiftType));
+    return types.has("Day Shift") && types.has("Night Shift");
+  };
   const formatMonthValue = (value) => {
     if (!value) return "Unknown month";
     const [year, month] = String(value).split("-").map(Number);
@@ -837,17 +850,28 @@ export default function AdminSchedApproval() {
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">
-                              {selectedBatchDetails?.scopeLabel}
-                            </span>
-                            <span className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] ${
-                              selectedBatchDetails?.shiftType === "Night Shift"
-                                ? "border-red-500/20 bg-red-500/10 text-red-300"
-                                : "border-yellow-500/20 bg-yellow-500/10 text-yellow-300"
-                            }`}>
-                              {selectedBatchDetails?.shiftType}
-                            </span>
-                          </div>
+                             <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">
+                               {selectedBatchDetails?.scopeLabel}
+                             </span>
+                             {batchHas24HourCover(selectedBatchDetails?.schedules || []) ? (
+                               <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+                                 ⚡ 24-Hour Cover
+                               </span>
+                             ) : (
+                               <span className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] ${
+                                 selectedBatchDetails?.shiftType === "Night Shift"
+                                   ? "border-red-500/20 bg-red-500/10 text-red-300"
+                                   : "border-yellow-500/20 bg-yellow-500/10 text-yellow-300"
+                               }`}>
+                                 {selectedBatchDetails?.shiftType}
+                                 {getShiftTimeRange(selectedBatchDetails?.shiftType) && (
+                                   <span className="ml-1.5 font-normal opacity-80">
+                                     &middot; {getShiftTimeRange(selectedBatchDetails?.shiftType)}
+                                   </span>
+                                 )}
+                               </span>
+                             )}
+                           </div>
                         </div>
 
                         <div className="grid gap-5 xl:grid-cols-[1.35fr_0.95fr]">
@@ -1020,13 +1044,33 @@ export default function AdminSchedApproval() {
                                     </div>
                                   </div>
                                 </div>
-                                <span className={`w-fit rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider shrink-0 sm:self-center ${
-                                  summary.shiftType === "Night Shift"
-                                    ? "border border-red-500/30 bg-red-500/10 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.15)]"
-                                    : "border border-yellow-500/30 bg-yellow-500/10 text-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.15)]"
-                                }`}>
-                                  {summary.shiftType}
-                                </span>
+                                {(() => {
+                                  // Check if this guard has both Day & Night shifts in this batch
+                                  const guardShiftTypes = new Set(
+                                    (selectedBatchDetails?.schedules || [])
+                                      .filter(s => (s.guardId?._id || s.guardId) === summary.guardKey)
+                                      .map(s => s.shiftType)
+                                  );
+                                  const is24H = guardShiftTypes.has("Day Shift") && guardShiftTypes.has("Night Shift");
+                                  return is24H ? (
+                                    <span className="w-fit rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider shrink-0 sm:self-center border border-amber-500/30 bg-amber-500/10 text-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.15)]">
+                                      ⚡ 24-Hour Cover
+                                    </span>
+                                  ) : (
+                                    <span className={`w-fit rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider shrink-0 sm:self-center ${
+                                      summary.shiftType === "Night Shift"
+                                        ? "border border-red-500/30 bg-red-500/10 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.15)]"
+                                        : "border border-yellow-500/30 bg-yellow-500/10 text-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.15)]"
+                                    }`}>
+                                      {summary.shiftType}
+                                      {getShiftTimeRange(summary.shiftType) && (
+                                        <span className="ml-1 font-normal opacity-75 text-[10px]">
+                                          &middot; {getShiftTimeRange(summary.shiftType)}
+                                        </span>
+                                      )}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             ))}
                           </div>

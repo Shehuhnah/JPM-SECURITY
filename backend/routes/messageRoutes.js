@@ -1,16 +1,21 @@
 import express from "express";
-import { protect } from "../middleware/authMiddleware.js";
+import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 import upload from "../middleware/uploadMiddleware.js";
 import { 
   getConversations, 
   getMessages, 
   sendMessage, 
-  markMessagesAsSeen  
+  markMessagesAsSeen,
+  bulkDeleteConversations,
 } from "../controller/messageController.js";
 
 const router = express.Router();
 
 router.get("/conversations", protect, getConversations);
+
+// Bulk delete must come BEFORE the /:conversationId wildcard
+router.delete("/bulk-delete", protect, authorizeRoles("Admin", "Subadmin"), bulkDeleteConversations);
+
 router.get("/:conversationId", protect, getMessages);
 
 // ✅ Add file upload support (image or attachment)

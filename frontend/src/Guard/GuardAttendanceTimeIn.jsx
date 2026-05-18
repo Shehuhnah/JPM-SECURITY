@@ -41,20 +41,78 @@ function GuardAttendanceTimeIn() {
   const [isOnLeave, setIsOnLeave] = useState(false);
   const [activeLeave, setActiveLeave] = useState(null);
 
+  // Switching schedules should clear any captured photo and previous errors
+  // so the guard always starts fresh for the newly selected shift.
+  const handleScheduleSelect = (schedule) => {
+    setSelectedSchedule(schedule);
+    setCapturedImage(null);
+    setShowCamera(false);
+    setSubmitError(null);
+    setCheckError(null);
+  };
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
 
   // --- HELPER FUNCTIONS ---
 
-  // Used only for UI hints. Attendance is not restricted to this window for now.
+  // Format a naive PHT datetime string into a short human-readable label.
+  // e.g. "2026-05-19T07:00" → "May 19, 7:00 AM"
+  const formatScheduleDateTime = (isoStr) => {
+    if (!isoStr) return "";
+    // Parse as PHT so the date displayed is correct regardless of server timezone.
+    const dt = new Date(`${String(isoStr).slice(0, 16)}:00+08:00`);
+    return dt.toLocaleString("en-PH", {
+      timeZone: "Asia/Manila",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  // Full date-range label shown in the dropdown.
+  // e.g. "May 19, 7:00 AM → May 19, 7:00 PM"
+  const getShiftDateRange = (schedule) => {
+    if (!schedule?.timeIn || !schedule?.timeOut) return "";
+    return `${formatScheduleDateTime(schedule.timeIn)} → ${formatScheduleDateTime(schedule.timeOut)}`;
+  };
+
+  // Short time-only label (used in the selected-schedule summary line).
+  const getShiftTimeLabel = (schedule) => {
+    if (!schedule) return "";
+    const shift = schedule.shiftType || "";
+    if (shift === "Day Shift")   return "7:00 AM – 7:00 PM";
+    if (shift === "Night Shift") return "7:00 PM – 7:00 AM";
+    return `${formatTimeDisplay(schedule.timeIn)} – ${formatTimeDisplay(schedule.timeOut)}`;
+  };
+
+  // Parse a naive schedule datetime string as PHT (UTC+8) — same approach as the backend.
+  const parseAsPHT = (s) => s ? new Date(`${String(s).slice(0, 16)}:00+08:00`) : null;
+
+  // Classify a schedule against the current time.
+  // "active"   = within 2 h before start through shift end (matches backend window)
+  // "upcoming" = more than 2 h before shift start
+  // "ended"    = past shift end
+  const getShiftStatus = (schedule) => {
+    if (!schedule?.timeIn || !schedule?.timeOut) return "unknown";
+    const start = parseAsPHT(schedule.timeIn);
+    const end   = parseAsPHT(schedule.timeOut);
+    const now   = new Date();
+    const BUFFER_MS = 2 * 60 * 60 * 1000;
+    if (now > end)                                   return "ended";
+    if (now < new Date(start.getTime() - BUFFER_MS)) return "upcoming";
+    return "active";
+  };
+
   const isShiftOngoing = (schedule) => {
     if (!schedule) return false;
+    const start = parseAsPHT(schedule.timeIn);
+    const end   = parseAsPHT(schedule.timeOut);
+    if (!start || !end) return false;
     const now = new Date();
-    const start = new Date(schedule.timeIn);
-    const end = new Date(schedule.timeOut);
-    // Optional: Add a 2-hour buffer before start if needed
-    // start.setHours(start.getHours() - 2); 
     return now >= start && now <= end;
   };
 
@@ -195,13 +253,12 @@ function GuardAttendanceTimeIn() {
 
         setAvailableSchedules(openSchedules);
 
-        // Prefer an ongoing shift for convenience, otherwise fall back to the first available.
-        const ongoing = openSchedules.find((s) => isShiftOngoing(s));
-        if (ongoing) {
-          setSelectedSchedule(ongoing);
-        } else if (openSchedules.length > 0) {
-          setSelectedSchedule(openSchedules[0]);
-        }
+        // Prefer an active-window shift; fall back to first upcoming; never auto-pick ended shifts.
+        const active   = openSchedules.find((s) => getShiftStatus(s) === "active");
+        const upcoming = openSchedules.find((s) => getShiftStatus(s) === "upcoming");
+        if (active)        setSelectedSchedule(active);
+        else if (upcoming) setSelectedSchedule(upcoming);
+        else if (openSchedules.length > 0) setSelectedSchedule(openSchedules[0]);
       } catch (err) {
         console.error("Schedule fetch failed:", err);
         setCheckError(err.message || "Failed to load today's schedules.");
@@ -566,11 +623,22 @@ function GuardAttendanceTimeIn() {
             <p className="text-gray-400 text-sm">ID: {guard?.guardId || guard?._id}</p>
           </div>
 
-          {/* SCHEDULE DROPDOWN - IMPROVED */}
+          {/* Schedule Dropdown */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Select Your Schedule for Today
             </label>
+
+            {/* 24-Hour Cover info banner */}
+            {availableSchedules.length >= 2 &&
+              availableSchedules.some(s => s.shiftType === "Day Shift") &&
+              availableSchedules.some(s => s.shiftType === "Night Shift") && (
+              <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200">
+                <span className="mt-0.5 shrink-0">⚡</span>
+                <span>You are scheduled for <strong>24-Hour Cover</strong> today. Select each shift separately and complete a full time-in / time-out cycle for each one.</span>
+              </div>
+            )}
+
             <Menu as="div" className="relative block text-left">
               <div>
                 <Menu.Button
@@ -588,7 +656,7 @@ function GuardAttendanceTimeIn() {
                         )}
                       </div>
                       <span className="text-xs text-gray-400 mt-0.5 truncate w-full text-left">
-                        {selectedSchedule.deploymentLocation}
+                        {selectedSchedule.shiftType} &bull; {getShiftTimeLabel(selectedSchedule)}
                       </span>
                     </div>
                   ) : (
@@ -611,20 +679,34 @@ function GuardAttendanceTimeIn() {
                   <div className="py-1">
                     {availableSchedules.length > 0 ? (
                       availableSchedules.map((schedule) => {
-                        const isLive = isShiftOngoing(schedule);
+                        const isLive     = isShiftOngoing(schedule);
+                        const status     = getShiftStatus(schedule);
+                        const isEnded    = status === "ended";
+                        const isUpcoming = status === "upcoming";
                         return (
-                          <Menu.Item key={schedule._id}>
+                          <Menu.Item key={schedule._id} disabled={isEnded}>
                             {({ active }) => (
                               <button
-                                onClick={() => setSelectedSchedule(schedule)}
+                                onClick={() => !isEnded && handleScheduleSelect(schedule)}
+                                disabled={isEnded}
                                 className={`${
-                                  active ? "bg-[#1e293b]" : ""
+                                  isEnded
+                                    ? "opacity-40 cursor-not-allowed"
+                                    : active ? "bg-[#1e293b]" : ""
                                 } flex flex-col items-start px-4 py-3 text-sm w-full border-b border-gray-700/50 last:border-0 transition-colors`}
                               >
                                 <div className="flex items-center justify-between w-full mb-1">
-                                  <span className={`font-semibold truncate flex-1 mr-2 ${isLive ? 'text-white' : 'text-gray-300'}`}>
+                                  <span className={`font-semibold truncate flex-1 mr-2 ${
+                                    isLive ? 'text-white' : isEnded ? 'text-gray-600' : 'text-gray-300'
+                                  }`}>
                                     {schedule.client}
                                   </span>
+                                  {isEnded && (
+                                    <span className="shrink-0 bg-gray-700/60 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded-full">ENDED</span>
+                                  )}
+                                  {isUpcoming && (
+                                    <span className="shrink-0 bg-blue-500/20 text-blue-400 text-[10px] font-bold px-2 py-0.5 rounded-full">UPCOMING</span>
+                                  )}
                                   {isLive && (
                                     <span className="flex items-center gap-1 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse">
                                       <span className="w-1.5 h-1.5 bg-white rounded-full"></span> ACTIVE
@@ -634,10 +716,22 @@ function GuardAttendanceTimeIn() {
                                 <span className="text-xs text-gray-400 mb-1">
                                   {schedule.deploymentLocation}
                                 </span>
-                                <div className={`text-xs flex gap-2 ${isLive ? 'text-green-400' : 'text-gray-500'}`}>
-                                  <span>{schedule.shiftType}</span>
-                                  <span>•</span>
-                                  <span>{formatTimeDisplay(schedule.timeIn)} - {formatTimeDisplay(schedule.timeOut)}</span>
+                                <div className={`text-xs flex items-center gap-2 ${
+                                  isLive ? 'text-green-400' : isEnded ? 'text-gray-600' : 'text-gray-500'
+                                }`}>
+                                  <span className={`font-medium px-1.5 py-0.5 rounded text-[10px] ${
+                                    schedule.shiftType === 'Night Shift'
+                                      ? 'bg-indigo-500/20 text-indigo-300'
+                                      : 'bg-amber-500/20 text-amber-300'
+                                  }`}>{schedule.shiftType}</span>
+                                  <span className="text-gray-500">&bull;</span>
+                                  <span>{getShiftTimeLabel(schedule)}</span>
+                                </div>
+                                <div className={`mt-1 text-[11px] flex items-center gap-1 ${
+                                  isEnded ? 'text-gray-600' : 'text-slate-500'
+                                }`}>
+                                  <span>📅</span>
+                                  <span>{getShiftDateRange(schedule)}</span>
                                 </div>
                               </button>
                             )}

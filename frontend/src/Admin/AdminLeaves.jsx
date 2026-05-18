@@ -139,6 +139,7 @@ export default function AdminLeaves() {
   const [submitting, setSubmitting] = useState(false);
   const [reviewingId, setReviewingId] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [approveModal, setApproveModal] = useState({ open: false, request: null });
   const [declineModal, setDeclineModal] = useState({ open: false, requestId: "", name: "" });
   const [declineReason, setDeclineReason] = useState("");
@@ -580,6 +581,16 @@ export default function AdminLeaves() {
     declined: requests.filter((request) => request.status === "Declined").length,
   }), [requests]);
 
+  const myLeaves = useMemo(() => {
+    if (!user?._id) return [];
+    return requests.filter((request) => {
+      if (request.requesterRole === "Guard") {
+        return request.guard?._id === user._id || request.guard === user._id;
+      }
+      return request.staff?._id === user._id || request.staff === user._id;
+    });
+  }, [requests, user]);
+
   if (loading || loadingPage) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0f172a]">
@@ -749,11 +760,11 @@ export default function AdminLeaves() {
           {canRequestLeave && (
             <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
               <button
-                onClick={() => setIsFormOpen((prev) => !prev)}
+                onClick={() => setShowLeaveModal(true)}
                 className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition whitespace-nowrap shadow-lg shadow-blue-900/20"
               >
                 <Plus size={18} />
-                {isFormOpen ? "Hide Request Form" : "New Leave Request"}
+                New Leave Request
               </button>
             </div>
           )}
@@ -766,196 +777,178 @@ export default function AdminLeaves() {
           <SummaryCard label="Declined" value={summary.declined} icon={<XCircle size={18} />} color="blue" />
         </div>
 
-        {isFormOpen && (
-          <section className="rounded-2xl border border-gray-700 bg-[#1e293b] p-5 shadow-lg md:p-6">
-            <div className="mb-5 border-b border-gray-700 pb-4">
-              <h2 className="text-lg font-semibold text-white">Submit Leave Request</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Pick a date range, remove dates inside the range when needed, and submit the final leave coverage.
-              </p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="grid gap-6 xl:grid-cols-[340px_1fr]">
-              <div className="space-y-4">
+        {/* Leave Request Modal */}
+        {showLeaveModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm">
+            <div className="w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-3xl border border-blue-500/20 bg-[#0f172a] shadow-2xl shadow-black/50">
+              <div className="sticky top-0 z-10 border-b border-blue-500/10 bg-[linear-gradient(135deg,rgba(37,99,235,0.18),rgba(15,23,42,0.98))] px-6 py-5 flex items-start justify-between gap-4">
                 <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    Assign To
-                  </label>
-                  <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
-                      <Search size={16} />
-                    </div>
-                    <input
-                      type="text"
-                      value={assigneeQuery}
-                      onChange={(event) => {
-                        setAssigneeQuery(event.target.value);
-                        setIsAssigneeDropdownOpen(true);
-                      }}
-                      onFocus={() => setIsAssigneeDropdownOpen(true)}
-                      onBlur={() => {
-                        window.setTimeout(() => {
-                          setIsAssigneeDropdownOpen(false);
-                          if (selectedAssigneeOption) {
-                            setAssigneeQuery(selectedAssigneeOption.label);
-                          }
-                        }, 120);
-                      }}
-                      placeholder="Search guard or staff"
-                      className="w-full rounded-lg border border-gray-700 bg-[#0f172a] pl-11 pr-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500/60"
-                    />
-                    {isAssigneeDropdownOpen && (
-                      <div className="absolute z-20 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-700 bg-[#0b1220] shadow-2xl">
-                        {filteredAssigneeOptions.length ? (
-                          filteredAssigneeOptions.map((option) => (
-                            <button
-                              key={option.value}
-                              type="button"
-                              onMouseDown={() => {
-                                setSelectedAssignee(option.value);
-                                setAssigneeQuery(option.label);
-                                setIsAssigneeDropdownOpen(false);
-                              }}
-                              className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition ${
-                                selectedAssignee === option.value
-                                  ? "bg-blue-500/15 text-blue-100"
-                                  : "text-slate-200 hover:bg-slate-800"
-                              }`}
-                            >
-                              <span className="truncate">{option.label}</span>
-                              {selectedAssignee === option.value ? (
-                                <span className="shrink-0 rounded-full bg-blue-500/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">
-                                  Selected
-                                </span>
-                              ) : null}
-                            </button>
-                          ))
-                        ) : (
-                          <div className="px-4 py-3 text-sm text-slate-400">No personnel found.</div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">New Leave Request</div>
+                  <h3 className="mt-1 text-xl font-semibold text-white">Submit Leave Request</h3>
+                  <p className="mt-1 text-sm text-slate-400">Pick a date range, remove dates if needed, then submit.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setShowLeaveModal(false); resetForm(); }}
+                  className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:text-white"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <form onSubmit={async (e) => { await handleSubmit(e); if (!submitting) setShowLeaveModal(false); }} className="grid gap-6 xl:grid-cols-[340px_1fr]">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Assign To</label>
+                      <div className="relative">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
+                          <Search size={16} />
+                        </div>
+                        <input
+                          type="text"
+                          value={assigneeQuery}
+                          onChange={(event) => { setAssigneeQuery(event.target.value); setIsAssigneeDropdownOpen(true); }}
+                          onFocus={() => setIsAssigneeDropdownOpen(true)}
+                          onBlur={() => { window.setTimeout(() => { setIsAssigneeDropdownOpen(false); if (selectedAssigneeOption) { setAssigneeQuery(selectedAssigneeOption.label); } }, 120); }}
+                          placeholder="Search guard or staff"
+                          className="w-full rounded-lg border border-gray-700 bg-[#1e293b] pl-11 pr-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500/60"
+                        />
+                        {isAssigneeDropdownOpen && (
+                          <div className="absolute z-20 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-700 bg-[#0b1220] shadow-2xl">
+                            {filteredAssigneeOptions.length ? (
+                              filteredAssigneeOptions.map((option) => (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onMouseDown={() => { setSelectedAssignee(option.value); setAssigneeQuery(option.label); setIsAssigneeDropdownOpen(false); }}
+                                  className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition ${
+                                    selectedAssignee === option.value ? "bg-blue-500/15 text-blue-100" : "text-slate-200 hover:bg-slate-800"
+                                  }`}
+                                >
+                                  <span className="truncate">{option.label}</span>
+                                  {selectedAssignee === option.value ? (
+                                    <span className="shrink-0 rounded-full bg-blue-500/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">Selected</span>
+                                  ) : null}
+                                </button>
+                              ))
+                            ) : (
+                              <div className="px-4 py-3 text-sm text-slate-400">No personnel found.</div>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
 
-                <div className="rounded-xl border border-gray-700 bg-[#0f172a] p-3">
-                  <DayPicker
-                    mode="range"
-                    selected={leaveRange}
-                    onSelect={setLeaveRange}
-                    disabled={existingLeaveDates.map(toLocalDate)}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-5">
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <InfoCard label="Range Start" value={leaveRange?.from ? format(leaveRange.from, "MMM dd, yyyy") : "Not set"} />
-                  <InfoCard label="Range End" value={leaveRange?.to ? format(leaveRange.to, "MMM dd, yyyy") : "Not set"} />
-                  <InfoCard label="Included" value={`${includedDates.length} day${includedDates.length === 1 ? "" : "s"}`} />
-                  <InfoCard label="Excluded" value={`${excludedDates.length} day${excludedDates.length === 1 ? "" : "s"}`} />
-                </div>
-
-                <div className="rounded-xl border border-gray-700 bg-[#0f172a] p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                      Included Leave Dates
-                    </span>
-                    <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
-                      {includedDates.length} active
-                    </span>
+                    <div className="rounded-xl border border-gray-700 bg-[#1e293b] p-3">
+                      <DayPicker mode="range" selected={leaveRange} onSelect={setLeaveRange} disabled={existingLeaveDates.map(toLocalDate)} />
+                    </div>
                   </div>
 
-                  {includedDates.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {includedDates.map((date) => (
-                        <button
-                          key={date}
-                          type="button"
-                          onClick={() => toggleExcludedDate(date)}
-                          className="inline-flex items-center gap-2 rounded-md border border-gray-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-red-400/50 hover:text-red-300"
-                        >
-                          {format(new Date(`${date}T00:00:00`), "MMM dd, yyyy")}
-                          <X size={12} />
-                        </button>
-                      ))}
+                  <div className="space-y-5">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <InfoCard label="Range Start" value={leaveRange?.from ? format(leaveRange.from, "MMM dd, yyyy") : "Not set"} />
+                      <InfoCard label="Range End" value={leaveRange?.to ? format(leaveRange.to, "MMM dd, yyyy") : "Not set"} />
+                      <InfoCard label="Included" value={`${includedDates.length} day${includedDates.length === 1 ? "" : "s"}`} />
+                      <InfoCard label="Excluded" value={`${excludedDates.length} day${excludedDates.length === 1 ? "" : "s"}`} />
                     </div>
-                  ) : (
-                    <p className="text-sm text-slate-500">No active leave dates selected.</p>
-                  )}
 
-                  {excludedDates.length > 0 && (
-                    <div className="mt-5 border-t border-gray-700 pt-4">
-                      <div className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        Excluded Dates
+                    <div className="rounded-xl border border-gray-700 bg-[#1e293b] p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Included Leave Dates</span>
+                        <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">{includedDates.length} active</span>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {excludedDates.map((date) => (
-                          <button
-                            key={date}
-                            type="button"
-                            onClick={() => toggleExcludedDate(date)}
-                            className="inline-flex items-center gap-2 rounded-md border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/20"
-                          >
-                            {format(new Date(`${date}T00:00:00`), "MMM dd, yyyy")}
-                            <CheckCircle size={12} />
-                          </button>
-                        ))}
-                      </div>
+                      {includedDates.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {includedDates.map((date) => (
+                            <button key={date} type="button" onClick={() => toggleExcludedDate(date)}
+                              className="inline-flex items-center gap-2 rounded-md border border-gray-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-red-400/50 hover:text-red-300">
+                              {format(new Date(`${date}T00:00:00`), "MMM dd, yyyy")}<X size={12} />
+                            </button>
+                          ))}
+                        </div>
+                      ) : <p className="text-sm text-slate-500">No active leave dates selected.</p>}
+                      {excludedDates.length > 0 && (
+                        <div className="mt-5 border-t border-gray-700 pt-4">
+                          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Excluded Dates</div>
+                          <div className="flex flex-wrap gap-2">
+                            {excludedDates.map((date) => (
+                              <button key={date} type="button" onClick={() => toggleExcludedDate(date)}
+                                className="inline-flex items-center gap-2 rounded-md border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/20">
+                                {format(new Date(`${date}T00:00:00`), "MMM dd, yyyy")}<CheckCircle size={12} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    Type of Leave
-                  </label>
-                  <select
-                    value={leaveType}
-                    onChange={(event) => setLeaveType(event.target.value)}
-                    required
-                    className="w-full rounded-lg border border-gray-700 bg-[#0f172a] px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500/60"
-                  >
-                    {availableLeaveTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Type of Leave</label>
+                      <select value={leaveType} onChange={(event) => setLeaveType(event.target.value)} required
+                        className="w-full rounded-lg border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500/60">
+                        {availableLeaveTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+                      </select>
+                    </div>
 
-                <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    Reason
-                  </label>
-                  <textarea
-                    value={reason}
-                    onChange={(event) => setReason(event.target.value)}
-                    rows={6}
-                    placeholder="Provide the reason for this leave request."
-                    className="w-full resize-none rounded-xl border border-gray-700 bg-[#0f172a] px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500/60"
-                  />
-                </div>
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Reason</label>
+                      <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={5}
+                        placeholder="Provide the reason for this leave request."
+                        className="w-full resize-none rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500/60" />
+                    </div>
 
-                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setIsFormOpen(false)}
-                    className="rounded-lg border border-gray-700 px-5 py-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-60"
-                  >
-                    {submitting ? <Clock className="animate-spin" size={16} /> : <CheckCircle size={16} />}
-                    {submitting ? "Submitting..." : "Submit Request"}
-                  </button>
-                </div>
+                    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                      <button type="button" onClick={() => { setShowLeaveModal(false); resetForm(); }}
+                        className="rounded-lg border border-gray-700 px-5 py-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white">Cancel</button>
+                      <button type="submit" disabled={submitting}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-60">
+                        {submitting ? <Clock className="animate-spin" size={16} /> : <CheckCircle size={16} />}
+                        {submitting ? "Submitting..." : "Submit Request"}
+                      </button>
+                    </div>
+                  </div>
+                </form>
               </div>
-            </form>
+            </div>
+          </div>
+        )}
+
+        {/* My Leave History */}
+        {canRequestLeave && myLeaves.length > 0 && (
+          <section className="overflow-hidden rounded-2xl border border-blue-500/20 bg-[#1e293b] shadow-lg">
+            <div className="border-b border-blue-500/10 bg-[linear-gradient(135deg,rgba(37,99,235,0.12),rgba(30,41,59,0.95))] px-5 py-4 flex items-center gap-3">
+              <History size={18} className="text-blue-400" />
+              <div>
+                <h2 className="text-base font-semibold text-white">My Leave History</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Your personal leave requests ({myLeaves.length})</p>
+              </div>
+            </div>
+            <div className="divide-y divide-gray-700/50">
+              {myLeaves.map((request) => {
+                const sc = statusConfig[request.status] || statusConfig.Pending;
+                return (
+                  <div key={request._id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 hover:bg-slate-800/40 transition">
+                    <div className="flex items-start gap-4 min-w-0">
+                      <div className={`mt-0.5 rounded-full px-2.5 py-1 text-xs font-semibold border ${sc.bg} ${sc.color} ${sc.border} whitespace-nowrap`}>
+                        {request.status}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-white">{request.leaveType || "Unspecified"}</p>
+                        <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{request.reason}</p>
+                        {request.reviewRemarks && (
+                          <p className="text-xs text-slate-500 mt-1">Note: <span className="text-slate-300">{request.reviewRemarks}</span></p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 text-xs text-slate-400 space-y-1">
+                      <div className="font-medium text-slate-300">{request.startDate || request.dates?.[0] || "N/A"} → {request.endDate || request.dates?.[request.dates.length - 1] || "N/A"}</div>
+                      <div>{request.dates?.length || 0} day{(request.dates?.length || 0) !== 1 ? "s" : ""} included</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </section>
         )}
 

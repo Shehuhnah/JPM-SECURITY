@@ -282,6 +282,27 @@ export default function ApplicantsMessages() {
       userId: session.applicantId 
     });
 
+    // Polling fallback: re-fetches every 1.5 s so messages appear even if a
+    // socket event is missed (mirrors the working GuardMessage pattern).
+    const refreshMessages = async () => {
+      try {
+        const res = await fetch(
+          `${api}/api/applicant-messages/${session.conversationId}?applicantId=${session.applicantId}`,
+          { credentials: "include" }
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        setMessages((prev) => {
+          const merged = [...prev];
+          for (const msg of data) {
+            if (!merged.some((m) => m._id === msg._id)) merged.push(msg);
+          }
+          return merged.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+        });
+      } catch (_) {}
+    };
+    const refreshInterval = setInterval(refreshMessages, 1500);
+
     const handleReceiveMessage = (msg) => {
       if (normalizeId(msg.conversationId) !== normalizeId(session.conversationId)) return;
       
@@ -289,11 +310,12 @@ export default function ApplicantsMessages() {
         prev.some((m) => m._id === msg._id) ? prev : [...prev, msg]
       );
 
-      // 2. If a new message arrives while we are on this page, mark it seen immediately
       socket.emit("mark_seen", { 
         conversationId: session.conversationId, 
         userId: session.applicantId 
       });
+      // Immediate re-fetch for full consistency
+      refreshMessages();
     };
 
     const handleConversationUpdated = (conv) => {
@@ -319,12 +341,13 @@ export default function ApplicantsMessages() {
 
     socket.on("receiveMessage", handleReceiveMessage);
     socket.on("conversationUpdated", handleConversationUpdated);
-    socket.on("messages_seen", handleMessagesSeen); // <--- Add listener
+    socket.on("messages_seen", handleMessagesSeen);
 
     return () => {
+      clearInterval(refreshInterval);
       socket.off("receiveMessage", handleReceiveMessage);
       socket.off("conversationUpdated", handleConversationUpdated);
-      socket.off("messages_seen", handleMessagesSeen); // <--- Cleanup
+      socket.off("messages_seen", handleMessagesSeen);
     };
   }, [session?.conversationId, session?.applicantId]);
 
