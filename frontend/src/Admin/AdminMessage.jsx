@@ -25,6 +25,16 @@ export default function MessagesPage() {
   const [search, setSearch] = useState("");
   const [file, setFile] = useState(null);
 
+  const fetchConversationMessages = async (conversationId) => {
+    try {
+      const res = await fetch(`${api}/api/messages/${conversationId}`, { credentials: "include" });
+      const data = await res.json();
+      setMessages((prev) => mergeMessages(prev, Array.isArray(data) ? data : []));
+    } catch (err) {
+      console.error("Error loading messages:", err);
+    }
+  };
+
   // --- Auth Check ---
   useEffect(() => {
     if (!user && !loading) {
@@ -114,11 +124,9 @@ export default function MessagesPage() {
     return senderName || "Unknown";
   };
 
-  const isAdminConversation = (conversation) =>
+  const isStaffConversation = (conversation) =>
     conversation?.type === "admin-subadmin" ||
-    conversation?.type === "subadmin-admin" ||
-    conversation?.type === "admin-guard" ||
-    conversation?.type === "guard-admin";
+    conversation?.type === "subadmin-admin";
 
   // --- Socket: User Online ---
   useEffect(() => {
@@ -146,15 +154,9 @@ export default function MessagesPage() {
   useEffect(() => {
     const fetchConversations = async () => {
       try {
-        const res = await fetch(`${api}/api/messages/conversations`, { credentials: "include" });
+        const res = await fetch(`${api}/api/messages/conversations?scope=staff`, { credentials: "include" });
         const data = await res.json();
-        const filtered = (Array.isArray(data) ? data : []).filter(conv =>
-          conv.type === "admin-subadmin" ||
-          conv.type === "subadmin-admin" ||
-          conv.type === "admin-guard" ||
-          conv.type === "guard-admin"
-        );
-        setConversations(sortConversations(filtered));
+        setConversations(sortConversations(Array.isArray(data) ? data : []));
       } catch (err) {
         console.error("Error fetching conversations:", err);
       }
@@ -167,18 +169,9 @@ export default function MessagesPage() {
     const fetchUsers = async () => {
       try {
         if (user.role === "Admin") {
-          const [subadminsRes, guardsRes] = await Promise.all([
-            fetch(`${api}/api/auth/subadmins`, { credentials: "include" }),
-            fetch(`${api}/api/auth/guards`, { credentials: "include" }),
-          ]);
-          const [subadminsData, guardsData] = await Promise.all([
-            subadminsRes.json(),
-            guardsRes.json(),
-          ]);
-          setAvailableUsers([
-            ...(Array.isArray(subadminsData) ? subadminsData : []),
-            ...(Array.isArray(guardsData) ? guardsData : []),
-          ]);
+          const subadminsRes = await fetch(`${api}/api/auth/subadmins`, { credentials: "include" });
+          const subadminsData = await subadminsRes.json();
+          setAvailableUsers(Array.isArray(subadminsData) ? subadminsData : []);
           return;
         }
 
@@ -194,7 +187,7 @@ export default function MessagesPage() {
 
   // --- Active Conversation Logic ---
   useEffect(() => {
-    if (!selectedConversation || selectedConversation.isTemp || !isAdminConversation(selectedConversation)) {
+    if (!selectedConversation || selectedConversation.isTemp || !isStaffConversation(selectedConversation)) {
       setMessages([]);
       return;
     }
@@ -237,17 +230,7 @@ export default function MessagesPage() {
       })
     );
 
-    const refreshMessages = async (conversationId = selectedConversation._id) => {
-      try {
-        const res = await fetch(`${api}/api/messages/${conversationId}`, { credentials: "include" });
-        const data = await res.json();
-        setMessages((prev) => mergeMessages(prev, Array.isArray(data) ? data : []));
-      } catch (err) {
-        console.error("Error loading messages:", err);
-      }
-    };
-    refreshMessages();
-    const refreshInterval = setInterval(() => refreshMessages(), 1500);
+    fetchConversationMessages(selectedConversation._id);
 
     const handleReceiveMessage = (msg) => {
       console.log("[admin-message] receiveMessage", {
@@ -284,7 +267,6 @@ export default function MessagesPage() {
             : [...prev, msg]
         );
         socket.emit("mark_seen", { conversationId: msg.conversationId, userId: user._id });
-        refreshMessages(msg.conversationId);
       }
     };
 
@@ -296,7 +278,6 @@ export default function MessagesPage() {
       if (normalizeId(conversationId) === normalizeId(selectedConversation?._id)) {
         // Update UI inside active chat
         setMessages(prev => prev.map(m => ({ ...m, seen: true })));
-        refreshMessages(conversationId);
         
         // Update Sidebar preview
         setConversations((prev) =>
@@ -312,7 +293,6 @@ export default function MessagesPage() {
     socket.on("receiveMessage", handleReceiveMessage);
     socket.on("messages_seen", handleMessageSeen);
     return () => {
-      clearInterval(refreshInterval);
       socket.off("connect", joinActiveConversation);
       socket.off("receiveMessage", handleReceiveMessage);
       socket.off("messages_seen", handleMessageSeen);
@@ -327,7 +307,7 @@ export default function MessagesPage() {
         type: updatedConv?.type,
         selectedConversationId: selectedConversation?._id,
       });
-      if (!isAdminConversation(updatedConv)) return;
+      if (!isStaffConversation(updatedConv)) return;
 
       setConversations(prev => {
         const exists = prev.some(c => normalizeId(c._id) === normalizeId(updatedConv._id));
@@ -339,16 +319,11 @@ export default function MessagesPage() {
 
       if (normalizeId(selectedConversation?._id) === normalizeId(updatedConv._id)) {
         setSelectedConversation(updatedConv);
-        try {
-          refreshMessages(updatedConv._id);
-        } catch (err) {
-          console.error("Error refreshing active conversation:", err);
-        }
       }
     };
     socket.on("conversationUpdated", handleConversationUpdated);
     return () => socket.off("conversationUpdated", handleConversationUpdated);
-  }, [selectedConversation, user]);
+  }, [selectedConversation?._id, user]);
 
   // --- Handlers ---
   const getReceiver = () => {
@@ -360,7 +335,7 @@ export default function MessagesPage() {
 
   const handleSend = async () => {
     if (!newMessage.trim() && !file) return;
-    if (!selectedConversation || !isAdminConversation(selectedConversation)) return;
+    if (!selectedConversation || !isStaffConversation(selectedConversation)) return;
 
     const receiver = getReceiver();
     if (!receiver) return;
@@ -424,7 +399,6 @@ export default function MessagesPage() {
     // Create Temp
     let type = "";
     if (user.role === "Admin" && targetUser.role === "Subadmin") type = "admin-subadmin";
-    else if (user.role === "Admin" && targetUser.role === "Guard") type = "admin-guard";
     else if (user.role === "Subadmin" && targetUser.role === "Admin") type = "subadmin-admin";
     else return;
 

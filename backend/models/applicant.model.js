@@ -2,6 +2,16 @@ import mongoose from "mongoose";
 
 const applicantSchema = new mongoose.Schema(
   {
+    firstName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    lastName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     name: { 
       type: String, 
       required: [true, "Name is Required"]
@@ -14,6 +24,11 @@ const applicantSchema = new mongoose.Schema(
       required: [true, "Position is Required"]
     },
     phone: String,
+    address: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     applicationType: {
       type: String,
       enum: ["Walk-in", "Online"],

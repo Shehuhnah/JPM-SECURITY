@@ -118,6 +118,7 @@ export default function AdminGuardUpdates2() {
   const [guard, setGuard] = useState(null);
   const [staff, setStaff] = useState(null);
   const [schedules, setSchedules] = useState([]);
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [logs, setLogs] = useState([]);
   const [loadingPage, setLoadingPage] = useState(true);
   const [error, setError] = useState("");
@@ -160,6 +161,17 @@ export default function AdminGuardUpdates2() {
 
     return withTimes.sort((a, b) => b.start - a.start)[0]?.schedule || null;
   }, [isGuardView, schedules]);
+  const latestGuardAttendance = useMemo(() => {
+    if (!isGuardView || !attendanceRecords.length) return null;
+    return [...attendanceRecords]
+      .sort((a, b) => new Date(b.timeIn || b.createdAt || 0) - new Date(a.timeIn || a.createdAt || 0))[0] || null;
+  }, [attendanceRecords, isGuardView]);
+  const currentDutyStatus = useMemo(() => {
+    if (!isGuardView) return "N/A";
+    if (latestGuardAttendance?.status === "On Duty") return "On Duty";
+    if (guard?.statusToday === "On Leave") return "On Leave";
+    return "Off Duty";
+  }, [guard?.statusToday, isGuardView, latestGuardAttendance?.status]);
 
   useEffect(() => {
     if (!user && !loading) {
@@ -180,25 +192,37 @@ export default function AdminGuardUpdates2() {
       setGuard(null);
       setStaff(null);
       setSchedules([]);
-
-      const endpoint = isGuardView
-        ? `${api}/api/guards/${id}/details`
-        : `${api}/api/admin-reports/staff/${id}`;
-
-      const response = await fetch(endpoint, { credentials: "include" });
-
-      if (!response.ok) {
-        setError(`${isGuardView ? "Guard" : "Staff"} not found or access denied.`);
-        return;
-      }
-
-      const data = await response.json();
+      setAttendanceRecords([]);
 
       if (isGuardView) {
-        setGuard(data.guard);
-        setSchedules(Array.isArray(data.schedules) ? data.schedules : []);
-        setLogs(Array.isArray(data.logs) ? data.logs : []);
+        const [detailsRes, attendanceRes] = await Promise.all([
+          fetch(`${api}/api/guards/${id}/details`, { credentials: "include" }),
+          fetch(`${api}/api/attendance/${id}`, { credentials: "include" }),
+        ]);
+
+        if (!detailsRes.ok) {
+          setError("Guard not found or access denied.");
+          return;
+        }
+
+        const [detailsData, attendanceData] = await Promise.all([
+          detailsRes.json(),
+          attendanceRes.ok ? attendanceRes.json() : Promise.resolve([]),
+        ]);
+
+        setGuard(detailsData.guard);
+        setSchedules(Array.isArray(detailsData.schedules) ? detailsData.schedules : []);
+        setLogs(Array.isArray(detailsData.logs) ? detailsData.logs : []);
+        setAttendanceRecords(Array.isArray(attendanceData) ? attendanceData : []);
       } else {
+        const response = await fetch(`${api}/api/admin-reports/staff/${id}`, { credentials: "include" });
+
+        if (!response.ok) {
+          setError("Staff not found or access denied.");
+          return;
+        }
+
+        const data = await response.json();
         setStaff(data.staff);
         setLogs(Array.isArray(data.reports) ? data.reports : []);
       }
@@ -249,8 +273,8 @@ export default function AdminGuardUpdates2() {
           icon: Clock,
           label: "Duty Status",
           value: currentGuardSchedule
-            ? `${guard?.statusToday || "Off Duty"} | ${currentGuardSchedule.client || "Assigned"}`
-            : guard?.statusToday || "Off Duty",
+            ? `${currentDutyStatus} | ${currentGuardSchedule.client || "Assigned"}`
+            : currentDutyStatus,
           colorClass: "text-rose-400",
         },
       ]

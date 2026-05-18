@@ -16,9 +16,12 @@ const normalizeId = (value) => {
 
 const buildApplicantPayload = (applicant) => ({
   _id: applicant._id,
+  firstName: applicant.firstName || "",
+  lastName: applicant.lastName || "",
   name: applicant.name,
   email: applicant.email,
   phone: applicant.phone,
+  address: applicant.address || "",
   status: applicant.status,
   processedBy: applicant.processedBy ?? null,
 });
@@ -48,21 +51,30 @@ const ensureHRParticipant = async (conversation) => {
 
 export const initApplicantConversation = async (req, res) => {
   try {
-    const { name, email, phone, position } = req.body;
+    const { name, firstName, lastName, email, phone, address, position } = req.body;
+    const firstNameValue = firstName?.trim() || "";
+    const lastNameValue = lastName?.trim() || "";
+    const normalizedName = name?.trim() || `${firstNameValue} ${lastNameValue}`.trim();
 
-    if (!name?.trim()) {
+    if (!normalizedName) {
       return res.status(400).json({ message: "Applicant name is required." });
     }
     if (!email?.trim()) {
       return res.status(400).json({ message: "Applicant email is required." });
     }
 
-    let applicant = await Applicant.findOne({ name: name.trim(), email: email?.trim() });
+    let applicant = await Applicant.findOne({ email: email.trim() });
+    if (!applicant) {
+      applicant = await Applicant.findOne({ name: normalizedName, email: email.trim() });
+    }
     if (!applicant) {
       applicant = await Applicant.create({
-        name: name.trim(),
+        firstName: firstNameValue,
+        lastName: lastNameValue,
+        name: normalizedName,
         email: email.trim(),
         phone: phone?.trim() || "",
+        address: address?.trim() || "",
         position: position?.trim() || "Unknown",
         status: "Review",
         applicationType: "Online",
@@ -72,6 +84,10 @@ export const initApplicantConversation = async (req, res) => {
     const updates = {};
     if (phone?.trim() && phone.trim() !== (applicant.phone || "")) updates.phone = phone.trim();
     if (email?.trim() && email.trim() !== (applicant.email || "")) updates.email = email.trim();
+    if (address?.trim() && address.trim() !== (applicant.address || "")) updates.address = address.trim();
+    if (firstNameValue && firstNameValue !== (applicant.firstName || "")) updates.firstName = firstNameValue;
+    if (lastNameValue && lastNameValue !== (applicant.lastName || "")) updates.lastName = lastNameValue;
+    if (normalizedName && normalizedName !== (applicant.name || "")) updates.name = normalizedName;
     if (position?.trim() && position.trim() !== (applicant.position || "")) {
       updates.position = position.trim();
     } else if (!applicant.position) {

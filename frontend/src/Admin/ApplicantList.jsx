@@ -89,9 +89,11 @@ export default function ApplicantsList() {
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [walkInForm, setWalkInForm] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     phone: "",
+    address: "",
     position: "",
     applicationType: "Walk-in",
   });
@@ -155,7 +157,12 @@ export default function ApplicantsList() {
     const { name, value } = e.target;
     setWalkInForm((prev) => ({
       ...prev,
-      [name]: value,
+      [name]:
+        name === "email"
+          ? value.toLowerCase()
+          : name === "phone"
+          ? `+63${value.replace(/\D/g, "").slice(0, 10)}`
+          : value,
     }));
   };
 
@@ -179,9 +186,11 @@ export default function ApplicantsList() {
 
   const resetWalkInForm = () => {
     setWalkInForm({
-      name: "",
+      firstName: "",
+      lastName: "",
       email: "",
       phone: "",
+      address: "",
       position: "",
       applicationType: "Walk-in",
     });
@@ -199,17 +208,27 @@ export default function ApplicantsList() {
     try {
       setCreatingWalkIn(true);
       const payload = {
-        name: walkInForm.name.trim(),
+        firstName: walkInForm.firstName.trim(),
+        lastName: walkInForm.lastName.trim(),
+        name: `${walkInForm.firstName.trim()} ${walkInForm.lastName.trim()}`.trim(),
         email: walkInForm.email.trim(),
         phone: walkInForm.phone.trim(),
+        address: walkInForm.address.trim(),
         position: walkInForm.position.trim(),
         applicationType: walkInForm.applicationType,
       };
 
+      if (!/^\+63\d{10}$/.test(payload.phone)) {
+        throw new Error("Phone number must be in +63 format.");
+      }
+
       const formData = new FormData();
+      formData.append("firstName", payload.firstName);
+      formData.append("lastName", payload.lastName);
       formData.append("name", payload.name);
       formData.append("email", payload.email);
       formData.append("phone", payload.phone);
+      formData.append("address", payload.address);
       formData.append("position", payload.position);
       formData.append("applicationType", payload.applicationType);
       formData.append("resume", walkInResume);
@@ -263,6 +282,7 @@ export default function ApplicantsList() {
 
       toast.success(data.message);
       fetchApplicants(); 
+      setIsConfirmModalOpen(false);
       setGuardConfirmModalOpen(false);
       setHireFieldErrors({});
     } catch (err) {
@@ -275,20 +295,25 @@ export default function ApplicantsList() {
   };
 
   const openAddGuardModal = () => {
+    const isWalkInApplicant = selectedApplicant?.applicationType === "Walk-in";
+    if (selectedApplicant?.status === "Review" && !isWalkInApplicant) {
+      toast.error("Applicant must proceed to interview before hiring.");
+      return;
+    }
     if (!applicantHasValidResume(selectedApplicant)) {
       showResumeWarning();
       return;
     }
-    // Pre-fill name fields from the applicant record
+    const preFirstName = selectedApplicant?.firstName?.trim() || "";
+    const preLastName = selectedApplicant?.lastName?.trim() || "";
     const applicantName = selectedApplicant?.name?.trim() || "";
-    const nameParts = applicantName.split(" ");
-    const preFirstName = nameParts[0] || "";
-    const preLastName = nameParts.slice(1).join(" ") || "";
+    const nameParts = applicantName.split(" ").filter(Boolean);
     setForm((prev) => ({
       ...prev,
-      firstName: preFirstName,
-      lastName: preLastName,
+      firstName: preFirstName || nameParts[0] || "",
+      lastName: preLastName || nameParts.slice(1).join(" ") || "",
       email: selectedApplicant?.email || "",
+      address: selectedApplicant?.address || "",
       position: selectedApplicant?.position || "",
       phoneNumber: toPhilippinesMobile(selectedApplicant?.phone || ""),
     }));
@@ -1123,10 +1148,13 @@ export default function ApplicantsList() {
                                         <UserCheck size={14} /> Interview
                                       </button>
                                       <button
-                                        disabled={selectedApplicant.status === "Hired"}
+                                        disabled={
+                                          selectedApplicant.status === "Hired" ||
+                                          (selectedApplicant.status === "Review" && selectedApplicant.applicationType !== "Walk-in")
+                                        }
                                         onClick={() => openAddGuardModal()}
                                         className={`px-3 py-2 rounded-md flex items-center gap-2 text-sm justify-center transition
-                                          ${selectedApplicant.status === "Hired" 
+                                          ${selectedApplicant.status === "Hired" || (selectedApplicant.status === "Review" && selectedApplicant.applicationType !== "Walk-in")
                                             ? "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50" 
                                             : "bg-green-600/20 hover:bg-green-600/40 text-green-300"
                                           }`}
@@ -1146,6 +1174,11 @@ export default function ApplicantsList() {
                                         <X size={14} /> Decline
                                       </button>
                                     </div>
+                                    {selectedApplicant.status === "Review" && selectedApplicant.applicationType !== "Walk-in" && (
+                                      <p className="mt-2 text-xs text-amber-300">
+                                        Hiring is disabled while the applicant is still under review. Proceed to interview first.
+                                      </p>
+                                    )}
                                   </div>
                                 )}
                                 
@@ -1667,18 +1700,29 @@ export default function ApplicantsList() {
                     <form onSubmit={handleCreateWalkInApplicant} className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm text-gray-300 mb-2">Full Name</label>
+                          <label className="block text-sm text-gray-300 mb-2">First Name<span className="text-red-500">*</span></label>
                           <input
-                            name="name"
-                            value={walkInForm.name}
+                            name="firstName"
+                            value={walkInForm.firstName}
                             onChange={handleWalkInChange}
                             required
                             className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
-                            placeholder="Juan Dela Cruz"
+                            placeholder="Juan Miguel"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm text-gray-300 mb-2">Position</label>
+                          <label className="block text-sm text-gray-300 mb-2">Last Name<span className="text-red-500">*</span></label>
+                          <input
+                            name="lastName"
+                            value={walkInForm.lastName}
+                            onChange={handleWalkInChange}
+                            required
+                            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
+                            placeholder="Dela Cruz"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">Position<span className="text-red-500">*</span></label>
                           <input
                             name="position"
                             value={walkInForm.position}
@@ -1689,29 +1733,43 @@ export default function ApplicantsList() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm text-gray-300 mb-2">Email</label>
+                          <label className="block text-sm text-gray-300 mb-2">Email Address<span className="text-red-500">*</span></label>
                           <input
                             type="email"
                             name="email"
                             value={walkInForm.email}
                             onChange={handleWalkInChange}
                             className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
-                            placeholder="candidate@email.com"
+                            placeholder="Email Address"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm text-gray-300 mb-2">Phone</label>
+                          <label className="block text-sm text-gray-300 mb-2">Home Address<span className="text-red-500">*</span></label>
                           <input
-                            name="phone"
-                            value={walkInForm.phone}
+                            name="address"
+                            value={walkInForm.address}
                             onChange={handleWalkInChange}
                             required
                             className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
-                            placeholder="09XXXXXXXXX"
+                            placeholder="Brgy. 1, Tanza, Cavite"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm text-gray-300 mb-2">Resume</label>
+                          <label className="block text-sm text-gray-300 mb-2">Phone Number<span className="text-red-500">*</span></label>
+                          <div className="flex items-center overflow-hidden rounded-lg border border-white/10 bg-white/5 focus-within:ring-2 focus-within:ring-cyan-500/70">
+                            <span className="bg-white/10 px-3 py-2.5 text-sm text-gray-200">+63</span>
+                            <input
+                              name="phone"
+                              value={walkInForm.phone.replace(/^\+63/, "")}
+                              onChange={handleWalkInChange}
+                              required
+                              className="w-full bg-transparent px-3 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none"
+                              placeholder="9123456789"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">Resume<span className="text-red-500">*</span></label>
                           <input
                             type="file"
                             accept={APPLICANT_RESUME_ACCEPT}
@@ -1952,7 +2010,7 @@ export default function ApplicantsList() {
                             placeholder="Enter SSS ID (Optional)"
                             value={form.SSSID}
                             onChange={handleChange}
-                            className={getHireFieldClass("EmergencyPerson")}
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
                           />
                         </div>
 
@@ -1997,7 +2055,7 @@ export default function ApplicantsList() {
                             placeholder="e.g. Maria Dela Cruz"
                             value={form.EmergencyPerson}
                             onChange={handleChange}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600"
+                            className={getHireFieldClass("EmergencyPerson")}
                           />
                         </div>
 

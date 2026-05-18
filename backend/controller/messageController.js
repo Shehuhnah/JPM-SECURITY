@@ -139,7 +139,7 @@ export const sendMessage = async (req, res) => {
         if (participant.role === 'Admin' || participant.role === 'Subadmin') {
             userDoc = await User.findById(participant.userId).select('name email role').lean();
         } else if (participant.role === 'Guard') {
-            userDoc = await Guard.findById(participant.userId).select('fullName name email role guardId phoneNumber photo').lean();
+            userDoc = await Guard.findById(participant.userId).select('firstName lastName fullName name email role guardId phoneNumber photo').lean();
         } else if (participant.role === 'Applicant') {
             userDoc = await Applicant.findById(participant.userId).select('name email phone status').lean();
         }
@@ -160,7 +160,7 @@ export const sendMessage = async (req, res) => {
         if (senderRole === 'Admin' || senderRole === 'Subadmin') {
             senderDoc = await User.findById(senderId).select('name email role').lean();
         } else if (senderRole === 'Guard') {
-            senderDoc = await Guard.findById(senderId).select('fullName name email role guardId phoneNumber photo').lean();
+            senderDoc = await Guard.findById(senderId).select('firstName lastName fullName name email role guardId phoneNumber photo').lean();
         } else if (senderRole === 'Applicant') {
             senderDoc = await Applicant.findById(senderId).select('name email phone status').lean();
         }
@@ -176,7 +176,7 @@ export const sendMessage = async (req, res) => {
         if (receiverRole === 'Admin' || receiverRole === 'Subadmin') {
             receiverDoc = await User.findById(receiverId).select('name email role').lean();
         } else if (receiverRole === 'Guard') {
-            receiverDoc = await Guard.findById(receiverId).select('fullName name email role guardId phoneNumber photo').lean();
+            receiverDoc = await Guard.findById(receiverId).select('firstName lastName fullName name email role guardId phoneNumber photo').lean();
         } else if (receiverRole === 'Applicant') {
             receiverDoc = await Applicant.findById(receiverId).select('name email phone status').lean();
         }
@@ -261,7 +261,7 @@ export const getMessages = async (req, res) => {
 
     const [users, guards, applicants] = await Promise.all([
       userIds.size ? User.find({ _id: { $in: [...userIds] } }).select("name email role").lean() : [],
-      guardIds.size ? Guard.find({ _id: { $in: [...guardIds] } }).select("fullName name email role guardId photo").lean() : [],
+      guardIds.size ? Guard.find({ _id: { $in: [...guardIds] } }).select("firstName lastName fullName name email role guardId photo").lean() : [],
       applicantIds.size ? Applicant.find({ _id: { $in: [...applicantIds] } }).select("name email phone status").lean() : [],
     ]);
 
@@ -305,59 +305,93 @@ export const getConversations = async (req, res) => {
   try {
     const userId = req.user._id;
     const userRole = req.user.role;
+    const scope = req.query.scope;
 
-    let conversations = [];
+    let filter = {};
 
     if (userRole === "Subadmin" || userRole === "Admin") {
-      conversations = await Conversation.find({
-        $or: [
-          { type: { $in: GUARD_CONVERSATION_TYPES } },
-          { type: { $in: APPLICANT_CONVERSATION_TYPES } },
-          { "participants.userId": userId } // Include conversations where subadmin is a direct participant
-        ]
-      }).lean();
+      if (scope === "staff") {
+        filter = {
+          type: { $in: ["admin-subadmin", "subadmin-admin"] },
+          "participants.userId": userId,
+        };
+      } else if (scope === "applicant") {
+        filter = { type: { $in: APPLICANT_CONVERSATION_TYPES } };
+      } else if (scope === "guard") {
+        filter = { type: { $in: GUARD_CONVERSATION_TYPES } };
+      } else {
+        filter = {
+          $or: [
+            { type: { $in: GUARD_CONVERSATION_TYPES } },
+            { type: { $in: APPLICANT_CONVERSATION_TYPES } },
+            { "participants.userId": userId },
+          ],
+        };
+      }
     } else {
-      conversations = await Conversation.find({
+      filter = {
         "participants.userId": userId,
-      }).lean();
+      };
     }
 
-    // Dynamically populate participants, lastMessage.sender, and servingSubadmin.user
-    for (let conv of conversations) {
-      // Populate participants
-      conv.participants = await Promise.all(conv.participants.map(async (participant) => {
-        let userDoc = null;
-        if (participant.role === "Admin" || participant.role === "Subadmin") {
-            userDoc = await User.findById(participant.userId, "name email role");
-        } else if (participant.role === "Guard") {
-            userDoc = await Guard.findById(participant.userId, "fullName email role guardId photo");
-        } else if (participant.role === "Applicant") {
-            userDoc = await Applicant.findById(participant.userId, "name email phone isDeleted resume status");
-        }
-        return userDoc ? { ...participant, user: userDoc } : participant;
-      }));
+    const conversations = await Conversation.find(filter).lean();
 
+    const userIds = new Set();
+    const guardIds = new Set();
+    const applicantIds = new Set();
 
-      // Populate lastMessage sender
-      if (conv.lastMessage?.senderId) {
-        const senderParticipant = conv.participants.find(
-          p => p.userId.toString() === conv.lastMessage.senderId.toString()
-        );
-
-        if (senderParticipant) {
-          if (senderParticipant.role === "Admin" || senderParticipant.role === "Subadmin") {
-            conv.lastMessage.sender = await User.findById(conv.lastMessage.senderId, "name email role");
-          } else if (senderParticipant.role === "Guard") {
-            conv.lastMessage.sender = await Guard.findById(conv.lastMessage.senderId, "fullName email role guardId photo");
-          } else if (senderParticipant.role === "Applicant") {
-            conv.lastMessage.sender = await Applicant.findById(conv.lastMessage.senderId, "name email phone resume status");
-          }
-        }
+    for (const conv of conversations) {
+      for (const participant of conv.participants || []) {
+        const participantId = normalizeId(participant.userId);
+        if (!participantId) continue;
+        if (participant.role === "Admin" || participant.role === "Subadmin") userIds.add(participantId);
+        else if (participant.role === "Guard") guardIds.add(participantId);
+        else if (participant.role === "Applicant") applicantIds.add(participantId);
       }
 
-      // Populate servingSubadmin.user if it exists
+      const senderId = normalizeId(conv.lastMessage?.senderId);
+      const senderRole = conv.lastMessage?.senderRole;
+      if (senderId && (senderRole === "Admin" || senderRole === "Subadmin")) userIds.add(senderId);
+      else if (senderId && senderRole === "Guard") guardIds.add(senderId);
+      else if (senderId && senderRole === "Applicant") applicantIds.add(senderId);
+
+      const servingSubadminId = normalizeId(conv.servingSubadmin?.userId);
+      if (servingSubadminId) userIds.add(servingSubadminId);
+    }
+
+    const [users, guards, applicants] = await Promise.all([
+      userIds.size ? User.find({ _id: { $in: [...userIds] } }).select("name email role").lean() : [],
+      guardIds.size ? Guard.find({ _id: { $in: [...guardIds] } }).select("firstName lastName fullName email role guardId photo").lean() : [],
+      applicantIds.size ? Applicant.find({ _id: { $in: [...applicantIds] } }).select("firstName lastName name email phone isDeleted resume status").lean() : [],
+    ]);
+
+    const userMap = new Map(users.map((doc) => [normalizeId(doc._id), doc]));
+    const guardMap = new Map(guards.map((doc) => [normalizeId(doc._id), doc]));
+    const applicantMap = new Map(applicants.map((doc) => [normalizeId(doc._id), doc]));
+
+    const getDocByRole = (role, id) => {
+      const normalizedId = normalizeId(id);
+      if (!normalizedId) return null;
+      if (role === "Admin" || role === "Subadmin") return userMap.get(normalizedId) || null;
+      if (role === "Guard") return guardMap.get(normalizedId) || null;
+      if (role === "Applicant") return applicantMap.get(normalizedId) || null;
+      return null;
+    };
+
+    for (const conv of conversations) {
+      conv.participants = (conv.participants || []).map((participant) => {
+        const userDoc = getDocByRole(participant.role, participant.userId);
+        return userDoc ? { ...participant, user: userDoc } : participant;
+      });
+
+      if (conv.lastMessage?.senderId && conv.lastMessage?.senderRole) {
+        const senderDoc = getDocByRole(conv.lastMessage.senderRole, conv.lastMessage.senderId);
+        if (senderDoc) conv.lastMessage.sender = senderDoc;
+      }
+
       if (conv.servingSubadmin?.userId) {
-        conv.servingSubadmin.user = await User.findById(conv.servingSubadmin.userId, "name email role");
+        const servingUser = userMap.get(normalizeId(conv.servingSubadmin.userId));
+        if (servingUser) conv.servingSubadmin.user = servingUser;
       }
     }
 

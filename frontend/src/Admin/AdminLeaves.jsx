@@ -125,6 +125,8 @@ export default function AdminLeaves() {
   const [requests, setRequests] = useState([]);
   const [staffOptions, setStaffOptions] = useState([]);
   const [selectedAssignee, setSelectedAssignee] = useState("");
+  const [assigneeQuery, setAssigneeQuery] = useState("");
+  const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
   const [existingLeaveDates, setExistingLeaveDates] = useState([]);
   const [leaveRange, setLeaveRange] = useState();
   const [excludedDates, setExcludedDates] = useState([]);
@@ -158,6 +160,12 @@ export default function AdminLeaves() {
     () => staffOptions.find((option) => option.value === selectedAssignee) || null,
     [staffOptions, selectedAssignee]
   );
+
+  const filteredAssigneeOptions = useMemo(() => {
+    const query = assigneeQuery.trim().toLowerCase();
+    if (!query) return staffOptions;
+    return staffOptions.filter((option) => option.label.toLowerCase().includes(query));
+  }, [assigneeQuery, staffOptions]);
 
   const availableLeaveTypes = useMemo(() => {
     const sex = selectedAssigneeOption?.sex || "";
@@ -261,6 +269,14 @@ export default function AdminLeaves() {
   }, [user, loading, navigate, fetchRequests, fetchStaffOptions]);
 
   useEffect(() => {
+    if (selectedAssigneeOption) {
+      setAssigneeQuery(selectedAssigneeOption.label);
+    } else if (!selectedAssignee) {
+      setAssigneeQuery("");
+    }
+  }, [selectedAssignee, selectedAssigneeOption]);
+
+  useEffect(() => {
     if (!availableLeaveTypes.includes(leaveType)) {
       setLeaveType(availableLeaveTypes[0] || "");
     }
@@ -298,6 +314,10 @@ export default function AdminLeaves() {
     setExcludedDates([]);
     setLeaveType(availableLeaveTypes[0] || "");
     setReason("");
+    if (selectedAssigneeOption) {
+      setAssigneeQuery(selectedAssigneeOption.label);
+    }
+    setIsAssigneeDropdownOpen(false);
   };
 
   const getRequestDisplayName = useCallback(
@@ -761,17 +781,61 @@ export default function AdminLeaves() {
                   <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                     Assign To
                   </label>
-                  <select
-                    value={selectedAssignee}
-                    onChange={(event) => setSelectedAssignee(event.target.value)}
-                    className="w-full rounded-lg border border-gray-700 bg-[#0f172a] px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500/60"
-                  >
-                    {staffOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
+                      <Search size={16} />
+                    </div>
+                    <input
+                      type="text"
+                      value={assigneeQuery}
+                      onChange={(event) => {
+                        setAssigneeQuery(event.target.value);
+                        setIsAssigneeDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsAssigneeDropdownOpen(true)}
+                      onBlur={() => {
+                        window.setTimeout(() => {
+                          setIsAssigneeDropdownOpen(false);
+                          if (selectedAssigneeOption) {
+                            setAssigneeQuery(selectedAssigneeOption.label);
+                          }
+                        }, 120);
+                      }}
+                      placeholder="Search guard or staff"
+                      className="w-full rounded-lg border border-gray-700 bg-[#0f172a] pl-11 pr-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500/60"
+                    />
+                    {isAssigneeDropdownOpen && (
+                      <div className="absolute z-20 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-700 bg-[#0b1220] shadow-2xl">
+                        {filteredAssigneeOptions.length ? (
+                          filteredAssigneeOptions.map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onMouseDown={() => {
+                                setSelectedAssignee(option.value);
+                                setAssigneeQuery(option.label);
+                                setIsAssigneeDropdownOpen(false);
+                              }}
+                              className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition ${
+                                selectedAssignee === option.value
+                                  ? "bg-blue-500/15 text-blue-100"
+                                  : "text-slate-200 hover:bg-slate-800"
+                              }`}
+                            >
+                              <span className="truncate">{option.label}</span>
+                              {selectedAssignee === option.value ? (
+                                <span className="shrink-0 rounded-full bg-blue-500/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">
+                                  Selected
+                                </span>
+                              ) : null}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-sm text-slate-400">No personnel found.</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="rounded-xl border border-gray-700 bg-[#0f172a] p-3">

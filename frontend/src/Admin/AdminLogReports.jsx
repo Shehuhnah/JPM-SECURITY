@@ -198,7 +198,7 @@ export default function AdminLogReports() {
                   name="reportDate"
                   value={form.reportDate}
                   onChange={handleChange}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 [color-scheme:dark]"
                 />
               </div>
             </div>

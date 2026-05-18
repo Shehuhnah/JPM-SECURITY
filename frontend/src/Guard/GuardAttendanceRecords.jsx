@@ -407,14 +407,27 @@ function GuardAttendanceRecords() {
                       <h3 className="mb-4 text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
                         Attendance Evidence
                       </h3>
-                      {record.photo ? (
-                        <button
-                          onClick={() => setPreviewImage(record.photo)}
-                          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-blue-500 hover:text-white"
-                        >
-                          <FileImage size={18} />
-                          View Time In Photo
-                        </button>
+                      {record.photo || record.timeOutPhoto ? (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {record.photo ? (
+                            <button
+                              onClick={() => setPreviewImage({ src: record.photo, label: "Time In Photo" })}
+                              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-blue-500 hover:text-white"
+                            >
+                              <FileImage size={18} />
+                              View Time In Photo
+                            </button>
+                          ) : null}
+                          {record.timeOutPhoto ? (
+                            <button
+                              onClick={() => setPreviewImage({ src: record.timeOutPhoto, label: "Time Out Photo" })}
+                              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-emerald-500 hover:text-white"
+                            >
+                              <FileImage size={18} />
+                              View Time Out Photo
+                            </button>
+                          ) : null}
+                        </div>
                       ) : (
                         <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 px-4 py-6 text-center text-sm text-slate-500">
                           No photo evidence available
@@ -438,7 +451,8 @@ function GuardAttendanceRecords() {
             >
               <X size={18} />
             </button>
-            <img src={previewImage} alt="Attendance evidence" className="max-h-[85vh] w-full rounded-2xl object-contain" />
+            <div className="mb-3 px-2 pt-2 text-sm font-semibold text-slate-200">{previewImage.label}</div>
+            <img src={previewImage.src} alt={previewImage.label || "Attendance evidence"} className="max-h-[85vh] w-full rounded-2xl object-contain" />
           </div>
         </div>
       )}

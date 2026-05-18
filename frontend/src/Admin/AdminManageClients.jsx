@@ -21,6 +21,14 @@ import TablePagination from "../components/admin/TablePagination.jsx";
 
 const api = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
+const toPhilippinesMobile = (value) => {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("639") && digits.length >= 12) return `+${digits.slice(0, 12)}`;
+  if (digits.startsWith("09") && digits.length >= 11) return `+63${digits.slice(1, 11)}`;
+  if (digits.startsWith("9") && digits.length >= 10) return `+63${digits.slice(0, 10)}`;
+  return `+63${digits.slice(0, 10)}`;
+};
 
 // --- Components ---
 
@@ -34,7 +42,7 @@ const ClientModal = ({ isOpen, onClose, onSave, client }) => {
   });
 
   useEffect(() => {
-    if (client) setFormData(client);
+    if (client) setFormData({ ...client, clientContact: toPhilippinesMobile(client.clientContact) });
     else
       setFormData({
         clientName: "",
@@ -46,10 +54,20 @@ const ClientModal = ({ isOpen, onClose, onSave, client }) => {
   }, [client, isOpen]);
 
   const handleChange = (e) =>
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]:
+        e.target.name === "clientContact"
+          ? toPhilippinesMobile(e.target.value)
+          : e.target.value,
+    }));
   
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!/^\+63\d{10}$/.test(formData.clientContact)) {
+      toast.error("Contact number must be in +63 format.", { theme: "dark", transition: Bounce });
+      return;
+    }
     onSave(formData);
   };
 
@@ -96,7 +114,7 @@ const ClientModal = ({ isOpen, onClose, onSave, client }) => {
                 <form onSubmit={handleSubmit} className="space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Client Name</label>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Client Name <span className="text-red-400">*</span></label>
                       <input
                         name="clientName"
                         value={formData.clientName}
@@ -107,7 +125,7 @@ const ClientModal = ({ isOpen, onClose, onSave, client }) => {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Contact Person</label>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Contact Person <span className="text-red-400">*</span></label>
                       <input
                         name="clientContactPerson"
                         value={formData.clientContactPerson}
@@ -118,7 +136,7 @@ const ClientModal = ({ isOpen, onClose, onSave, client }) => {
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Address</label>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Address <span className="text-red-400">*</span></label>
                       <input
                         name="clientAddress"
                         value={formData.clientAddress}
@@ -129,18 +147,21 @@ const ClientModal = ({ isOpen, onClose, onSave, client }) => {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Contact Number</label>
-                      <input
-                        name="clientContact"
-                        value={formData.clientContact}
-                        onChange={handleChange}
-                        placeholder="0917xxxxxxx"
-                        className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                        required
-                      />
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Contact Number <span className="text-red-400">*</span></label>
+                      <div className="flex items-center overflow-hidden rounded-xl border border-gray-600 bg-[#0f172a] focus-within:ring-2 focus-within:ring-blue-500">
+                        <span className="px-4 py-2.5 text-white bg-white/5 border-r border-gray-600">+63</span>
+                        <input
+                          name="clientContact"
+                          value={formData.clientContact.replace(/^\+63/, "")}
+                          onChange={handleChange}
+                          placeholder="9123456789"
+                          className="w-full bg-transparent px-4 py-2.5 text-white outline-none"
+                          required
+                        />
+                      </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Establishment Type</label>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Establishment Type <span className="text-red-400">*</span></label>
                       <input
                         name="clientTypeOfEstablishment"
                         value={formData.clientTypeOfEstablishment}

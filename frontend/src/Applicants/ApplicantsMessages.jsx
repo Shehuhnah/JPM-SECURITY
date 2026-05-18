@@ -28,6 +28,15 @@ const ATTACHMENT_ACCEPT = ".jpg,.jpeg,.png,.pdf,.doc,.docx,.zip";
 const ATTACHMENT_ERROR_MESSAGE =
   "Unsupported attachment type. Please upload JPG, PNG, PDF, DOC, DOCX, or ZIP files only.";
 
+const normalizePhilippinesPhone = (value) => {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("639")) return `+${digits.slice(0, 12)}`;
+  if (digits.startsWith("09")) return `+63${digits.slice(1, 11)}`;
+  if (digits.startsWith("9")) return `+63${digits.slice(0, 10)}`;
+  return value.trim();
+};
+
 const formatDateTime = (timestamp) =>
   timestamp
     ? new Date(timestamp).toLocaleString([], {
@@ -103,16 +112,11 @@ export default function ApplicantsMessages() {
   const [file, setFile] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const [isPromptOpen, setIsPromptOpen] = useState(!session);
-  const [firstNameInput, setFirstNameInput] = useState(() => {
-    const parts = (session?.name ?? "").split(" ");
-    return parts[0] ?? "";
-  });
-  const [lastNameInput, setLastNameInput] = useState(() => {
-    const parts = (session?.name ?? "").split(" ");
-    return parts.slice(1).join(" ") ?? "";
-  });
+  const [firstNameInput, setFirstNameInput] = useState(() => session?.firstName ?? "");
+  const [lastNameInput, setLastNameInput] = useState(() => session?.lastName ?? "");
   const [emailInput, setEmailInput] = useState(session?.email ?? "");
   const [phoneInput, setPhoneInput] = useState(session?.phone ?? "");
+  const [addressInput, setAddressInput] = useState(session?.address ?? "");
   const [loadingPage, setLoadingPage] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -124,6 +128,12 @@ export default function ApplicantsMessages() {
   const subjectSentRef = useRef(false); // legacy, no longer auto-sending
   const [hiringContext, setHiringContext] = useState(null);
   const [hiringDetails, setHiringDetails] = useState(null);
+  const hasCompleteIdentity =
+    Boolean(session?.firstName?.trim()) &&
+    Boolean(session?.lastName?.trim()) &&
+    Boolean(session?.email?.trim()) &&
+    Boolean(session?.phone?.trim()) &&
+    Boolean(session?.address?.trim());
 
   useEffect(() => {
     // Capture hiring context from URL params
@@ -147,8 +157,11 @@ export default function ApplicantsMessages() {
 
   const persistSession = (data) => {
     setSession(data);
+    if (data.firstName !== undefined) setFirstNameInput(data.firstName ?? "");
+    if (data.lastName !== undefined) setLastNameInput(data.lastName ?? "");
     if (data.phone !== undefined) setPhoneInput(data.phone ?? "");
     if (data.email !== undefined) setEmailInput(data.email ?? "");
+    if (data.address !== undefined) setAddressInput(data.address ?? "");
     if (data.status !== undefined) setApplicantStatus(data.status || "Review");
     if (data.processedBy !== undefined) setProcessedByStaff(Boolean(data.processedBy));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -171,10 +184,10 @@ export default function ApplicantsMessages() {
   };
 
   useEffect(() => {
-    if (!session?.email || !session?.phone) {
+    if (!hasCompleteIdentity) {
       setIsPromptOpen(true);
     }
-  }, [session?.email, session?.phone]);
+  }, [hasCompleteIdentity]);
 
   useEffect(() => {
     if (!session || bootstrappedRef.current) return;
@@ -193,9 +206,12 @@ export default function ApplicantsMessages() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            firstName: session.firstName,
+            lastName: session.lastName,
             name: session.name,
             email: session.email,
             phone: phonePayload,
+            address: session.address,
             position: hiringContext?.position,
           }),
         });
@@ -206,11 +222,14 @@ export default function ApplicantsMessages() {
 
         const data = await res.json();
         const updatedSession = {
+          firstName: data.applicant.firstName ?? session.firstName ?? "",
+          lastName: data.applicant.lastName ?? session.lastName ?? "",
           name: data.applicant.name,
           email: data.applicant.email ?? session.email ?? "",
           applicantId: data.applicant._id,
           conversationId: data.conversation._id,
           phone: data.applicant.phone ?? phoneInput,
+          address: data.applicant.address ?? session.address ?? "",
           status: data.applicant.status ?? "Review",
           processedBy: data.applicant.processedBy ?? null,
         };
@@ -318,9 +337,18 @@ export default function ApplicantsMessages() {
       return;
     }
     const emailTrim = emailInput.trim();
-    const phoneTrim = phoneInput.trim();
+    const phoneTrim = normalizePhilippinesPhone(phoneInput);
+    const addressTrim = addressInput.trim();
     if (!phoneTrim) {
       setError("Please provide your phone number so we can contact you.");
+      return;
+    }
+    if (!/^\+639\d{9}$/.test(phoneTrim)) {
+      setError("Phone number must use the +63 format, for example +639123456789.");
+      return;
+    }
+    if (!addressTrim) {
+      setError("Please provide your home address.");
       return;
     }
     if (!emailTrim || !/^[\w-.]+@([\w-]+\.)+[\w-]{2,}$/.test(emailTrim)) {
@@ -328,9 +356,17 @@ export default function ApplicantsMessages() {
       return;
     }
     setError("");
-    persistSession({ name: `${firstTrim} ${lastTrim}`, email: emailTrim, phone: phoneTrim });
+    persistSession({
+      firstName: firstTrim,
+      lastName: lastTrim,
+      name: `${firstTrim} ${lastTrim}`,
+      email: emailTrim,
+      phone: phoneTrim,
+      address: addressTrim,
+    });
     setEmailInput(emailTrim);
     setPhoneInput(phoneTrim);
+    setAddressInput(addressTrim);
     setIsPromptOpen(false);
   };
 
@@ -429,17 +465,28 @@ export default function ApplicantsMessages() {
             credentials: "include",
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: session.name, email: session.email, phone: phoneInput, position: hiringContext?.position }),
+            body: JSON.stringify({
+              firstName: session.firstName,
+              lastName: session.lastName,
+              name: session.name,
+              email: session.email,
+              phone: session.phone || phoneInput,
+              address: session.address,
+              position: hiringContext?.position,
+            }),
           });
           
           if (res.ok) {
             const reinitData = await res.json();
             const updatedSession = {
+              firstName: reinitData.applicant.firstName ?? session.firstName ?? "",
+              lastName: reinitData.applicant.lastName ?? session.lastName ?? "",
               name: reinitData.applicant.name,
               email: reinitData.applicant.email ?? session.email ?? "",
               applicantId: reinitData.applicant._id,
               conversationId: reinitData.conversation._id,
               phone: reinitData.applicant.phone ?? phoneInput,
+              address: reinitData.applicant.address ?? session.address ?? "",
               status: reinitData.applicant.status ?? "Review",
               processedBy: reinitData.applicant.processedBy ?? null,
             };
@@ -878,12 +925,25 @@ export default function ApplicantsMessages() {
                     <input
                       type="tel"
                       value={phoneInput}
-                      onChange={(e) => setPhoneInput(e.target.value)}
+                      onChange={(e) => setPhoneInput(normalizePhilippinesPhone(e.target.value))}
                       className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
-                      placeholder="09XXXXXXXXX"
+                      placeholder="+639123456789"
                       required
-                      pattern="^(09\d{9}|\+639\d{9})$"
-                      title="Enter a valid PH mobile number (09XXXXXXXXX or +639XXXXXXXXX)"
+                      pattern="^\+639\d{9}$"
+                      title="Enter a valid PH mobile number in +63 format"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
+                      Home address
+                    </label>
+                    <input
+                      type="text"
+                      value={addressInput}
+                      onChange={(e) => setAddressInput(e.target.value)}
+                      className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
+                      placeholder="House no., street, barangay, city"
+                      required
                     />
                   </div>
                   <div>

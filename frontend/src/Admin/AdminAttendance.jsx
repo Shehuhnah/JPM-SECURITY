@@ -9,7 +9,7 @@ import { getPersonName } from "../utils/name";
 import { Dialog, Transition } from "@headlessui/react";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { format } from 'date-fns';
+import { format, getDaysInMonth } from 'date-fns';
 import { DayPicker } from 'react-day-picker';
 import "react-day-picker/dist/style.css";
 import TablePagination from "../components/admin/TablePagination.jsx";
@@ -38,7 +38,11 @@ export default function GuardAttendancePage() {
   // Download Report Modal State
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [clientForReport, setClientForReport] = useState(null);
-  const [reportDateRange, setReportDateRange] = useState({ from: null, to: null });
+    const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
+    const [reportMonth, setReportMonth] = useState(() =>
+        String(new Date().getMonth() + 1).padStart(2, "0")
+    );
+    const [reportCutoff, setReportCutoff] = useState("first-half");
   const [submitting, setSubmitting] = useState(false);
 
   // Main Data State
@@ -134,41 +138,33 @@ export default function GuardAttendancePage() {
     fetchGuardAttendance();
   }, [selectedGuardId, detailPage]);
 
-  // --- NEW LOGIC: Extract dates where guards actually worked for the selected client ---
-  const daysWithData = useMemo(() => {
-    if (!clientForReport || allAttendance.length === 0) return [];
-    
-    // 1. Filter records for this client
-    // 2. Map to Date objects
-    const dates = allAttendance
-        .filter(rec => rec.scheduleId?.client === clientForReport && rec.timeIn)
-        .map(rec => new Date(rec.timeIn));
-    
-    return dates;
-  }, [allAttendance, clientForReport]);
-
-
   // Derive unique client names
   const clientList = [...new Set(allAttendance.map(a => a.scheduleId?.client).filter(Boolean))];
 
   // Open the download modal
-  const openDownloadModal = (clientName) => {
-      setClientForReport(clientName);
-      setReportDateRange({ from: null, to: null });
-      setDownloadModalOpen(true);
-  };
-
+    const openDownloadModal = (clientName) => {
+        setClientForReport(clientName);
+        setReportYear(new Date().getFullYear());
+        setReportMonth(String(new Date().getMonth() + 1).padStart(2, "0"));
+        setReportCutoff("first-half");
+        setDownloadModalOpen(true);
+    };
+  
   const handleConfirmDownload = async () => {
-    if (!reportDateRange.from) {
-        toast.warn("Please select a Start Date.", { position: "top-center", theme: "dark" });
+    if (!reportYear || !reportMonth) {
+        toast.warn("Please select a year and month.", { position: "top-center", theme: "dark" });
         return;
     }
     setSubmitting(true);
     try {
-      // Use format from date-fns to ensure we send YYYY-MM-DD string cleanly
-      const fromStr = format(reportDateRange.from, 'yyyy-MM-dd');
-      // If 'to' is missing (single day selected), default it to 'from'
-      const toStr = reportDateRange.to ? format(reportDateRange.to, 'yyyy-MM-dd') : fromStr;
+      const year = Number(reportYear);
+      const month = Number(reportMonth);
+      const monthDate = new Date(year, month - 1, 1);
+      const lastDay = getDaysInMonth(monthDate);
+      const startDay = reportCutoff === "first-half" ? 1 : 16;
+      const endDay = reportCutoff === "first-half" ? 15 : lastDay;
+      const fromStr = format(new Date(year, month - 1, startDay), 'yyyy-MM-dd');
+      const toStr = format(new Date(year, month - 1, endDay), 'yyyy-MM-dd');
 
       const res = await fetch(
         `${api}/api/attendance/download-working-hours/client/${encodeURIComponent(clientForReport)}?from=${fromStr}&to=${toStr}`, 
@@ -178,7 +174,7 @@ export default function GuardAttendancePage() {
       if (!res.ok) {
         // Catch 404 specifically to show a friendlier message
         if (res.status === 404) {
-            throw new Error("No data found for the selected dates. Please check the 'Green' highlighted days.");
+            throw new Error("No data found for the selected dates. Please select the correct date period.");
         }
         const errorData = await res.json().catch(() => ({ message: 'Download failed.' }));
         throw new Error(errorData.message);
@@ -435,83 +431,104 @@ export default function GuardAttendancePage() {
                       Download Report
                     </Dialog.Title>
                     <p className="text-sm text-gray-400 mt-2 px-4">
-                      Select range for <strong className="text-white">{clientForReport}</strong>
+                      Select date period for <strong className="text-white">{clientForReport}</strong>
                     </p>
                   </div>
 
-                  {/* Date Picker */}
+                  {/* Period Picker */}
                   <div className="px-4 sm:px-6 py-2 overflow-y-auto custom-scrollbar">
-                    <div className="bg-[#0f172a] rounded-xl p-3 sm:p-4 border border-gray-700 flex justify-center">
-                      <style>{`
-                        .rdp { --rdp-cell-size: 40px; margin: 0; }
-                        .rdp-caption_label { color: #f8fafc; font-weight: 700; font-size: 1rem; }
-                        
-                        /* Navigation Arrows */
-                        .rdp-nav_button { color: #94a3b8; }
-                        .rdp-nav_button:hover { color: #fff; background-color: #334155; }
-                        
-                        /* === FIX: WEEKDAY HEADERS TO WHITE === */
-                        .rdp-head_cell { 
-                            color: #ffffff !important; 
-                            font-weight: 700; 
-                            font-size: 0.85rem; 
-                            text-transform: uppercase; 
-                            padding-bottom: 10px;
-                        }
-                        
-                        /* Days */
-                        .rdp-day { color: #cbd5e1; font-size: 0.9rem; border-radius: 9999px; }
-                        .rdp-day:hover:not([disabled]) { background-color: #334155; }
-                        .rdp-day_outside { opacity: 0.3; }
-
-                        /* WORKED DAYS (Green Ring) */
-                        .rdp-day_worked { 
-                            background-color: rgba(16, 185, 129, 0.1); 
-                            color: #fff; 
-                            font-weight: 700;
-                            border: 2px solid #10b981;
-                        }
-
-                        /* SELECTED RANGE (Solid Blue) */
-                        .rdp-day_selected { 
-                            background-color: #2563eb !important; 
-                            color: white !important; 
-                            font-weight: bold; 
-                            border: none; 
-                        }
-                        .rdp-day_range_middle { 
-                            background-color: rgba(37, 99, 235, 0.2) !important; 
-                            color: #60a5fa !important; 
-                            border-radius: 0 !important; 
-                        }
-                        
-                        /* Range Corners */
-                        .rdp-day_range_start { border-top-left-radius: 50% !important; border-bottom-left-radius: 50% !important; border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
-                        .rdp-day_range_end { border-top-right-radius: 50% !important; border-bottom-right-radius: 50% !important; border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; }
-                        .rdp-day_range_start.rdp-day_range_end { border-radius: 50% !important; }
-                      `}</style>
-                      
-                      <DayPicker 
-                          mode="range" 
-                          selected={reportDateRange} 
-                          onSelect={setReportDateRange} 
-                          className="text-sm"
-                          defaultMonth={new Date()}
-                          showOutsideDays={false}
-                          modifiers={{ worked: daysWithData }} 
-                          modifiersClassNames={{ worked: "rdp-day_worked" }}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-center gap-4 mt-3 text-xs text-gray-400">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-3 h-3 rounded-full bg-emerald-500 border border-emerald-400"></div>
-                          <span>With Data</span>
+                    <div className="space-y-4 rounded-xl border border-gray-700 bg-[#0f172a] p-4">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                              Select Year
+                            </label>
+                            <select
+                              value={reportYear}
+                              onChange={(e) => setReportYear(Number(e.target.value))}
+                              className="w-full rounded-xl border border-slate-700 bg-[#111827] px-4 py-3 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+                            >
+                              {Array.from({ length: 11 }, (_, index) => new Date().getFullYear() - 5 + index).map((year) => (
+                                <option key={year} value={year}>
+                                  {year}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                              Select Month
+                            </label>
+                            <select
+                              value={reportMonth}
+                              onChange={(e) => setReportMonth(e.target.value)}
+                              className="w-full rounded-xl border border-slate-700 bg-[#111827] px-4 py-3 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+                            >
+                              {Array.from({ length: 12 }, (_, index) => {
+                                const monthValue = String(index + 1).padStart(2, "0");
+                                const monthLabel = format(new Date(2026, index, 1), "MMMM");
+                                return (
+                                  <option key={monthValue} value={monthValue}>
+                                    {monthLabel}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-3 h-3 rounded-full bg-blue-600"></div>
-                          <span>Selected</span>
+
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          Cut-off Period
+                        </label>
+                        <div className="grid gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setReportCutoff("first-half")}
+                            className={`rounded-xl border px-4 py-3 text-left transition ${
+                              reportCutoff === "first-half"
+                                ? "border-blue-500/50 bg-blue-500/10 text-white"
+                                : "border-slate-700 bg-[#111827] text-slate-300 hover:border-slate-500"
+                            }`}
+                          >
+                            <div className="text-sm font-semibold">1st to 15th day</div>
+                            <div className="mt-1 text-xs text-slate-400">First cut-off of the selected month</div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReportCutoff("second-half")}
+                            className={`rounded-xl border px-4 py-3 text-left transition ${
+                              reportCutoff === "second-half"
+                                ? "border-blue-500/50 bg-blue-500/10 text-white"
+                                : "border-slate-700 bg-[#111827] text-slate-300 hover:border-slate-500"
+                            }`}
+                          >
+                            <div className="text-sm font-semibold">16th to last day of month</div>
+                            <div className="mt-1 text-xs text-slate-400">Last cut-off of the selected month</div>
+                          </button>
                         </div>
+                      </div>
+
+                       {reportYear && reportMonth ? (
+                          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+                            {(() => {
+                              const year = Number(reportYear);
+                              const month = Number(reportMonth);
+                              const monthDate = new Date(year, month - 1, 1);
+                              const lastDay = getDaysInMonth(monthDate);
+                              const startDay = reportCutoff === "first-half" ? 1 : 16;
+                              const endDay = reportCutoff === "first-half" ? 15 : lastDay;
+                              const startDate = format(new Date(year, month - 1, startDay), "MMM dd, yyyy");
+                              const endDate = format(new Date(year, month - 1, endDay), "MMM dd, yyyy");
+                              return (
+                              <>
+                                <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-emerald-300">Selected Coverage</span>
+                                <span className="mt-1 block font-medium">{startDate} to {endDate}</span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 

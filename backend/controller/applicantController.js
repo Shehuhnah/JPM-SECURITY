@@ -73,14 +73,22 @@ export const getApplicants = async (req, res) => {
 // 🟢 Create a new applicant
 export const createApplicant = async (req, res) => {
   try {
-    const { name, email, phone, position, applicationType } = req.body;
+    const { name, firstName, lastName, email, phone, address, position, applicationType } = req.body;
+    const firstNameValue = firstName?.trim() || "";
+    const lastNameValue = lastName?.trim() || "";
+    const normalizedName = name?.trim() || `${firstNameValue} ${lastNameValue}`.trim();
+    const normalizedPhone = phone?.trim() || "";
 
     if (!["Admin", "Subadmin"].includes(req.user?.role)) {
       return res.status(403).json({ message: "Only admin and HR can add applicants." });
     }
 
-    if (!name?.trim() || !position?.trim() || !phone?.trim()) {
-      return res.status(400).json({ message: "Name, position, and phone are required." });
+    if (!firstNameValue || !lastNameValue || !position?.trim() || !normalizedPhone || !address?.trim()) {
+      return res.status(400).json({ message: "First name, last name, position, phone, and address are required." });
+    }
+
+    if (!/^\+63\d{10}$/.test(normalizedPhone)) {
+      return res.status(400).json({ message: "Phone number must be in +63 format." });
     }
 
     const normalizedType = applicationType === "Online" ? "Online" : "Walk-in";
@@ -90,9 +98,12 @@ export const createApplicant = async (req, res) => {
     }
 
     const newApplicant = new Applicant({
-      name: name.trim(),
+      firstName: firstNameValue,
+      lastName: lastNameValue,
+      name: normalizedName,
       email: email?.trim() || "",
-      phone: phone.trim(),
+      phone: normalizedPhone,
+      address: address.trim(),
       position: position.trim(),
       applicationType: normalizedType,
       createdBy: req.user._id,

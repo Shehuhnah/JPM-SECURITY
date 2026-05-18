@@ -202,23 +202,16 @@ export default function SubadminApplicantMessage() {
   // Fetch Conversations
   const fetchConversations = useCallback(async () => {
     try {
-      const res = await fetch(`${api}/api/messages/conversations`, { credentials: "include" });
+      const res = await fetch(`${api}/api/messages/conversations?scope=applicant`, { credentials: "include" });
       if (!res.ok) return;
       
       const data = await res.json();
-      const filtered = (Array.isArray(data) ? data : []).filter(
-        (conv) => conv.type === "subadmin-applicant" || conv.type === "applicant-subadmin"
-      );
-      
-      // Deduplicate and process
-      const unique = filtered.filter((conv, index, self) => 
-        index === self.findIndex((c) => normalizeId(c._id) === normalizeId(conv._id))
-      ).map((conv) => ({
+      const processed = (Array.isArray(data) ? data : []).map((conv) => ({
         ...conv,
         applicantDisplayName: getApplicantName(conv),
       }));
       
-      setConversations(sortApplicantConversations(unique));
+      setConversations(sortApplicantConversations(processed));
     } catch (err) {
       console.error("Error fetching conversations:", err);
     }
