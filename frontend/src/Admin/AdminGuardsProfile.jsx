@@ -638,7 +638,7 @@ export default function GuardTable() {
                       <div><label className="text-gray-300 text-sm mb-1 block">Guard ID <span className="text-red-400">*</span></label><input type="text" name="guardId" required placeholder="e.g. G-2025-001" value={form.guardId} onChange={handleChange} className={getFieldClass("guardId")} /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Email <span className="text-red-400">*</span></label><input type="email" name="email" required placeholder="jpm@example.com" value={form.email} onChange={handleChange} className={getFieldClass("email")} /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Position <span className="text-red-400">*</span></label><input type="text" name="position" required placeholder="e.g. Security Guard" value={form.position} onChange={handleChange} className={getFieldClass("position")} /></div>
-                      <div><label className="text-gray-300 text-sm mb-1 block">Address <span className="text-red-400">*</span></label><input type="text" name="address" required placeholder="e.g. Brgy. 1, Tanza, Cavite" value={form.address} onChange={handleChange} className={getFieldClass("address")} /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Home Address <span className="text-red-400">*</span></label><input type="text" name="address" required placeholder="e.g. Brgy. 1, Tanza, Cavite" value={form.address} onChange={handleChange} className={getFieldClass("address")} /></div>
                       {/* FIX: Status Dropdown was missing value from state */}
                       <div>
                         <label className="text-gray-300 text-sm mb-1 block">Status</label>
@@ -710,7 +710,7 @@ export default function GuardTable() {
                       <div><label className="text-gray-300 text-sm mb-1 block">Guard ID <span className="text-red-400">*</span></label><input type="text" name="guardId" value={form.guardId} onChange={handleChange} className={getFieldClass("guardId")} /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Email <span className="text-red-400">*</span></label><input type="email" name="email" value={form.email} onChange={handleChange} className={getFieldClass("email")} /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Position <span className="text-red-400">*</span></label><input type="text" name="position" value={form.position} onChange={handleChange} className={getFieldClass("position")} /></div>
-                      <div><label className="text-gray-300 text-sm mb-1 block">Address <span className="text-red-400">*</span></label><input type="text" name="address" value={form.address} onChange={handleChange} className={getFieldClass("address")} /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Home Address <span className="text-red-400">*</span></label><input type="text" name="address" value={form.address} onChange={handleChange} className={getFieldClass("address")} /></div>
                       <div>
                         <label className="text-gray-300 text-sm mb-1 block">Status</label>
                         <select name="status" value={form.status} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500">
