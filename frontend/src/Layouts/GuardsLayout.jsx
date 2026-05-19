@@ -205,7 +205,7 @@ export default function GuardsLayout() {
           ></div>
         )}
         {/* ===== Main Content ===== */}
-        <main className="flex-1 flex flex-col lg:ml-72">
+        <main className="flex-1 flex flex-col overflow-x-hidden lg:ml-72">
 
           {/* ✅ Topbar (large screen) */}
           <div className="hidden lg:flex items-center justify-between bg-[#1e293b] border-b border-gray-700 px-6 py-4 sticky top-0 z-30">
@@ -242,7 +242,7 @@ export default function GuardsLayout() {
           </div>
 
         {/* Content */}
-          <div className="flex-1 overflow-auto bg-[#0f172a]">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden bg-[#0f172a]">
             <Outlet />
           </div>
         </main>

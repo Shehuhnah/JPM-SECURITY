@@ -20,6 +20,32 @@ const buildCoverageDays = (startDate, endDate) => {
   return dates;
 };
 
+const splitCoverageDays = (coverageDays = []) => {
+  if (coverageDays.length === 0) {
+    return { topDays: [], bottomDays: [] };
+  }
+
+  const sameMonth = coverageDays.every(
+    (date) =>
+      date.getFullYear() === coverageDays[0].getFullYear() &&
+      date.getMonth() === coverageDays[0].getMonth()
+  );
+
+  if (sameMonth) {
+    const topDays = coverageDays.filter((date) => date.getDate() <= 15);
+    const bottomDays = coverageDays.filter((date) => date.getDate() > 15);
+    return { topDays, bottomDays };
+  }
+
+  return {
+    topDays: coverageDays.slice(0, 15),
+    bottomDays: coverageDays.slice(15),
+  };
+};
+
+const toDateKey = (date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
 /**
  * Generate a grid-based timesheet PDF.
  * @param {Object} guard - The guard object, containing fullName and dutyStation.
@@ -42,6 +68,9 @@ export const generateWorkHoursPDF = (guard, attendanceRecords, periodCover, opti
         coverageDays.length > 0
           ? coverageDays
           : Array.from({ length: 31 }, (_, index) => new Date(2026, 0, index + 1));
+      const { topDays, bottomDays } = splitCoverageDays(effectiveCoverageDays);
+      const headerColumnCount = Math.max(topDays.length, bottomDays.length, 1);
+      const hasBottomHalf = bottomDays.length > 0;
 
       // Map day => hours
       const dayShiftHoursMap = new Map();
@@ -50,7 +79,7 @@ export const generateWorkHoursPDF = (guard, attendanceRecords, periodCover, opti
       const workedDates = new Set();
       attendanceRecords.forEach(record => {
         const recordDate = new Date(record.timeIn);
-        const dateKey = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}-${String(recordDate.getDate()).padStart(2, '0')}`;
+        const dateKey = toDateKey(recordDate);
         const workMinutes = getAttendanceMinutesBreakdown(record).totalMinutes;
         if (workMinutes <= 0) return;
 
@@ -71,16 +100,15 @@ export const generateWorkHoursPDF = (guard, attendanceRecords, periodCover, opti
       // --- TABLE CONSTANTS ---
       const tableX = 40;
       const tableY = 90;
-      const headerHeight = 40;
+      const headerRowHeight = 20;
       const rowHeight = 25;
       const nameColWidth = 120;
       const ampmColWidth = 30;
       const totalColWidth = 70;
       const sigColWidth = 100;
       const dateAreaWidth = 842 - 60 - nameColWidth - ampmColWidth - totalColWidth - sigColWidth;
-      const dateCellWidth = effectiveCoverageDays.length > 0
-        ? Math.floor(dateAreaWidth / effectiveCoverageDays.length)
-        : 24;
+      const dateCellWidth = Math.floor(dateAreaWidth / headerColumnCount);
+      const dataBlockHeight = hasBottomHalf ? rowHeight * 4 : rowHeight * 2;
 
       // --- HEADER ---
       doc.font('Helvetica-Bold').fontSize(11).text('Period Cover: ', 40, 40, { continued: true })
@@ -92,59 +120,86 @@ export const generateWorkHoursPDF = (guard, attendanceRecords, periodCover, opti
       doc.font('Helvetica-Bold').fontSize(8);
 
       const nameX = tableX;
-      doc.rect(nameX, tableY, nameColWidth, headerHeight * 2).stroke();
+      doc.rect(nameX, tableY, nameColWidth, headerRowHeight * 2).stroke();
       doc.text('Name of Guard', nameX, tableY + 15, { width: nameColWidth, align: 'center' });
 
       const ampmX = nameX + nameColWidth;
-      doc.rect(ampmX, tableY, ampmColWidth, headerHeight * 2).stroke();
+      doc.rect(ampmX, tableY, ampmColWidth, headerRowHeight * 2).stroke();
 
-      effectiveCoverageDays.forEach((date, index) => {
+      for (let index = 0; index < headerColumnCount; index++) {
         const x = ampmX + ampmColWidth + (dateCellWidth * index);
-        doc.rect(x, tableY, dateCellWidth, headerHeight * 2).stroke();
-        doc.text(date.getDate(), x, tableY + 15, { width: dateCellWidth, align: 'center' });
-      });
+        doc.rect(x, tableY, dateCellWidth, headerRowHeight).stroke();
+        doc.rect(x, tableY + headerRowHeight, dateCellWidth, headerRowHeight).stroke();
+
+        if (topDays[index]) {
+          doc.text(topDays[index].getDate(), x, tableY + 5, { width: dateCellWidth, align: 'center' });
+        }
+
+        if (bottomDays[index]) {
+          doc.text(bottomDays[index].getDate(), x, tableY + headerRowHeight + 5, { width: dateCellWidth, align: 'center' });
+        }
+      }
 
       // Total and Signature columns
-      const totalX = ampmX + ampmColWidth + (dateCellWidth * effectiveCoverageDays.length);
+      const totalX = ampmX + ampmColWidth + (dateCellWidth * headerColumnCount);
       const sigX = totalX + totalColWidth;
-      doc.rect(totalX, tableY, totalColWidth, headerHeight * 2).stroke();
+      doc.rect(totalX, tableY, totalColWidth, headerRowHeight * 2).stroke();
       doc.text('TOTAL NO.', totalX, tableY + 15, { width: totalColWidth, align: 'center' });
-      doc.rect(sigX, tableY, sigColWidth, headerHeight * 2).stroke();
+      doc.rect(sigX, tableY, sigColWidth, headerRowHeight * 2).stroke();
       doc.text('Signature', sigX, tableY + 15, { width: sigColWidth, align: 'center' });
 
       // --- DATA ROW ---
       doc.font('Helvetica').fontSize(8);
-      const row1Y = tableY + headerHeight * 2;
+      const row1Y = tableY + headerRowHeight * 2;
       const row2Y = row1Y + rowHeight;
+      const row3Y = row2Y + rowHeight;
+      const row4Y = row3Y + rowHeight;
 
-      doc.rect(nameX, row1Y, nameColWidth, rowHeight * 2).stroke();
-      doc.text(guard.fullName, nameX + 3, row1Y + (rowHeight - 5), { width: nameColWidth - 6 });
+      doc.rect(nameX, row1Y, nameColWidth, dataBlockHeight).stroke();
+      doc.text(guard.fullName, nameX + 3, row1Y + (dataBlockHeight / 2) - 5, { width: nameColWidth - 6 });
 
-      doc.rect(ampmX, row1Y, ampmColWidth, rowHeight).stroke();
-      doc.text('AM', ampmX, row1Y + 9, { width: ampmColWidth, align: 'center' });
-      doc.rect(ampmX, row2Y, ampmColWidth, rowHeight).stroke();
-      doc.text('PM', ampmX, row2Y + 9, { width: ampmColWidth, align: 'center' });
+      const drawShiftLabelPair = (startY) => {
+        doc.rect(ampmX, startY, ampmColWidth, rowHeight).stroke();
+        doc.text('AM', ampmX, startY + 9, { width: ampmColWidth, align: 'center' });
+        doc.rect(ampmX, startY + rowHeight, ampmColWidth, rowHeight).stroke();
+        doc.text('PM', ampmX, startY + rowHeight + 9, { width: ampmColWidth, align: 'center' });
+      };
 
-      effectiveCoverageDays.forEach((date, index) => {
-        const x = ampmX + ampmColWidth + (dateCellWidth * index);
-        const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        doc.rect(x, row1Y, dateCellWidth, rowHeight).stroke();
-        doc.text(dayShiftHoursMap.get(dateKey)?.toFixed(1) || '', x, row1Y + 9, { width: dateCellWidth, align: 'center' });
-        doc.rect(x, row2Y, dateCellWidth, rowHeight).stroke();
-        doc.text(nightShiftHoursMap.get(dateKey)?.toFixed(1) || '', x, row2Y + 9, { width: dateCellWidth, align: 'center' });
-      });
+      drawShiftLabelPair(row1Y);
+      if (hasBottomHalf) {
+        drawShiftLabelPair(row3Y);
+      }
+
+      const drawDaySection = (days, startY) => {
+        for (let index = 0; index < headerColumnCount; index++) {
+          const x = ampmX + ampmColWidth + (dateCellWidth * index);
+          const date = days[index];
+          const dateKey = date ? toDateKey(date) : null;
+          doc.rect(x, startY, dateCellWidth, rowHeight).stroke();
+          doc.rect(x, startY + rowHeight, dateCellWidth, rowHeight).stroke();
+          if (dateKey) {
+            doc.text(dayShiftHoursMap.get(dateKey)?.toFixed(1) || '', x, startY + 9, { width: dateCellWidth, align: 'center' });
+            doc.text(nightShiftHoursMap.get(dateKey)?.toFixed(1) || '', x, startY + rowHeight + 9, { width: dateCellWidth, align: 'center' });
+          }
+        }
+      };
+
+      drawDaySection(topDays, row1Y);
+      if (hasBottomHalf) {
+        drawDaySection(bottomDays, row3Y);
+      }
 
       // Total row
-      doc.rect(totalX, row1Y, totalColWidth, rowHeight * 2).stroke();
-      doc.rect(totalX, row1Y, totalColWidth, rowHeight).stroke(); // split
-      doc.text('Days', totalX + 3, row1Y + 9);
-      doc.text('Hours', totalX + 3, row2Y + 9);
+      doc.rect(totalX, row1Y, totalColWidth, dataBlockHeight).stroke();
+      doc.rect(totalX, row1Y, totalColWidth, dataBlockHeight / 2).stroke();
+      doc.text('Days', totalX + 3, row1Y + (dataBlockHeight / 4) - 3);
+      doc.text('Hours', totalX + 3, row1Y + (dataBlockHeight * 0.75) - 3);
       doc.font('Helvetica-Bold');
-      doc.text(workDays.toString(), totalX + 35, row1Y + 9, { width: 30, align: 'right' });
-      doc.text(totalHours, totalX + 35, row2Y + 9, { width: 30, align: 'right' });
+      doc.text(workDays.toString(), totalX + 35, row1Y + (dataBlockHeight / 4) - 3, { width: 30, align: 'right' });
+      doc.text(totalHours, totalX + 35, row1Y + (dataBlockHeight * 0.75) - 3, { width: 30, align: 'right' });
 
       // Signature row
-      doc.rect(sigX, row1Y, sigColWidth, rowHeight * 2).stroke();
+      doc.rect(sigX, row1Y, sigColWidth, dataBlockHeight).stroke();
 
       doc.end();
     } catch (err) {
@@ -182,6 +237,9 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
         coverageDays.length > 0
           ? coverageDays
           : Array.from({ length: 16 }, (_, index) => new Date(2026, 0, index + 1));
+      const { topDays, bottomDays } = splitCoverageDays(effectiveCoverageDays);
+      const headerColumnCount = Math.max(topDays.length, bottomDays.length, 1);
+      const hasBottomHalf = bottomDays.length > 0;
 
       // --- 2. LAYOUT CONFIGURATION ---
       const pageW = doc.page.width;
@@ -195,10 +253,10 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
       const sigColW = 70;
       const contentW = pageW - margin * 2;
       const dateAreaW = contentW - (noColW + nameColW + ampmColW + daysColW + hoursColW + sigColW);
-      const dateCellW = Math.floor(dateAreaW / effectiveCoverageDays.length);
+      const dateCellW = Math.floor(dateAreaW / headerColumnCount);
       const headerRowHeight = 18;
       const rowHeight = 18;
-      const guardRowHeight = rowHeight * 2;
+      const guardRowHeight = hasBottomHalf ? rowHeight * 4 : rowHeight * 2;
       const signatureBlockHeight = 90;
       const pmShadeColor = '#E8E8E8';
 
@@ -244,13 +302,19 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
         currentX += ampmColW;
 
         const dateHeaderStartX = currentX;
-        effectiveCoverageDays.forEach((date) => {
-          doc.rect(currentX, headerY1, dateCellW, headerRowHeight * 2).stroke();
-          doc.text(String(date.getDate()), currentX, headerY1 + 10, { width: dateCellW, align: "center" });
+        for (let index = 0; index < headerColumnCount; index++) {
+          doc.rect(currentX, headerY1, dateCellW, headerRowHeight).stroke();
+          doc.rect(currentX, headerY2, dateCellW, headerRowHeight).stroke();
+          if (topDays[index]) {
+            doc.text(String(topDays[index].getDate()), currentX, headerY1 + 6, { width: dateCellW, align: "center" });
+          }
+          if (bottomDays[index]) {
+            doc.text(String(bottomDays[index].getDate()), currentX, headerY2 + 6, { width: dateCellW, align: "center" });
+          }
           currentX += dateCellW;
-        });
+        }
 
-        currentX = dateHeaderStartX + dateCellW * effectiveCoverageDays.length;
+        currentX = dateHeaderStartX + dateCellW * headerColumnCount;
         doc.rect(currentX, headerY1, daysColW, headerRowHeight * 2).stroke();
         doc.text("Days", currentX, headerY1 + 10, { width: daysColW, align: "center" });
         currentX += daysColW;
@@ -289,7 +353,7 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
             const hours = breakdown.totalMinutes / 60;
             totalMinutes += breakdown.totalMinutes;
 
-            const dateKey = `${t1.getFullYear()}-${String(t1.getMonth() + 1).padStart(2, '0')}-${String(t1.getDate()).padStart(2, '0')}`;
+            const dateKey = toDateKey(t1);
             workDays.add(dateKey);
 
             if (rec.scheduleId.shiftType === 'Night Shift') {
@@ -317,41 +381,59 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
         currentX += nameColW;
 
         // 3. AM/PM
-        doc.rect(currentX, rowY, ampmColW, rowHeight).stroke();
-        doc.text("AM", currentX, rowY + 6, { width: ampmColW, align: "center" });
-        doc.rect(currentX, rowY + rowHeight, ampmColW, rowHeight).fillAndStroke(pmShadeColor, 'black');
-        doc.fillColor('black');
-        doc.text("PM", currentX, rowY + rowHeight + 6, { width: ampmColW, align: "center" });
+        const drawShiftLabels = (startY) => {
+          doc.rect(currentX, startY, ampmColW, rowHeight).stroke();
+          doc.text("AM", currentX, startY + 6, { width: ampmColW, align: "center" });
+          doc.rect(currentX, startY + rowHeight, ampmColW, rowHeight).fillAndStroke(pmShadeColor, 'black');
+          doc.fillColor('black');
+          doc.text("PM", currentX, startY + rowHeight + 6, { width: ampmColW, align: "center" });
+        };
+
+        drawShiftLabels(rowY);
+        if (hasBottomHalf) {
+          drawShiftLabels(rowY + rowHeight * 2);
+        }
         currentX += ampmColW;
 
         const dateCellStartX = currentX;
-        effectiveCoverageDays.forEach((date) => {
-            const thisColW = dateCellW;
-            const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-
+        const drawDaySection = (days, startY) => {
+          let sectionX = dateCellStartX;
+          for (let index = 0; index < headerColumnCount; index++) {
+            const date = days[index];
+            const dateKey = date ? toDateKey(date) : null;
             doc.fillColor('black');
-            doc.rect(currentX, rowY, thisColW, rowHeight).stroke();
-            const dayShiftHours = dayShiftHoursMap.get(dateKey);
-            if (dayShiftHours) {
-                doc.text(dayShiftHours.toFixed(1), currentX, rowY + 6, { width: thisColW, align: 'center' });
+            doc.rect(sectionX, startY, dateCellW, rowHeight).stroke();
+            if (dateKey) {
+              const dayShiftHours = dayShiftHoursMap.get(dateKey);
+              if (dayShiftHours) {
+                doc.text(dayShiftHours.toFixed(1), sectionX, startY + 6, { width: dateCellW, align: 'center' });
+              }
             }
 
-            doc.rect(currentX, rowY + rowHeight, thisColW, rowHeight).fillAndStroke(pmShadeColor, 'black');
+            doc.rect(sectionX, startY + rowHeight, dateCellW, rowHeight).fillAndStroke(pmShadeColor, 'black');
             doc.fillColor('black');
-            const nightShiftHours = nightShiftHoursMap.get(dateKey);
-            if (nightShiftHours) {
-                doc.text(nightShiftHours.toFixed(1), currentX, rowY + rowHeight + 6, { width: thisColW, align: 'center' });
+            if (dateKey) {
+              const nightShiftHours = nightShiftHoursMap.get(dateKey);
+              if (nightShiftHours) {
+                doc.text(nightShiftHours.toFixed(1), sectionX, startY + rowHeight + 6, { width: dateCellW, align: 'center' });
+              }
             }
-            currentX += thisColW;
-        });
+            sectionX += dateCellW;
+          }
+        };
+
+        drawDaySection(topDays, rowY);
+        if (hasBottomHalf) {
+          drawDaySection(bottomDays, rowY + rowHeight * 2);
+        }
 
         // Totals & Sig
-        currentX = dateCellStartX + dateCellW * effectiveCoverageDays.length;
+        currentX = dateCellStartX + dateCellW * headerColumnCount;
         doc.rect(currentX, rowY, daysColW, guardRowHeight).stroke();
-        doc.text(totalDays.toString(), currentX, rowY + 12, { width: daysColW, align: "center" });
+        doc.text(totalDays.toString(), currentX, rowY + (guardRowHeight / 2) - 6, { width: daysColW, align: "center" });
         currentX += daysColW;
         doc.rect(currentX, rowY, hoursColW, guardRowHeight).stroke();
-        doc.text(totalHours, currentX, rowY + 12, { width: hoursColW, align: 'center' });
+        doc.text(totalHours, currentX, rowY + (guardRowHeight / 2) - 6, { width: hoursColW, align: 'center' });
         currentX += hoursColW;
         doc.rect(currentX, rowY, sigColW, guardRowHeight).stroke();
         currentY += guardRowHeight;

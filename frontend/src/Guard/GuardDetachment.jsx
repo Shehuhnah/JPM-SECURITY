@@ -80,21 +80,21 @@ const ScheduleCard = ({ schedule }) => {
   const badgeClass = shiftColors[schedule.shiftType] || "bg-blue-500/20 text-blue-400 border border-blue-500/30";
 
   return (
-    <div className="bg-[#1e293b] border border-gray-700 rounded-xl p-4 shadow-sm hover:border-gray-600 transition-all">
-      <div className="flex items-start justify-between mb-3">
-        <div>
-            <h3 className="font-bold text-white text-base leading-tight">{schedule.client}</h3>
-            <p className="text-xs text-gray-400 mt-1">Position: {schedule.position || "Guard"}</p>
+    <div className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-slate-700/70 bg-gradient-to-br from-[#1f2937] via-[#1b2435] to-[#111827] p-4 shadow-lg shadow-black/10 transition-all hover:border-slate-500/80">
+      <div className="mb-3 flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+            <h3 className="truncate font-bold text-white text-base leading-tight">{schedule.client}</h3>
+            <p className="mt-1 truncate text-xs text-gray-400">Position: {schedule.position || "Guard"}</p>
         </div>
-        <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase font-bold tracking-wide whitespace-nowrap ${badgeClass}`}>
+        <span className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] uppercase font-bold tracking-wide whitespace-nowrap ${badgeClass}`}>
           {schedule.shiftType}
         </span>
       </div>
       
-      <div className="border-t border-gray-700/50 pt-3 space-y-2">
+      <div className="border-t border-slate-700/60 pt-3 space-y-2">
         <div className="flex items-center gap-2.5 text-sm text-gray-300">
           <Clock className="w-4 h-4 text-blue-400 shrink-0" />
-          <span>{formatTimeDisplay(schedule.timeIn)} - {formatTimeDisplay(schedule.timeOut)}</span>
+          <span className="min-w-0 truncate">{formatTimeDisplay(schedule.timeIn)} - {formatTimeDisplay(schedule.timeOut)}</span>
         </div>
         <div className="flex items-center gap-2.5 text-sm text-gray-300">
           <MapPin className="w-4 h-4 text-red-400 shrink-0" />
@@ -152,12 +152,12 @@ const MonthNavigator = ({ currentMonth, setCurrentMonth }) => {
     setCurrentMonth(newMonth);
   };
   return (
-    <div className="flex justify-between items-center p-3 bg-[#1e293b] border border-gray-700 rounded-xl mb-6 shadow-sm">
-      <button onClick={() => handleMonthChange(-1)} className="p-2 rounded-lg hover:bg-slate-700 text-gray-400 hover:text-white transition">
+    <div className="mb-6 flex min-w-0 max-w-full items-center justify-between gap-2 rounded-xl border border-gray-700 bg-[#1e293b] p-3 shadow-sm">
+      <button onClick={() => handleMonthChange(-1)} className="shrink-0 p-2 rounded-lg hover:bg-slate-700 text-gray-400 hover:text-white transition">
         <ChevronLeft size={20} />
       </button>
-      <span className="font-bold text-lg text-white capitalize">{format(currentMonth, "MMMM yyyy")}</span>
-      <button onClick={() => handleMonthChange(1)} className="p-2 rounded-lg hover:bg-slate-700 text-gray-400 hover:text-white transition">
+      <span className="min-w-0 truncate text-center font-bold text-lg text-white capitalize">{format(currentMonth, "MMMM yyyy")}</span>
+      <button onClick={() => handleMonthChange(1)} className="shrink-0 p-2 rounded-lg hover:bg-slate-700 text-gray-400 hover:text-white transition">
         <ChevronRight size={20} />
       </button>
     </div>
@@ -184,7 +184,7 @@ const ListView = ({ schedules, currentMonth, setCurrentMonth }) => {
   const sortedDates = Object.keys(groupedByDate).sort((a, b) => new Date(a) - new Date(b));
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="min-w-0 max-w-full space-y-6 overflow-x-hidden pb-20">
       <MonthNavigator currentMonth={currentMonth} setCurrentMonth={setCurrentMonth} />
       
       {sortedDates.length === 0 ? (
@@ -215,74 +215,113 @@ const MobileCalendarView = ({ monthSchedules, schedulesByDay, selectedDay, setSe
   const dutyDays = Object.keys(schedulesByDay).sort();
   const selectedDayKey = selectedDay ? format(selectedDay, "yyyy-MM-dd") : null;
   const selectedDaySchedules = selectedDayKey ? (schedulesByDay[selectedDayKey] || []) : [];
+  const firstDutyDay = dutyDays[0] ? new Date(`${dutyDays[0]}T00:00:00`) : null;
+  const lastDutyDay = dutyDays[dutyDays.length - 1] ? new Date(`${dutyDays[dutyDays.length - 1]}T00:00:00`) : null;
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-[26px] border border-slate-700/60 bg-gradient-to-br from-[#1b2435] via-[#111827] to-[#0f172a] p-4 shadow-xl">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-white">
-              Mobile Duty View
-            </h3>
-            <p className="mt-1 text-xs text-slate-400">
-              Tap a scheduled day to inspect approved shift details.
-            </p>
+    <div className="min-w-0 max-w-full space-y-4 overflow-x-hidden">
+      <div className="max-w-full overflow-hidden rounded-[28px] border border-slate-700/60 bg-gradient-to-br from-[#1a2436] via-[#111827] to-[#0b1220] shadow-xl">
+        <div className="border-b border-slate-700/60 px-4 py-4">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold uppercase tracking-[0.22em] text-white">
+                Mobile Duty Calendar
+              </h3>
+              <p className="mt-1 text-xs text-slate-400">
+                Built for mobile. Tap a scheduled day to inspect approved shifts.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full border border-slate-600 bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-300">
+              {monthSchedules.length} shift{monthSchedules.length === 1 ? "" : "s"}
+            </span>
           </div>
-          <span className="rounded-full border border-slate-600 bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-300">
-            {monthSchedules.length} shift{monthSchedules.length === 1 ? "" : "s"}
-          </span>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-300">Duty Days</div>
+        <div className="grid max-w-full grid-cols-3 gap-px overflow-hidden bg-slate-800/80">
+          <div className="bg-[#101826] px-4 py-4">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Duty Days</div>
             <div className="mt-2 text-2xl font-black text-white">{dutyDays.length}</div>
           </div>
-          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Selected Day</div>
+          <div className="bg-[#101826] px-4 py-4">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">First Duty</div>
             <div className="mt-2 text-sm font-bold text-white">
-              {selectedDay ? formatDateDisplay(selectedDay, { month: "short", day: "numeric", weekday: "short" }) : "None"}
+              {firstDutyDay ? format(firstDutyDay, "MMM d") : "None"}
+            </div>
+          </div>
+          <div className="bg-[#101826] px-4 py-4">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Last Duty</div>
+            <div className="mt-2 text-sm font-bold text-white">
+              {lastDutyDay ? format(lastDutyDay, "MMM d") : "None"}
             </div>
           </div>
         </div>
 
-        <div className="mt-5">
-          <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Scheduled Days
+        <div className="min-w-0 max-w-full px-4 py-4">
+          <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Scheduled Days
+            </div>
+            <div className="min-w-0 truncate text-right text-[11px] text-slate-500">
+              {selectedDay ? format(selectedDay, "MMM d, yyyy") : "Select one"}
+            </div>
           </div>
-          {dutyDays.length > 0 ? (
-            <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {dutyDays.map((dayKey) => {
-                const dayDate = new Date(`${dayKey}T00:00:00`);
-                const daySchedules = schedulesByDay[dayKey] || [];
-                const isSelected = selectedDay ? isSameDay(dayDate, selectedDay) : false;
 
-                return (
-                  <button
-                    key={dayKey}
-                    type="button"
-                    onClick={() => setSelectedDate(dayDate)}
-                    className={`min-w-[118px] rounded-2xl border px-3 py-3 text-left transition ${
-                      isSelected
-                        ? "border-blue-500/40 bg-blue-500/15"
-                        : "border-slate-700 bg-slate-900/70 hover:border-slate-500"
-                    }`}
-                  >
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      {format(dayDate, "EEE")}
-                    </div>
-                    <div className="mt-2 text-lg font-black text-white">
-                      {format(dayDate, "d")}
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      {format(dayDate, "MMM")}
-                    </div>
-                    <div className="mt-3 rounded-full bg-blue-500/10 px-2 py-1 text-center text-[10px] font-bold uppercase tracking-[0.14em] text-blue-300">
-                      {daySchedules.length} shift{daySchedules.length === 1 ? "" : "s"}
-                    </div>
-                  </button>
-                );
-              })}
+          {dutyDays.length > 0 ? (
+            <div className="max-w-full overflow-hidden">
+              <div className="flex w-full gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {dutyDays.map((dayKey) => {
+                  const dayDate = new Date(`${dayKey}T00:00:00`);
+                  const daySchedules = schedulesByDay[dayKey] || [];
+                  const isSelected = selectedDay ? isSameDay(dayDate, selectedDay) : false;
+
+                  return (
+                    <button
+                      key={dayKey}
+                      type="button"
+                      onClick={() => setSelectedDate(dayDate)}
+                    className={`min-w-[118px] max-w-[118px] shrink-0 overflow-hidden rounded-[22px] border px-3 py-3 text-left transition ${
+                        isSelected
+                          ? "border-blue-500/50 bg-blue-500/15 shadow-lg shadow-blue-950/30"
+                          : "border-slate-700 bg-slate-900/70 hover:border-slate-500"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                            {format(dayDate, "EEE")}
+                          </div>
+                          <div className="mt-2 text-2xl font-black leading-none text-white">
+                            {format(dayDate, "d")}
+                          </div>
+                          <div className="mt-1 text-xs text-slate-400">
+                            {format(dayDate, "MMM")}
+                          </div>
+                        </div>
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${
+                          isSelected ? "bg-blue-500 text-white" : "bg-slate-800 text-slate-300"
+                        }`}>
+                          {daySchedules.length}
+                        </span>
+                      </div>
+                      <div className="mt-3 space-y-1.5">
+                        {daySchedules.slice(0, 2).map((schedule) => (
+                          <div
+                            key={`${schedule._id}-${schedule.timeIn}`}
+                            className="rounded-xl border border-slate-700/70 bg-slate-950/40 px-2.5 py-2"
+                          >
+                            <div className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-blue-300">
+                              {schedule.shiftType}
+                            </div>
+                            <div className="mt-1 truncate text-[11px] font-medium text-white">
+                              {schedule.client}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/30 px-4 py-8 text-center text-sm text-slate-500">
@@ -292,7 +331,7 @@ const MobileCalendarView = ({ monthSchedules, schedulesByDay, selectedDay, setSe
         </div>
       </div>
 
-      <div className="rounded-[26px] border border-slate-700/60 bg-[#1e293b]/45 p-4 shadow-lg backdrop-blur-sm">
+      <div className="min-w-0 max-w-full rounded-[28px] border border-slate-700/60 bg-[#1e293b]/50 p-4 shadow-lg backdrop-blur-sm">
         <div className="mb-4">
           <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-white">
             {selectedDay ? `Duty Details For ${formatDateDisplay(selectedDay, { weekday: "short", month: "short", day: "numeric" })}` : "Duty Details"}
@@ -370,10 +409,10 @@ const CalendarView = ({ schedules, currentMonth, setCurrentMonth, isMobile }) =>
   }
 
   return (
-    <div className="space-y-6 pb-20">
-      <div className="rounded-[28px] border border-slate-700/60 bg-gradient-to-br from-[#1b2435] via-[#111827] to-[#0f172a] p-4 sm:p-5 shadow-xl">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+    <div className="w-full max-w-full overflow-x-hidden space-y-6 pb-20">
+      <div className="max-w-full overflow-hidden rounded-[30px] border border-slate-700/60 bg-gradient-to-br from-[#182235] via-[#111827] to-[#0b1220] p-4 sm:p-5 shadow-xl">
+        <div className="mb-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-white">
               Monthly Duty Calendar
             </h3>
@@ -381,7 +420,7 @@ const CalendarView = ({ schedules, currentMonth, setCurrentMonth, isMobile }) =>
               Approved shifts are shown directly inside each calendar day.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex min-w-0 flex-wrap gap-2">
             <span className="rounded-full border border-slate-600 bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-300">
               {dutyDayCount} duty day{dutyDayCount === 1 ? "" : "s"}
             </span>
@@ -398,78 +437,129 @@ const CalendarView = ({ schedules, currentMonth, setCurrentMonth, isMobile }) =>
           <span>{format(currentMonth, "MMMM yyyy")}</span>
         </div>
 
-        <div className="overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="min-w-[820px] overflow-hidden rounded-2xl border border-slate-700/60 bg-[#0b1220]/80">
-            <div className="grid grid-cols-7 border-b border-slate-700/60 bg-slate-900/70">
-              {WEEKDAY_LABELS.map((label) => (
+        <div className="w-full max-w-full overflow-x-auto pb-2">
+  <div className="min-w-[560px] w-full overflow-hidden rounded-[26px] border border-slate-700/60 bg-[#0b1220]/90 shadow-inner shadow-black/20">
+
+    {/* Week Labels */}
+    <div className="grid grid-cols-7 border-b border-slate-700/60 bg-slate-900/80">
+      {WEEKDAY_LABELS.map((label) => (
+        <div
+          key={label}
+          className="overflow-hidden px-1 py-3 text-center text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-300 truncate"
+        >
+          {label}
+        </div>
+      ))}
+    </div>
+
+    {/* Calendar Grid */}
+    <div className="grid grid-cols-7">
+      {monthDays.map((day) => {
+        const dayKey = format(day, "yyyy-MM-dd");
+        const daySchedules = schedulesByDay[dayKey] || [];
+        const isCurrentMonth = isSameMonth(day, currentMonth);
+        const isSelected = selectedDay
+          ? isSameDay(day, selectedDay)
+          : false;
+
+        return (
+          <button
+            key={dayKey}
+            type="button"
+            onClick={() => setSelectedDate(day)}
+            className={`
+              overflow-hidden
+              min-h-[90px]
+              sm:min-h-[120px]
+              border-r border-b border-slate-800/80
+              p-1 sm:p-2
+              text-left align-top
+              transition-all duration-200
+
+              ${
+                isSelected
+                  ? "bg-blue-500/10 ring-1 ring-inset ring-blue-500/40 shadow-inner shadow-blue-950/20"
+                  : "bg-transparent hover:bg-slate-800/45"
+              }
+
+              ${!isCurrentMonth ? "bg-slate-950/40" : ""}
+            `}
+          >
+            {/* Day Header */}
+            <div className="mb-1 flex items-center justify-between gap-0.5">
+              <span
+                className={`
+                  flex h-6 w-6 shrink-0 items-center justify-center rounded-full
+                  text-[10px] font-bold
+                  ${
+                    isSelected
+                      ? "bg-blue-500 text-white"
+                      : isCurrentMonth
+                      ? "text-slate-200"
+                      : "text-slate-600"
+                  }
+                `}
+              >
+                {format(day, "d")}
+              </span>
+
+              {daySchedules.length > 0 && (
+                <span className="shrink-0 rounded-full bg-blue-500/15 px-1 py-0.5 text-[8px] font-bold text-blue-300">
+                  {daySchedules.length}
+                </span>
+              )}
+            </div>
+
+            {/* Schedule Pills */}
+            <div className="space-y-0.5 overflow-hidden">
+              {daySchedules.slice(0, 2).map((schedule) => (
                 <div
-                  key={label}
-                  className="px-2 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400"
+                  key={`${schedule._id}-${schedule.timeIn}`}
+                  className={`
+                    overflow-hidden rounded border px-1 py-0.5 text-left
+                    ${
+                      schedule.shiftType === "Night Shift"
+                        ? "border-red-500/20 bg-red-500/10"
+                        : "border-amber-500/20 bg-amber-500/10"
+                    }
+                  `}
                 >
-                  {label}
+                  <div
+                    className={`
+                      truncate text-[8px] font-bold uppercase
+                      ${
+                        schedule.shiftType === "Night Shift"
+                          ? "text-red-300"
+                          : "text-amber-300"
+                      }
+                    `}
+                  >
+                    {schedule.shiftType === "Night Shift" ? "Night" : "Day"}
+                  </div>
+
+                  <div className="truncate text-[9px] font-medium text-white">
+                    {schedule.client}
+                  </div>
                 </div>
               ))}
+
+              {daySchedules.length > 2 && (
+                <div className="truncate rounded border border-slate-700/70 bg-slate-900/80 px-1 py-0.5 text-[8px] font-semibold text-slate-400">
+                  +{daySchedules.length - 2}
+                </div>
+              )}
             </div>
-
-            <div className="grid grid-cols-7">
-              {monthDays.map((day) => {
-                const dayKey = format(day, "yyyy-MM-dd");
-                const daySchedules = schedulesByDay[dayKey] || [];
-                const isCurrentMonth = isSameMonth(day, currentMonth);
-                const isSelected = selectedDay ? isSameDay(day, selectedDay) : false;
-
-                return (
-                  <button
-                    key={dayKey}
-                    type="button"
-                    onClick={() => setSelectedDate(day)}
-                    className={`min-h-[118px] sm:min-h-[132px] border-r border-b border-slate-800/80 p-2 text-left align-top transition ${
-                      isSelected
-                        ? "bg-blue-500/10 ring-1 ring-inset ring-blue-500/40"
-                        : "bg-transparent hover:bg-slate-800/45"
-                    } ${!isCurrentMonth ? "bg-slate-950/35" : ""}`}
-                  >
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-                        isSelected
-                          ? "bg-blue-500 text-white"
-                          : isCurrentMonth
-                            ? "text-slate-200"
-                            : "text-slate-600"
-                      }`}>
-                        {format(day, "d")}
-                      </span>
-                      {daySchedules.length > 0 && (
-                        <span className="rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-bold text-blue-300">
-                          {daySchedules.length}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="space-y-1">
-                      {daySchedules.slice(0, 2).map((schedule) => (
-                        <MiniSchedulePill
-                          key={`${schedule._id}-${schedule.timeIn}`}
-                          schedule={schedule}
-                        />
-                      ))}
-                      {daySchedules.length > 2 && (
-                        <div className="rounded-lg border border-slate-700/70 bg-slate-900/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                          +{daySchedules.length - 2} more shifts
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+          </button>
+        );
+      })}
+    </div>
+  </div>
+</div>
       </div>
 
-      <div className="rounded-[28px] border border-slate-700/60 bg-[#1e293b]/45 p-5 shadow-lg backdrop-blur-sm">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+      <div className="min-w-0 max-w-full overflow-hidden rounded-[28px] border border-slate-700/60 bg-[#1e293b]/50 p-5 shadow-lg backdrop-blur-sm">
+        <div className="mb-4 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-white">
               {selectedDay ? `Duty Details For ${formatDateDisplay(selectedDay, { weekday: "short", month: "short", day: "numeric" })}` : "Duty Details"}
             </h3>
@@ -481,7 +571,7 @@ const CalendarView = ({ schedules, currentMonth, setCurrentMonth, isMobile }) =>
             <button
               type="button"
               onClick={() => setSelectedDate(null)}
-              className="rounded-full border border-slate-600 bg-slate-900/60 px-3 py-1 text-xs font-semibold text-slate-300 hover:border-blue-500/40 hover:text-white"
+              className="self-start rounded-full border border-slate-600 bg-slate-900/60 px-3 py-1 text-xs font-semibold text-slate-300 hover:border-blue-500/40 hover:text-white"
             >
               Reset Selection
             </button>
@@ -572,67 +662,67 @@ export default function GuardUpcomingSchedule() {
     }
 
     return (
-        <div className="min-h-screen bg-[#0f172a] text-white p-4 md:p-6 font-sans">
+        <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#0f172a] px-4 py-4 text-white font-sans md:px-6 md:py-6" style={{ boxSizing: 'border-box' }}>
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2">
-                        <div className="p-2 bg-blue-600/20 rounded-lg">
+            <div className="mb-6 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                    <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold">
+                        <div className="shrink-0 rounded-lg bg-blue-600/20 p-2">
                             <CalendarDays className="w-6 h-6 text-blue-400" />
                         </div>
-                        My Schedule
+                        <span className="truncate">My Schedule</span>
                     </h1>
                     <p className="text-xs text-gray-400 mt-1 ml-11">View your upcoming shifts and locations.</p>
                 </div>
 
                 {/* View Toggle */}
-                <div className="flex items-center gap-1 bg-[#1e293b] p-1.5 rounded-xl border border-gray-700 w-fit self-end sm:self-auto">
+                <div className="grid w-full grid-cols-2 gap-1 overflow-hidden rounded-xl border border-gray-700 bg-[#1e293b] p-1.5 sm:flex sm:w-auto sm:self-auto">
                     <button 
                         onClick={() => setViewMode('list')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        className={`flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
                             viewMode === 'list' 
                             ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
                             : 'text-gray-400 hover:text-white hover:bg-slate-700'
                         }`}
                     >
-                        <List size={16} /> List
+                        <List size={16} className="shrink-0" /> <span className="truncate">List</span>
                     </button>
                     <button 
                         onClick={() => setViewMode('calendar')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        className={`flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
                             viewMode === 'calendar' 
                             ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
                             : 'text-gray-400 hover:text-white hover:bg-slate-700'
                         }`}
                     >
-                        <Calendar size={16} /> Calendar
+                        <Calendar size={16} className="shrink-0" /> <span className="truncate">Calendar</span>
                     </button>
                 </div>
             </div>
 
             {/* Content Area */}
-            <div className="max-w-3xl mx-auto">
-                <div className="mb-6 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
+            <div className="mx-auto min-w-0 max-w-5xl overflow-x-hidden">
+                <div className="mb-6 grid min-w-0 gap-3 sm:grid-cols-3">
+                    <div className="min-w-0 overflow-hidden rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
                         <div className="text-xs font-semibold uppercase tracking-wide text-blue-300">Covered Months</div>
                         <div className="mt-2 text-2xl font-bold text-white">{coveredMonths.length}</div>
-                        <div className="mt-2 text-xs text-blue-100">
+                        <div className="mt-2 break-words text-xs text-blue-100">
                             {coveredMonths.length > 0 ? coveredMonths.map(formatMonthValue).join(", ") : "No approved schedule months"}
                         </div>
                     </div>
-                    <div className="rounded-2xl border border-slate-700 bg-[#1e293b] p-4">
+                    <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-700 bg-[#1e293b] p-4">
                         <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Current Month</div>
                         <div className="mt-2 text-2xl font-bold text-white">{currentMonthSchedules.length}</div>
-                        <div className="mt-2 text-xs text-slate-300">
+                        <div className="mt-2 break-words text-xs text-slate-300">
                             {format(currentMonth, "MMMM yyyy")} shift{currentMonthSchedules.length === 1 ? "" : "s"}
                         </div>
                     </div>
-                    <div className="rounded-2xl border border-slate-700 bg-[#1e293b] p-4">
+                    <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-700 bg-[#1e293b] p-4">
                         <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Next Duty</div>
-                        <div className="mt-2 text-sm font-bold text-white">
+                        <div className="mt-2 truncate text-sm font-bold text-white">
                             {upcomingSchedule ? formatDateDisplay(upcomingSchedule.timeIn, { month: "short", day: "numeric" }) : "No upcoming shift"}
                         </div>
-                        <div className="mt-2 text-xs text-slate-300">
+                        <div className="mt-2 break-words text-xs text-slate-300">
                             {upcomingSchedule ? `${upcomingSchedule.client} • ${formatTimeDisplay(upcomingSchedule.timeIn)}` : "Awaiting approved deployment"}
                         </div>
                     </div>
@@ -644,6 +734,21 @@ export default function GuardUpcomingSchedule() {
                             {primaryScopeLabel}
                         </span>
                     </div>
+                )}
+
+                {viewMode === "calendar" && (
+                  <div className="mb-6 grid min-w-0 max-w-full grid-cols-2 gap-3 overflow-x-hidden md:grid-cols-3">
+                    <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-700 bg-[#1e293b] p-4">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Visible Month</div>
+                      <div className="mt-2 text-lg font-bold text-white truncate">{format(currentMonth, "MMMM yyyy")}</div>
+                      <div className="mt-2 break-words text-xs text-slate-300">Calendar optimized for deployment review.</div>
+                    </div>
+                    <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-700 bg-[#1e293b] p-4">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Month Shifts</div>
+                      <div className="mt-2 text-2xl font-bold text-white">{currentMonthSchedules.length}</div>
+                      <div className="mt-2 break-words text-xs text-slate-300">Approved duties this month.</div>
+                    </div>
+                  </div>
                 )}
 
                 {viewMode === 'list' ? (

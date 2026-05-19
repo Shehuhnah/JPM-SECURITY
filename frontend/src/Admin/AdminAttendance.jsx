@@ -17,6 +17,68 @@ import TablePagination from "../components/admin/TablePagination.jsx";
 const api = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
 const DETAIL_PAGE_SIZE = 10;
+const isSameMonthRange = (from, to) =>
+  Boolean(
+    from &&
+      to &&
+      from.getFullYear() === to.getFullYear() &&
+      from.getMonth() === to.getMonth()
+  );
+const datePickerStyles = `
+  .rdp {
+    --rdp-cell-size: 36px;
+    --rdp-accent-color: #2563eb;
+    --rdp-background-color: #111827;
+    margin: 0;
+  }
+  .rdp-caption_label {
+    color: #f8fafc;
+    font-weight: 700;
+  }
+  .rdp-weekday {
+    color: #ffffff;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+  }
+  .rdp-day {
+    color: #f8fafc;
+  }
+  .rdp-day_button {
+    color: #f8fafc;
+  }
+  .rdp-button_previous,
+  .rdp-button_next,
+  .rdp-nav_button {
+    color: #e2e8f0;
+  }
+  .rdp-day:hover:not([disabled]) {
+    background-color: #1e293b;
+    border-radius: 8px;
+  }
+  .rdp-selected .rdp-day_button,
+  .rdp-range_start .rdp-day_button,
+  .rdp-range_end .rdp-day_button {
+    background-color: #2563eb;
+    color: #ffffff;
+    border-radius: 8px;
+    font-weight: 700;
+  }
+  .rdp-range_middle .rdp-day_button {
+    background-color: rgba(59, 130, 246, 0.35);
+    color: #ffffff;
+    border-radius: 0;
+    font-weight: 600;
+  }
+  .rdp-range_start .rdp-day_button,
+  .rdp-range_end .rdp-day_button {
+    background-color: #2563eb;
+    color: #ffffff;
+  }
+  .rdp-day_button:focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+  }
+`;
 
 export default function GuardAttendancePage() {
   const [filter, setFilter] = useState("All");
@@ -38,11 +100,13 @@ export default function GuardAttendancePage() {
   // Download Report Modal State
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [clientForReport, setClientForReport] = useState(null);
-    const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
-    const [reportMonth, setReportMonth] = useState(() =>
-        String(new Date().getMonth() + 1).padStart(2, "0")
-    );
-    const [reportCutoff, setReportCutoff] = useState("first-half");
+  const [reportMode, setReportMode] = useState("cutoff");
+  const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
+  const [reportMonth, setReportMonth] = useState(() =>
+    String(new Date().getMonth() + 1).padStart(2, "0")
+  );
+  const [reportCutoff, setReportCutoff] = useState("first-half");
+  const [reportDateRange, setReportDateRange] = useState({ from: null, to: null });
   const [submitting, setSubmitting] = useState(false);
 
   // Main Data State
@@ -142,29 +206,73 @@ export default function GuardAttendancePage() {
   const clientList = [...new Set(allAttendance.map(a => a.scheduleId?.client).filter(Boolean))];
 
   // Open the download modal
-    const openDownloadModal = (clientName) => {
-        setClientForReport(clientName);
-        setReportYear(new Date().getFullYear());
-        setReportMonth(String(new Date().getMonth() + 1).padStart(2, "0"));
-        setReportCutoff("first-half");
-        setDownloadModalOpen(true);
-    };
+  const openDownloadModal = (clientName) => {
+    setClientForReport(clientName);
+    setReportMode("cutoff");
+    setReportYear(new Date().getFullYear());
+    setReportMonth(String(new Date().getMonth() + 1).padStart(2, "0"));
+    setReportCutoff("first-half");
+    setReportDateRange({ from: null, to: null });
+    setDownloadModalOpen(true);
+  };
+
+  const handleReportRangeSelect = (range) => {
+    if (!range) {
+      setReportDateRange({ from: null, to: null });
+      return;
+    }
+
+    if (range.from && range.to && !isSameMonthRange(range.from, range.to)) {
+      toast.warn("Pick dates must stay within one month only.", {
+        position: "top-center",
+        theme: "dark",
+      });
+      setReportDateRange({ from: range.from, to: range.from });
+      return;
+    }
+
+    setReportDateRange(range);
+  };
   
   const handleConfirmDownload = async () => {
-    if (!reportYear || !reportMonth) {
+    let fromDate;
+    let toDate;
+
+    if (reportMode === "cutoff") {
+      if (!reportYear || !reportMonth) {
         toast.warn("Please select a year and month.", { position: "top-center", theme: "dark" });
         return;
-    }
-    setSubmitting(true);
-    try {
+      }
+
       const year = Number(reportYear);
       const month = Number(reportMonth);
       const monthDate = new Date(year, month - 1, 1);
       const lastDay = getDaysInMonth(monthDate);
-      const startDay = reportCutoff === "first-half" ? 1 : 16;
-      const endDay = reportCutoff === "first-half" ? 15 : lastDay;
-      const fromStr = format(new Date(year, month - 1, startDay), 'yyyy-MM-dd');
-      const toStr = format(new Date(year, month - 1, endDay), 'yyyy-MM-dd');
+      const startDay =
+        reportCutoff === "second-half" ? 16 : 1;
+      const endDay =
+        reportCutoff === "first-half" ? 15 : lastDay;
+
+      fromDate = new Date(year, month - 1, startDay);
+      toDate = new Date(year, month - 1, endDay);
+    } else {
+      if (!reportDateRange?.from || !reportDateRange?.to) {
+        toast.warn("Please select a start and end date.", { position: "top-center", theme: "dark" });
+        return;
+      }
+      if (!isSameMonthRange(reportDateRange.from, reportDateRange.to)) {
+        toast.warn("Pick dates must stay within one month only.", { position: "top-center", theme: "dark" });
+        return;
+      }
+
+      fromDate = reportDateRange.from;
+      toDate = reportDateRange.to;
+    }
+
+    setSubmitting(true);
+    try {
+      const fromStr = format(fromDate, 'yyyy-MM-dd');
+      const toStr = format(toDate, 'yyyy-MM-dd');
 
       const res = await fetch(
         `${api}/api/attendance/download-working-hours/client/${encodeURIComponent(clientForReport)}?from=${fromStr}&to=${toStr}`, 
@@ -249,9 +357,31 @@ export default function GuardAttendancePage() {
   };
 
   const activePreviewSrc = previewImageType === "timeOut" ? previewImage?.timeOutPhoto : previewImage?.photo;
+  const reportCoverage = useMemo(() => {
+    if (reportMode === "pick-dates") {
+      if (!reportDateRange?.from || !reportDateRange?.to) return null;
+      return {
+        start: format(reportDateRange.from, "MMM dd, yyyy"),
+        end: format(reportDateRange.to, "MMM dd, yyyy"),
+      };
+    }
+
+    if (!reportYear || !reportMonth) return null;
+    const year = Number(reportYear);
+    const month = Number(reportMonth);
+    const monthDate = new Date(year, month - 1, 1);
+    const lastDay = getDaysInMonth(monthDate);
+    const startDay = reportCutoff === "second-half" ? 16 : 1;
+    const endDay = reportCutoff === "first-half" ? 15 : lastDay;
+    return {
+      start: format(new Date(year, month - 1, startDay), "MMM dd, yyyy"),
+      end: format(new Date(year, month - 1, endDay), "MMM dd, yyyy"),
+    };
+  }, [reportCutoff, reportDateRange, reportMode, reportMonth, reportYear]);
 
   return (
     <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
+        <style>{datePickerStyles}</style>
         <ToastContainer />
         <main className="flex-1 flex flex-col p-4 md:p-6 bg-slate-900/50 min-h-screen">
           {/* Header & Controls (Same as before) */}
@@ -438,6 +568,37 @@ export default function GuardAttendancePage() {
                   {/* Period Picker */}
                   <div className="px-4 sm:px-6 py-2 overflow-y-auto custom-scrollbar">
                     <div className="space-y-4 rounded-xl border border-gray-700 bg-[#0f172a] p-4">
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          Download Mode
+                        </label>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setReportMode("pick-dates")}
+                            className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
+                              reportMode === "pick-dates"
+                                ? "border-blue-500/50 bg-blue-500/10 text-white"
+                                : "border-slate-700 bg-[#111827] text-slate-300 hover:border-slate-500"
+                            }`}
+                          >
+                            Pick dates
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReportMode("cutoff")}
+                            className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
+                              reportMode === "cutoff"
+                                ? "border-blue-500/50 bg-blue-500/10 text-white"
+                                : "border-slate-700 bg-[#111827] text-slate-300 hover:border-slate-500"
+                            }`}
+                          >
+                            Cut-off
+                          </button>
+                        </div>
+                      </div>
+                      {reportMode === "cutoff" ? (
+                        <>
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div>
                             <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -506,27 +667,46 @@ export default function GuardAttendancePage() {
                             <div className="text-sm font-semibold">16th to last day of month</div>
                             <div className="mt-1 text-xs text-slate-400">Last cut-off of the selected month</div>
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => setReportCutoff("whole-month")}
+                            className={`rounded-xl border px-4 py-3 text-left transition ${
+                              reportCutoff === "whole-month"
+                                ? "border-blue-500/50 bg-blue-500/10 text-white"
+                                : "border-slate-700 bg-[#111827] text-slate-300 hover:border-slate-500"
+                            }`}
+                          >
+                            <div className="text-sm font-semibold">Whole month</div>
+                            <div className="mt-1 text-xs text-slate-400">First and last cut-off combined for the selected month</div>
+                          </button>
                         </div>
                       </div>
+                        </>
+                      ) : (
+                        <div>
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                            Pick Date Range
+                          </label>
+                          <div className="rounded-xl border border-slate-700 bg-[#111827] p-3">
+                            <DayPicker
+                              mode="range"
+                              selected={reportDateRange}
+                              onSelect={handleReportRangeSelect}
+                              className="text-sm"
+                            />
+                          </div>
+                          <p className="mt-2 text-xs text-slate-500">
+                            Manual date range must stay within one month only.
+                          </p>
+                        </div>
+                      )}
 
-                       {reportYear && reportMonth ? (
+                       {reportCoverage ? (
                           <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-                            {(() => {
-                              const year = Number(reportYear);
-                              const month = Number(reportMonth);
-                              const monthDate = new Date(year, month - 1, 1);
-                              const lastDay = getDaysInMonth(monthDate);
-                              const startDay = reportCutoff === "first-half" ? 1 : 16;
-                              const endDay = reportCutoff === "first-half" ? 15 : lastDay;
-                              const startDate = format(new Date(year, month - 1, startDay), "MMM dd, yyyy");
-                              const endDate = format(new Date(year, month - 1, endDay), "MMM dd, yyyy");
-                              return (
                               <>
                                 <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-emerald-300">Selected Coverage</span>
-                                <span className="mt-1 block font-medium">{startDate} to {endDate}</span>
+                                <span className="mt-1 block font-medium">{reportCoverage.start} to {reportCoverage.end}</span>
                               </>
-                            );
-                          })()}
                         </div>
                       ) : null}
                     </div>

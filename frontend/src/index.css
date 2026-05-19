@@ -35,3 +35,17 @@
   scrollbar-width: thin;
   scrollbar-color: #3b82f6 #1e293b; /* thumb color track color */
 }
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
