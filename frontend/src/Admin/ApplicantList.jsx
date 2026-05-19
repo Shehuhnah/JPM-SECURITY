@@ -1444,24 +1444,24 @@ export default function ApplicantsList() {
                           <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
                             Interview date
                           </label>
-                          <input
-                            type="date"
-                            min={new Date().toISOString().split("T")[0]}
-                            value={interviewDate}
-                            onChange={(e) => setInterviewDate(e.target.value)}
-                            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/70"
-                          />
+                            <input
+                              type="date"
+                              min={new Date().toISOString().split("T")[0]}
+                              value={interviewDate}
+                              onChange={(e) => setInterviewDate(e.target.value)}
+                              className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/70 [color-scheme:dark]"
+                            />
                           <div className="mt-3">
                             <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
                               Time*
                             </label>
-                            <input
-                              type="time"
-                              required
-                              value={interviewTime}
-                              onChange={(e) => setInterviewTime(e.target.value)}
-                              className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/70"
-                            />
+                              <input
+                                type="time"
+                                required
+                                value={interviewTime}
+                                onChange={(e) => setInterviewTime(e.target.value)}
+                                className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/70 [color-scheme:dark]"
+                              />
                           </div>
                         </div>
                       ) : (
@@ -1470,37 +1470,37 @@ export default function ApplicantsList() {
                             <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
                               Start date
                             </label>
-                            <input
-                              type="date"
-                              min={new Date().toISOString().split("T")[0]}
-                              value={interviewStart}
-                              onChange={(e) => setInterviewStart(e.target.value)}
-                              className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/70"
-                            />
+                              <input
+                                type="date"
+                                min={new Date().toISOString().split("T")[0]}
+                                value={interviewStart}
+                                onChange={(e) => setInterviewStart(e.target.value)}
+                                className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/70 [color-scheme:dark]"
+                              />
                           </div>
                           <div>
                             <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
                               End date
                             </label>
-                            <input
-                              type="date"
-                              min={interviewStart || new Date().toISOString().split("T")[0]}
-                              value={interviewEnd}
-                              onChange={(e) => setInterviewEnd(e.target.value)}
-                              className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/70"
-                            />
+                              <input
+                                type="date"
+                                min={interviewStart || new Date().toISOString().split("T")[0]}
+                                value={interviewEnd}
+                                onChange={(e) => setInterviewEnd(e.target.value)}
+                                className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/70 [color-scheme:dark]"
+                              />
                           </div>
                           <div className="sm:col-span-2">
                             <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
                               Time*
                             </label>
-                            <input
-                              type="time"
-                              required
-                              value={interviewTime}
-                              onChange={(e) => setInterviewTime(e.target.value)}
-                              className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/70"
-                            />
+                              <input
+                                type="time"
+                                required
+                                value={interviewTime}
+                                onChange={(e) => setInterviewTime(e.target.value)}
+                                className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/70 [color-scheme:dark]"
+                              />
                           </div>
                         </div>
                       )}

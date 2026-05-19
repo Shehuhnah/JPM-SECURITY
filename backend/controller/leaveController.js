@@ -129,7 +129,7 @@ export const createLeaveRequest = async (req, res) => {
     let targetRole = req.user.role;
     let targetGuardId = req.user.role === "Guard" ? req.user._id : null;
     let targetStaffId = ["Admin", "Subadmin"].includes(req.user.role) ? req.user._id : null;
-    let targetSex = req.user.role === "Guard" ? req.user.sex || "" : "";
+    let targetSex = req.user.sex || "";
 
     if (["Admin", "Subadmin"].includes(req.user.role) && req.body?.targetRole && req.body?.targetId) {
       targetRole = req.body.targetRole;
@@ -150,7 +150,7 @@ export const createLeaveRequest = async (req, res) => {
         const staff = await User.findOne({
           _id: req.body.targetId,
           role: targetRole,
-        }).select("_id");
+        }).select("_id sex");
 
         if (!staff) {
           return res.status(404).json({ message: "Selected staff member was not found." });
@@ -158,7 +158,7 @@ export const createLeaveRequest = async (req, res) => {
 
         targetStaffId = staff._id;
         targetGuardId = null;
-        targetSex = "";
+        targetSex = staff.sex || "";
       }
     }
 

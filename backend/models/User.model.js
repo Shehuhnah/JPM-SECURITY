@@ -16,6 +16,11 @@ const adminSchema = new mongoose.Schema(
       enum: [1, 2],
       required: true,
     },
+    sex: {
+      type: String,
+      enum: ["Male", "Female"],
+      default: "",
+    },
     position: { type: String },
     contactNumber: { type: String },
     photo: { type: String, default: "" },

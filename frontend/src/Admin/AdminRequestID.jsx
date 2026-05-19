@@ -887,20 +887,20 @@ export default function RequestedIDs() {
             <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
             <div className="fixed inset-0 flex items-center justify-center p-4">
               <Dialog.Panel className="bg-[#1e293b] border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full">
-                <Dialog.Title className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                  <Calendar className="text-blue-500" /> Approve Request
-                </Dialog.Title>
+                  <Dialog.Title className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                   <Calendar className="text-white" /> Approve Request
+                  </Dialog.Title>
                 
                 <div className="space-y-4">
                   <div>
                       <label className="block text-sm font-medium text-gray-400 mb-1.5">Pickup Date</label>
-                      <input
-                          type="date"
-                          value={pickupDate}
-                          onChange={(e) => setPickupDate(e.target.value)}
-                          min={todayDateOnly}
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2.5 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                      />
+                        <input
+                           type="date"
+                            value={pickupDate}
+                            onChange={(e) => setPickupDate(e.target.value)}
+                            min={todayDateOnly}
+                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition [color-scheme:dark]"
+                        />
                   </div>
                   <div>
                       <label className="block text-sm font-medium text-gray-400 mb-1.5">Admin Notes (Optional)</label>

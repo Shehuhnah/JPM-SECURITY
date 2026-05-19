@@ -116,6 +116,13 @@ function GuardAttendanceTimeIn() {
     return now >= start && now <= end;
   };
 
+  const isLateForSelectedSchedule = (schedule) => {
+    if (!schedule?.timeIn) return false;
+    const start = parseAsPHT(schedule.timeIn);
+    if (!start) return false;
+    return new Date() > start;
+  };
+
   const formatTime = (date) =>
     date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
@@ -758,8 +765,14 @@ function GuardAttendanceTimeIn() {
             <div className="text-2xl font-bold text-white mb-1 tracking-wider">
               {formatTime(currentTime)}
             </div>
-            <div className="text-sm text-gray-400">{formatDate(currentTime)}</div>
+          <div className="text-sm text-gray-400">{formatDate(currentTime)}</div>
           </div>
+
+          {selectedSchedule && isLateForSelectedSchedule(selectedSchedule) && !isSubmitted && !isOnLeave && (
+            <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+              This shift has already started. You can still time in, but your attendance will be marked as <span className="font-semibold uppercase">late</span>.
+            </div>
+          )}
 
           <div className="bg-[#0f172a] rounded-lg p-4 mb-6 border border-gray-700/50">
             <div className="flex items-center gap-2 mb-2">
@@ -828,6 +841,18 @@ function GuardAttendanceTimeIn() {
                 <div className="flex justify-between pt-1">
                   <span className="text-gray-400">Status</span>
                   <span className="text-blue-300 font-medium">{attendanceData.status}</span>
+                </div>
+                <div className="flex justify-between pt-1">
+                  <span className="text-gray-400">Remarks</span>
+                  <span
+                    className={`font-medium ${
+                      attendanceData.remarks?.toLowerCase() === "late"
+                        ? "text-amber-300"
+                        : "text-gray-200"
+                    }`}
+                  >
+                    {attendanceData.remarks?.toLowerCase() === "late" ? "Late" : "On time"}
+                  </span>
                 </div>
               </div>
             </div>

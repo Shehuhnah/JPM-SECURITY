@@ -9,6 +9,9 @@ const getGuardDisplayName = (guard = {}) => {
   return combinedName || guard?.fullName || "Unknown Guard";
 };
 
+const parseAsPHT = (value) =>
+  value ? new Date(`${String(value).slice(0, 16)}:00+08:00`) : null;
+
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -44,7 +47,7 @@ const isScheduleWithinCurrentDay = (schedule, now = new Date()) => {
 const getLateRemark = (scheduledTimeIn, actualTimeIn) => {
   if (!scheduledTimeIn || !actualTimeIn) return "";
 
-  const scheduledDate = new Date(scheduledTimeIn);
+  const scheduledDate = parseAsPHT(scheduledTimeIn);
   const actualDate = new Date(actualTimeIn);
 
   if (Number.isNaN(scheduledDate.getTime()) || Number.isNaN(actualDate.getTime())) {
@@ -88,7 +91,6 @@ export const createAttendance = async (req, res) => {
     // --- Shift time-window enforcement ---
     // Schedule strings are stored as naive PHT datetimes ("YYYY-MM-DDTHH:MM").
     // Append +08:00 so Date() parses them correctly against UTC server time.
-    const parseAsPHT = (s) => s ? new Date(`${String(s).slice(0, 16)}:00+08:00`) : null;
     const shiftStart = parseAsPHT(schedule.timeIn);
     const shiftEnd   = parseAsPHT(schedule.timeOut);
     const now        = new Date();
@@ -411,7 +413,10 @@ export const downloadWorkHours = async (req, res) => {
 
         attendanceRecords.sort((a, b) => new Date(a.timeIn) - new Date(b.timeIn));
         
-        const pdfBuffer = await generateWorkHoursPDF(guard, attendanceRecords, periodCover);
+        const pdfBuffer = await generateWorkHoursPDF(guard, attendanceRecords, periodCover, {
+          startDate,
+          endDate,
+        });
 
         res.setHeader('Content-Type', 'application/pdf');
         const guardFileName = getGuardDisplayName(guard).replace(/\s+/g, "_");
@@ -529,7 +534,10 @@ export const downloadWorkHoursByClient = async (req, res) => {
         }
 
         // 5. GENERATE PDF
-        const pdfBuffer = await generateWorkHoursByClientPDF(clientName, guardsMap, periodCover);
+        const pdfBuffer = await generateWorkHoursByClientPDF(clientName, guardsMap, periodCover, {
+          startDate,
+          endDate,
+        });
         const safeFilename = `Report_${clientName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
         res.setHeader('Content-Type', 'application/pdf');

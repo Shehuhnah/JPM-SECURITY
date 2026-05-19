@@ -18,6 +18,7 @@ export const registerUser = async (req, res) => {
     password,
     role,
     accessLevel,
+    sex,
     position,
     contactNumber,
   } = req.body;
@@ -34,6 +35,7 @@ export const registerUser = async (req, res) => {
       password,
       role,
       accessLevel,
+      sex,
       position,
       contactNumber,
     });
@@ -44,6 +46,7 @@ export const registerUser = async (req, res) => {
       email: admin.email,
       role: admin.role,
       accessLevel: admin.accessLevel,
+      sex: admin.sex,
     });
   } catch (err) {
     console.error("Error registering admin:", err.message);
@@ -241,7 +244,7 @@ export const updateMyProfile = async (req, res) => {
 export const getSubadmins = async (req, res) => {
   try {
     const subadmins = await User.find({ role: "Subadmin" }).select(
-      "name email role"
+      "name email role sex"
     );
     res.json(subadmins);
   } catch (err) {
@@ -252,7 +255,7 @@ export const getSubadmins = async (req, res) => {
 export const getAdmins = async (req, res) => {
   try {
     const admins = await User.find({ role: "Admin" }).select(
-      "name email role"
+      "name email role sex"
     );
     res.json(admins);
   } catch (err) {

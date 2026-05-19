@@ -962,17 +962,17 @@ export default function AdminLeaves() {
                   placeholder="Search by personnel name..."
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  className="w-full rounded-lg border border-gray-700 bg-[#0f172a] py-3 pl-12 pr-4 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/50"
+                  className="w-full rounded-lg border border-gray-700 bg-white py-3 pl-12 pr-4 text-sm text-black placeholder:text-slate-500 outline-none transition focus:ring-2 focus:ring-blue-500/50"
                 />
               </div>
 
               <div className="flex w-full flex-wrap items-center gap-3 lg:w-auto">
-                <div className="flex items-center gap-2 rounded-lg border border-gray-700 bg-[#0f172a] px-4 py-2">
+                <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2">
                   <Filter size={14} className="text-slate-500" />
                   <select
                     value={statusFilter}
                     onChange={(event) => setStatusFilter(event.target.value)}
-                    className="bg-transparent text-sm text-slate-300 outline-none"
+                    className="bg-transparent text-sm text-black outline-none"
                   >
                     <option value="All">All Status</option>
                     <option value="Pending">Pending</option>
@@ -981,12 +981,12 @@ export default function AdminLeaves() {
                   </select>
                 </div>
 
-                <div className="flex items-center gap-2 rounded-lg border border-gray-700 bg-[#0f172a] px-4 py-2">
+                <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2">
                   <Shield size={14} className="text-slate-500" />
                   <select
                     value={roleFilter}
                     onChange={(event) => setRoleFilter(event.target.value)}
-                    className="bg-transparent text-sm text-slate-300 outline-none"
+                    className="bg-transparent text-sm text-black outline-none"
                   >
                     <option value="All">All Roles</option>
                     <option value="Guard">Guards</option>

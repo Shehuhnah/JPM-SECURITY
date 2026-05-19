@@ -56,6 +56,7 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
     password: "",
     role: "",
     accessLevel: "",
+    sex: "",
     position: "",
     contactNumber: "+63",
   });
@@ -97,6 +98,7 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
     password: form.password.trim(),
     position: form.position.trim(),
     contactNumber: form.contactNumber.trim(),
+    sex: form.sex.trim(),
   };
 
   // Validate all required fields
@@ -105,6 +107,7 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
     !payload.email ||
     !payload.password ||
     !payload.position ||
+    !payload.sex ||
     !payload.role ||
     !payload.accessLevel
   ) {
@@ -134,6 +137,7 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
     password: "",
     role: "",
     accessLevel: "",
+    sex: "",
     position: "",
     contactNumber: "+63",
   });
@@ -209,6 +213,24 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
                     className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Gender <span className="text-red-500">*</span>
+                  </label>
+
+                  <select
+                    name="sex"
+                    value={form.sex}
+                    onChange={handleChange}
+                    className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                    required
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
                 </div>
 
                 {/* Contact */}
@@ -373,6 +395,14 @@ const EditUserModal = ({ isOpen, onClose, onUpdate, user }) => {
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Gender</label>
+                            <select name="sex" value={form.sex || ""} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-yellow-500 outline-none">
+                                <option value="">Select Gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
                         <div>
                             <label className="block text-xs font-medium text-gray-400 mb-1">Role</label>
                             <select name="role" value={form.role || ""} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-yellow-500 outline-none">

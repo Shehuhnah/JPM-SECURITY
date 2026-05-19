@@ -4,9 +4,11 @@ import { useAuth } from "../hooks/useAuth";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   eachDayOfInterval,
+  isBefore,
   endOfMonth,
   format,
   getDay,
+  startOfDay,
   startOfMonth,
 } from "date-fns";
 import { DayPicker } from "react-day-picker";
@@ -96,6 +98,7 @@ export default function AdminAddSchedule() {
     timeIn: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
     timeOut: "",
   });
+  const today = useMemo(() => startOfDay(new Date()), []);
 
   // --- Fetch Initial Data ---
   useEffect(() => {
@@ -218,9 +221,9 @@ export default function AdminAddSchedule() {
     const monthEnd = endOfMonth(monthStart);
 
     return eachDayOfInterval({ start: monthStart, end: monthEnd }).filter((day) =>
-      weekdayValues.includes(getDay(day))
+      weekdayValues.includes(getDay(day)) && (isEditMode || !isBefore(startOfDay(day), today))
     );
-  }, []);
+  }, [isEditMode, today]);
 
   const mergeSelectedDays = useCallback((days) => {
     const uniqueDays = [...new Map(days.map((day) => [format(day, "yyyy-MM-dd"), day])).values()];
@@ -293,6 +296,14 @@ export default function AdminAddSchedule() {
 
   const addTargetMonth = (monthValue) => {
     if (!monthValue) return;
+    if (!isEditMode) {
+      const [year, month] = monthValue.split("-").map(Number);
+      const monthEnd = endOfMonth(new Date(year, month - 1, 1));
+      if (isBefore(monthEnd, today)) {
+        toast.error("Past months can no longer be added to a new schedule.");
+        return;
+      }
+    }
 
     setTargetMonths((prev) => {
       if (prev.includes(monthValue)) {
@@ -328,6 +339,9 @@ export default function AdminAddSchedule() {
     e.preventDefault();
     if (selectedGuards.length === 0) return toast.error("Please select at least one guard first!");
     if (selectedDays.length === 0) return toast.error("Please select at least one date!");
+    if (!isEditMode && selectedDays.some((day) => isBefore(startOfDay(day), today))) {
+      return toast.error("Past dates cannot be included in a new schedule.");
+    }
 
     setLoadingPage(true);
 
@@ -880,14 +894,24 @@ export default function AdminAddSchedule() {
                         <DayPicker
                             mode="multiple"
                             selected={selectedDays}
-                            onSelect={(days) => setSelectedDays(days || [])}
+                            onSelect={(days) =>
+                              setSelectedDays(
+                                (days || []).filter((day) => isEditMode || !isBefore(startOfDay(day), today))
+                              )
+                            }
                             month={selectedMonth ? new Date(`${selectedMonth}-01T00:00:00`) : undefined}
                             onMonthChange={(month) => setSelectedMonth(format(month, "yyyy-MM"))}
+                            disabled={isEditMode ? undefined : { before: today }}
                             className="text-sm"
                         />
                         <div className="mt-4 text-xs text-gray-400 bg-slate-800 px-3 py-2 rounded-lg w-full text-center">
                             {selectedDays.length} day(s) selected
                         </div>
+                        {!isEditMode ? (
+                          <div className="mt-2 text-center text-[11px] text-amber-400">
+                            Past dates are disabled for new schedules.
+                          </div>
+                        ) : null}
                     </div>
                 </form>
             </div>
