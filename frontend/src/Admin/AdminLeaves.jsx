@@ -186,9 +186,15 @@ export default function AdminLeaves() {
   }, [assigneeQuery, staffOptions]);
 
   const availableLeaveTypes = useMemo(() => {
+    // If the selected start date is in the past, only Sick Leave is allowed
+    if (leaveRange?.from) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (leaveRange.from < today) return ["Sick Leave"];
+    }
     const sex = selectedAssigneeOption?.sex || "";
     return LEAVE_TYPE_OPTIONS[sex] || LEAVE_TYPE_OPTIONS.default;
-  }, [selectedAssigneeOption]);
+  }, [selectedAssigneeOption, leaveRange]);
 
   const rangeDates = useMemo(() => buildRangeDates(leaveRange), [leaveRange]);
 

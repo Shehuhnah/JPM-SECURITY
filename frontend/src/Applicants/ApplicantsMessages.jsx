@@ -916,7 +916,7 @@ export default function ApplicantsMessages() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
-                        First name
+                        First name<span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -929,7 +929,7 @@ export default function ApplicantsMessages() {
                     </div>
                     <div>
                       <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
-                        Last name
+                        Last name<span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -943,7 +943,7 @@ export default function ApplicantsMessages() {
                   </div>
                   <div>
                     <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
-                      Phone number
+                      Phone number<span className="text-red-500">*</span>
                     </label>
                     <input
                       type="tel"
@@ -958,7 +958,7 @@ export default function ApplicantsMessages() {
                   </div>
                   <div>
                     <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
-                      Home address
+                      Home address<span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -971,7 +971,7 @@ export default function ApplicantsMessages() {
                   </div>
                   <div>
                     <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
-                      Email
+                      Email Address<span className="text-red-500">*</span>
                     </label>
                     <input
                       type="email"

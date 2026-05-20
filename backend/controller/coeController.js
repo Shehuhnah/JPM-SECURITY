@@ -117,10 +117,24 @@ export const listRequests = async (req, res) => {
       };
     });
 
-    // optional search
-    const filteredItems = q
+    // optional name search
+    let filteredItems = q
       ? normalizedItems.filter(i => i.name.toLowerCase().includes(q.toLowerCase()))
       : normalizedItems;
+
+    // optional date range filter (based on requestedAt)
+    const { dateFrom, dateTo } = req.query;
+    if (dateFrom || dateTo) {
+      const from = dateFrom ? new Date(`${dateFrom}T00:00:00.000Z`) : null;
+      const to   = dateTo   ? new Date(`${dateTo}T23:59:59.999Z`)   : null;
+      filteredItems = filteredItems.filter(i => {
+        if (!i.requestedAt) return false;
+        const ts = new Date(i.requestedAt);
+        if (from && ts < from) return false;
+        if (to   && ts > to)   return false;
+        return true;
+      });
+    }
 
     const total = filteredItems.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));

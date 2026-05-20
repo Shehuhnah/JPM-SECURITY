@@ -120,7 +120,7 @@ export const getAllRequests = async (req, res) => {
       .populate("admin", "name firstName lastName email position role")
       .sort({ createdAt: -1 });
 
-    const filteredRequests = q
+    let filteredRequests = q
       ? requests.filter((request) => {
           const guardName = getDisplayName(request.guard).toLowerCase();
           const adminName = getDisplayName(request.admin).toLowerCase();
@@ -128,6 +128,20 @@ export const getAllRequests = async (req, res) => {
           return guardName.includes(q) || adminName.includes(q) || requestType.includes(q);
         })
       : requests;
+
+    // optional date range filter (based on createdAt)
+    const { dateFrom, dateTo } = req.query;
+    if (dateFrom || dateTo) {
+      const from = dateFrom ? new Date(`${dateFrom}T00:00:00.000Z`) : null;
+      const to   = dateTo   ? new Date(`${dateTo}T23:59:59.999Z`)   : null;
+      filteredRequests = filteredRequests.filter(r => {
+        if (!r.createdAt) return false;
+        const ts = new Date(r.createdAt);
+        if (from && ts < from) return false;
+        if (to   && ts > to)   return false;
+        return true;
+      });
+    }
 
     const total = filteredRequests.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));

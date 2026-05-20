@@ -43,6 +43,8 @@ export default function RequestedIDs() {
   const [requests, setRequests] = useState([]);
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [loadingPage, setLoadingPage] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -90,6 +92,8 @@ export default function RequestedIDs() {
 
       if (search.trim()) params.set("q", search.trim());
       if (filter !== "All") params.set("status", filter);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
 
       const res = await fetch(`${api}/api/idrequests?${params.toString()}`, {
         credentials: "include",
@@ -119,11 +123,11 @@ export default function RequestedIDs() {
 
   useEffect(() => {
     fetchRequests();
-  }, [user, currentPage, search, filter]);
+  }, [user, currentPage, search, filter, dateFrom, dateTo]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filter]);
+  }, [search, filter, dateFrom, dateTo]);
 
   useEffect(() => {
     if (!canCreateForOthers) return;
@@ -406,7 +410,7 @@ export default function RequestedIDs() {
           </div>
 
           {/* Controls */}
-          <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+          <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto flex-wrap">
             {/* Search */}
             <div className="relative flex-grow sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
@@ -420,17 +424,54 @@ export default function RequestedIDs() {
               />
             </div>
 
-            {/* Filter */}
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="bg-[#1e293b] border border-gray-700 text-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 cursor-pointer"
-            >
-              <option value="All">All Status</option>
-              <option value="Pending">Pending</option>
-              <option value="Approved">Approved</option>
-              <option value="Declined">Declined</option>
-            </select>
+            {/* Status Filter */}
+            <div className="relative">
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="bg-[#1e293b] border border-gray-700 text-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="All">All Status</option>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Declined">Declined</option>
+              </select>
+            </div>
+
+            {/* Date Range Filter */}
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" size={14} />
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  title="From date"
+                  className="bg-[#1e293b] border border-gray-700 text-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer [color-scheme:dark]"
+                />
+              </div>
+              <span className="text-gray-500 text-sm shrink-0">—</span>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" size={14} />
+                <input
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  title="To date"
+                  className="bg-[#1e293b] border border-gray-700 text-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer [color-scheme:dark]"
+                />
+              </div>
+              {(dateFrom || dateTo) && (
+                <button
+                  onClick={() => { setDateFrom(""); setDateTo(""); }}
+                  title="Clear date filter"
+                  className="p-2 rounded-lg bg-slate-700/60 hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
 
             {/* Refresh */}
             <button

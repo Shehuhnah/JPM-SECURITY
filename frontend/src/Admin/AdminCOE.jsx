@@ -16,6 +16,8 @@ const PAGE_SIZE = 10;
 export default function AdminCOE() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [requests, setRequests] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   
@@ -58,6 +60,8 @@ export default function AdminCOE() {
 
       if (search.trim()) params.set("q", search.trim());
       if (statusFilter !== "All") params.set("status", statusFilter);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
 
       const res = await fetch(`${api}/api/coe?${params.toString()}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load requests');
@@ -97,11 +101,11 @@ export default function AdminCOE() {
 
   useEffect(() => {
     fetchRequests();
-  }, [currentPage, search, statusFilter]);
+  }, [currentPage, search, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter]);
+  }, [search, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     if (!canManage) return;
@@ -388,7 +392,7 @@ export default function AdminCOE() {
           </div>
 
           {/* Controls */}
-          <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+          <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto flex-wrap">
             {/* Search */}
             <div className="relative flex-grow sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
@@ -402,7 +406,7 @@ export default function AdminCOE() {
               />
             </div>
 
-            {/* Filter */}
+            {/* Status Filter */}
             <div className="relative">
                 <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400" size={14} />
                 <select
@@ -415,6 +419,41 @@ export default function AdminCOE() {
                 <option value="Accepted">Accepted</option>
                 <option value="Declined">Declined</option>
                 </select>
+            </div>
+
+            {/* Date Range Filter */}
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" size={14} />
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  title="From date"
+                  className="bg-[#1e293b] border border-gray-700 text-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer [color-scheme:dark]"
+                />
+              </div>
+              <span className="text-gray-500 text-sm shrink-0">—</span>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" size={14} />
+                <input
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  title="To date"
+                  className="bg-[#1e293b] border border-gray-700 text-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer [color-scheme:dark]"
+                />
+              </div>
+              {(dateFrom || dateTo) && (
+                <button
+                  onClick={() => { setDateFrom(""); setDateTo(""); }}
+                  title="Clear date filter"
+                  className="p-2 rounded-lg bg-slate-700/60 hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
 
             {/* Refresh */}
