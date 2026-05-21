@@ -4,6 +4,7 @@ import {
   getMyAttendanceDashboard,
   timeInStaff,
   timeOutStaff,
+  downloadMyStaffAttendance,
 } from "../controller/adminAttendanceController.js";
 
 const router = express.Router();
@@ -11,5 +12,6 @@ const router = express.Router();
 router.get("/me", protect, authorizeRoles("Admin", "Subadmin"), getMyAttendanceDashboard);
 router.post("/time-in", protect, authorizeRoles("Admin", "Subadmin"), timeInStaff);
 router.patch("/time-out/:id", protect, authorizeRoles("Admin", "Subadmin"), timeOutStaff);
+router.get("/download-my-attendance", protect, authorizeRoles("Admin", "Subadmin"), downloadMyStaffAttendance);
 
 export default router;

@@ -1,0 +1,30 @@
+
+
+--- downloadMyGuardDTR Triggered at 2026-05-21T17:04:38.878Z ---
+Guard ID from token: 69ff98a0134e052a1408b89b
+Guard found in DB: Buzz Lightyear (guardId: G-54654987987)
+Query Params -> from: 2026-01-01, to: 2026-01-15
+Parsed Range -> startDate: 2025-12-31T16:00:00.000Z, endDate: 2026-01-15T15:59:59.000Z
+Raw Attendance Count in DB for Guard: 3
+  [0] id: 6a0b4fce7ead71ede899d3a0, timeIn: "Tue May 19 2026 01:43:42 GMT+0800 (Philippine Standard Time)", timeOut: "Tue May 19 2026 01:43:55 GMT+0800 (Philippine Standard Time)", scheduleId: null
+  [1] id: 6a0b52bb64d7187c789d0f72, timeIn: "Tue May 19 2026 01:56:11 GMT+0800 (Philippine Standard Time)", timeOut: "Tue May 19 2026 02:59:48 GMT+0000 (Coordinated Universal Time)", scheduleId: null
+  [2] id: 6a0e6fb3be1c388e5f714478, timeIn: "Thu May 21 2026 02:36:35 GMT+0000 (Coordinated Universal Time)", timeOut: "undefined", scheduleId: present
+  Filtering record id 6a0b4fce7ead71ede899d3a0: parsedTimeIn=2026-05-18T17:43:42.000Z, inRange=false
+  Filtering record id 6a0b52bb64d7187c789d0f72: parsedTimeIn=2026-05-18T17:56:11.000Z, inRange=false
+  Filtering record id 6a0e6fb3be1c388e5f714478: parsedTimeIn=2026-05-21T02:36:35.000Z, inRange=false
+Filtered Attendance Count: 0
+
+
+--- downloadMyGuardDTR Triggered at 2026-05-21T17:18:53.841Z ---
+Guard ID from token: 69ff98a0134e052a1408b89b
+Guard found in DB: Buzz Lightyear (guardId: G-54654987987)
+Query Params -> from: 2023-05-01, to: 2023-05-15
+Parsed Range -> startDate: 2023-04-30T16:00:00.000Z, endDate: 2023-05-15T15:59:59.000Z
+Raw Attendance Count in DB for Guard: 3
+  [0] id: 6a0b4fce7ead71ede899d3a0, timeIn: "Tue May 19 2026 01:43:42 GMT+0800 (Philippine Standard Time)", timeOut: "Tue May 19 2026 01:43:55 GMT+0800 (Philippine Standard Time)", scheduleId: null
+  [1] id: 6a0b52bb64d7187c789d0f72, timeIn: "Tue May 19 2026 01:56:11 GMT+0800 (Philippine Standard Time)", timeOut: "Tue May 19 2026 02:59:48 GMT+0000 (Coordinated Universal Time)", scheduleId: null
+  [2] id: 6a0e6fb3be1c388e5f714478, timeIn: "Thu May 21 2026 02:36:35 GMT+0000 (Coordinated Universal Time)", timeOut: "undefined", scheduleId: present
+  Filtering record id 6a0b4fce7ead71ede899d3a0: parsedTimeIn=2026-05-18T17:43:42.000Z, inRange=false
+  Filtering record id 6a0b52bb64d7187c789d0f72: parsedTimeIn=2026-05-18T17:56:11.000Z, inRange=false
+  Filtering record id 6a0e6fb3be1c388e5f714478: parsedTimeIn=2026-05-21T02:36:35.000Z, inRange=false
+Filtered Attendance Count: 0

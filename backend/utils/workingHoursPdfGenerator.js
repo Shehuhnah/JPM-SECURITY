@@ -473,3 +473,322 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
     }
   });
 };
+
+/**
+ * Generate an A4 Landscape Daily Time Record (DTR) PDF for an admin/staff member.
+ * Features two side-by-side tables split by date range halves.
+ * Columns: Day | Time In | Time Out | Undertime | Hours
+ *
+ * @param {Object} staff - The staff user object { name, position, role }
+ * @param {Array}  attendanceRecords - Array of AdminAttendance records for the period
+ * @param {string} periodCover - Human-readable period string e.g. "May 1-15, 2026"
+ * @param {Object} options - { startDate: Date, endDate: Date }
+ * @returns {Promise<Buffer>}
+ */
+export const generateStaffAttendancePDF = (staff, attendanceRecords, periodCover, options = {}) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        layout: 'landscape',
+        margins: { top: 28, bottom: 28, left: 28, right: 28 },
+      });
+
+      const buffers = [];
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => resolve(Buffer.concat(buffers)));
+      doc.on('error', reject);
+
+      // ─── Page dimensions ───────────────────────────────────────────────
+      const pageW  = doc.page.width;   // 841.89
+      const pageH  = doc.page.height;  // 595.28
+      const margin = 28;
+      const contentW = pageW - margin * 2; // ~785.89
+
+      // ─── Build coverage days & split into two halves ───────────────────
+      const coverageDays = buildCoverageDays(options.startDate, options.endDate);
+      const effectiveDays =
+        coverageDays.length > 0
+          ? coverageDays
+          : Array.from({ length: 15 }, (_, i) => {
+              const d = new Date(); d.setDate(i + 1); return d;
+            });
+
+      // Determine split: same month → day≤15 vs day>15, else split in half
+      const sameMonth =
+        effectiveDays.length > 0 &&
+        effectiveDays.every(
+          d =>
+            d.getFullYear() === effectiveDays[0].getFullYear() &&
+            d.getMonth()    === effectiveDays[0].getMonth()
+        );
+
+      let leftDays, rightDays;
+      if (sameMonth) {
+        leftDays  = effectiveDays.filter(d => d.getDate() <= 15);
+        rightDays = effectiveDays.filter(d => d.getDate() >  15);
+      } else {
+        const half = Math.ceil(effectiveDays.length / 2);
+        leftDays  = effectiveDays.slice(0, half);
+        rightDays = effectiveDays.slice(half);
+      }
+
+      // Maximum rows per side (at least 15 to keep the table tall)
+      const tableRows = Math.max(leftDays.length, rightDays.length, 15);
+
+      // ─── Build a map: dateKey → record ─────────────────────────────────
+      const recordMap = new Map();
+      attendanceRecords.forEach(rec => {
+        const key = rec.dateKey ||
+          (rec.timeIn ? toDateKey(new Date(rec.timeIn)) : null);
+        if (key) recordMap.set(key, rec);
+      });
+
+      const fmt12h = (dateVal) => {
+        if (!dateVal) return '';
+        const d = new Date(dateVal);
+        if (isNaN(d.getTime())) return '';
+        let h = d.getHours();
+        const m = String(d.getMinutes()).padStart(2, '0');
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        return `${h}:${m} ${ampm}`;
+      };
+
+      const calcHours = (rec) => {
+        if (!rec || !rec.timeIn) return null;
+        if (!rec.timeOut) return null; // still on duty, don't show
+        const accMin = Number.isFinite(rec.accumulatedWorkedMinutes)
+          ? Math.max(0, rec.accumulatedWorkedMinutes)
+          : 0;
+        const segMs  = Math.max(0, new Date(rec.timeOut) - new Date(rec.timeIn));
+        const totalMin = Math.min(accMin + Math.round(segMs / 60000), 24 * 60);
+        return totalMin / 60; // fractional hours
+      };
+
+      const calcUndertime = (hoursWorked) => {
+        if (hoursWorked === null) return null;
+        return Math.max(0, 8 - hoursWorked);
+      };
+
+      const fmtHours = (h) => {
+        if (h === null) return '';
+        const hrs  = Math.floor(h);
+        const mins = Math.round((h - hrs) * 60);
+        return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+      };
+
+      // ─── Layout constants ───────────────────────────────────────────────
+      const headerH   = 16;  // column header row height
+      const dataRowH  = 14;  // each data row height
+      const tableH    = headerH + tableRows * dataRowH;
+
+      // Each table has 5 columns. We want two tables side-by-side with a gap.
+      const gapW      = 20;
+      const tableW    = (contentW - gapW) / 2;  // ≈ 382.94
+
+      // Column widths within one table (must sum to tableW)
+      const colDay        = 28;
+      const colTimeIn     = Math.floor((tableW - colDay) * 0.26);
+      const colTimeOut    = Math.floor((tableW - colDay) * 0.26);
+      const colUndertime  = Math.floor((tableW - colDay) * 0.24);
+      const colHours      = tableW - colDay - colTimeIn - colTimeOut - colUndertime;
+
+      // ─── Positioning ────────────────────────────────────────────────────
+      let currentY = margin;
+
+      // ── Corporate header image ──────────────────────────────────────────
+      const headerImgPath = path.join(process.cwd(), 'backend', 'assets', 'headerpdf', 'header.png');
+      if (fs.existsSync(headerImgPath)) {
+        const imgW = 420;
+        doc.image(headerImgPath, (pageW - imgW) / 2, currentY - 10, { width: imgW });
+        currentY += 66; // Increased space between header logo and content
+      } else {
+        // Fallback text header
+        doc.font('Helvetica-Bold').fontSize(13)
+           .text('JPM SECURITY AGENCY', margin, currentY, { align: 'center', width: contentW });
+        currentY += 18;
+      }
+
+      // ── Period / staff info row ─────────────────────────────────────────
+      doc.font('Helvetica-Bold').fontSize(9);
+      doc.text('Period Covered:', margin, currentY, { continued: true });
+      doc.font('Helvetica').text(`  ${periodCover}`, { underline: true });
+      currentY += 13;
+      doc.font('Helvetica-Bold').text('Employee:', margin, currentY, { continued: true });
+      doc.font('Helvetica').text(`  ${staff.name || 'N/A'}`, { underline: true, continued: true });
+      doc.font('Helvetica-Bold').text('   Position:', { continued: true });
+      doc.font('Helvetica').text(`  ${staff.position || staff.role || 'Staff'}`, { underline: true });
+      currentY += 14;
+
+      // ─── Helper to draw one table ────────────────────────────────────────
+      const drawTable = (originX, days) => {
+        const cols = [
+          { label: 'Day',       w: colDay,       align: 'center' },
+          { label: 'Time In',   w: colTimeIn,    align: 'center' },
+          { label: 'Time Out',  w: colTimeOut,   align: 'center' },
+          { label: 'Undertime', w: colUndertime, align: 'center' },
+          { label: 'Hours',     w: colHours,     align: 'center' },
+        ];
+
+        // Header row background
+        doc.save();
+        doc.rect(originX, currentY, tableW, headerH).fill('#1E3A5F');
+        doc.restore();
+
+        // Header text
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor('white');
+        let cx = originX;
+        cols.forEach(col => {
+          doc.text(col.label, cx + 2, currentY + 4, {
+            width: col.w - 4,
+            align: col.align,
+          });
+          cx += col.w;
+        });
+
+        doc.fillColor('black');
+
+        // Data rows
+        for (let rowIdx = 0; rowIdx < tableRows; rowIdx++) {
+          const rowY = currentY + headerH + rowIdx * dataRowH;
+          const date = days[rowIdx] || null;
+          const dateKey = date ? toDateKey(date) : null;
+          const rec  = dateKey ? recordMap.get(dateKey) : null;
+
+          // Alternating row shade
+          if (rowIdx % 2 === 1) {
+            doc.save();
+            doc.rect(originX, rowY, tableW, dataRowH).fill('#F5F7FA');
+            doc.restore();
+          }
+
+          // Row border
+          doc.rect(originX, rowY, tableW, dataRowH).stroke('#CCCCCC');
+
+          const workedH = rec ? calcHours(rec) : null;
+
+          let undertimeLabel = '';
+          if (workedH !== null) {
+            undertimeLabel = workedH < 7 ? 'Yes' : 'No';
+          }
+
+          const cellValues = [
+            date ? String(date.getDate()) : '',
+            rec  ? fmt12h(rec.firstTimeIn || rec.timeIn) : '',
+            rec  ? fmt12h(rec.timeOut) : '',
+            undertimeLabel,
+            workedH !== null ? fmtHours(workedH) : '',
+          ];
+
+          doc.font('Helvetica').fontSize(7).fillColor('#1a1a1a');
+          cx = originX;
+          cols.forEach((col, ci) => {
+            // Vertical separator line
+            if (ci > 0) {
+              doc.moveTo(cx, rowY).lineTo(cx, rowY + dataRowH).stroke('#CCCCCC');
+            }
+            doc.text(cellValues[ci], cx + 2, rowY + 3, {
+              width: col.w - 4,
+              align: col.align,
+            });
+            cx += col.w;
+          });
+        }
+
+        // ─── Draw Total Hours Accumulated Row ────────────────────────────────
+        const totalRowY = currentY + headerH + tableRows * dataRowH;
+        doc.save();
+        doc.rect(originX, totalRowY, tableW, dataRowH).fill('#F1F5F9');
+        doc.restore();
+
+        doc.rect(originX, totalRowY, tableW, dataRowH).stroke('#CCCCCC');
+
+        // Let's calculate the sum of hours for this table's days
+        let tableTotalH = 0;
+        days.forEach(date => {
+          const dateKey = toDateKey(date);
+          const rec = recordMap.get(dateKey);
+          const workedH = rec ? calcHours(rec) : null;
+          if (workedH !== null) {
+            tableTotalH += workedH;
+          }
+        });
+
+        doc.font('Helvetica-Bold').fontSize(7).fillColor('#1e293b');
+        // Merge first 4 columns for "Total Hours Accumulated" label
+        const labelW = tableW - colHours;
+        doc.text('Total Hours Accumulated:', originX + 2, totalRowY + 3.5, {
+          width: labelW - 6,
+          align: 'right'
+        });
+
+        // Vertical line to separate the label and the total value
+        doc.moveTo(originX + labelW, totalRowY)
+           .lineTo(originX + labelW, totalRowY + dataRowH)
+           .stroke('#CCCCCC');
+
+        // Total hours value
+        const totalValStr = fmtHours(tableTotalH);
+        doc.text(totalValStr, originX + labelW + 2, totalRowY + 3.5, {
+          width: colHours - 4,
+          align: 'center'
+        });
+
+        // Outer border (including the new total row)
+        const totalTableH = headerH + (tableRows + 1) * dataRowH;
+        doc.rect(originX, currentY, tableW, totalTableH).stroke('#333333');
+
+        // Vertical separators through header and data rows (but stopping before the total row)
+        cx = originX;
+        cols.forEach((col, ci) => {
+          if (ci > 0) {
+            doc.moveTo(cx, currentY)
+               .lineTo(cx, currentY + headerH + tableRows * dataRowH)
+               .stroke('#333333');
+          }
+          cx += col.w;
+        });
+      };
+
+      // ─── Draw both tables ────────────────────────────────────────────────
+      const leftX  = margin;
+      const rightX = margin + tableW + gapW;
+
+      drawTable(leftX,  leftDays);
+      drawTable(rightX, rightDays);
+
+      // ─── Footer – signature block ────────────────────────────────────────
+      const sigBlockH    = 70;
+      const signatureY   = pageH - margin - sigBlockH - 30; // Move up by 30 points to reduce empty space and prevent page break
+      const labelY       = signatureY;
+      const lineY        = signatureY + 14;
+      const colW         = contentW / 3;
+      const col1X        = margin;
+      const col2X        = margin + colW;
+      const col3X        = margin + colW * 2;
+      const lineLen      = colW - 80;
+
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('black');
+      doc.text('Prepared By:', col1X, labelY);
+      doc.moveTo(col1X + 72, lineY).lineTo(col1X + lineLen + 30, lineY).stroke('black');
+
+      doc.text('Approved By (Client):', col2X, labelY);
+      doc.moveTo(col2X + 108, lineY).lineTo(col2X + lineLen + 50, lineY).stroke('black');
+
+      doc.text('Certified By (Agency):', col3X, labelY);
+      doc.moveTo(col3X + 110, lineY).lineTo(col3X + lineLen + 50, lineY).stroke('black');
+
+      // Received-by block
+      const receivedY = signatureY + 28;
+      doc.font('Helvetica-Bold').fontSize(8).text('Received By', col1X, receivedY);
+      doc.font('Helvetica').text('Signature: _________________________', col1X, receivedY + 12);
+      doc.text('Name:  _________________________', col1X, receivedY + 24);
+      doc.text('Date:    _________________________', col1X, receivedY + 36);
+
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+};

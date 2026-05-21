@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   CalendarClock,
   Clock3,
+  FileDown,
   LogIn,
   LogOut,
   RefreshCcw,
@@ -11,11 +12,43 @@ import {
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "../hooks/useAuth";
+import { Dialog, Transition } from "@headlessui/react";
+import { format, getDaysInMonth } from "date-fns";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/dist/style.css";
 
 const api = import.meta.env.VITE_API_URL;
 const SUMMARY_DAYS = 15;
 
 const WEEKDAY_HEADERS = ["Sun", "Mon", "Tues", "Wed", "Thurs", "Fri", "Sat"];
+
+const isSameMonthRange = (from, to) =>
+  Boolean(
+    from &&
+      to &&
+      from.getFullYear() === to.getFullYear() &&
+      from.getMonth() === to.getMonth()
+  );
+
+const datePickerStyles = `
+  .rdp {
+    --rdp-cell-size: 36px;
+    --rdp-accent-color: #2563eb;
+    --rdp-background-color: #111827;
+    margin: 0;
+  }
+  .rdp-caption_label { color: #f8fafc; font-weight: 700; }
+  .rdp-weekday { color: #ffffff; font-size: 0.75rem; text-transform: uppercase; }
+  .rdp-day { color: #f8fafc; }
+  .rdp-day_button { color: #f8fafc; }
+  .rdp-button_previous, .rdp-button_next, .rdp-nav_button { color: #e2e8f0; }
+  .rdp-day:hover:not([disabled]) { background-color: #1e293b; border-radius: 8px; }
+  .rdp-selected .rdp-day_button,
+  .rdp-range_start .rdp-day_button,
+  .rdp-range_end .rdp-day_button { background-color: #2563eb; color: #ffffff; border-radius: 8px; font-weight: 700; }
+  .rdp-range_middle .rdp-day_button { background-color: rgba(59,130,246,0.35); color: #ffffff; border-radius: 0; font-weight: 600; }
+  .rdp-day_button:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+`;
 
 const formatDateTime = (value) => {
   if (!value) return "--";
@@ -53,7 +86,10 @@ const getWorkedMilliseconds = (record, currentTime = new Date()) => {
   let totalMs = accumulatedWorkedMinutes * 60000;
 
   if (record.timeIn && !record.timeOut) {
-    totalMs += Math.max(0, currentTime - new Date(record.timeIn));
+    const recordDateKey = record.dateKey || getDateKey(record.firstTimeIn || record.timeIn);
+    const manila9PM = new Date(`${recordDateKey}T21:00:00+08:00`);
+    const end = currentTime < manila9PM ? currentTime : manila9PM;
+    totalMs += Math.max(0, end - new Date(record.timeIn));
   }
 
   return totalMs;
@@ -167,6 +203,15 @@ export default function AdminStaffAttendance() {
   const [submitting, setSubmitting] = useState(false);
   const [liveNow, setLiveNow] = useState(new Date());
 
+  // ── Download DTR modal state ──────────────────────────────────────────
+  const [dtrModalOpen, setDtrModalOpen] = useState(false);
+  const [reportMode, setReportMode] = useState("cutoff");
+  const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
+  const [reportMonth, setReportMonth] = useState(() => String(new Date().getMonth() + 1).padStart(2, "0"));
+  const [reportCutoff, setReportCutoff] = useState("first-half");
+  const [reportDateRange, setReportDateRange] = useState({ from: null, to: null });
+  const [dtrSubmitting, setDtrSubmitting] = useState(false);
+
   useEffect(() => {
     if (!user && !loading) {
       navigate("/admin/login");
@@ -257,6 +302,99 @@ export default function AdminStaffAttendance() {
       setSubmitting(false);
     }
   };
+
+  // ── DTR download handlers ─────────────────────────────────────────────
+  const handleReportRangeSelect = (range) => {
+    if (!range) { setReportDateRange({ from: null, to: null }); return; }
+    if (range.from && range.to && !isSameMonthRange(range.from, range.to)) {
+      toast.warn("Date range must stay within one month only.", { position: "top-center", theme: "dark" });
+      setReportDateRange({ from: range.from, to: range.from });
+      return;
+    }
+    setReportDateRange(range);
+  };
+
+  const handleConfirmDownload = async () => {
+    let fromDate, toDate;
+    if (reportMode === "cutoff") {
+      if (!reportYear || !reportMonth) {
+        toast.warn("Please select a year and month.", { position: "top-center", theme: "dark" }); return;
+      }
+      const year = Number(reportYear);
+      const month = Number(reportMonth);
+      const monthDate = new Date(year, month - 1, 1);
+      const lastDay = getDaysInMonth(monthDate);
+      const startDay = reportCutoff === "second-half" ? 16 : 1;
+      const endDay   = reportCutoff === "first-half"  ? 15 : lastDay;
+      fromDate = new Date(year, month - 1, startDay);
+      toDate   = new Date(year, month - 1, endDay);
+    } else {
+      if (!reportDateRange?.from || !reportDateRange?.to) {
+        toast.warn("Please select a start and end date.", { position: "top-center", theme: "dark" }); return;
+      }
+      if (!isSameMonthRange(reportDateRange.from, reportDateRange.to)) {
+        toast.warn("Date range must stay within one month only.", { position: "top-center", theme: "dark" }); return;
+      }
+      fromDate = reportDateRange.from;
+      toDate   = reportDateRange.to;
+    }
+
+    setDtrSubmitting(true);
+    try {
+      const fromStr = format(fromDate, "yyyy-MM-dd");
+      const toStr   = format(toDate,   "yyyy-MM-dd");
+      const res = await fetch(
+        `${api}/api/admin-attendance/download-my-attendance?from=${fromStr}&to=${toStr}`,
+        { credentials: "include" }
+      );
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error("No data found for the selected dates. Please select the correct date period.");
+        }
+        const errData = await res.json().catch(() => ({ message: "Download failed." }));
+        throw new Error(errData.message);
+      }
+      const blob = await res.blob();
+      const url  = window.URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.style.display = "none";
+      a.href = url;
+      const disposition = res.headers.get("content-disposition");
+      let filename = `DTR_${fromStr}_${toStr}.pdf`;
+      if (disposition) {
+        const m = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+        if (m?.[1]) filename = m[1].replace(/["']/g, "");
+      }
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("DTR downloaded successfully!", { theme: "dark" });
+      setDtrModalOpen(false);
+    } catch (err) {
+      toast.error(err.message || "Download failed.", { theme: "dark" });
+    } finally {
+      setDtrSubmitting(false);
+    }
+  };
+
+  const reportCoverage = useMemo(() => {
+    if (reportMode === "pick-dates") {
+      if (!reportDateRange?.from || !reportDateRange?.to) return null;
+      return { start: format(reportDateRange.from, "MMM dd, yyyy"), end: format(reportDateRange.to, "MMM dd, yyyy") };
+    }
+    if (!reportYear || !reportMonth) return null;
+    const year = Number(reportYear); const month = Number(reportMonth);
+    const monthDate = new Date(year, month - 1, 1);
+    const lastDay = getDaysInMonth(monthDate);
+    const startDay = reportCutoff === "second-half" ? 16 : 1;
+    const endDay   = reportCutoff === "first-half"  ? 15 : lastDay;
+    return {
+      start: format(new Date(year, month - 1, startDay), "MMM dd, yyyy"),
+      end:   format(new Date(year, month - 1, endDay),   "MMM dd, yyyy"),
+    };
+  }, [reportCutoff, reportDateRange, reportMode, reportMonth, reportYear]);
 
   const todayRecord = dashboard?.todayRecord;
   const hasTimedIn = Boolean(todayRecord?.timeIn);
@@ -435,6 +573,21 @@ export default function AdminStaffAttendance() {
           >
             <RefreshCcw size={18} />
             Refresh
+          </button>
+
+          <button
+            onClick={() => {
+              setReportMode("cutoff");
+              setReportYear(new Date().getFullYear());
+              setReportMonth(String(new Date().getMonth() + 1).padStart(2, "0"));
+              setReportCutoff("first-half");
+              setReportDateRange({ from: null, to: null });
+              setDtrModalOpen(true);
+            }}
+            className="px-4 py-3 rounded-xl border border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-blue-200 transition flex items-center gap-2 font-semibold shadow-lg shadow-blue-500/10"
+          >
+            <FileDown size={18} />
+            Download DTR
           </button>
         </div>
       </div>
@@ -640,6 +793,170 @@ export default function AdminStaffAttendance() {
           </div>
         </div>
       </div>
+
+      {/* ─── Download DTR Modal ─────────────────────────────────────────── */}
+      <style>{datePickerStyles}</style>
+      <Transition appear show={dtrModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setDtrModalOpen(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100"
+            leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300" enterFrom="opacity-0 scale-95 translate-y-4" enterTo="opacity-100 scale-100 translate-y-0"
+                leave="ease-in duration-200" leaveFrom="opacity-100 scale-100 translate-y-0" leaveTo="opacity-0 scale-95 translate-y-4"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-[#1e293b] border border-slate-700 shadow-2xl shadow-blue-900/20 transition-all flex flex-col max-h-[90vh]">
+
+                  {/* Header */}
+                  <div className="p-6 pb-2 text-center shrink-0">
+                    <div className="w-14 h-14 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-500/20 shadow-lg shadow-blue-500/5">
+                      <FileDown className="text-blue-400" size={28} />
+                    </div>
+                    <Dialog.Title as="h3" className="text-xl font-bold text-white">Download My DTR</Dialog.Title>
+                    <p className="text-sm text-slate-400 mt-2 px-4">
+                      Select the date period for your Daily Time Record PDF.
+                    </p>
+                  </div>
+
+                  {/* Period Picker */}
+                  <div className="px-4 sm:px-6 py-3 overflow-y-auto">
+                    <div className="space-y-4 rounded-xl border border-slate-700 bg-[#0f172a] p-4">
+
+                      {/* Mode toggle */}
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Download Mode</label>
+                        <div className="flex gap-2">
+                          {["cutoff", "pick-dates"].map(m => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setReportMode(m)}
+                              className={`flex-1 rounded-xl border px-4 py-2 text-sm font-medium transition ${
+                                reportMode === m
+                                  ? "border-blue-500/50 bg-blue-500/10 text-white"
+                                  : "border-slate-700 bg-[#111827] text-slate-300 hover:border-slate-500"
+                              }`}
+                            >
+                              {m === "cutoff" ? "Cut-off" : "Pick dates"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {reportMode === "cutoff" ? (
+                        <>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div>
+                              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Year</label>
+                              <select
+                                value={reportYear}
+                                onChange={e => setReportYear(Number(e.target.value))}
+                                className="w-full rounded-xl border border-slate-700 bg-[#111827] px-4 py-3 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+                              >
+                                {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
+                                  <option key={y} value={y}>{y}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Month</label>
+                              <select
+                                value={reportMonth}
+                                onChange={e => setReportMonth(e.target.value)}
+                                className="w-full rounded-xl border border-slate-700 bg-[#111827] px-4 py-3 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+                              >
+                                {Array.from({ length: 12 }, (_, i) => {
+                                  const mv = String(i + 1).padStart(2, "0");
+                                  const ml = format(new Date(2026, i, 1), "MMMM");
+                                  return <option key={mv} value={mv}>{ml}</option>;
+                                })}
+                              </select>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Cut-off Period</label>
+                            <div className="grid gap-3">
+                              {[
+                                { value: "first-half",  title: "1st to 15th day",        sub: "First cut-off of the month" },
+                                { value: "second-half", title: "16th to last day",         sub: "Last cut-off of the month" },
+                                { value: "whole-month", title: "Whole month",              sub: "Both cut-offs combined" },
+                              ].map(opt => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() => setReportCutoff(opt.value)}
+                                  className={`rounded-xl border px-4 py-3 text-left transition ${
+                                    reportCutoff === opt.value
+                                      ? "border-blue-500/50 bg-blue-500/10 text-white"
+                                      : "border-slate-700 bg-[#111827] text-slate-300 hover:border-slate-500"
+                                  }`}
+                                >
+                                  <div className="text-sm font-semibold">{opt.title}</div>
+                                  <div className="mt-1 text-xs text-slate-400">{opt.sub}</div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div>
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Pick Date Range</label>
+                          <div className="rounded-xl border border-slate-700 bg-[#111827] p-3">
+                            <DayPicker
+                              mode="range"
+                              selected={reportDateRange}
+                              onSelect={handleReportRangeSelect}
+                              className="text-sm"
+                            />
+                          </div>
+                          <p className="mt-2 text-xs text-slate-500">Date range must stay within one month only.</p>
+                        </div>
+                      )}
+
+                      {reportCoverage && (
+                        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+                          <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-emerald-300">Selected Coverage</span>
+                          <span className="mt-1 block font-medium">{reportCoverage.start} — {reportCoverage.end}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="p-6 pt-4 flex gap-3 bg-[#1e293b] shrink-0 border-t border-slate-700/50 mt-2">
+                    <button
+                      onClick={() => setDtrModalOpen(false)}
+                      className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl text-sm font-medium transition active:scale-[0.98]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleConfirmDownload}
+                      disabled={dtrSubmitting}
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                    >
+                      {dtrSubmitting
+                        ? <><RefreshCcw className="animate-spin size-4" /> Generating...</>
+                        : "Confirm Download"
+                      }
+                    </button>
+                  </div>
+
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
     </div>
   );
 }

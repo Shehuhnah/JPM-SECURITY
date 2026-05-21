@@ -1,5 +1,6 @@
 import AdminAttendance from "../models/AdminAttendance.model.js";
 import { getAttendanceMinutesBreakdown, toHours } from "../utils/attendanceHours.js";
+import { generateStaffAttendancePDF } from "../utils/workingHoursPdfGenerator.js";
 
 const STAFF_ROLES = ["Admin", "Subadmin"];
 
@@ -32,6 +33,36 @@ const getWorkedMinutesFromSegment = (timeIn, timeOut) => {
   return Math.max(0, Math.round((end - start) / 60000));
 };
 
+const autoTimeoutExpiredRecords = async (userId) => {
+  const now = new Date();
+  const manilaString = now.toLocaleString("en-US", { timeZone: "Asia/Manila" });
+  const manilaNow = new Date(manilaString);
+  const todayKey = getDateKey(now);
+
+  const activeRecords = await AdminAttendance.find({
+    user: userId,
+    timeOut: null,
+  });
+
+  for (const record of activeRecords) {
+    const recordDateKey = record.dateKey;
+    const isPastDay = recordDateKey < todayKey;
+    const isTodayAndPast9PM = recordDateKey === todayKey && manilaNow.getHours() >= 21;
+
+    if (isPastDay || isTodayAndPast9PM) {
+      const timeoutDate = new Date(`${recordDateKey}T21:00:00+08:00`);
+      record.timeOut = timeoutDate;
+      record.firstTimeIn = record.firstTimeIn || record.timeIn;
+      record.accumulatedWorkedMinutes =
+        Math.max(0, record.accumulatedWorkedMinutes || 0) +
+        getWorkedMinutesFromSegment(record.timeIn, timeoutDate);
+      record.status = "Timed Out";
+      record.notes = (record.notes ? record.notes + " " : "") + "[Auto Timed Out at 9 PM]";
+      await record.save();
+    }
+  }
+};
+
 export const getMyAttendanceDashboard = async (req, res) => {
   try {
     if (!isStaff(req.user)) {
@@ -39,6 +70,10 @@ export const getMyAttendanceDashboard = async (req, res) => {
     }
 
     const userId = req.user._id;
+
+    // Automatically timeout expired active records
+    await autoTimeoutExpiredRecords(userId);
+
     const todayKey = getDateKey();
     const { start, end } = getMonthRange();
 
@@ -84,6 +119,23 @@ export const timeInStaff = async (req, res) => {
       return res.status(403).json({ message: "Only admin and HR can time in." });
     }
 
+    const now = new Date();
+    const manilaString = now.toLocaleString("en-US", { timeZone: "Asia/Manila" });
+    const manilaNow = new Date(manilaString);
+    const manilaHour = manilaNow.getHours();
+
+    if (manilaHour < 5) {
+      return res.status(400).json({
+        message: "You cannot time in before 5:00 AM (Philippine Time).",
+      });
+    }
+
+    if (manilaHour >= 21) {
+      return res.status(400).json({
+        message: "You cannot time in after 9:00 PM (Philippine Time).",
+      });
+    }
+
     const todayKey = getDateKey();
     const existing = await AdminAttendance.findOne({ user: req.user._id, dateKey: todayKey });
     if (existing) {
@@ -127,6 +179,7 @@ export const timeInStaff = async (req, res) => {
   }
 };
 
+
 export const timeOutStaff = async (req, res) => {
   try {
     if (!isStaff(req.user)) {
@@ -161,5 +214,82 @@ export const timeOutStaff = async (req, res) => {
   } catch (error) {
     console.error("Error timing out staff:", error);
     res.status(500).json({ message: "Failed to time out." });
+  }
+};
+
+/**
+ * @desc  Download the logged-in staff's attendance as an A4 Landscape DTR PDF.
+ * @route GET /api/admin-attendance/download-my-attendance?from=YYYY-MM-DD&to=YYYY-MM-DD
+ * @access Private (Admin / Subadmin)
+ */
+export const downloadMyStaffAttendance = async (req, res) => {
+  try {
+    if (!isStaff(req.user)) {
+      return res.status(403).json({ message: "Only admin and HR can download this report." });
+    }
+
+    const userId = req.user._id;
+
+    // Automatically timeout expired active records before generating PDF
+    await autoTimeoutExpiredRecords(userId);
+
+    const { from, to } = req.query;
+
+    let startDate, endDate, periodCover;
+
+    if (from && to) {
+      // Parse as local Manila midnight
+      startDate = new Date(`${from}T00:00:00+08:00`);
+      endDate   = new Date(`${to}T23:59:59+08:00`);
+
+      const fmtOpt = { timeZone: "Asia/Manila", month: "long", day: "numeric", year: "numeric" };
+      const startLabel = startDate.toLocaleDateString("en-PH", fmtOpt);
+      const endLabel   = endDate.toLocaleDateString("en-PH", fmtOpt);
+      periodCover = startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
+    } else {
+      // Default: current month first half
+      const now   = new Date();
+      const year  = now.getFullYear();
+      const month = now.getMonth();
+      startDate   = new Date(year, month, 1, 0, 0, 0, 0);
+      endDate     = new Date(year, month, 15, 23, 59, 59, 999);
+      periodCover = `${startDate.toLocaleString("default", { month: "long" })} 1-15, ${year}`;
+    }
+
+    // Fetch records in date range using dateKey (YYYY-MM-DD) for accuracy
+    const startKey = getDateKey(startDate);
+    const endKey   = getDateKey(endDate);
+
+    const records = await AdminAttendance.find({
+      user: userId,
+      dateKey: { $gte: startKey, $lte: endKey },
+    }).sort({ dateKey: 1 });
+
+    if (records.length === 0) {
+      return res.status(404).json({ message: "No data found for the selected dates. Please select the correct date period." });
+    }
+
+    const staff = {
+      name:     req.user.name     || "N/A",
+      position: req.user.position || "",
+      role:     req.user.role     || "Staff",
+    };
+
+    const pdfBuffer = await generateStaffAttendancePDF(staff, records, periodCover, {
+      startDate,
+      endDate,
+    });
+
+    const safeName = staff.name.replace(/[^a-zA-Z0-9]/g, "_");
+    const safeDate = `${from || startKey}_${to || endKey}`;
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=DTR_${safeName}_${safeDate}.pdf`
+    );
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error("Error generating staff DTR PDF:", error);
+    res.status(500).json({ message: "Failed to generate DTR PDF.", error: error.message });
   }
 };

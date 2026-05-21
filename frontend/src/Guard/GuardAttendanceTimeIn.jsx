@@ -41,6 +41,9 @@ function GuardAttendanceTimeIn() {
   const [isOnLeave, setIsOnLeave] = useState(false);
   const [activeLeave, setActiveLeave] = useState(null);
 
+  // Active duty detection across any schedule
+  const [activeDutyRecord, setActiveDutyRecord] = useState(null);
+
   // Switching schedules should clear any captured photo and previous errors
   // so the guard always starts fresh for the newly selected shift.
   const handleScheduleSelect = (schedule) => {
@@ -159,6 +162,12 @@ function GuardAttendanceTimeIn() {
       diffMs += 24 * 60 * 60 * 1000;
     }
 
+    // Limit to 24 hours maximum
+    const MAX_MS = 24 * 60 * 60 * 1000;
+    if (diffMs > MAX_MS) {
+      diffMs = MAX_MS;
+    }
+
     const hours = Math.floor(diffMs / (1000 * 60 * 60));
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
     return `${hours}h ${minutes}m`;
@@ -242,6 +251,7 @@ function GuardAttendanceTimeIn() {
         // Build a set of scheduleIds that are fully completed (both timeIn + timeOut set).
         // These shifts are "done" and should not appear as time-in options again.
         let completedScheduleIds = new Set();
+        let activeRecord = null;
         if (attRes.ok) {
           const attData = await attRes.json();
           const allRecords = Array.isArray(attData) ? attData : attData?.items || [];
@@ -249,8 +259,13 @@ function GuardAttendanceTimeIn() {
             if (rec.scheduleId?._id && rec.timeIn && rec.timeOut) {
               completedScheduleIds.add(rec.scheduleId._id);
             }
+            if (rec.timeIn && !rec.timeOut) {
+              activeRecord = rec;
+            }
           });
         }
+
+        setActiveDutyRecord(activeRecord);
 
         // Exclude fully-completed shifts so a finished overnight shift
         // doesn't block time-in for a new shift on the next day.
@@ -295,6 +310,9 @@ function GuardAttendanceTimeIn() {
         const allRecords = Array.isArray(guardAttendance)
           ? guardAttendance
           : guardAttendance?.items || [];
+
+        const activeRecord = allRecords.find((rec) => rec.timeIn && !rec.timeOut);
+        setActiveDutyRecord(activeRecord || null);
 
         const existingRecord = allRecords.find(
           (rec) => rec.scheduleId?._id === selectedSchedule._id && !rec.timeOut
@@ -524,6 +542,7 @@ function GuardAttendanceTimeIn() {
 
       setAttendanceData(payload);
       setIsSubmitted(true);
+      setActiveDutyRecord(payload);
     } catch (err) {
       console.error("Submission error:", err);
       setSubmitError(err.message || "Failed to submit attendance.");
@@ -531,6 +550,8 @@ function GuardAttendanceTimeIn() {
       setSubmitting(false);
     }
   };
+
+  const isOnDutyOnOtherSchedule = activeDutyRecord && activeDutyRecord.scheduleId?._id !== selectedSchedule?._id;
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-gray-100 p-4 sm:p-6 overflow-x-hidden">
@@ -615,6 +636,33 @@ function GuardAttendanceTimeIn() {
                 <p className="mt-0.5 text-xs text-yellow-200/80">
                   You have an approved {activeLeave?.leaveType || "leave"} today. Time-in is not allowed while you are on leave.
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* Active Duty on Other Schedule Banner */}
+          {isOnDutyOnOtherSchedule && (
+            <div className="mb-5 flex items-start gap-3 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-4 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
+              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-500/20 text-red-400">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                </svg>
+              </span>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-red-400">Active Shift in Progress</p>
+                <p className="mt-0.5 text-xs text-red-200/80 leading-relaxed">
+                  You are currently timed in for the shift at <strong className="text-white">{activeDutyRecord.scheduleId?.client || "another client"}</strong> ({activeDutyRecord.scheduleId?.shiftType || "Previous Shift"}).
+                </p>
+                <p className="mt-2 text-xs text-red-300 font-medium">
+                  Please time out of that shift before timing in for your new schedule.
+                </p>
+                <button
+                  onClick={() => navigate("/guard/guard-attendance/time-out")}
+                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-all shadow-md active:scale-[0.97]"
+                >
+                  <Clock size={12} />
+                  Go to Time Out
+                </button>
               </div>
             </div>
           )}
@@ -875,7 +923,7 @@ function GuardAttendanceTimeIn() {
             ) : !isSubmitted ? (
               <button
                 onClick={capturedImage ? handleTimeIn : startCamera}
-                disabled={submitting || checking || !selectedSchedule}
+                disabled={submitting || checking || !selectedSchedule || isOnDutyOnOtherSchedule}
                 className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
               >
                 <Camera size={20} />

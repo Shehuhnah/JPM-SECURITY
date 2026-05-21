@@ -44,6 +44,77 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // ── Staff attendance reminder modal states & triggers ─────────────
+  const [attendanceRecord, setAttendanceRecord] = useState(null);
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [reminderHours, setReminderHours] = useState(0);
+  const [lastDismissedSlot, setLastDismissedSlot] = useState(0);
+
+  const fetchAttendanceStatus = async () => {
+    if (!user || (user.role !== "Admin" && user.role !== "Subadmin")) return;
+    try {
+      const res = await fetch(`${api}/api/admin-attendance/me`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.todayRecord) {
+          setAttendanceRecord(data.todayRecord);
+        } else {
+          setAttendanceRecord(null);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching attendance in layout:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchAttendanceStatus();
+    }
+  }, [user, location.pathname]);
+
+  useEffect(() => {
+    if (!attendanceRecord || attendanceRecord.timeOut || !attendanceRecord.timeIn) {
+      setShowReminderModal(false);
+      return;
+    }
+
+    const runCheck = () => {
+      const timeInDate = new Date(attendanceRecord.timeIn);
+      const now = new Date();
+      const elapsedMs = now - timeInDate;
+      const elapsedHours = elapsedMs / 3600000;
+
+      if (elapsedHours >= 4) {
+        const highestSlot = Math.floor(elapsedHours / 4);
+        const storageKey = `last_dismissed_slot_${attendanceRecord._id}`;
+        const storedSlot = Number(localStorage.getItem(storageKey) || "0");
+
+        if (storedSlot < highestSlot) {
+          setReminderHours(Math.round(elapsedHours));
+          setLastDismissedSlot(highestSlot);
+          setShowReminderModal(true);
+        }
+      }
+    };
+
+    runCheck(); // check immediately
+
+    const checkInterval = setInterval(runCheck, 60000); // check every 60 seconds
+    return () => clearInterval(checkInterval);
+  }, [attendanceRecord]);
+
+  const handleDismissReminder = () => {
+    if (attendanceRecord?._id) {
+      const storageKey = `last_dismissed_slot_${attendanceRecord._id}`;
+      localStorage.setItem(storageKey, String(lastDismissedSlot));
+    }
+    setShowReminderModal(false);
+  };
+
+
   useEffect(() => {
     if (!loading && !user) {
       navigate("/admin/login");
@@ -396,6 +467,43 @@ export default function AdminLayout() {
           <Outlet />
         </div>
       </main>
+
+      {/* ─── Informative Time-Out Reminder Modal ─── */}
+      {showReminderModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-md transform overflow-hidden rounded-2xl bg-[#1e293b] border border-slate-700 p-6 text-center shadow-2xl transition-all">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400">
+              <Clock size={28} />
+            </div>
+            
+            <h3 className="text-xl font-bold text-white mb-2">
+              Time-Out Reminder!
+            </h3>
+            
+            <p className="text-sm text-slate-300 mb-6 px-2">
+              You have been timed in for <strong className="text-amber-400 font-semibold">{reminderHours} hours</strong>. Please do not forget to time out correctly at the end of your shift to ensure your working hours are counted accurately.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={handleDismissReminder}
+                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 px-4 rounded-xl text-sm transition active:scale-[0.98]"
+              >
+                I Understand
+              </button>
+              <button
+                onClick={() => {
+                  handleDismissReminder();
+                  navigate("/admin/staff-attendance");
+                }}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-3 px-4 rounded-xl text-sm shadow-lg shadow-blue-500/20 transition active:scale-[0.98]"
+              >
+                Go to Attendance
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

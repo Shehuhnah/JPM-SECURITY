@@ -15,6 +15,10 @@ import {
   ChevronRight,
   Camera,
   IdCardLanyard,
+  AlertTriangle,
+  AlertCircle,
+  Info,
+  Hourglass,
   Bell,
   MessageCircle
 } from "lucide-react";
@@ -30,6 +34,125 @@ export default function GuardsLayout() {
   const location = useLocation();
   const [openAttendance, setOpenAttendance] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeDuty, setActiveDuty] = useState(null);
+  const [activeModal, setActiveModal] = useState(null);
+
+  const checkActiveDuty = async () => {
+    if (!guard?._id) return;
+    try {
+      const res = await fetch(`${api}/api/attendance/${guard._id}`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const active = Array.isArray(data)
+          ? data.find((record) => record.status === "On Duty" && !record.timeOut)
+          : null;
+        setActiveDuty(active);
+      }
+    } catch (err) {
+      console.error("Error checking active duty status:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (guard?._id) {
+      checkActiveDuty();
+      const interval = setInterval(checkActiveDuty, 30000); // Check every 30 seconds
+      return () => clearInterval(interval);
+    }
+  }, [guard?._id]);
+
+  useEffect(() => {
+    if (!activeDuty || !activeDuty.timeIn || location.pathname === "/guard/guard-attendance/time-out") {
+      setActiveModal(null);
+      return;
+    }
+
+    const checkModalTriggers = () => {
+      const start = new Date(activeDuty.timeIn);
+      const now = new Date();
+      let diffMs = now - start;
+      if (diffMs < 0) {
+        diffMs += 24 * 60 * 60 * 1000;
+      }
+      const elapsedHours = diffMs / (1000 * 60 * 60);
+      const recordId = activeDuty._id;
+
+      // 1. 24 Hours Trigger (Maximum Limit)
+      if (elapsedHours >= 24) {
+        if (!localStorage.getItem(`guard_notified_24h_${recordId}`)) {
+          setActiveModal("24h");
+          return;
+        }
+      }
+
+      // 2. 18 Hours Trigger (OT Warning)
+      if (elapsedHours >= 18) {
+        if (localStorage.getItem(`guard_overtime_choice_${recordId}`) === "yes") {
+          if (!localStorage.getItem(`guard_notified_18h_${recordId}`)) {
+            setActiveModal("18h");
+            return;
+          }
+        }
+      }
+
+      // 3. 12 Hours Trigger (Shift Complete)
+      if (elapsedHours >= 12) {
+        if (!localStorage.getItem(`guard_overtime_choice_${recordId}`)) {
+          setActiveModal("12h");
+          return;
+        }
+      }
+
+      // 4. 6 Hours Trigger (Informative mid-shift warning)
+      if (elapsedHours >= 6 && elapsedHours < 12) {
+        if (!localStorage.getItem(`guard_notified_6h_${recordId}`)) {
+          setActiveModal("6h");
+          return;
+        }
+      }
+    };
+
+    checkModalTriggers();
+    const interval = setInterval(checkModalTriggers, 10000); // Check every 10 seconds
+    return () => clearInterval(interval);
+  }, [activeDuty, location.pathname]);
+
+  const handleModal6hDismiss = () => {
+    if (activeDuty) {
+      localStorage.setItem(`guard_notified_6h_${activeDuty._id}`, "true");
+    }
+    setActiveModal(null);
+  };
+
+  const handleModalTimeOut = () => {
+    setActiveModal(null);
+    setSidebarOpen(false);
+    navigate("/guard/guard-attendance/time-out");
+  };
+
+  const handleModalOvertime = () => {
+    if (activeDuty) {
+      localStorage.setItem(`guard_overtime_choice_${activeDuty._id}`, "yes");
+    }
+    setActiveModal(null);
+  };
+
+  const handleModal18hDismiss = () => {
+    if (activeDuty) {
+      localStorage.setItem(`guard_notified_18h_${activeDuty._id}`, "true");
+    }
+    setActiveModal(null);
+  };
+
+  const handleModal24hDismiss = () => {
+    if (activeDuty) {
+      localStorage.setItem(`guard_notified_24h_${activeDuty._id}`, "true");
+    }
+    setActiveModal(null);
+    navigate("/guard/guard-attendance/time-out");
+  };
 
   useEffect(() => {
     if (!guard && !loading) {
@@ -247,6 +370,139 @@ export default function GuardsLayout() {
           </div>
         </main>
       </div>
+
+      {/* Dynamic Shift Reminder Modal */}
+      {activeModal && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-[#1e293b] border border-gray-700 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-300">
+            {/* Modal Header */}
+            <div className={`p-6 flex items-center gap-4 border-b border-gray-700 ${
+              activeModal === '24h' 
+                ? 'bg-red-500/10' 
+                : activeModal === '6h' 
+                  ? 'bg-blue-500/10' 
+                  : 'bg-amber-500/10'
+            }`}>
+              <div className={`p-3 rounded-full ${
+                activeModal === '24h' 
+                  ? 'bg-red-500/20 text-red-400' 
+                  : activeModal === '6h' 
+                    ? 'bg-blue-500/20 text-blue-400' 
+                    : 'bg-amber-500/20 text-amber-400'
+              }`}>
+                {activeModal === '24h' && <AlertTriangle className="w-6 h-6" />}
+                {activeModal === '18h' && <Hourglass className="w-6 h-6" />}
+                {activeModal === '12h' && <Clock className="w-6 h-6" />}
+                {activeModal === '6h' && <Info className="w-6 h-6" />}
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">
+                  {activeModal === '24h' && "Shift Limit Reached"}
+                  {activeModal === '18h' && "Overtime Reminder"}
+                  {activeModal === '12h' && "Shift Completed"}
+                  {activeModal === '6h' && "Shift Reminder"}
+                </h3>
+                <p className="text-xs text-gray-400">JPM Security Management System</p>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <p className="text-gray-300 text-sm leading-relaxed">
+                {activeModal === '6h' && (
+                  <>
+                    You have been on duty for <strong>6 hours</strong> now. Please remember to time out correctly at the end of your shift to ensure your working hours are logged properly.
+                  </>
+                )}
+                {activeModal === '12h' && (
+                  <>
+                    Your standard <strong>12-hour shift</strong> is completed. If your shift is over, please time out now. If you are authorized to continue working, choose overtime.
+                  </>
+                )}
+                {activeModal === '18h' && (
+                  <>
+                    You have been on duty for <strong>18 hours</strong> (including overtime). Please ensure your supervisor is aware, and don't forget to time out correctly when your duty concludes.
+                  </>
+                )}
+                {activeModal === '24h' && (
+                  <>
+                    You have reached the maximum allowed limit of <strong>24 hours</strong> on duty. The system is halting your shift hours. Please time out immediately.
+                  </>
+                )}
+              </p>
+
+              {/* Status details */}
+              {activeDuty && (
+                <div className="bg-[#0f172a] rounded-lg p-3 border border-gray-700/50 space-y-1.5 text-xs text-gray-400">
+                  <div className="flex justify-between">
+                    <span>Duty Location:</span>
+                    <span className="text-gray-200 font-semibold">{activeDuty.scheduleId?.client || "Active Post"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Time In:</span>
+                    <span className="text-gray-200 font-mono">
+                      {new Date(activeDuty.timeIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="p-6 bg-slate-800/50 border-t border-gray-700 flex justify-end gap-3">
+              {activeModal === '6h' && (
+                <button
+                  onClick={handleModal6hDismiss}
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-2 rounded-lg text-sm transition-all shadow-md shadow-blue-900/30 w-full sm:w-auto"
+                >
+                  Understood
+                </button>
+              )}
+              {activeModal === '12h' && (
+                <>
+                  <button
+                    onClick={handleModalOvertime}
+                    className="bg-slate-700 hover:bg-slate-600 text-gray-200 font-semibold px-4 py-2 rounded-lg text-sm transition-all border border-gray-600 flex-1"
+                  >
+                    Will you overtime?
+                  </button>
+                  <button
+                    onClick={handleModalTimeOut}
+                    className="bg-amber-600 hover:bg-amber-500 text-white font-semibold px-5 py-2 rounded-lg text-sm transition-all shadow-md shadow-amber-900/30 flex-1"
+                  >
+                    Time out
+                  </button>
+                </>
+              )}
+              {activeModal === '18h' && (
+                <>
+                  <button
+                    onClick={handleModal18hDismiss}
+                    className="bg-slate-700 hover:bg-slate-600 text-gray-200 font-semibold px-4 py-2 rounded-lg text-sm transition-all border border-gray-600 flex-1"
+                  >
+                    Continue
+                  </button>
+                  <button
+                    onClick={handleModalTimeOut}
+                    className="bg-amber-600 hover:bg-amber-500 text-white font-semibold px-5 py-2 rounded-lg text-sm transition-all shadow-md shadow-amber-900/30 flex-1"
+                  >
+                    Time out
+                  </button>
+                </>
+              )}
+              {activeModal === '24h' && (
+                <button
+                  onClick={handleModal24hDismiss}
+                  className="bg-red-600 hover:bg-red-500 text-white font-semibold px-6 py-2 rounded-lg text-sm transition-all shadow-md shadow-red-900/30 w-full flex items-center justify-center gap-2"
+                >
+                  <LogOut size={16} />
+                  Time out Immediately
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -94,6 +94,12 @@ function GuardAttendanceTimeOut() {
       diffMs += 24 * 60 * 60 * 1000;
     }
 
+    // Limit to 24 hours maximum
+    const MAX_MS = 24 * 60 * 60 * 1000;
+    if (diffMs > MAX_MS) {
+      diffMs = MAX_MS;
+    }
+
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
     setWorkingHours(`${diffHours}h ${diffMinutes}m`);

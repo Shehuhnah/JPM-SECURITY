@@ -1,19 +1,47 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Building2,
   CalendarDays,
   Clock,
+  FileDown,
   FileImage,
   Filter,
   Route,
   MapPin,
+  RefreshCcw,
   Search,
   Shield,
   X,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { getPersonName } from "../utils/name";
+import { Dialog, Transition } from "@headlessui/react";
+import { format } from "date-fns";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/dist/style.css";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+const datePickerStyles = `
+  .rdp {
+    --rdp-cell-size: 36px;
+    --rdp-accent-color: #2563eb;
+    --rdp-background-color: #111827;
+    margin: 0;
+  }
+  .rdp-caption_label { color: #f8fafc; font-weight: 700; }
+  .rdp-weekday { color: #ffffff; font-size: 0.75rem; text-transform: uppercase; }
+  .rdp-day { color: #f8fafc; }
+  .rdp-day_button { color: #f8fafc; }
+  .rdp-button_previous, .rdp-button_next, .rdp-nav_button { color: #e2e8f0; }
+  .rdp-day:hover:not([disabled]) { background-color: #1e293b; border-radius: 8px; }
+  .rdp-selected .rdp-day_button,
+  .rdp-range_start .rdp-day_button,
+  .rdp-range_end .rdp-day_button { background-color: #2563eb; color: #ffffff; border-radius: 8px; font-weight: 700; }
+  .rdp-range_middle .rdp-day_button { background-color: rgba(59,130,246,0.35); color: #ffffff; border-radius: 0; font-weight: 600; }
+  .rdp-day_button:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+`;
 
 function GuardAttendanceRecords() {
   const api = import.meta.env.VITE_API_URL;
@@ -21,6 +49,115 @@ function GuardAttendanceRecords() {
   const navigate = useNavigate();
 
   const [records, setRecords] = useState([]);
+
+  // ── DTR download states ────────────────────────────────────
+  const [dtrModalOpen, setDtrModalOpen] = useState(false);
+  const [reportMode, setReportMode] = useState("cutoff");
+  const [reportYear, setReportYear] = useState(new Date().getFullYear());
+  const [reportMonth, setReportMonth] = useState(String(new Date().getMonth() + 1).padStart(2, "0"));
+  const [reportCutoff, setReportCutoff] = useState("first-half");
+  const [reportDateRange, setReportDateRange] = useState({ from: null, to: null });
+  const [dtrSubmitting, setDtrSubmitting] = useState(false);
+
+  const handleReportRangeSelect = (range) => {
+    if (!range) {
+      setReportDateRange({ from: null, to: null });
+      return;
+    }
+    // Limit range to same month
+    if (range.from && range.to) {
+      const isSameMonth =
+        range.from.getFullYear() === range.to.getFullYear() &&
+        range.from.getMonth() === range.to.getMonth();
+      if (!isSameMonth) {
+        setReportDateRange({ from: range.from, to: range.from });
+        return;
+      }
+    }
+    setReportDateRange(range);
+  };
+
+  const reportCoverage = useMemo(() => {
+    if (reportMode === "cutoff") {
+      const year = reportYear;
+      const monthIdx = Number(reportMonth) - 1;
+      const dummyDate = new Date(year, monthIdx, 1);
+      const monthLabel = format(dummyDate, "MMMM yyyy");
+
+      if (reportCutoff === "first-half") {
+        return {
+          start: `01 ${monthLabel.slice(0, 3)}`,
+          end: `15 ${monthLabel.slice(0, 3)}`,
+          fromStr: `${year}-${reportMonth}-01`,
+          toStr: `${year}-${reportMonth}-15`
+        };
+      } else if (reportCutoff === "second-half") {
+        const lastDay = new Date(year, monthIdx + 1, 0).getDate();
+        return {
+          start: `16 ${monthLabel.slice(0, 3)}`,
+          end: `${lastDay} ${monthLabel.slice(0, 3)}`,
+          fromStr: `${year}-${reportMonth}-16`,
+          toStr: `${year}-${reportMonth}-${lastDay}`
+        };
+      } else {
+        const lastDay = new Date(year, monthIdx + 1, 0).getDate();
+        return {
+          start: `01 ${monthLabel.slice(0, 3)}`,
+          end: `${lastDay} ${monthLabel.slice(0, 3)}`,
+          fromStr: `${year}-${reportMonth}-01`,
+          toStr: `${year}-${reportMonth}-${lastDay}`
+        };
+      }
+    } else {
+      const { from, to } = reportDateRange;
+      if (!from) return null;
+      const fromStr = format(from, "yyyy-MM-dd");
+      const toStr = to ? format(to, "yyyy-MM-dd") : fromStr;
+      return {
+        start: format(from, "dd MMM"),
+        end: to ? format(to, "dd MMM") : format(from, "dd MMM"),
+        fromStr,
+        toStr
+      };
+    }
+  }, [reportMode, reportYear, reportMonth, reportCutoff, reportDateRange]);
+
+  const handleConfirmDownload = async () => {
+    if (!reportCoverage) return;
+    setDtrSubmitting(true);
+    try {
+      // Use the staff-format DTR endpoint so the guard PDF matches the
+      // premium Day | Time In | Time Out | Undertime | Hours layout.
+      const url = `${api}/api/attendance/download-my-dtr?from=${reportCoverage.fromStr}&to=${reportCoverage.toStr}`;
+      const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error("No data found for the selected dates. Please select the correct date period.");
+        }
+        const errData = await response.json().catch(() => ({ message: "Failed to download PDF." }));
+        throw new Error(errData.message || "Failed to download PDF.");
+      }
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      const periodName = reportCoverage.fromStr === reportCoverage.toStr
+        ? reportCoverage.fromStr
+        : `${reportCoverage.fromStr}_to_${reportCoverage.toStr}`;
+      a.download = `DTR_${getPersonName(guard, "Guard").replace(/\s+/g, "_")}_${periodName}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success("DTR downloaded successfully!", { theme: "dark" });
+      setDtrModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || "Something went wrong while exporting.", { theme: "dark" });
+    } finally {
+      setDtrSubmitting(false);
+    }
+  };
   const [loadingPage, setLoadingPage] = useState(true);
   const [error, setError] = useState("");
   const [previewImage, setPreviewImage] = useState(null);
@@ -154,6 +291,7 @@ function GuardAttendanceRecords() {
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-gray-100 p-4 sm:p-6">
+      <style>{datePickerStyles}</style>
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-700 bg-[#1e293b]/70 p-6 shadow-xl backdrop-blur-sm md:flex-row md:items-center md:justify-between">
           <div>
@@ -170,17 +308,33 @@ function GuardAttendanceRecords() {
               {getPersonName(guard, "Guard")} • ID: {guard?.guardId || "N/A"}
             </div>
           </div>
-          <div className="rounded-2xl border border-slate-700 bg-[#0f172a]/60 px-5 py-4 text-center md:min-w-44">
-            <div className="text-xs uppercase tracking-widest text-slate-500">Total Records</div>
-            <div className="mt-2 text-3xl font-black text-blue-400">
-              {hasActiveFilters ? (
-                <>
-                  <span>{filteredRecords.length}</span>
-                  <span className="ml-1 text-lg font-semibold text-slate-500">/ {sortedRecords.length}</span>
-                </>
-              ) : sortedRecords.length}
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <button
+              onClick={() => {
+                setReportMode("cutoff");
+                setReportYear(new Date().getFullYear());
+                setReportMonth(String(new Date().getMonth() + 1).padStart(2, "0"));
+                setReportCutoff("first-half");
+                setReportDateRange({ from: null, to: null });
+                setDtrModalOpen(true);
+              }}
+              className="w-full sm:w-auto px-5 py-3 rounded-xl border border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-blue-200 transition flex items-center justify-center gap-2 font-semibold shadow-lg shadow-blue-500/10 active:scale-[0.98]"
+            >
+              <FileDown size={18} />
+              Export DTR
+            </button>
+            <div className="w-full sm:w-auto rounded-2xl border border-slate-700 bg-[#0f172a]/60 px-5 py-4 text-center md:min-w-44">
+              <div className="text-xs uppercase tracking-widest text-slate-500">Total Records</div>
+              <div className="mt-2 text-3xl font-black text-blue-400">
+                {hasActiveFilters ? (
+                  <>
+                    <span>{filteredRecords.length}</span>
+                    <span className="ml-1 text-lg font-semibold text-slate-500">/ {sortedRecords.length}</span>
+                  </>
+                ) : sortedRecords.length}
+              </div>
+              {hasActiveFilters && <div className="mt-1 text-[10px] uppercase tracking-widest text-slate-500">Filtered</div>}
             </div>
-            {hasActiveFilters && <div className="mt-1 text-[10px] uppercase tracking-widest text-slate-500">Filtered</div>}
           </div>
         </div>
 
@@ -456,6 +610,170 @@ function GuardAttendanceRecords() {
           </div>
         </div>
       )}
+
+      {/* ─── Export DTR Modal ─────────────────────────────────────────── */}
+      <Transition appear show={dtrModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setDtrModalOpen(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100"
+            leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300" enterFrom="opacity-0 scale-95 translate-y-4" enterTo="opacity-100 scale-100 translate-y-0"
+                leave="ease-in duration-200" leaveFrom="opacity-100 scale-100 translate-y-0" leaveTo="opacity-0 scale-95 translate-y-4"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-[#1e293b] border border-slate-700 shadow-2xl shadow-blue-900/20 transition-all flex flex-col max-h-[90vh]">
+
+                  {/* Header */}
+                  <div className="p-6 pb-2 text-center shrink-0">
+                    <div className="w-14 h-14 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-500/20 shadow-lg shadow-blue-500/5">
+                      <FileDown className="text-blue-400" size={28} />
+                    </div>
+                    <Dialog.Title as="h3" className="text-xl font-bold text-white">Export My DTR</Dialog.Title>
+                    <p className="text-sm text-slate-400 mt-2 px-4">
+                      Select the date period for your Daily Time Record PDF.
+                    </p>
+                  </div>
+
+                  {/* Period Picker */}
+                  <div className="px-4 sm:px-6 py-3 overflow-y-auto">
+                    <div className="space-y-4 rounded-xl border border-slate-700 bg-[#0f172a] p-4">
+
+                      {/* Mode toggle */}
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Download Mode</label>
+                        <div className="flex gap-2">
+                          {["cutoff", "pick-dates"].map(m => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setReportMode(m)}
+                              className={`flex-1 rounded-xl border px-4 py-2 text-sm font-medium transition ${
+                                reportMode === m
+                                  ? "border-blue-500/50 bg-blue-500/10 text-white"
+                                  : "border-slate-700 bg-[#111827] text-slate-300 hover:border-slate-500"
+                              }`}
+                            >
+                              {m === "cutoff" ? "Cut-off" : "Pick dates"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {reportMode === "cutoff" ? (
+                        <>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div>
+                              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Year</label>
+                              <select
+                                value={reportYear}
+                                onChange={e => setReportYear(Number(e.target.value))}
+                                className="w-full rounded-xl border border-slate-700 bg-[#111827] px-4 py-3 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+                              >
+                                {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
+                                  <option key={y} value={y}>{y}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Month</label>
+                              <select
+                                value={reportMonth}
+                                onChange={e => setReportMonth(e.target.value)}
+                                className="w-full rounded-xl border border-slate-700 bg-[#111827] px-4 py-3 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+                              >
+                                {Array.from({ length: 12 }, (_, i) => {
+                                  const mv = String(i + 1).padStart(2, "0");
+                                  const ml = format(new Date(2026, i, 1), "MMMM");
+                                  return <option key={mv} value={mv}>{ml}</option>;
+                                })}
+                              </select>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Cut-off Period</label>
+                            <div className="grid gap-3">
+                              {[
+                                { value: "first-half",  title: "1st to 15th day",        sub: "First cut-off of the month" },
+                                { value: "second-half", title: "16th to last day",         sub: "Last cut-off of the month" },
+                                { value: "whole-month", title: "Whole month",              sub: "Both cut-offs combined" },
+                              ].map(opt => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() => setReportCutoff(opt.value)}
+                                  className={`rounded-xl border px-4 py-3 text-left transition ${
+                                    reportCutoff === opt.value
+                                      ? "border-blue-500/50 bg-blue-500/10 text-white"
+                                      : "border-slate-700 bg-[#111827] text-slate-300 hover:border-slate-500"
+                                  }`}
+                                >
+                                  <div className="text-sm font-semibold">{opt.title}</div>
+                                  <div className="mt-1 text-xs text-slate-400">{opt.sub}</div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div>
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Pick Date Range</label>
+                          <div className="rounded-xl border border-slate-700 bg-[#111827] p-3">
+                            <DayPicker
+                              mode="range"
+                              selected={reportDateRange}
+                              onSelect={handleReportRangeSelect}
+                              className="text-sm"
+                            />
+                          </div>
+                          <p className="mt-2 text-xs text-slate-500">Date range must stay within one month only.</p>
+                        </div>
+                      )}
+
+                      {reportCoverage && (
+                        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+                          <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-emerald-300">Selected Coverage</span>
+                          <span className="mt-1 block font-medium">{reportCoverage.start} — {reportCoverage.end}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="p-6 pt-4 flex gap-3 bg-[#1e293b] shrink-0 border-t border-slate-700/50 mt-2">
+                    <button
+                      onClick={() => setDtrModalOpen(false)}
+                      className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl text-sm font-medium transition active:scale-[0.98]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleConfirmDownload}
+                      disabled={dtrSubmitting}
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                    >
+                      {dtrSubmitting
+                        ? <><RefreshCcw className="animate-spin size-4" /> Generating...</>
+                        : "Confirm Download"
+                      }
+                    </button>
+                  </div>
+
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+      <ToastContainer theme="dark" />
     </div>
   );
 }

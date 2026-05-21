@@ -1,7 +1,7 @@
 import Attendance from "../models/Attendance.model.js";
 import Schedule from "../models/schedule.model.js";
 import Guard from "../models/guard.model.js";
-import { generateWorkHoursPDF, generateWorkHoursByClientPDF } from "../utils/workingHoursPdfGenerator.js";
+import { generateWorkHoursPDF, generateWorkHoursByClientPDF, generateStaffAttendancePDF } from "../utils/workingHoursPdfGenerator.js";
 import { getAttendanceMinutesBreakdown } from "../utils/attendanceHours.js";
 
 const getGuardDisplayName = (guard = {}) => {
@@ -171,6 +171,7 @@ export const updateAttendance = async (req, res) => {
     const minutesBreakdown = getAttendanceMinutesBreakdown({
       timeIn: attendance.timeIn,
       timeOut: attendance.timeOut,
+      scheduleId: attendance.scheduleId,
     });
     await attendance.save();
 
@@ -386,22 +387,34 @@ export const downloadWorkHours = async (req, res) => {
             return res.status(404).json({ message: "Guard not found" });
         }
 
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = today.getMonth();
+        const { from, to } = req.query;
         let startDate, endDate, periodCover;
 
-        if (today.getDate() <= 15) {
-            startDate = new Date(year, month, 1);
-            endDate = new Date(year, month, 15);
-            periodCover = `${startDate.toLocaleString('default', { month: 'long' })} 1-15, ${year}`;
+        if (from && to) {
+            startDate = new Date(`${from}T00:00:00+08:00`);
+            endDate   = new Date(`${to}T23:59:59+08:00`);
+
+            const fmtOpt = { timeZone: "Asia/Manila", month: "long", day: "numeric", year: "numeric" };
+            const startLabel = startDate.toLocaleDateString("en-PH", fmtOpt);
+            const endLabel   = endDate.toLocaleDateString("en-PH", fmtOpt);
+            periodCover = startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
         } else {
-            startDate = new Date(year, month, 16);
-            endDate = new Date(year, month + 1, 0); 
-            periodCover = `${startDate.toLocaleString('default', { month: 'long' })} 16-${endDate.getDate()}, ${year}`;
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth();
+
+            if (today.getDate() <= 15) {
+                startDate = new Date(year, month, 1);
+                endDate = new Date(year, month, 15);
+                periodCover = `${startDate.toLocaleString('default', { month: 'long' })} 1-15, ${year}`;
+            } else {
+                startDate = new Date(year, month, 16);
+                endDate = new Date(year, month + 1, 0); 
+                periodCover = `${startDate.toLocaleString('default', { month: 'long' })} 16-${endDate.getDate()}, ${year}`;
+            }
+            startDate.setHours(0, 0, 0, 0);
+            endDate.setHours(23, 59, 59, 999);
         }
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
 
         const allAttendance = await Attendance.find({ guard: guardId }).populate('scheduleId');
 
@@ -564,5 +577,103 @@ export const deleteAttendance = async (req, res) => {
     res.json({ message: "Attendance deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * @desc    Guard downloads their own DTR in staff DTR format
+ *          (Day | Time In | Time Out | Undertime | Hours)
+ * @route   GET /api/attendance/download-my-dtr?from=YYYY-MM-DD&to=YYYY-MM-DD
+ * @access  Private (Guard)
+ */
+export const downloadMyGuardDTR = async (req, res) => {
+  try {
+    const fs = await import("fs");
+    const logPath = "./debug.log";
+    
+    const guardId = req.user._id || req.user.id;
+    const guard = await Guard.findById(guardId);
+    
+    fs.appendFileSync(logPath, `\n\n--- downloadMyGuardDTR Triggered at ${new Date().toISOString()} ---\n`);
+    fs.appendFileSync(logPath, `Guard ID from token: ${guardId}\n`);
+    fs.appendFileSync(logPath, `Guard found in DB: ${guard ? `${guard.firstName} ${guard.lastName} (guardId: ${guard.guardId})` : "null"}\n`);
+
+    const { from, to } = req.query;
+    fs.appendFileSync(logPath, `Query Params -> from: ${from}, to: ${to}\n`);
+    
+    let startDate, endDate, periodCover;
+
+    if (from && to) {
+      startDate = new Date(`${from}T00:00:00+08:00`);
+      endDate   = new Date(`${to}T23:59:59+08:00`);
+      const fmtOpt = { timeZone: "Asia/Manila", month: "long", day: "numeric", year: "numeric" };
+      const startLabel = startDate.toLocaleDateString("en-PH", fmtOpt);
+      const endLabel   = endDate.toLocaleDateString("en-PH", fmtOpt);
+      periodCover = startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
+    } else {
+      const today = new Date();
+      const year  = today.getFullYear();
+      const month = today.getMonth();
+      if (today.getDate() <= 15) {
+        startDate   = new Date(year, month, 1);
+        endDate     = new Date(year, month, 15, 23, 59, 59, 999);
+        periodCover = `${startDate.toLocaleString("default", { month: "long" })} 1-15, ${year}`;
+      } else {
+        startDate   = new Date(year, month, 16);
+        endDate     = new Date(year, month + 1, 0, 23, 59, 59, 999);
+        periodCover = `${startDate.toLocaleString("default", { month: "long" })} 16-${endDate.getDate()}, ${year}`;
+      }
+    }
+
+    fs.appendFileSync(logPath, `Parsed Range -> startDate: ${startDate.toISOString()}, endDate: ${endDate.toISOString()}\n`);
+
+    // Fetch only the guard's own attendance within the date range
+    const allRecords = await Attendance.find({ guard: guardId }).populate("scheduleId");
+    fs.appendFileSync(logPath, `Raw Attendance Count in DB for Guard: ${allRecords.length}\n`);
+    
+    allRecords.forEach((r, idx) => {
+      fs.appendFileSync(logPath, `  [${idx}] id: ${r._id}, timeIn: "${r.timeIn}", timeOut: "${r.timeOut}", scheduleId: ${r.scheduleId ? "present" : "null"}\n`);
+    });
+
+    const attendanceRecords = allRecords
+      .filter(r => {
+        if (!r.timeIn) return false;
+        const d = new Date(r.timeIn);
+        const match = d >= startDate && d <= endDate;
+        fs.appendFileSync(logPath, `  Filtering record id ${r._id}: parsedTimeIn=${d.toISOString()}, inRange=${match}\n`);
+        return match;
+      })
+      .sort((a, b) => new Date(a.timeIn) - new Date(b.timeIn));
+
+    fs.appendFileSync(logPath, `Filtered Attendance Count: ${attendanceRecords.length}\n`);
+
+    if (attendanceRecords.length === 0) {
+      return res.status(404).json({ message: "No data found for the selected dates. Please select the correct date period." });
+    }
+
+    // Map guard to the shape generateStaffAttendancePDF expects
+    const staffObj = {
+      name:     `${guard?.firstName || ""} ${guard?.lastName || ""}`.trim() || guard?.fullName || "N/A",
+      position: guard?.position || "Security Guard",
+      role:     guard?.role || "Guard",
+    };
+
+
+    const pdfBuffer = await generateStaffAttendancePDF(staffObj, attendanceRecords, periodCover, {
+      startDate,
+      endDate,
+    });
+
+    const safeName   = staffObj.name.replace(/\s+/g, "_");
+    const fromStr    = from || startDate.toISOString().slice(0, 10);
+    const toStr      = to   || endDate.toISOString().slice(0, 10);
+    const filename   = `DTR_${safeName}_${fromStr}_${toStr}.pdf`;
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error("Error generating guard self DTR:", err);
+    res.status(500).json({ message: "Failed to generate DTR", error: err.message });
   }
 };
