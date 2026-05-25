@@ -217,6 +217,25 @@ export const timeOutStaff = async (req, res) => {
   }
 };
 
+export const getStaffAttendanceByUserId = async (req, res) => {
+  try {
+    if (!isStaff(req.user)) {
+      return res.status(403).json({ message: "Only admin and HR can access staff attendance." });
+    }
+
+    const userId = req.params.userId;
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required." });
+    }
+
+    const records = await AdminAttendance.find({ user: userId }).sort({ dateKey: -1, createdAt: -1 });
+    res.status(200).json(records);
+  } catch (error) {
+    console.error("Error fetching staff attendance by user:", error);
+    res.status(500).json({ message: "Failed to load staff attendance." });
+  }
+};
+
 /**
  * @desc  Download the logged-in staff's attendance as an A4 Landscape DTR PDF.
  * @route GET /api/admin-attendance/download-my-attendance?from=YYYY-MM-DD&to=YYYY-MM-DD

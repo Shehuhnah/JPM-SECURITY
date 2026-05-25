@@ -12,7 +12,8 @@ import {
   RefreshCw, 
   Pencil, 
   Trash,
-  Eye 
+  Eye,
+  X
 } from "lucide-react";
 import { ToastContainer, toast, Bounce } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -131,6 +132,21 @@ export default function GuardTable() {
     setForm((prev) => ({
       ...prev,
       [name]: name === "email" ? value.toLowerCase() : value,
+    }));
+    setFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
+
+  const handleNumericChange = (e) => {
+    const { name, value } = e.target;
+    const digitsOnly = value.replace(/\D/g, "");
+    setForm((prev) => ({
+      ...prev,
+      [name]: digitsOnly,
     }));
     setFieldErrors((prev) => {
       if (!prev[name]) return prev;
@@ -372,7 +388,7 @@ export default function GuardTable() {
                           type="text"
                           value={search}
                           onChange={(e) => setSearch(e.target.value)}
-                          placeholder="Search by name or ID..."
+                          placeholder="Search name, ID, email, or position..."
                           className="w-full bg-[#1e293b] border border-gray-700 rounded-lg pl-10 pr-4 py-2.5 
                           text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                       />
@@ -567,7 +583,7 @@ export default function GuardTable() {
             <div className="fixed inset-0 bg-black/50" />
           </Transition.Child>
           <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4 text-center">
+            <div className="flex min-h-full items-center justify-center p-4 text-left">
               <Transition.Child
                 as={Fragment}
                 enter="ease-out duration-300"
@@ -577,38 +593,93 @@ export default function GuardTable() {
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-8 text-left align-middle shadow-xl border border-gray-700">
-                  <div className="flex gap-x-4 mb-6">
-                    <div className="w-20 h-20 bg-[#0f172a] rounded-full flex items-center justify-center border-2 border-gray-600">
-                      <Shield className="text-blue-400 w-8 h-8" />
+                <Dialog.Panel className="w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-3xl border border-blue-500/20 bg-[#0f172a] text-white shadow-2xl shadow-black/50">
+                  <div className="sticky top-0 z-10 border-b border-blue-500/10 bg-[linear-gradient(135deg,rgba(37,99,235,0.18),rgba(15,23,42,0.98))] px-6 py-5 flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-white/10 bg-white/5">
+                        <Shield className="text-blue-400" size={28} />
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">Guard Profile</div>
+                        <Dialog.Title className="mt-1 text-xl font-semibold text-white">Complete Guard Details</Dialog.Title>
+                        <p className="mt-1 text-sm text-slate-400">Review the guard’s profile, contact details, and identification fields.</p>
+                      </div>
                     </div>
-                    <div className="mt-2">
-                      <Dialog.Title className="text-2xl font-bold text-white">Guard Profile</Dialog.Title>
-                      <p className="text-gray-400 text-sm">Complete information of the selected guard.</p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsViewOpen(false)}
+                      className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:text-white"
+                    >
+                      <X size={18} />
+                    </button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3 text-gray-200">
-                      <ProfileItem label="First Name" value={selectedGuard?.firstName} />
-                      <ProfileItem label="Last Name" value={selectedGuard?.lastName} />
-                      <ProfileItem label="Sex" value={selectedGuard?.sex} />
-                      <ProfileItem label="Guard ID" value={selectedGuard?.guardId} />
-                      <ProfileItem label="Email" value={selectedGuard?.email} />
-                      <ProfileItem label="Phone Number" value={selectedGuard?.phoneNumber} />
-                      <ProfileItem label="Position" value={selectedGuard?.position} />
-                      <ProfileItem label="Address" value={selectedGuard?.address} />
+
+                  <div className="p-6">
+                    <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
+                      <div className="space-y-4">
+                        <div className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Profile Snapshot</div>
+                          <div className="mt-4 flex items-center gap-4">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-500/20 bg-[#0b1220] text-blue-400">
+                              <Shield size={26} />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-base font-semibold text-white">{getPersonName(selectedGuard)}</div>
+                              <div className="mt-1 text-sm text-slate-400">{selectedGuard?.position || "No position"}</div>
+                            </div>
+                          </div>
+                          <div className="mt-4 space-y-3 text-sm">
+                            <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3">
+                              <span className="text-slate-500">Guard ID</span>
+                              <span className="truncate text-right font-medium text-white">{selectedGuard?.guardId || "—"}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3">
+                              <span className="text-slate-500">Status</span>
+                              <span className="truncate text-right text-slate-300">{selectedGuard?.status || "—"}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3">
+                              <span className="text-slate-500">Sex</span>
+                              <span className="truncate text-right text-slate-300">{selectedGuard?.sex || "—"}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-blue-500/15 bg-blue-500/5 p-4">
+                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-300">Notes</div>
+                          <p className="mt-2 text-sm leading-6 text-slate-400">
+                            This panel is read-only. Use edit mode to update profile, IDs, and contact details.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-5">
+                        <div className="grid gap-4 rounded-2xl border border-white/5 bg-white/5 p-5 md:grid-cols-2">
+                          <ProfileItem label="First Name" value={selectedGuard?.firstName} />
+                          <ProfileItem label="Last Name" value={selectedGuard?.lastName} />
+                          <ProfileItem label="Email" value={selectedGuard?.email} />
+                          <ProfileItem label="Phone Number" value={selectedGuard?.phoneNumber} />
+                          <ProfileItem label="Position" value={selectedGuard?.position} />
+                          <ProfileItem label="Address" value={selectedGuard?.address} />
+                        </div>
+
+                        <div className="grid gap-4 rounded-2xl border border-white/5 bg-white/5 p-5 md:grid-cols-2">
+                          <ProfileItem label="SSS ID" value={selectedGuard?.SSSID} />
+                          <ProfileItem label="PhilHealth ID" value={selectedGuard?.PhilHealthID} />
+                          <ProfileItem label="Pag-IBIG ID" value={selectedGuard?.PagibigID} />
+                          <ProfileItem label="Emergency Contact Person" value={selectedGuard?.EmergencyPerson} />
+                          <ProfileItem label="Emergency Contact" value={selectedGuard?.EmergencyContact} />
+                        </div>
+
+                        <div className="flex justify-end">
+                          <button
+                            onClick={() => setIsViewOpen(false)}
+                            className="inline-flex h-10 items-center justify-center rounded-lg bg-gray-600 px-4 text-sm font-medium text-white transition-colors hover:bg-gray-500"
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-3 text-gray-200">
-                      <ProfileItem label="SSS ID" value={selectedGuard?.SSSID} />
-                      <ProfileItem label="PhilHealth ID" value={selectedGuard?.PhilHealthID} />
-                      <ProfileItem label="Pag-IBIG ID" value={selectedGuard?.PagibigID} />
-                      <ProfileItem label="Emergency Contact Person" value={selectedGuard?.EmergencyPerson} />
-                      <ProfileItem label="Emergency Contact" value={selectedGuard?.EmergencyContact} />
-                      <ProfileItem label="Status" value={selectedGuard?.status} />
-                    </div>
-                  </div>
-                  <div className="mt-8 flex justify-end">
-                    <button onClick={() => setIsViewOpen(false)} className="bg-gray-600 hover:bg-gray-500 px-6 py-2 rounded-lg text-white w-1/4">Close</button>
                   </div>
                 </Dialog.Panel>
               </Transition.Child>
@@ -622,16 +693,28 @@ export default function GuardTable() {
         <Dialog as="div" className="relative z-50" onClose={() => setIsOpen(false)}>
           <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0"><div className="fixed inset-0 bg-black/50" /></Transition.Child>
           <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4 text-center">
+            <div className="flex min-h-full items-center justify-center p-4 text-left">
               <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
-                <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 sm:p-8 text-left align-middle shadow-xl border border-gray-700">
-                  <div className="flex flex-col sm:flex-row gap-x-3 items-center sm:items-start">
-                    <div className="flex justify-center mb-4 sm:mb-6"><div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#0f172a] rounded-full flex items-center justify-center border-2 border-gray-600"><Shield className="text-blue-400 w-6 h-6 sm:w-8 sm:h-8" /></div></div>
-                    <div className="mt-0 sm:mt-3 text-center sm:text-left"><Dialog.Title className="text-xl sm:text-2xl font-bold text-white">Add New Guard</Dialog.Title><p className="text-gray-400 text-sm mb-6">Fill out the guard’s information below.</p></div>
+                <Dialog.Panel className="w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-3xl border border-blue-500/20 bg-[#0f172a] text-white shadow-2xl shadow-black/50">
+                  <div className="sticky top-0 z-10 border-b border-blue-500/10 bg-[linear-gradient(135deg,rgba(37,99,235,0.18),rgba(15,23,42,0.98))] px-6 py-5 flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-white/10 bg-white/5">
+                        <Shield className="text-blue-400 w-7 h-7" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">Add Guard</div>
+                        <Dialog.Title className="mt-1 text-xl sm:text-2xl font-semibold text-white">Create Guard Profile</Dialog.Title>
+                        <p className="mt-1 text-sm text-slate-400">Fill in the personnel record, then save the account.</p>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => setIsOpen(false)} className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:text-white">
+                      <X size={18} />
+                    </button>
                   </div>
-                  {errorMsg && (<div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-6 text-center">{errorMsg}</div>)}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-3">
+                  <div className="p-6">
+                  {errorMsg && (<div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-center text-sm text-red-300">{errorMsg}</div>)}
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div className="space-y-3 rounded-2xl border border-white/5 bg-white/5 p-4">
                       <div><label className="text-gray-300 text-sm mb-1 block">First Name <span className="text-red-400">*</span></label><input type="text" name="firstName" required placeholder="e.g. Juan" value={form.firstName} onChange={handleChange} className={getFieldClass("firstName")} /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Last Name <span className="text-red-400">*</span></label><input type="text" name="lastName" required placeholder="e.g. Dela Cruz" value={form.lastName} onChange={handleChange} className={getFieldClass("lastName")} /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Sex <span className="text-red-400">*</span></label><select name="sex" required value={form.sex} onChange={handleChange} className={getFieldClass("sex")}><option value="Male">Male</option><option value="Female">Female</option></select></div>
@@ -649,7 +732,7 @@ export default function GuardTable() {
                         </select>
                       </div>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-3 rounded-2xl border border-white/5 bg-white/5 p-4">
                       <div>
                         <label className="text-gray-300 text-sm mb-1 block">Phone Number <span className="text-red-400">*</span></label>
                         <div className={getPhoneWrapperClass("phoneNumber")}>
@@ -662,9 +745,9 @@ export default function GuardTable() {
                           }} className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-600 focus:outline-none text-sm sm:text-base" />
                         </div>
                       </div>
-                      <div><label className="text-gray-300 text-sm mb-1 block">SSS ID</label><span className="text-xs text-gray-500 italic float-right">(Optional)</span><input type="text" name="SSSID" placeholder="Enter SSS ID" value={form.SSSID} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
-                      <div><label className="text-gray-300 text-sm mb-1 block">PhilHealth ID</label><span className="text-xs text-gray-500 italic float-right">(Optional)</span><input type="text" name="PhilHealthID" placeholder="Enter PhilHealth ID" value={form.PhilHealthID} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
-                      <div><label className="text-gray-300 text-sm mb-1 block">Pag-IBIG ID</label><span className="text-xs text-gray-500 italic float-right">(Optional)</span><input type="text" name="PagibigID" placeholder="Enter Pag-IBIG ID" value={form.PagibigID} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
+                       <div><label className="text-gray-300 text-sm mb-1 block">SSS ID</label><span className="text-xs text-gray-500 italic float-right">(Optional)</span><input type="text" inputMode="numeric" pattern="[0-9]*" name="SSSID" placeholder="Enter SSS ID" value={form.SSSID} onChange={handleNumericChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
+                       <div><label className="text-gray-300 text-sm mb-1 block">PhilHealth ID</label><span className="text-xs text-gray-500 italic float-right">(Optional)</span><input type="text" inputMode="numeric" pattern="[0-9]*" name="PhilHealthID" placeholder="Enter PhilHealth ID" value={form.PhilHealthID} onChange={handleNumericChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
+                       <div><label className="text-gray-300 text-sm mb-1 block">Pag-IBIG ID</label><span className="text-xs text-gray-500 italic float-right">(Optional)</span><input type="text" inputMode="numeric" pattern="[0-9]*" name="PagibigID" placeholder="Enter Pag-IBIG ID" value={form.PagibigID} onChange={handleNumericChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-600" /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Emergency Contact Person <span className="text-red-400">*</span></label><input type="text" name="EmergencyPerson" required placeholder="e.g. Maria Dela Cruz" value={form.EmergencyPerson} onChange={handleChange} className={getFieldClass("EmergencyPerson")} /></div>
                       <div>
                         <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Number <span className="text-red-400">*</span></label>
@@ -679,11 +762,12 @@ export default function GuardTable() {
                       </div>
                     </div>
                   </div>
-                  <div className="mt-8 flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4">
-                    <button onClick={() => setIsOpen(false)} className="bg-gray-600 hover:bg-gray-500 px-6 py-2.5 rounded-lg text-white w-full sm:w-auto font-medium transition-colors">Cancel</button>
-                    <button onClick={handleAddGuard} disabled={loading} className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-8 py-2.5 rounded-lg shadow text-white font-medium w-full sm:w-auto disabled:opacity-50 transition-all flex justify-center items-center gap-2">
+                  <div className="mt-8 flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3">
+                    <button onClick={() => setIsOpen(false)} className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-gray-600 px-4 text-sm font-medium text-white transition-colors hover:bg-gray-500 sm:w-auto">Cancel</button>
+                    <button onClick={handleAddGuard} disabled={loading} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 px-4 text-sm font-medium text-white transition-all hover:from-blue-500 hover:to-blue-400 disabled:opacity-50 sm:w-auto">
                       {loading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Saving...</span></> : "Save Guard"}
                     </button>
+                  </div>
                   </div>
                 </Dialog.Panel>
               </Transition.Child>
@@ -697,13 +781,28 @@ export default function GuardTable() {
         <Dialog as="div" className="relative z-50" onClose={() => setEditIsOpen(false)}>
           <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0"><div className="fixed inset-0 bg-black/50" /></Transition.Child>
           <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4 text-center">
+            <div className="flex min-h-full items-center justify-center p-4 text-left">
               <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
-                <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-8 text-left align-middle shadow-xl border border-gray-700">
-                  <div className="flex gap-x-3 mb-4"><Pencil className="text-blue-400 w-10 h-10" /><div><Dialog.Title className="text-2xl font-bold text-white">Edit Guard</Dialog.Title><p className="text-gray-300 text-sm">Edit the guard’s information below.</p></div></div>
-                  {errorMsg && (<div className="bg-red-600/20 border border-red-500 text-red-400 text-sm rounded-md px-4 py-2 mb-4">{errorMsg}</div>)}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-3">
+                <Dialog.Panel className="w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-3xl border border-blue-500/20 bg-[#0f172a] text-white shadow-2xl shadow-black/50">
+                  <div className="sticky top-0 z-10 border-b border-blue-500/10 bg-[linear-gradient(135deg,rgba(245,158,11,0.18),rgba(15,23,42,0.98))] px-6 py-5 flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-white/10 bg-white/5">
+                        <Pencil className="text-amber-400 w-7 h-7" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Edit Guard</div>
+                        <Dialog.Title className="mt-1 text-xl sm:text-2xl font-semibold text-white">Update Guard Profile</Dialog.Title>
+                        <p className="mt-1 text-sm text-slate-400">Edit the guard’s information below.</p>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => setEditIsOpen(false)} className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:text-white">
+                      <X size={18} />
+                    </button>
+                  </div>
+                  <div className="p-6">
+                  {errorMsg && (<div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-center text-sm text-red-300">{errorMsg}</div>)}
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div className="space-y-3 rounded-2xl border border-white/5 bg-white/5 p-4">
                       <div><label className="text-gray-300 text-sm mb-1 block">First Name <span className="text-red-400">*</span></label><input type="text" name="firstName" value={form.firstName} onChange={handleChange} className={getFieldClass("firstName")} /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Last Name <span className="text-red-400">*</span></label><input type="text" name="lastName" value={form.lastName} onChange={handleChange} className={getFieldClass("lastName")} /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Sex <span className="text-red-400">*</span></label><select name="sex" value={form.sex} onChange={handleChange} className={getFieldClass("sex")}><option value="Male">Male</option><option value="Female">Female</option></select></div>
@@ -720,7 +819,7 @@ export default function GuardTable() {
                         </select>
                       </div>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-3 rounded-2xl border border-white/5 bg-white/5 p-4">
                       <div>
                         <label className="text-gray-300 text-sm mb-1 block">Phone Number <span className="text-red-400">*</span></label>
                         <div className={getPhoneWrapperClass("phoneNumber")}>
@@ -733,9 +832,9 @@ export default function GuardTable() {
                           }} className="w-full bg-[#0f172a] px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none" />
                         </div>
                       </div>
-                      <div><label className="text-gray-300 text-sm mb-1 block">SSS ID</label><input type="text" name="SSSID" value={form.SSSID} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
-                      <div><label className="text-gray-300 text-sm mb-1 block">PhilHealth ID</label><input type="text" name="PhilHealthID" value={form.PhilHealthID} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
-                      <div><label className="text-gray-300 text-sm mb-1 block">Pag-IBIG ID</label><input type="text" name="PagibigID" value={form.PagibigID} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">SSS ID</label><input type="text" inputMode="numeric" pattern="[0-9]*" name="SSSID" value={form.SSSID} onChange={handleNumericChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">PhilHealth ID</label><input type="text" inputMode="numeric" pattern="[0-9]*" name="PhilHealthID" value={form.PhilHealthID} onChange={handleNumericChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
+                      <div><label className="text-gray-300 text-sm mb-1 block">Pag-IBIG ID</label><input type="text" inputMode="numeric" pattern="[0-9]*" name="PagibigID" value={form.PagibigID} onChange={handleNumericChange} className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:ring-2 focus:ring-blue-500" /></div>
                       <div><label className="text-gray-300 text-sm mb-1 block">Emergency Contact Person <span className="text-red-400">*</span></label><input type="text" name="EmergencyPerson" value={form.EmergencyPerson} onChange={handleChange} className={getFieldClass("EmergencyPerson")} /></div>
                       <div>
                         <label className="text-gray-300 text-sm mb-1 block">Emergency Contact Number <span className="text-red-400">*</span></label>
@@ -751,9 +850,10 @@ export default function GuardTable() {
                       </div>
                     </div>
                   </div>
-                  <div className="mt-6 flex justify-end gap-4">
-                    <button onClick={() => setEditIsOpen(false)} className="bg-gray-600 hover:bg-gray-500 px-6 py-2 rounded-lg text-white">Cancel</button>
-                    <button onClick={handleSaveEdit} disabled={loading} className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 px-8 py-2 rounded-lg shadow text-white font-medium disabled:opacity-50">{loading ? "Updating..." : "Save Changes"}</button>
+                  <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+                    <button onClick={() => setEditIsOpen(false)} className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-gray-600 px-4 text-sm font-medium text-white transition-colors hover:bg-gray-500 sm:w-auto">Cancel</button>
+                    <button onClick={handleSaveEdit} disabled={loading} className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 px-4 text-sm font-medium text-white transition-all hover:from-blue-500 hover:to-blue-400 disabled:opacity-50 sm:w-auto">{loading ? "Updating..." : "Save Changes"}</button>
+                  </div>
                   </div>
                 </Dialog.Panel>
               </Transition.Child>

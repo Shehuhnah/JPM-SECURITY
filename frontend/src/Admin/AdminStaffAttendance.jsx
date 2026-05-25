@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   CalendarClock,
   Clock3,
@@ -8,6 +8,10 @@ import {
   LogOut,
   RefreshCcw,
   UserCircle2,
+  CalendarDays,
+  FileImage,
+  FileText,
+  User,
 } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -123,6 +127,16 @@ const getDateKey = (value) => {
   return `${year}-${month}-${day}`;
 };
 
+const formatWordDate = (dateStr) => {
+  if (!dateStr) return "--";
+  const parts = dateStr.split("-");
+  if (parts.length !== 3) return dateStr;
+  const [year, month, day] = parts.map(Number);
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return dateStr;
+  const date = new Date(year, month - 1, day);
+  return format(date, "MMMM d, yyyy");
+};
+
 const normalizeLeaveDateKey = (value) => {
   if (!value) return null;
   if (typeof value === "string") {
@@ -202,6 +216,7 @@ export default function AdminStaffAttendance() {
   const [pageLoading, setPageLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [liveNow, setLiveNow] = useState(new Date());
+  const [historyDateFilter, setHistoryDateFilter] = useState("");
 
   // ── Download DTR modal state ──────────────────────────────────────────
   const [dtrModalOpen, setDtrModalOpen] = useState(false);
@@ -211,6 +226,9 @@ export default function AdminStaffAttendance() {
   const [reportCutoff, setReportCutoff] = useState("first-half");
   const [reportDateRange, setReportDateRange] = useState({ from: null, to: null });
   const [dtrSubmitting, setDtrSubmitting] = useState(false);
+  const [selectedAttendance, setSelectedAttendance] = useState(null);
+  const [attendanceDetailOpen, setAttendanceDetailOpen] = useState(false);
+  const [userReports, setUserReports] = useState([]);
 
   useEffect(() => {
     if (!user && !loading) {
@@ -223,18 +241,22 @@ export default function AdminStaffAttendance() {
   const fetchDashboard = async () => {
     try {
       setPageLoading(true);
-      const [attendanceRes, leaveRes] = await Promise.all([
+      const [attendanceRes, leaveRes, reportsRes] = await Promise.all([
         fetch(`${api}/api/admin-attendance/me`, {
           credentials: "include",
         }),
         fetch(`${api}/api/leaves/my`, {
           credentials: "include",
         }),
+        fetch(`${api}/api/admin-reports?mine=true`, {
+          credentials: "include",
+        }),
       ]);
 
-      const [attendanceData, leaveData] = await Promise.all([
+      const [attendanceData, leaveData, reportsData] = await Promise.all([
         attendanceRes.json(),
         leaveRes.json(),
+        reportsRes.json().catch(() => []),
       ]);
 
       if (!attendanceRes.ok) throw new Error(attendanceData.message || "Failed to load attendance.");
@@ -242,6 +264,7 @@ export default function AdminStaffAttendance() {
 
       setDashboard(attendanceData);
       setLeaveRequests(Array.isArray(leaveData) ? leaveData : []);
+      setUserReports(Array.isArray(reportsData) ? reportsData : []);
     } catch (error) {
       toast.error(error.message || "Failed to load attendance.");
     } finally {
@@ -418,6 +441,19 @@ export default function AdminStaffAttendance() {
       : null;
 
   const recentAttendance = useMemo(() => dashboard?.recentRecords || [], [dashboard]);
+  const sortedAttendanceHistory = useMemo(
+    () =>
+      [...recentAttendance].sort((a, b) => {
+        const aDate = new Date(a.timeIn || a.createdAt || 0).getTime();
+        const bDate = new Date(b.timeIn || b.createdAt || 0).getTime();
+        return bDate - aDate;
+      }),
+    [recentAttendance]
+  );
+  const filteredAttendanceHistory = useMemo(() => {
+    if (!historyDateFilter) return sortedAttendanceHistory;
+    return sortedAttendanceHistory.filter((record) => record.dateKey === historyDateFilter);
+  }, [historyDateFilter, sortedAttendanceHistory]);
 
   const leaveDateMap = useMemo(() => {
     const map = new Map();
@@ -530,6 +566,11 @@ export default function AdminStaffAttendance() {
       calendarCells: [...leadingEmptyDays, ...days, ...trailingEmptyDays],
     };
   }, [attendanceMap, leaveDateMap]);
+
+  const openAttendanceDetail = (record) => {
+    setSelectedAttendance(record);
+    setAttendanceDetailOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-gray-100 p-4 md:p-8">
@@ -757,40 +798,66 @@ export default function AdminStaffAttendance() {
             </div>
           </section>
 
-          <div className="grid grid-cols-1 gap-6">
-            <section className="bg-[#1e293b] border border-slate-800 rounded-2xl p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-xl font-semibold text-white">Recent Attendance</h2>
-                <Link to="/admin/log-reports" className="text-sm text-cyan-400 hover:text-cyan-300">
-                  Reports
-                </Link>
+          <section className="bg-[#1e293b] border border-slate-800 rounded-2xl p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-5 gap-3">
+              <div>
+                <h2 className="text-xl font-semibold text-white">Attendance History</h2>
+                <p className="text-sm text-slate-400 mt-1">Current logged-in user attendance records.</p>
               </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={historyDateFilter}
+                  onChange={(e) => setHistoryDateFilter(e.target.value)}
+                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:dark]"
+                  title="Filter attendance history by date"
+                />
+                {historyDateFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setHistoryDateFilter("")}
+                    className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition"
+                  >
+                    Clear
+                  </button>
+                )}
+                <span className="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-300">
+                  {filteredAttendanceHistory.length} records
+                </span>
+              </div>
+            </div>
 
-              <div className="space-y-3">
-                {recentAttendance.length === 0 ? (
-                  <div className="text-sm text-slate-500 py-6">No attendance records yet.</div>
-                ) : (
-                  recentAttendance.map((record) => (
-                    <div
-                      key={record._id}
-                      className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 flex items-center justify-between gap-4"
-                    >
-                      <div>
-                        <div className="text-white font-medium">{record.dateKey}</div>
-                        <div className="text-sm text-slate-400">
-                          {formatTime(record.firstTimeIn || record.timeIn)} to {formatTime(record.timeOut)}
-                        </div>
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+              {filteredAttendanceHistory.length === 0 ? (
+                <div className="text-sm text-slate-500 py-6">No attendance records yet.</div>
+              ) : (
+                filteredAttendanceHistory.map((record) => (
+                  <button
+                    key={record._id}
+                    type="button"
+                    onClick={() => openAttendanceDetail(record)}
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950/40 p-4 flex items-center justify-between gap-4 text-left transition hover:border-cyan-500/30 hover:bg-slate-950/60"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-white font-medium truncate">{user?.name || "Current User"}</div>
+                      <div className="text-sm text-slate-400">
+                        {formatWordDate(record.dateKey)}
+                        <span className="mx-2 text-slate-600">•</span>
+                        {formatTime(record.firstTimeIn || record.timeIn)} to {formatTime(record.timeOut)}
                       </div>
-                      <div className="text-right">
-                        <div className="text-sm font-semibold text-cyan-300">{record.status}</div>
-                        <div className="text-xs text-slate-500">{getWorkedHoursLabel(record, liveNow)}</div>
+                      <div className="mt-1 text-xs text-slate-500 truncate">
+                        {record.notes?.trim() ? `Log report: ${record.notes}` : "No log report attached"}
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
-            </section>
-          </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-sm font-semibold text-cyan-300">{record.status}</div>
+                      <div className="text-xs text-slate-500">{getWorkedHoursLabel(record, liveNow)}</div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </section>
         </div>
       </div>
 
@@ -957,6 +1024,208 @@ export default function AdminStaffAttendance() {
           </div>
         </Dialog>
       </Transition>
+
+      <Transition appear show={attendanceDetailOpen && Boolean(selectedAttendance)} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setAttendanceDetailOpen(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95 translate-y-4"
+                enterTo="opacity-100 scale-100 translate-y-0"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100 translate-y-0"
+                leaveTo="opacity-0 scale-95 translate-y-4"
+              >
+                <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-[#1e293b] border border-slate-700 shadow-2xl transition-all text-left">
+                  {(() => {
+                    const associatedReport = selectedAttendance
+                      ? userReports.find(
+                          (rep) =>
+                            rep.attendanceId?._id === selectedAttendance._id ||
+                            rep.attendanceId?.dateKey === selectedAttendance.dateKey ||
+                            (rep.reportDate && new Date(rep.reportDate).toISOString().slice(0, 10) === selectedAttendance.dateKey)
+                        )
+                      : null;
+
+                    return (
+                      <>
+                        {/* Premium Header */}
+                        <div className="p-6 border-b border-slate-700/60 bg-gradient-to-r from-slate-900/60 via-slate-900/30 to-transparent flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20 shadow-inner">
+                              <CalendarDays className="text-cyan-400" size={24} />
+                            </div>
+                            <div>
+                              <Dialog.Title className="text-lg font-bold text-white leading-tight">
+                                {formatWordDate(selectedAttendance?.dateKey)}
+                              </Dialog.Title>
+                              <p className="text-xs text-slate-400 mt-0.5">
+                                Attendance and Log Details
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+                              selectedAttendance?.status === "Timed Out"
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                : "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
+                            }`}>
+                              {selectedAttendance?.status || "Active"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Modal Content Body */}
+                        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto pr-2 scrollbar-thin">
+                          {/* Staff Info / Metadata Grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 flex items-center gap-3">
+                              <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-slate-300 font-bold border border-slate-700">
+                                {user?.name?.slice(0, 2).toUpperCase() || "ST"}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Employee</div>
+                                <div className="text-sm font-semibold text-white truncate">{user?.name || "Current Staff"}</div>
+                              </div>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 flex items-center gap-3">
+                              <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-300">
+                                <Clock3 className="text-slate-400" size={20} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Working Hours</div>
+                                <div className="text-sm font-semibold text-white truncate">
+                                  {getWorkedHoursLabel(selectedAttendance, liveNow)}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 flex items-center gap-3 md:col-span-2 lg:col-span-1">
+                              <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-300">
+                                <CalendarDays className="text-slate-400" size={20} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Date Key</div>
+                                <div className="text-sm font-semibold text-white truncate">{selectedAttendance?.dateKey || "--"}</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Time In / Out details */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="rounded-xl border border-slate-800/80 bg-slate-950/20 p-4 relative overflow-hidden group hover:border-slate-700/80 transition duration-300">
+                              <div className="absolute top-0 left-0 h-1 w-full bg-cyan-500/50" />
+                              <div className="text-xs uppercase font-bold tracking-wider text-slate-500 mb-2">Time In Session</div>
+                              <div className="text-lg font-bold text-white flex items-center gap-2">
+                                <LogIn className="text-cyan-400 shrink-0" size={18} />
+                                {formatTime(selectedAttendance?.firstTimeIn || selectedAttendance?.timeIn)}
+                              </div>
+                              <div className="text-xs text-slate-400 mt-1">
+                                First logged time: {formatDateTime(selectedAttendance?.firstTimeIn || selectedAttendance?.timeIn)}
+                              </div>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-800/80 bg-slate-950/20 p-4 relative overflow-hidden group hover:border-slate-700/80 transition duration-300">
+                              <div className="absolute top-0 left-0 h-1 w-full bg-emerald-500/50" />
+                              <div className="text-xs uppercase font-bold tracking-wider text-slate-500 mb-2">Time Out Session</div>
+                              <div className="text-lg font-bold text-white flex items-center gap-2">
+                                <LogOut className="text-emerald-400 shrink-0" size={18} />
+                                {selectedAttendance?.timeOut ? formatTime(selectedAttendance.timeOut) : "Active Shift"}
+                              </div>
+                              <div className="text-xs text-slate-400 mt-1">
+                                {selectedAttendance?.timeOut ? `Logged out at: ${formatDateTime(selectedAttendance.timeOut)}` : "Still timed-in/active"}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Report / Log details */}
+                          <div className="border-t border-slate-800 pt-6">
+                            <div className="bg-[#0f172a]/50 rounded-2xl border border-slate-850 p-5 space-y-4">
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                                  <FileText className="text-[#2B7FFF]" size={15} />
+                                  {associatedReport ? "Linked Log Report" : "Attendance Notes"}
+                                </div>
+                                {associatedReport && (
+                                  <span className="text-[10px] px-2.5 py-0.5 rounded-full font-semibold bg-[#2B7FFF]/10 text-[#2B7FFF] border border-[#2B7FFF]/20 uppercase">
+                                    {associatedReport.category}
+                                  </span>
+                                )}
+                              </div>
+
+                              {associatedReport && (
+                                <h4 className="text-base font-bold text-white mt-1">
+                                  {associatedReport.title}
+                                </h4>
+                              )}
+
+                              <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap min-h-[50px] bg-slate-950/35 rounded-xl p-4 border border-slate-850">
+                                {associatedReport?.details?.trim() || selectedAttendance?.notes?.trim() || "No detailed log or notes attached."}
+                              </p>
+
+                              {/* Uploaded Image Rendering */}
+                              {associatedReport?.imageUrl && (
+                                <div className="mt-6 pt-4 border-t border-slate-800/80">
+                                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                                    <FileImage className="text-emerald-400" size={15} />
+                                    Report Attachment Image
+                                  </div>
+                                  <div className="relative group rounded-2xl overflow-hidden border border-slate-700/60 bg-slate-950 p-2 max-w-md shadow-xl transition-all duration-300 hover:border-cyan-500/50">
+                                    <img
+                                      src={associatedReport.imageUrl}
+                                      alt={associatedReport.title || "Uploaded report attachment"}
+                                      className="w-full h-auto max-h-72 object-contain rounded-xl"
+                                    />
+                                    <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                                      <a
+                                        href={associatedReport.imageUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-lg transition active:scale-95"
+                                      >
+                                        <FileDown size={14} /> Open Full Size
+                                      </a>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Footer Action Footer */}
+                        <div className="p-6 flex justify-end border-t border-slate-700 bg-slate-900/30">
+                          <button
+                            onClick={() => setAttendanceDetailOpen(false)}
+                            className="px-6 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold transition active:scale-98"
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
     </div>
   );
 }
@@ -1003,6 +1272,15 @@ function LegendItem({ label, tone }) {
     <div className="flex items-center gap-2">
       <span className={`inline-flex h-3.5 w-3.5 rounded-[4px] border ${tone}`} />
       <span>{label}</span>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+      <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">{label}</div>
+      <div className="text-sm font-medium text-white break-words">{value || "--"}</div>
     </div>
   );
 }

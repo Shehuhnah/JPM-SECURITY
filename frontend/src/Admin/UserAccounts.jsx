@@ -148,27 +148,41 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
       <Dialog as="div" className="relative z-50" onClose={onClose}>
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
 
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Dialog.Panel className="w-full max-w-2xl bg-[#1e293b] rounded-2xl border border-gray-700 shadow-2xl p-6 text-white">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 flex items-center justify-center px-4 py-6">
+          <Dialog.Panel className="w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-3xl border border-blue-500/20 bg-[#0f172a] text-white shadow-2xl shadow-black/50">
+            <div className="sticky top-0 z-10 border-b border-blue-500/10 bg-[linear-gradient(135deg,rgba(37,99,235,0.18),rgba(15,23,42,0.98))] px-6 py-5 flex items-start justify-between gap-4">
               <Dialog.Title className="text-xl font-bold flex items-center gap-2">
                 <UserPlus className="text-blue-500" size={24} />
                 Add New Staff
               </Dialog.Title>
 
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-white"
-              >
-                <X size={24} />
+              <button type="button" onClick={onClose} className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:text-white">
+                <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="p-6">
+              <div className="grid gap-6 xl:grid-cols-[340px_1fr]">
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Account Preview</div>
+                    <div className="mt-3 space-y-3 text-sm">
+                      <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3"><span className="text-slate-500">Name</span><span className="truncate text-right text-white font-medium">{form.name || "Required"}</span></div>
+                      <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3"><span className="text-slate-500">Role</span><span className="truncate text-right text-slate-300">{form.role || "Required"}</span></div>
+                      <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3"><span className="text-slate-500">Phone</span><span className="truncate text-right text-slate-300">{form.contactNumber || "Required"}</span></div>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-blue-500/15 bg-blue-500/5 p-4">
+                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-300">Helpful Notes</div>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">Admin accounts receive elevated access automatically. Keep the email and phone number accurate for account recovery.</p>
+                  </div>
+                </div>
+
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Full Name */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                     Full Name <span className="text-red-500">*</span>
                   </label>
 
@@ -177,14 +191,14 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
                     value={form.name}
                     onChange={handleChange}
                     placeholder="e.g. Juan Dela Cruz"
-                    className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60"
                     required
                   />
                 </div>
 
                 {/* Email */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                     Email Address <span className="text-red-500">*</span>
                   </label>
 
@@ -194,14 +208,14 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
                     value={form.email}
                     onChange={handleChange}
                     placeholder="juan@example.com"
-                    className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60"
                     required
                   />
                 </div>
 
                 {/* Position */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                     Position <span className="text-red-500">*</span>
                   </label>
 
@@ -210,13 +224,13 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
                     value={form.position}
                     onChange={handleChange}
                     placeholder="e.g. HR Manager"
-                    className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                     Gender <span className="text-red-500">*</span>
                   </label>
 
@@ -224,7 +238,7 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
                     name="sex"
                     value={form.sex}
                     onChange={handleChange}
-                    className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60"
                     required
                   >
                     <option value="">Select Gender</option>
@@ -235,7 +249,7 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
 
                 {/* Contact */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                     Contact Number <span className="text-red-500">*</span>
                   </label>
 
@@ -246,14 +260,14 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
                         placeholder="+639123456789"
                         inputMode="tel"
                         maxLength={13}
-                        className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60"
                         required
                     />
                 </div>
 
                 {/* Role */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                     Role <span className="text-red-500">*</span>
                   </label>
 
@@ -261,7 +275,7 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
                     name="role"
                     value={form.role}
                     onChange={handleChange}
-                    className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60"
                     required
                   >
                     <option value="">Select Role</option>
@@ -272,7 +286,7 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
 
                 {/* Access Level */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                     Access Level <span className="text-red-500">*</span>
                   </label>
 
@@ -281,10 +295,10 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
                     value={form.accessLevel}
                     onChange={handleChange}
                     disabled={form.role === "Admin"}
-                    className={`w-full rounded-lg px-4 py-2.5 outline-none border ${
+                    className={`w-full rounded-xl px-4 py-3 text-sm text-white outline-none border transition focus:ring-2 focus:ring-blue-500/60 ${
                       form.role === "Admin"
                         ? "bg-gray-700 border-gray-600 text-gray-300 cursor-not-allowed"
-                        : "bg-[#0f172a] border-gray-600"
+                        : "bg-[#1e293b] border-gray-700"
                     }`}
                     required
                   >
@@ -300,7 +314,7 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
 
                 {/* Password */}
                 <div className="md:col-span-2 relative">
-                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                     Password <span className="text-red-500">*</span>
                   </label>
 
@@ -311,7 +325,7 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
                       value={form.password}
                       onChange={handleChange}
                       placeholder="••••••••"
-                      className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 pr-10 focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 pr-10 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60"
                       required
                     />
 
@@ -328,23 +342,18 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
                     </button>
                   </div>
                 </div>
+
+                  <div className="rounded-xl border border-gray-700 bg-[#1e293b] p-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-white"><UserPlus className="text-blue-400" size={16} /> Staff Account</div>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">This account can be used immediately after saving if the role and access level are valid.</p>
+                  </div>
+
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button type="button" onClick={onClose} className="inline-flex h-10 items-center justify-center rounded-lg border border-gray-700 px-4 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white">Cancel</button>
+                    <button type="submit" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-500">Create Account</button>
+                  </div>
+                </div>
               </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-700">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium transition shadow-lg shadow-blue-900/20"
-                >
-                  Create Account
-                </button>
               </div>
             </form>
           </Dialog.Panel>
@@ -393,63 +402,84 @@ const EditUserModal = ({ isOpen, onClose, onUpdate, user }) => {
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Dialog.Panel className="w-full max-w-2xl bg-[#1e293b] rounded-2xl border border-gray-700 shadow-2xl p-6 text-white">
-            <div className="flex justify-between items-center mb-6">
-                <Dialog.Title className="text-xl font-bold flex items-center gap-2">
-                    <Edit3 className="text-yellow-500" size={24} /> Edit Staff Details
-                </Dialog.Title>
-                <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={24}/></button>
+        <div className="fixed inset-0 flex items-center justify-center px-4 py-6">
+          <Dialog.Panel className="w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-3xl border border-blue-500/20 bg-[#0f172a] text-white shadow-2xl shadow-black/50">
+            <div className="sticky top-0 z-10 border-b border-blue-500/10 bg-[linear-gradient(135deg,rgba(245,158,11,0.18),rgba(15,23,42,0.98))] px-6 py-5 flex items-start justify-between gap-4">
+                <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Edit Staff Account</div>
+                    <h3 className="mt-1 text-xl font-semibold text-white">Edit Staff Details</h3>
+                    <p className="mt-1 text-sm text-slate-400">Update the staff profile, access level, and contact information.</p>
+                </div>
+                <button type="button" onClick={onClose} className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:text-white">
+                    <X size={18}/>
+                </button>
             </div>
             
-            <form onSubmit={(e) => { e.preventDefault(); onUpdate(form); }} className="space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); onUpdate(form); }} className="p-6">
+                <div className="grid gap-6 xl:grid-cols-[340px_1fr]">
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Account Preview</div>
+                      <div className="mt-3 space-y-3 text-sm">
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3"><span className="text-slate-500">Name</span><span className="truncate text-right text-white font-medium">{form.name || "Required"}</span></div>
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3"><span className="text-slate-500">Role</span><span className="truncate text-right text-slate-300">{form.role || "Required"}</span></div>
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3"><span className="text-slate-500">Phone</span><span className="truncate text-right text-slate-300">{form.contactNumber || "Required"}</span></div>
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-amber-500/15 bg-amber-500/5 p-4">
+                      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-300">Notes</div>
+                      <p className="mt-2 text-sm leading-6 text-slate-400">Changes apply to staff access immediately after saving.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                           Full Name <span className="text-red-500">*</span>
                         </label>
-                        <input name="name" value={form.name || ""} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-yellow-500 outline-none" required />
+                        <input name="name" value={form.name || ""} onChange={handleChange} className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-amber-500/60" required />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                           Email Address <span className="text-red-500">*</span>
                         </label>
-                        <input name="email" type="email" value={form.email || ""} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-yellow-500 outline-none" required />
+                        <input name="email" type="email" value={form.email || ""} onChange={handleChange} className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-amber-500/60" required />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                           Position <span className="text-red-500">*</span>
                         </label>
-                        <input name="position" value={form.position || ""} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-yellow-500 outline-none" required />
+                        <input name="position" value={form.position || ""} onChange={handleChange} className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-amber-500/60" required />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                           Gender <span className="text-red-500">*</span>
                         </label>
-                        <select name="sex" value={form.sex || ""} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-yellow-500 outline-none" required>
+                        <select name="sex" value={form.sex || ""} onChange={handleChange} className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-amber-500/60" required>
                             <option value="">Select Gender</option>
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                           Contact Number <span className="text-red-500">*</span>
                         </label>
-                        <input name="contactNumber" value={form.contactNumber || "+63"} onChange={handleChange} placeholder="+639123456789" inputMode="tel" maxLength={13} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-yellow-500 outline-none" required />
+                        <input name="contactNumber" value={form.contactNumber || "+63"} onChange={handleChange} placeholder="+639123456789" inputMode="tel" maxLength={13} className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-amber-500/60" required />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                           Role <span className="text-red-500">*</span>
                         </label>
-                        <select name="role" value={form.role || ""} onChange={handleChange} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-yellow-500 outline-none" required>
+                        <select name="role" value={form.role || ""} onChange={handleChange} className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-amber-500/60" required>
                             <option value="">Select Role</option>
                             <option value="Admin">Admin</option>
                             <option value="Subadmin">Subadmin</option>
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                           Access Level <span className="text-red-500">*</span>
                         </label>
                         <select
@@ -457,10 +487,10 @@ const EditUserModal = ({ isOpen, onClose, onUpdate, user }) => {
                           value={form.accessLevel || ""}
                           onChange={handleChange}
                           disabled={form.role === "Admin"}
-                          className={`w-full rounded-lg px-4 py-2.5 outline-none border ${
+                          className={`w-full rounded-xl px-4 py-3 text-sm text-white outline-none border transition focus:ring-2 focus:ring-amber-500/60 ${
                             form.role === "Admin"
                               ? "bg-gray-700 border-gray-600 text-gray-300 cursor-not-allowed"
-                              : "bg-[#0f172a] border-gray-600"
+                              : "bg-[#1e293b] border-gray-700"
                           }`}
                           required
                         >
@@ -470,10 +500,17 @@ const EditUserModal = ({ isOpen, onClose, onUpdate, user }) => {
                         </select>
                     </div>
                 </div>
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-700">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition">Cancel</button>
-                    <button type="submit" className="px-6 py-2 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg font-medium transition shadow-lg shadow-yellow-900/20">Save Changes</button>
+                  <div className="rounded-xl border border-gray-700 bg-[#1e293b] p-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-white"><Edit3 className="text-yellow-400" size={16} /> Staff Update</div>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">Changes apply to the selected staff account after saving.</p>
+                  </div>
+
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button type="button" onClick={onClose} className="inline-flex h-10 items-center justify-center rounded-lg border border-gray-700 px-4 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white">Cancel</button>
+                    <button type="submit" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 text-sm font-semibold text-white transition hover:bg-amber-500">Save Changes</button>
+                  </div>
                 </div>
+              </div>
             </form>
           </Dialog.Panel>
         </div>

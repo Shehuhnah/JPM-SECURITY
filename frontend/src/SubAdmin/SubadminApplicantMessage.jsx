@@ -11,6 +11,8 @@ export default function SubadminApplicantMessage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const shouldAutoScrollRef = useRef(true);
   const fileInputRef = useRef();
   const hasNotifiedOnline = useRef(false);
   // Tracks the active conversation ID for use inside socket closures (avoids stale closure).
@@ -37,6 +39,20 @@ export default function SubadminApplicantMessage() {
   useEffect(() => {
     document.title = "Applicant Messages | JPM Security Agency";
   }, []);
+
+  // Scroll only when the user is already near the bottom.
+  useEffect(() => {
+    if (shouldAutoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, selectedConversation?._id]);
+
+  const handleMessagesScroll = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom < 120;
+  };
 
   // --- Helpers ---
   const normalizeId = (id) => {
@@ -207,8 +223,10 @@ export default function SubadminApplicantMessage() {
   }, [user, loading, navigate]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (shouldAutoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, selectedConversation?._id]);
 
   // Socket: User Online
   useEffect(() => {
@@ -245,10 +263,12 @@ export default function SubadminApplicantMessage() {
   // Active Chat Logic
   useEffect(() => {
     if (!selectedConversation || selectedConversation.isTemp) {
+      shouldAutoScrollRef.current = true;
       if(!selectedConversation?.isTemp) setMessages([]);
       return;
     }
 
+    shouldAutoScrollRef.current = true;
     setMessages([]);
 
     const joinActiveConversation = () => socket.emit("joinConversation", selectedConversation._id);
@@ -397,6 +417,7 @@ export default function SubadminApplicantMessage() {
       });
 
       setSelectedConversation((prev) => prev && prev._id === conversation._id ? { ...prev, ...conversation } : conversation);
+      shouldAutoScrollRef.current = true;
       setNewMessage("");
       setFile(null);
     } catch (err) {
@@ -595,7 +616,11 @@ export default function SubadminApplicantMessage() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 w-full overflow-y-auto overscroll-contain p-4 md:p-6 space-y-4 bg-slate-900/50 scroll-smooth">
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleMessagesScroll}
+              className="flex-1 w-full overflow-y-auto overscroll-contain p-4 md:p-6 space-y-4 bg-slate-900/50 scroll-smooth"
+            >
               {messages.map((msg) => {
                 const senderId = normalizeId(msg.senderId || msg.sender?._id || msg.senderUser?._id);
                 const isMe = senderId === normalizeId(user._id);

@@ -11,6 +11,8 @@ export default function SubAdminMessagePage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const shouldAutoScrollRef = useRef(true);
   const fileInputRef = useRef();
   const hasNotifiedOnline = useRef(false);
   // Ref keeps the selected conversation ID current inside socket closures,
@@ -25,6 +27,7 @@ export default function SubAdminMessagePage() {
   // Keep ref in sync so socket handlers always read the latest value.
   useEffect(() => {
     selectedConversationIdRef.current = selectedConversation?._id ?? null;
+    shouldAutoScrollRef.current = true;
   }, [selectedConversation?._id]);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -131,8 +134,17 @@ export default function SubAdminMessagePage() {
   }, [user, loading, navigate]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (shouldAutoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, selectedConversation?._id]);
+
+  const handleMessagesScroll = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom < 120;
+  };
 
   useEffect(() => {
     const registerOnline = () => {
@@ -181,11 +193,13 @@ export default function SubAdminMessagePage() {
 
   useEffect(() => {
     if (!selectedConversation || selectedConversation.isTemp || !isGuardConversation(selectedConversation)) {
+      shouldAutoScrollRef.current = true;
       if (!selectedConversation?.isTemp) setMessages([]);
       return;
     }
 
     // Hard-reset immediately — prevents old conversation messages bleeding through.
+    shouldAutoScrollRef.current = true;
     setMessages([]);
 
     const joinActiveConversation = () => {
@@ -361,6 +375,7 @@ export default function SubAdminMessagePage() {
 
       setSelectedConversation(conversation);
       if (sentMessage) {
+        shouldAutoScrollRef.current = true;
         setMessages((prev) =>
           prev.some((msg) => normalizeId(msg._id || msg._tempId) === normalizeId(sentMessage._id || sentMessage._tempId))
             ? prev
@@ -369,6 +384,7 @@ export default function SubAdminMessagePage() {
       }
       setNewMessage("");
       setFile(null);
+      shouldAutoScrollRef.current = true;
     } catch (err) {
       console.error("Error sending message:", err);
     }
@@ -603,7 +619,11 @@ export default function SubAdminMessagePage() {
               })()}
             </div>
 
-            <div className="flex-1 w-full overflow-y-auto overscroll-contain p-4 md:p-6 space-y-4 bg-slate-900/50 scroll-smooth">
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleMessagesScroll}
+              className="flex-1 w-full overflow-y-auto overscroll-contain p-4 md:p-6 space-y-4 bg-slate-900/50 scroll-smooth"
+            >
               {messages.map((msg) => {
                 const isMe = normalizeId(msg.senderId) === normalizeId(user?._id);
                 return (

@@ -106,6 +106,30 @@ const SkeletonLoader = () => (
   </div>
 );
 
+const ProfileAvatar = ({ src, name }) => {
+  const [failed, setFailed] = useState(false);
+  const showImage = Boolean(src) && !failed;
+
+  return (
+    <div className="mb-4 h-32 w-32 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 p-1 shadow-2xl">
+      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border-4 border-[#1e293b] bg-[#0f172a]">
+        {showImage ? (
+          <img
+            src={src}
+            alt={name || "Profile"}
+            className="h-full w-full object-cover"
+            onError={() => setFailed(true)}
+          />
+        ) : (
+          <div className="text-4xl font-bold text-white">
+            {(name || "?").charAt(0).toUpperCase()}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function AdminGuardUpdates2() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -217,14 +241,47 @@ export default function AdminGuardUpdates2() {
       } else {
         const response = await fetch(`${api}/api/admin-reports/staff/${id}`, { credentials: "include" });
 
+        const loadFallbackReports = async () => {
+          const reportsRes = await fetch(`${api}/api/admin-reports`, { credentials: "include" });
+          if (!reportsRes.ok) return null;
+          const reportsData = await reportsRes.json();
+          const filteredReports = (Array.isArray(reportsData) ? reportsData : []).filter((report) => {
+            const createdBy = report?.createdBy;
+            const createdById = createdBy?._id || createdBy?.id || createdBy;
+            return String(createdById || "") === String(id);
+          });
+          return filteredReports;
+        };
+
         if (!response.ok) {
-          setError("Staff not found or access denied.");
+          const fallbackReports = await loadFallbackReports();
+          if (!fallbackReports) {
+            setError("Staff not found or access denied.");
+            return;
+          }
+
+          setLogs(fallbackReports);
+          setStaff(fallbackReports[0]?.createdBy || null);
           return;
         }
 
         const data = await response.json();
-        setStaff(data.staff);
-        setLogs(Array.isArray(data.reports) ? data.reports : []);
+        const reportList = Array.isArray(data.reports) ? data.reports : [];
+
+        if (data.staff) {
+          setStaff(data.staff);
+          setLogs(reportList);
+          return;
+        }
+
+        const fallbackReports = await loadFallbackReports();
+        if (fallbackReports && fallbackReports.length > 0) {
+          setStaff(fallbackReports[0]?.createdBy || null);
+          setLogs(fallbackReports);
+          return;
+        }
+
+        setError("No staff reports found.");
       }
     } catch (fetchError) {
       console.error("Error fetching update details:", fetchError);
@@ -263,6 +320,14 @@ export default function AdminGuardUpdates2() {
     ? (isGuardView ? sortedLogs[0].createdAt : sortedLogs[0].reportDate || sortedLogs[0].createdAt)
     : null;
   const imageEntryCount = sortedLogs.filter((log) => Boolean(log.imageUrl)).length;
+  const profileImage =
+    profile?.photo ||
+    profile?.photoUrl ||
+    profile?.avatar ||
+    profile?.createdBy?.photo ||
+    profile?.createdBy?.photoUrl ||
+    profile?.createdBy?.avatar ||
+    "";
 
   const profileMeta = isGuardView
     ? [
@@ -304,11 +369,7 @@ export default function AdminGuardUpdates2() {
           <div className="relative z-10 grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.95fr)]">
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-[auto_minmax(0,1fr)] xl:items-start">
               <div className="flex flex-col items-center xl:items-start">
-                <div className="mb-4 h-32 w-32 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 p-1 shadow-2xl">
-                  <div className="flex h-full w-full items-center justify-center rounded-full border-4 border-[#1e293b] bg-[#0f172a] text-4xl font-bold text-white">
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
-                </div>
+                <ProfileAvatar src={profileImage} name={displayName} />
                 <span
                   className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider ${
                     isActive

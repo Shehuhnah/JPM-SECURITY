@@ -18,7 +18,7 @@ export const getAdminReports = async (req, res) => {
     }
 
     const reports = await AdminReport.find(query)
-      .populate("createdBy", "name role position")
+      .populate("createdBy", "name role position photo firstName lastName fullName")
       .populate("attendanceId", "dateKey timeIn timeOut status")
       .sort({ createdAt: -1 });
 
@@ -63,7 +63,7 @@ export const createAdminReport = async (req, res) => {
     });
 
     const populatedReport = await AdminReport.findById(report._id)
-      .populate("createdBy", "name role position")
+      .populate("createdBy", "name role position photo firstName lastName fullName")
       .populate("attendanceId", "dateKey timeIn timeOut status");
 
     res.status(201).json(populatedReport);
@@ -84,7 +84,7 @@ export const getStaffReportsByUserId = async (req, res) => {
     const [staff, reports] = await Promise.all([
       User.findById(id).select("-password").lean(),
       AdminReport.find({ createdBy: id })
-        .populate("createdBy", "name role position")
+        .populate("createdBy", "name role position photo firstName lastName fullName")
         .populate("attendanceId", "dateKey timeIn timeOut status")
         .sort({ createdAt: -1 })
         .lean(),

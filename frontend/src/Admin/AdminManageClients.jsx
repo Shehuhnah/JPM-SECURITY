@@ -97,89 +97,141 @@ const ClientModal = ({ isOpen, onClose, onSave, client }) => {
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-[#1e293b] p-8 text-left align-middle shadow-xl border border-gray-700 transition-all">
-                <div className="flex justify-between items-center mb-6">
-                    <Dialog.Title as="h3" className="text-2xl font-bold text-white flex items-center gap-3">
-                    <Building className="text-blue-500 w-8 h-8" />
-                    <div>
-                        <p>{client ? "Edit Client" : "Add New Client"}</p>
-                        <p className="font-normal text-sm text-gray-400 mt-1">
-                        {client ? "Update existing client details" : "Register a new client establishment"}
-                        </p>
-                    </div>
-                    </Dialog.Title>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={24}/></button>
+              <Dialog.Panel className="w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-3xl border border-blue-500/20 bg-[#0f172a] text-left align-middle shadow-2xl shadow-black/50">
+                <div className="sticky top-0 z-10 border-b border-blue-500/10 bg-[linear-gradient(135deg,rgba(37,99,235,0.18),rgba(15,23,42,0.98))] px-6 py-5 flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">{client ? "Edit Client" : "New Client"}</div>
+                    <h3 className="mt-1 text-xl font-semibold text-white">{client ? "Update Client Profile" : "Add New Client"}</h3>
+                    <p className="mt-1 text-sm text-slate-400">
+                      {client ? "Update the establishment details and contact information." : "Register a new establishment and keep the directory ready for deployment."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:text-white"
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Client Name <span className="text-red-400">*</span></label>
-                      <input
-                        name="clientName"
-                        value={formData.clientName}
-                        onChange={handleChange}
-                        placeholder="e.g. ABC Corporation"
-                        className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Contact Person <span className="text-red-400">*</span></label>
-                      <input
-                        name="clientContactPerson"
-                        value={formData.clientContactPerson}
-                        onChange={handleChange}
-                        placeholder="e.g. John Doe"
-                        className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                        required
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Address <span className="text-red-400">*</span></label>
-                      <input
-                        name="clientAddress"
-                        value={formData.clientAddress}
-                        onChange={handleChange}
-                        placeholder="Full Establishment Address"
-                        className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Contact Number <span className="text-red-400">*</span></label>
-                      <div className="flex items-center overflow-hidden rounded-xl border border-gray-600 bg-[#0f172a] focus-within:ring-2 focus-within:ring-blue-500">
-                        <span className="px-4 py-2.5 text-white bg-white/5 border-r border-gray-600">+63</span>
-                        <input
-                          name="clientContact"
-                          value={formData.clientContact.replace(/^\+63/, "")}
-                          onChange={handleChange}
-                          placeholder="9123456789"
-                          className="w-full bg-transparent px-4 py-2.5 text-white outline-none"
-                          required
-                        />
+                <form onSubmit={handleSubmit} className="p-6">
+                  <div className="grid gap-6 xl:grid-cols-[340px_1fr]">
+                    <div className="space-y-4">
+                      <div className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Client Overview</div>
+                        <div className="mt-3 space-y-3 text-sm">
+                          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3">
+                            <span className="text-slate-500">Name</span>
+                            <span className="truncate text-right text-white font-medium">{formData.clientName || "Required"}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3">
+                            <span className="text-slate-500">Type</span>
+                            <span className="truncate text-right text-slate-300">{formData.clientTypeOfEstablishment || "Required"}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3">
+                            <span className="text-slate-500">Contact</span>
+                            <span className="truncate text-right text-slate-300">{formData.clientContact ? `+63${formData.clientContact.replace(/^\+63/, "")}` : "Required"}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-blue-500/15 bg-blue-500/5 p-4">
+                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-300">Helper Notes</div>
+                        <p className="mt-2 text-sm leading-6 text-slate-400">
+                          All fields are required. Use a valid Philippine mobile number so follow-up coordination remains reliable.
+                        </p>
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Establishment Type <span className="text-red-400">*</span></label>
-                      <input
-                        name="clientTypeOfEstablishment"
-                        value={formData.clientTypeOfEstablishment}
-                        onChange={handleChange}
-                        placeholder="e.g. Mall, Bank, Residential"
-                        className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                        required
-                      />
-                    </div>
-                  </div>
 
-                  <div className="flex justify-end gap-3 pt-6 border-t border-gray-700">
-                    <button type="button" onClick={onClose} className="px-6 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl text-white font-medium transition">
-                      Cancel
-                    </button>
-                    <button type="submit" className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-white font-medium shadow-lg shadow-blue-900/20 transition">
-                      {client ? "Update Client" : "Save Client"}
-                    </button>
+                    <div className="space-y-5">
+                      <div className="grid gap-5 md:grid-cols-2">
+                        <div>
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Client Name <span className="text-red-400">*</span></label>
+                          <input
+                            name="clientName"
+                            value={formData.clientName}
+                            onChange={handleChange}
+                            placeholder="e.g. ABC Corporation"
+                            className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Contact Person <span className="text-red-400">*</span></label>
+                          <input
+                            name="clientContactPerson"
+                            value={formData.clientContactPerson}
+                            onChange={handleChange}
+                            placeholder="e.g. John Doe"
+                            className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60"
+                            required
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Address <span className="text-red-400">*</span></label>
+                          <input
+                            name="clientAddress"
+                            value={formData.clientAddress}
+                            onChange={handleChange}
+                            placeholder="Full Establishment Address"
+                            className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Contact Number <span className="text-red-400">*</span></label>
+                          <div className="flex items-center overflow-hidden rounded-xl border border-gray-700 bg-[#1e293b] focus-within:ring-2 focus-within:ring-blue-500/60">
+                            <span className="border-r border-gray-700 bg-white/5 px-4 py-3 text-sm font-semibold text-white">+63</span>
+                            <input
+                              name="clientContact"
+                              value={formData.clientContact.replace(/^\+63/, "")}
+                              onChange={handleChange}
+                              placeholder="9123456789"
+                              className="w-full bg-transparent px-4 py-3 text-sm text-white outline-none"
+                              required
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Establishment Type <span className="text-red-400">*</span></label>
+                          <input
+                            name="clientTypeOfEstablishment"
+                            value={formData.clientTypeOfEstablishment}
+                            onChange={handleChange}
+                            placeholder="e.g. Mall, Bank, Residential"
+                            className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-gray-700 bg-[#1e293b] p-4">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                          <Building className="text-blue-400" size={16} />
+                          Client Record
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-slate-400">
+                          This client will appear in the deployment directory and can be updated later if details change.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                        <button
+                          type="button"
+                          onClick={onClose}
+                          className="rounded-lg border border-gray-700 px-5 py-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-500"
+                        >
+                          {client ? "Update Client" : "Save Client"}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </form>
               </Dialog.Panel>

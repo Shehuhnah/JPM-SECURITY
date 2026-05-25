@@ -1,16 +1,41 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Shield, UserX, AlertTriangle, Hash, Users } from "lucide-react";
+import { Search, Shield, UserX, AlertTriangle, Users } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { getPersonName } from "../utils/name";
 
 const api = import.meta.env.VITE_API_URL;
+
+const CardAvatar = ({ imageSrc, name }) => {
+  const [imageFailed, setImageFailed] = useState(false);
+  const shouldShowImage = Boolean(imageSrc) && !imageFailed;
+
+  return (
+    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 border-2 border-slate-600 group-hover:border-blue-500 overflow-hidden shadow-lg transition-colors">
+      {shouldShowImage ? (
+        <img
+          src={imageSrc}
+          alt={name}
+          className="h-full w-full object-cover"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-white">
+          {name.charAt(0).toUpperCase()}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default function AdminGuardUpdates() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
 
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [guards, setGuards] = useState([]);
   const [staff, setStaff] = useState([]);
   const [viewType, setViewType] = useState("guard");
@@ -33,21 +58,23 @@ export default function AdminGuardUpdates() {
     try {
       setError("");
 
-      const [guardsResponse, staffResponse, logbookResponse] = await Promise.all([
+      const [guardsResponse, staffResponse, logbookResponse, staffReportsResponse] = await Promise.all([
         fetch(`${api}/api/guards`, { credentials: "include" }),
         fetch(`${api}/api/auth/users`, { credentials: "include" }),
         fetch(`${api}/api/logbook`, { credentials: "include" }),
+        fetch(`${api}/api/admin-reports`, { credentials: "include" }),
       ]);
 
-      if (!guardsResponse.ok || !staffResponse.ok || !logbookResponse.ok) {
+      if (!guardsResponse.ok || !staffResponse.ok || !logbookResponse.ok || !staffReportsResponse.ok) {
         setError("Failed to load updates data.");
         return;
       }
 
-      const [guardsData, staffData, logbookData] = await Promise.all([
+      const [guardsData, staffData, logbookData, staffReportsData] = await Promise.all([
         guardsResponse.json(),
         staffResponse.json(),
         logbookResponse.json(),
+        staffReportsResponse.json(),
       ]);
 
       const latestLogByGuard = new Map();
@@ -78,8 +105,66 @@ export default function AdminGuardUpdates() {
           return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
         });
 
+      const reports = Array.isArray(staffReportsData) ? staffReportsData : [];
+      const staffActivityMap = new Map();
+
+      reports.forEach((report) => {
+        const createdBy = report?.createdBy;
+        const staffId =
+          createdBy?._id ||
+          createdBy?.id ||
+          createdBy ||
+          "";
+
+        if (!staffId) return;
+
+        const reportCreatedAt = new Date(report?.reportDate || report?.createdAt || 0).getTime();
+        if (!Number.isFinite(reportCreatedAt)) return;
+
+        const key = String(staffId);
+        const current = staffActivityMap.get(key) || {
+          _id: key,
+          reportCount: 0,
+          latestLogAt: 0,
+          reports: [],
+        };
+
+        current.reportCount += 1;
+        current.latestLogAt = Math.max(current.latestLogAt, reportCreatedAt);
+        current.reports.push(report);
+        const source = createdBy || {};
+
+        current.firstName = source.firstName || current.firstName || "";
+        current.lastName = source.lastName || current.lastName || "";
+        current.name = source.name || current.name || "";
+        current.fullName = source.fullName || current.fullName || "";
+        current.email = source.email || current.email || "";
+        current.position = source.position || current.position || "";
+        current.role = source.role || current.role || "Staff";
+        current.photo = source.photo || source.profilePhoto || source.avatar || current.photo || "";
+        current.createdAt = source.createdAt || current.createdAt || report.createdAt;
+
+        staffActivityMap.set(key, current);
+      });
+
+      const enrichedStaff = Array.from(staffActivityMap.values())
+        .map((member) => {
+          const displayName = getPersonName(member, member.name || "Unknown Staff");
+          return {
+            ...member,
+            displayName,
+            position: member.position || member.role || "Staff",
+          };
+        })
+        .sort((a, b) => {
+          if (b.latestLogAt !== a.latestLogAt) {
+            return b.latestLogAt - a.latestLogAt;
+          }
+          return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        });
+
       setGuards(sortedGuards);
-      setStaff(Array.isArray(staffData) ? staffData : []);
+      setStaff(enrichedStaff);
     } catch (fetchError) {
       console.error("Error fetching updates data:", fetchError);
       setError("Network error. Please try again.");
@@ -89,6 +174,25 @@ export default function AdminGuardUpdates() {
   };
 
   const query = search.toLowerCase();
+  const normalizeDate = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    date.setHours(0, 0, 0, 0);
+    return date;
+  };
+
+  const toRecordDate = (record) => {
+    const rawDate = showingGuards
+      ? (record.latestLogAt ? new Date(record.latestLogAt) : new Date(record.createdAt || 0))
+      : (record.latestLogAt ? new Date(record.latestLogAt) : new Date(record.createdAt || 0));
+    if (Number.isNaN(rawDate.getTime())) return null;
+    rawDate.setHours(0, 0, 0, 0);
+    return rawDate;
+  };
+
+  const dateFromObj = normalizeDate(dateFrom);
+  const dateToObj = normalizeDate(dateTo);
 
   const filteredGuards = guards.filter((guard) =>
     getPersonName(guard, "").toLowerCase().includes(query) ||
@@ -98,6 +202,8 @@ export default function AdminGuardUpdates() {
   );
 
   const filteredStaff = staff.filter((member) =>
+    getPersonName(member, member.displayName || "").toLowerCase().includes(query) ||
+    (member.displayName || "").toLowerCase().includes(query) ||
     (member.name || "").toLowerCase().includes(query) ||
     (member.email || "").toLowerCase().includes(query) ||
     (member.position || "").toLowerCase().includes(query) ||
@@ -105,7 +211,40 @@ export default function AdminGuardUpdates() {
   );
 
   const showingGuards = viewType === "guard";
-  const filteredRecords = showingGuards ? filteredGuards : filteredStaff;
+  const baseRecords = showingGuards ? filteredGuards : filteredStaff;
+
+  const categoryOptions = React.useMemo(() => {
+    const values = showingGuards
+      ? guards.map((guard) => guard.position).filter(Boolean)
+      : staff.map((member) => member.role).filter(Boolean);
+    return ["All", ...Array.from(new Set(values))];
+  }, [guards, showingGuards, staff]);
+
+  const filteredRecords = baseRecords.filter((record) => {
+    const categoryValue = showingGuards ? (record.position || "") : (record.role || "");
+    if (categoryFilter !== "All" && categoryValue !== categoryFilter) {
+      return false;
+    }
+
+    if (dateFromObj || dateToObj) {
+      const recordDate = toRecordDate(record);
+      if (!recordDate) return false;
+      if (dateFromObj && recordDate < dateFromObj) return false;
+      if (dateToObj && recordDate > dateToObj) return false;
+    }
+
+    return true;
+  });
+
+  const getCardImageSrc = (record) =>
+    record?.photo ||
+    record?.photoUrl ||
+    record?.avatar ||
+    record?.imageUrl ||
+    record?.createdBy?.photo ||
+    record?.createdBy?.photoUrl ||
+    record?.createdBy?.avatar ||
+    "";
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-gray-100 p-4 md:p-8 font-sans">
@@ -131,12 +270,46 @@ export default function AdminGuardUpdates() {
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
           <select
             value={viewType}
-            onChange={(e) => setViewType(e.target.value)}
+            onChange={(e) => {
+              setViewType(e.target.value);
+              setCategoryFilter("All");
+            }}
             className="bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"
           >
             <option value="guard">Guards</option>
             <option value="staff">Staff</option>
           </select>
+
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"
+          >
+            <option value="All">All Categories</option>
+            {categoryOptions
+              .filter((option) => option !== "All")
+              .map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+          </select>
+
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm [color-scheme:dark]"
+            title="From date"
+          />
+
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm [color-scheme:dark]"
+            title="To date"
+          />
 
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
@@ -184,7 +357,7 @@ export default function AdminGuardUpdates() {
           {filteredRecords.map((record) => {
             const name = getPersonName(record);
             const isActive = showingGuards ? record.status === "Active" : record.status === "active";
-
+            const imageSrc = getCardImageSrc(record);
             return (
               <div
                 key={record._id}
@@ -194,40 +367,35 @@ export default function AdminGuardUpdates() {
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
                 <div className="relative mb-4">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 border-2 border-slate-600 group-hover:border-blue-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg transition-colors">
-                    {name.charAt(0).toUpperCase()}
-                  </div>
-                  <span
-                    className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-[#1e293b] ${
-                      isActive ? "bg-emerald-500" : "bg-slate-500"
-                    }`}
-                    title={record.status}
-                  ></span>
+                  <CardAvatar imageSrc={imageSrc} name={name} />
                 </div>
 
                 <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition truncate w-full mb-1">
-                  {name}
+                  {showingGuards ? name : record.displayName || name}
                 </h3>
-
-                <div className="flex items-center gap-1 text-xs text-white mb-1 bg-slate-900/50 px-2 py-1 rounded border border-slate-800">
-                  <Hash size={10} /> {showingGuards ? record.guardId || "N/A" : record.role || "Staff"}
-                </div>
 
                 <div className="mt-3 w-full space-y-2">
                   <div className="text-xs text-white truncate">
-                    {record.position || (showingGuards ? "Security Guard" : "Staff")}
+                    {record.position || (showingGuards ? "Security Guard" : record.role || "Staff")}
                   </div>
+                  {!showingGuards && (
+                    <div className="text-[11px] text-slate-300">
+                      Reports: <span className="font-semibold text-white">{record.reportCount || 0}</span>
+                    </div>
+                  )}
                 </div>
 
-                <div
-                  className={`mt-4 px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-wide border ${
-                    isActive
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                      : "bg-slate-500/10 text-slate-400 border-slate-500/20"
-                  }`}
-                >
-                  {record.status || "Unknown"}
-                </div>
+                {showingGuards && (
+                  <div
+                    className={`mt-4 px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-wide border ${
+                      isActive
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        : "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                    }`}
+                  >
+                    {record.status || "Unknown"}
+                  </div>
+                )}
               </div>
             );
           })}

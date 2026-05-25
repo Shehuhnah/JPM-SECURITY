@@ -124,6 +124,8 @@ export default function ApplicantsMessages() {
   const [processedByStaff, setProcessedByStaff] = useState(Boolean(session?.processedBy));
 
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const shouldAutoScrollRef = useRef(true);
   const bootstrappedRef = useRef(false);
   const subjectSentRef = useRef(false); // legacy, no longer auto-sending
   const [hiringContext, setHiringContext] = useState(null);
@@ -152,8 +154,17 @@ export default function ApplicantsMessages() {
   }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (shouldAutoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, session?.conversationId]);
+
+  const handleMessagesScroll = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom < 120;
+  };
 
   const persistSession = (data) => {
     setSession(data);
@@ -188,6 +199,10 @@ export default function ApplicantsMessages() {
       setIsPromptOpen(true);
     }
   }, [hasCompleteIdentity]);
+
+  useEffect(() => {
+    shouldAutoScrollRef.current = true;
+  }, [session?.conversationId]);
 
   useEffect(() => {
     if (!session || bootstrappedRef.current) return;
@@ -237,6 +252,7 @@ export default function ApplicantsMessages() {
         setPhoneInput(data.applicant.phone ?? phoneInput ?? "");
         setEmailInput(data.applicant.email ?? session.email ?? "");
         setConversation(data.conversation);
+        shouldAutoScrollRef.current = true;
 
         socket.emit("userOnline", data.applicant._id);
         socket.emit("joinConversation", data.conversation._id);
@@ -515,6 +531,7 @@ export default function ApplicantsMessages() {
             };
             persistSession(updatedSession);
             setConversation(reinitData.conversation);
+            shouldAutoScrollRef.current = true;
             
             // Retry sending the message with the new conversationId
             const retryFormData = new FormData();
@@ -661,7 +678,11 @@ export default function ApplicantsMessages() {
             </div>
   
             {/* Messages area (scrollable) */}
-            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-4 scrollbar-thin scrollbar-thumb-blue-600/60 scrollbar-track-transparent">
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleMessagesScroll}
+              className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-4 scrollbar-thin scrollbar-thumb-blue-600/60 scrollbar-track-transparent"
+            >
               {shouldShowEmailNotice && (
                 <div className="flex justify-center">
                   <div className="max-w-2xl rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50 shadow-lg ring-1 ring-white/5">

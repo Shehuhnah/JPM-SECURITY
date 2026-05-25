@@ -56,6 +56,8 @@ export default function GuardMessage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const shouldAutoScrollRef = useRef(true);
   const fileInputRef = useRef();
   const hasNotifiedOnline = useRef(false);
 
@@ -63,8 +65,17 @@ export default function GuardMessage() {
 
   // Scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (shouldAutoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, selectedConversation?._id]);
+
+  const handleMessagesScroll = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom < 120;
+  };
 
   // Auth Check
   useEffect(() => {
@@ -133,10 +144,12 @@ export default function GuardMessage() {
   // Active Chat Logic
   useEffect(() => {
     if (!selectedConversation || selectedConversation.isTemp || !user) {
+      shouldAutoScrollRef.current = true;
       if (!selectedConversation?.isTemp) setMessages([]);
       return;
     }
 
+    shouldAutoScrollRef.current = true;
     setMessages((prev) =>
       prev.length > 0 &&
       normalizeId(prev[0]?.conversationId) !== normalizeId(selectedConversation._id)
@@ -351,6 +364,7 @@ export default function GuardMessage() {
 
       setSelectedConversation(conversation);
       if (sentMessage) {
+        shouldAutoScrollRef.current = true;
         setMessages((prev) =>
           prev.some((msg) => normalizeId(msg._id || msg._tempId) === normalizeId(sentMessage._id || sentMessage._tempId))
             ? prev
@@ -359,6 +373,7 @@ export default function GuardMessage() {
       }
       setNewMessage("");
       setFile(null);
+      shouldAutoScrollRef.current = true;
     } catch (err) {
       console.error("Error sending message:", err);
     } finally {
@@ -406,7 +421,11 @@ export default function GuardMessage() {
       </header>
 
       {/* Messages Area - Flexible Height */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#1e293b] scroll-smooth">
+      <div
+        ref={messagesContainerRef}
+        onScroll={handleMessagesScroll}
+        className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#1e293b] scroll-smooth"
+      >
         {messages.length === 0 && (
              <div className="h-full flex flex-col items-center justify-center text-gray-500 opacity-60">
                 <MessageSquare size={48} className="mb-2"/>

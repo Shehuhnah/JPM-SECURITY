@@ -11,6 +11,8 @@ export default function MessagesPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const shouldAutoScrollRef = useRef(true);
   const hasNotifiedOnline = useRef(false);
   const fileInputRef = useRef();
   // Ref keeps selected conversation ID current inside all socket closures.
@@ -33,6 +35,7 @@ export default function MessagesPage() {
   // Keep ref in sync so socket handlers always see the latest conversation ID.
   useEffect(() => {
     selectedConversationIdRef.current = selectedConversation?._id ?? null;
+    shouldAutoScrollRef.current = true;
   }, [selectedConversation?._id]);
 
   const fetchConversationMessages = async (conversationId, hardReset = false) => {
@@ -61,8 +64,17 @@ export default function MessagesPage() {
 
   // --- Scroll to Bottom ---
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (shouldAutoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, selectedConversation?._id]);
+
+  const handleMessagesScroll = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom < 120;
+  };
 
   useEffect(() => {
     document.title = "Messages | JPM Security Agency";
@@ -205,11 +217,13 @@ export default function MessagesPage() {
   // --- Active Conversation Logic ---
   useEffect(() => {
     if (!selectedConversation || selectedConversation.isTemp || !isStaffConversation(selectedConversation)) {
+      shouldAutoScrollRef.current = true;
       setMessages([]);
       return;
     }
 
     // Hard-reset messages immediately so old conversation's messages never bleed through.
+    shouldAutoScrollRef.current = true;
     setMessages([]);
 
     const joinActiveConversation = () => {
@@ -369,6 +383,7 @@ export default function MessagesPage() {
 
       setSelectedConversation(realConversation);
       if (sentMessage) {
+        shouldAutoScrollRef.current = true;
         setMessages(prev =>
           prev.some(msg => normalizeId(msg._id || msg._tempId) === normalizeId(sentMessage._id || sentMessage._tempId))
             ? prev
@@ -439,6 +454,7 @@ export default function MessagesPage() {
       isTemp: true,
     };
     setSelectedConversation(tempConversation);
+    shouldAutoScrollRef.current = true;
     setMessages([]); // Clear messages for new chat
   };
 
@@ -637,7 +653,11 @@ export default function MessagesPage() {
             </div>
 
             {/* --- 2. MESSAGES LIST (SCROLLABLE MIDDLE) --- */}
-            <div className="flex-1 w-full overflow-y-auto overscroll-contain p-4 md:p-6 space-y-4 bg-slate-900/50 scroll-smooth">
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleMessagesScroll}
+              className="flex-1 w-full overflow-y-auto overscroll-contain p-4 md:p-6 space-y-4 bg-slate-900/50 scroll-smooth"
+            >
               {messages.map((msg) => {
                 const isMe = normalizeId(msg.senderId || msg.sender?.userId) === normalizeId(user._id);
                 return (

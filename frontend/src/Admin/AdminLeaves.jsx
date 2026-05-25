@@ -127,6 +127,12 @@ const buildRangeDates = (range) => {
 
 const toDateOnly = (value) => (typeof value === "string" ? value.slice(0, 10) : format(value, "yyyy-MM-dd"));
 const toLocalDate = (value) => new Date(`${value}T00:00:00`);
+const toManilaDateKey = (value) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+};
 const getEmployeeLabel = (person, fallbackRole = "") => {
   if (!person) return fallbackRole || "Unknown";
   const firstName = person.firstName?.trim() || "";
@@ -145,6 +151,7 @@ export default function AdminLeaves() {
   const [assigneeQuery, setAssigneeQuery] = useState("");
   const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
   const [existingLeaveDates, setExistingLeaveDates] = useState([]);
+  const [attendanceBlockedDates, setAttendanceBlockedDates] = useState([]);
   const [leaveRange, setLeaveRange] = useState();
   const [excludedDates, setExcludedDates] = useState([]);
   const [leaveType, setLeaveType] = useState("");
@@ -169,6 +176,11 @@ export default function AdminLeaves() {
   const [editRange, setEditRange] = useState();
   const [editExcluded, setEditExcluded] = useState([]);
   const [editingId, setEditingId] = useState("");
+  const [pendingLeaveConflictModal, setPendingLeaveConflictModal] = useState({
+    open: false,
+    dates: [],
+    name: "",
+  });
 
   const isAdmin = user?.role === "Admin";
   const canRequestLeave = user?.role === "Admin" || user?.role === "Subadmin";
@@ -205,6 +217,16 @@ export default function AdminLeaves() {
   const includedDates = useMemo(
     () => rangeDates.filter((date) => !excludedDates.includes(date)),
     [excludedDates, rangeDates]
+  );
+
+  const disabledCalendarDates = useMemo(
+    () => [...new Set([...existingLeaveDates, ...attendanceBlockedDates])].map(toLocalDate),
+    [attendanceBlockedDates, existingLeaveDates]
+  );
+
+  const attendanceBlockedDateSet = useMemo(
+    () => new Set(attendanceBlockedDates),
+    [attendanceBlockedDates]
   );
 
   const fetchRequests = useCallback(async () => {
@@ -309,6 +331,7 @@ export default function AdminLeaves() {
   useEffect(() => {
     if (!selectedAssigneeOption) {
       setExistingLeaveDates([]);
+      setAttendanceBlockedDates([]);
       return;
     }
 
@@ -322,6 +345,45 @@ export default function AdminLeaves() {
 
     setExistingLeaveDates([...new Set(dates)].sort());
   }, [requests, selectedAssigneeOption]);
+
+  useEffect(() => {
+    const loadAttendanceDates = async () => {
+      if (!selectedAssigneeOption?.id || !selectedAssigneeOption?.role) {
+        setAttendanceBlockedDates([]);
+        return;
+      }
+
+      try {
+        const endpoint =
+          selectedAssigneeOption.role === "Guard"
+            ? `${api}/api/attendance/${selectedAssigneeOption.id}`
+            : `${api}/api/admin-attendance/user/${selectedAssigneeOption.id}`;
+
+        const response = await fetch(endpoint, { credentials: "include" });
+        if (!response.ok) {
+          setAttendanceBlockedDates([]);
+          return;
+        }
+
+        const data = await response.json();
+        const records = Array.isArray(data) ? data : data?.items || [];
+        const blockedDates = records
+          .map((record) =>
+            selectedAssigneeOption.role === "Guard"
+              ? toManilaDateKey(record.timeIn || record.createdAt)
+              : record.dateKey || toManilaDateKey(record.timeIn || record.createdAt)
+          )
+          .filter(Boolean);
+
+        setAttendanceBlockedDates([...new Set(blockedDates)].sort());
+      } catch (error) {
+        console.error("Failed to load attendance dates:", error);
+        setAttendanceBlockedDates([]);
+      }
+    };
+
+    loadAttendanceDates();
+  }, [selectedAssigneeOption?.id, selectedAssigneeOption?.role]);
 
   const toggleExcludedDate = (date) => {
     if (!rangeDates.includes(date)) return;
@@ -357,8 +419,36 @@ export default function AdminLeaves() {
       return;
     }
 
+    const attendanceConflictDates = includedDates.filter((date) => attendanceBlockedDateSet.has(date));
+    if (attendanceConflictDates.length > 0) {
+      toast.error(
+        `Leave dates already have attendance records: ${attendanceConflictDates.join(", ")}.`
+      );
+      return;
+    }
+
     if (!selectedAssigneeOption) {
       toast.error("Select the personnel for this leave request.");
+      return;
+    }
+
+    const pendingLeaveConflictDates = requests
+      .filter((request) => {
+        if (request.status !== "Pending") return false;
+        const matchesRole = request.requesterRole === selectedAssigneeOption.role;
+        const targetId = selectedAssigneeOption.role === "Guard" ? request.guard?._id : request.staff?._id;
+        return matchesRole && targetId === selectedAssigneeOption.id;
+      })
+      .flatMap((request) => request.dates || [])
+      .filter((date) => includedDates.includes(date));
+
+    const uniquePendingLeaveConflictDates = [...new Set(pendingLeaveConflictDates)].sort();
+    if (uniquePendingLeaveConflictDates.length > 0) {
+      setPendingLeaveConflictModal({
+        open: true,
+        dates: uniquePendingLeaveConflictDates,
+        name: getEmployeeLabel(selectedAssigneeOption, selectedAssigneeOption.role),
+      });
       return;
     }
 
@@ -800,6 +890,60 @@ export default function AdminLeaves() {
           <SummaryCard label="Declined" value={summary.declined} icon={<XCircle size={18} />} color="blue" />
         </div>
 
+        {pendingLeaveConflictModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm">
+            <div className="w-full max-w-2xl overflow-hidden rounded-3xl border border-amber-500/20 bg-[#0f172a] shadow-2xl shadow-black/50">
+              <div className="flex items-start justify-between gap-4 border-b border-amber-500/10 bg-[linear-gradient(135deg,rgba(245,158,11,0.18),rgba(15,23,42,0.98))] px-6 py-5">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full border border-amber-500/20 bg-amber-500/10 text-amber-300">
+                    <AlertCircle size={24} />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Pending Leave Conflict</div>
+                    <h3 className="mt-1 text-xl font-semibold text-white">Selected dates already have a pending leave</h3>
+                    <p className="mt-1 text-sm text-slate-400">
+                      {pendingLeaveConflictModal.name} already has a pending leave request on the selected date(s).
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPendingLeaveConflictModal({ open: false, dates: [], name: "" })}
+                  className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:text-white"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <div className="rounded-2xl border border-amber-500/15 bg-amber-500/5 p-4">
+                  <div className="text-sm font-medium text-amber-200">Conflicting pending leave dates</div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {pendingLeaveConflictModal.dates.map((date) => (
+                      <span
+                        key={date}
+                        className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-sm text-amber-100"
+                      >
+                        {format(toLocalDate(date), "MMM dd, yyyy")}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setPendingLeaveConflictModal({ open: false, dates: [], name: "" })}
+                    className="inline-flex h-10 items-center justify-center rounded-lg bg-amber-600 px-4 text-sm font-semibold text-white transition hover:bg-amber-500"
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Leave Request Modal */}
         {showLeaveModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm">
@@ -864,7 +1008,10 @@ export default function AdminLeaves() {
                     </div>
 
                     <div className="rounded-xl border border-gray-700 bg-[#1e293b] p-3">
-                      <DayPicker mode="range" selected={leaveRange} onSelect={setLeaveRange} disabled={existingLeaveDates.map(toLocalDate)} />
+                      <DayPicker mode="range" selected={leaveRange} onSelect={setLeaveRange} disabled={disabledCalendarDates} />
+                      <p className="mt-3 text-xs text-slate-500">
+                        Dates with leave or attendance records are disabled for the selected personnel.
+                      </p>
                     </div>
                   </div>
 

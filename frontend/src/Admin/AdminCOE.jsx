@@ -13,6 +13,77 @@ import { getPersonName } from "../utils/name";
 const api = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
 
+function SearchableStaffSelect({
+  options,
+  value,
+  onChange,
+  placeholder = "Search employee...",
+  noResultsLabel = "No matching employee found.",
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const selectedOption = options.find((option) => option.value === value) || null;
+
+  useEffect(() => {
+    setQuery(selectedOption?.label || "");
+  }, [selectedOption?.label]);
+
+  const filteredOptions = options.filter((option) =>
+    option.label.toLowerCase().includes(query.toLowerCase())
+  );
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => {
+          const nextQuery = e.target.value;
+          setQuery(nextQuery);
+          setOpen(true);
+          if (!nextQuery.trim()) {
+            onChange("");
+          }
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => {
+          setTimeout(() => setOpen(false), 120);
+        }}
+        placeholder={placeholder}
+        className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+      />
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-2 z-[60] max-h-64 overflow-y-auto rounded-xl border border-gray-700 bg-[#0f172a] shadow-2xl shadow-black/50">
+          {filteredOptions.length > 0 ? (
+            filteredOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(option.value);
+                  setQuery(option.label);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition hover:bg-blue-500/10 ${
+                  option.value === value ? "bg-blue-500/10 text-white" : "text-gray-200"
+                }`}
+              >
+                <span className="min-w-0 truncate">{option.label}</span>
+                {option.value === value && <span className="text-xs font-semibold text-blue-400">Selected</span>}
+              </button>
+            ))
+          ) : (
+            <div className="px-4 py-3 text-sm text-gray-400">{noResultsLabel}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminCOE() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -749,43 +820,90 @@ export default function AdminCOE() {
           </div>
         )}
 
-        {showCreateModal && canManage && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50">
-            <div className="bg-[#1e293b] text-white rounded-2xl border border-gray-700 w-full max-w-xl mx-4 shadow-2xl">
-              <div className="p-6 border-b border-gray-700 flex justify-between items-center">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <FileText className="text-blue-500" size={22} />
-                  Create COE Request
-                </h2>
-                <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-white"><X size={20} /></button>
-              </div>
-              <div className="p-6 space-y-5">
+         {showCreateModal && canManage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm">
+            <div className="w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-3xl border border-blue-500/20 bg-[#0f172a] shadow-2xl shadow-black/50">
+              <div className="sticky top-0 z-10 border-b border-blue-500/10 bg-[linear-gradient(135deg,rgba(37,99,235,0.18),rgba(15,23,42,0.98))] px-6 py-5 flex items-start justify-between gap-4">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Employee</label>
-                  <select
-                    value={createTarget}
-                    onChange={(e) => setCreateTarget(e.target.value)}
-                    className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    {staffOptions.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">New COE Request</div>
+                  <h3 className="mt-1 text-xl font-semibold text-white">Create Certificate Request</h3>
+                  <p className="mt-1 text-sm text-slate-400">Search the employee and provide the purpose clearly before submitting.</p>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Purpose</label>
-                  <textarea
-                    rows={4}
-                    value={createPurpose}
-                    onChange={(e) => setCreatePurpose(e.target.value)}
-                    placeholder="Reason for requesting this COE..."
-                    className="w-full bg-[#0f172a] border border-gray-600 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:text-white"
+                >
+                  <X size={18} />
+                </button>
               </div>
-              <div className="p-6 pt-0 flex justify-end gap-3">
-                <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-800 transition text-sm font-medium">Cancel</button>
-                <button onClick={handleCreateRequest} className="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded-lg text-white font-medium text-sm shadow-lg shadow-blue-500/20">Submit Request</button>
+
+              <div className="p-6">
+                <div className="grid gap-6 xl:grid-cols-[340px_1fr]">
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Employee</div>
+                      <SearchableStaffSelect
+                        options={staffOptions}
+                        value={createTarget}
+                        onChange={setCreateTarget}
+                        placeholder="Search employee..."
+                      />
+                    </div>
+
+                    <div className="rounded-2xl border border-blue-500/15 bg-blue-500/5 p-4">
+                      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-300">Request Preview</div>
+                      <div className="mt-3 space-y-3 text-sm">
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3">
+                          <span className="text-slate-500">Selected</span>
+                          <span className="truncate text-right text-white font-medium">{selectedCreateTarget?.label || "No employee selected"}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3">
+                          <span className="text-slate-500">Purpose</span>
+                          <span className="truncate text-right text-slate-300">{createPurpose.trim() ? "Ready" : "Required"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-5">
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Purpose</label>
+                      <textarea
+                        rows={8}
+                        value={createPurpose}
+                        onChange={(e) => setCreatePurpose(e.target.value)}
+                        placeholder="Reason for requesting this COE..."
+                        className="w-full resize-none rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60"
+                      />
+                    </div>
+
+                    <div className="rounded-xl border border-gray-700 bg-[#1e293b] p-4">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                        <FileText className="text-blue-400" size={16} />
+                        Submission Notes
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-slate-400">
+                        The request will be saved immediately after submission and the selected employee will be used for the generated COE.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                      <button
+                        onClick={() => setShowCreateModal(false)}
+                        className="rounded-lg border border-gray-700 px-5 py-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleCreateRequest}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-500"
+                      >
+                        Submit Request
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

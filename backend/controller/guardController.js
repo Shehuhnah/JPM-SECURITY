@@ -38,13 +38,42 @@ export const getAllGuards = async (req, res) => {
     }
 
     if (q) {
-      filter.$or = [
-        { fullName: { $regex: q, $options: "i" } },
-        { email: { $regex: q, $options: "i" } },
-        { guardId: { $regex: q, $options: "i" } },
-        { SSSID: { $regex: q, $options: "i" } },
-        { PhilHealthID: { $regex: q, $options: "i" } },
-        { PagibigID: { $regex: q, $options: "i" } },
+      const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const tokens = q
+        .split(/\s+/)
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+
+      const baseSearchOr = [
+        { firstName: { $regex: escaped, $options: "i" } },
+        { lastName: { $regex: escaped, $options: "i" } },
+        { email: { $regex: escaped, $options: "i" } },
+        { guardId: { $regex: escaped, $options: "i" } },
+        { position: { $regex: escaped, $options: "i" } },
+        { SSSID: { $regex: escaped, $options: "i" } },
+        { PhilHealthID: { $regex: escaped, $options: "i" } },
+        { PagibigID: { $regex: escaped, $options: "i" } },
+      ];
+
+      const tokenizedNameAnd =
+        tokens.length > 1
+          ? tokens.map((token) => ({
+              $or: [
+                { firstName: { $regex: token, $options: "i" } },
+                { lastName: { $regex: token, $options: "i" } },
+              ],
+            }))
+          : [];
+
+      filter.$and = [
+        ...(filter.$and || []),
+        {
+          $or: [
+            ...baseSearchOr,
+            ...(tokenizedNameAnd.length > 0 ? [{ $and: tokenizedNameAnd }] : []),
+          ],
+        },
       ];
     }
 

@@ -1,6 +1,8 @@
 import LeaveRequest from "../models/leaveRequest.model.js";
 import Guard from "../models/guard.model.js";
 import User from "../models/User.model.js";
+import Attendance from "../models/Attendance.model.js";
+import AdminAttendance from "../models/AdminAttendance.model.js";
 
 const LEAVE_TYPES = ["Sick Leave", "Vacation Leave", "Paternity Leave", "Maternity Leave"];
 
@@ -91,6 +93,45 @@ const getAllowedLeaveTypes = (sex) => {
   return ["Sick Leave", "Vacation Leave"];
 };
 
+const toManilaDateKey = (value) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+};
+
+const getAttendanceOverlapDates = async ({ requesterRole, guardId = null, staffId = null }, dates) => {
+  if (!Array.isArray(dates) || dates.length === 0) return [];
+
+  if (requesterRole === "Guard" && guardId) {
+    const records = await Attendance.find({ guard: guardId }).select("timeIn createdAt");
+    const attendanceDates = new Set(
+      records
+        .map((record) => toManilaDateKey(record.timeIn || record.createdAt))
+        .filter(Boolean)
+    );
+    return dates.filter((date) => attendanceDates.has(date));
+  }
+
+  if (["Admin", "Subadmin"].includes(requesterRole) && staffId) {
+    const records = await AdminAttendance.find({ user: staffId }).select("dateKey timeIn createdAt");
+    const attendanceDates = new Set(
+      records
+        .map((record) => record.dateKey || toManilaDateKey(record.timeIn || record.createdAt))
+        .filter(Boolean)
+    );
+    return dates.filter((date) => attendanceDates.has(date));
+  }
+
+  return [];
+};
+
+const resolveRequestTargets = (request) => ({
+  requesterRole: request.requesterRole,
+  guardId: request.guard?._id || request.guard || null,
+  staffId: request.staff?._id || request.staff || null,
+});
+
 export const createLeaveRequest = async (req, res) => {
   try {
     if (!["Guard", "Subadmin", "Admin"].includes(req.user?.role)) {
@@ -179,6 +220,16 @@ export const createLeaveRequest = async (req, res) => {
       guardId: targetGuardId,
       staffId: targetStaffId,
     });
+
+    const attendanceConflicts = await getAttendanceOverlapDates(
+      { requesterRole: targetRole, guardId: targetGuardId, staffId: targetStaffId },
+      dates
+    );
+    if (attendanceConflicts.length > 0) {
+      return res.status(400).json({
+        message: `Selected date${attendanceConflicts.length > 1 ? "s already have attendance records" : " already has an attendance record"} for this person: ${attendanceConflicts.join(", ")}.`,
+      });
+    }
 
     const overlappingLeave = await getExistingLeaveOverlap(targetFilter, dates);
     if (overlappingLeave) {
@@ -400,6 +451,16 @@ export const editLeaveRequest = async (req, res) => {
 
     if (newDates.length === 0) {
       return res.status(400).json({ message: "At least one leave date is required." });
+    }
+
+    const attendanceConflicts = await getAttendanceOverlapDates(
+      resolveRequestTargets(request),
+      newDates
+    );
+    if (attendanceConflicts.length > 0) {
+      return res.status(400).json({
+        message: `Selected date${attendanceConflicts.length > 1 ? "s already have attendance records" : " already has an attendance record"} for this person: ${attendanceConflicts.join(", ")}.`,
+      });
     }
 
     request.startDate    = newStartDate;
