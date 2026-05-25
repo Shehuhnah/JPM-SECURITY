@@ -639,15 +639,15 @@ export default function ApplicantsMessages() {
     applicantStatus === "Interview" || applicantStatus === "Hired";
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#0b1220] via-[#102137] to-[#0b1220] text-gray-100">
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#0f172a]/80 backdrop-blur">
-        <div className="max-w-4xl mx-auto px-4 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-gradient-to-b from-[#0b1220] via-[#102137] to-[#0b1220] text-gray-100">
+      <header className="z-20 flex-shrink-0 border-b border-white/10 bg-[#0f172a]/80 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:py-5">
+          <div className="min-w-0">
             <h1 className="text-2xl font-semibold text-white">Talk with JPM Recruitment</h1>
             <p className="text-sm text-gray-400">{headerSubtitle}</p>
           </div>
           {session?.name && (
-            <div className="text-xs text-gray-400">
+            <div className="min-w-0 text-xs text-gray-400">
               Chatting as{" "}
               <span className="text-blue-300 font-semibold">{session.name}</span>
             </div>
@@ -655,11 +655,11 @@ export default function ApplicantsMessages() {
         </div>
       </header>
   
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <div className="max-w-4xl mx-auto h-full flex flex-col px-4 py-6">
-          <div className="flex-1 flex flex-col rounded-3xl border border-white/10 bg-white/5 backdrop-blur overflow-hidden">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col px-3 py-3 sm:px-4 sm:py-6">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur">
             {/* Sub-header */}
-            <div className="px-6 py-5 border-b border-white/5 bg-white/5 flex-shrink-0">
+            <div className="flex-shrink-0 border-b border-white/5 bg-white/5 px-4 py-4 sm:px-6 sm:py-5">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="rounded-full bg-blue-500/20 text-blue-200 px-3 py-1 text-xs uppercase tracking-wide">
                   Applicant Support
@@ -689,7 +689,7 @@ export default function ApplicantsMessages() {
             <div
               ref={messagesContainerRef}
               onScroll={handleMessagesScroll}
-              className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-4 scrollbar-thin scrollbar-thumb-blue-600/60 scrollbar-track-transparent"
+              className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-3 py-4 sm:px-6 sm:py-6 scrollbar-thin scrollbar-thumb-blue-600/60 scrollbar-track-transparent"
             >
               {shouldShowEmailNotice && (
                 <div className="flex justify-center">
@@ -767,19 +767,19 @@ export default function ApplicantsMessages() {
                             <span className="text-[10px] uppercase tracking-wider text-gray-400">Your message</span>
                             <span className="flex-1 h-px bg-gray-600" />
                           </div>
-                          <div className="mt-2 whitespace-pre-wrap break-words text-gray-100">{remaining}</div>
+                          <div className="mt-2 whitespace-pre-wrap break-words text-gray-100 [overflow-wrap:anywhere]">{remaining}</div>
                         </div>
                       )}
                     </div>
                   );
                 };
 
-                const content = renderForwardedPost(msg.text) || (msg.text && <p className="whitespace-pre-wrap break-words">{msg.text}</p>);
+                const content = renderForwardedPost(msg.text) || (msg.text && <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.text}</p>);
 
                 return (
-                  <div key={msg._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                  <div key={msg._id} className={`flex min-w-0 ${mine ? "justify-end" : "justify-start"}`}>
                     <div
-                      className={`max-w-[85%] sm:max-w-md rounded-2xl px-4 py-3 shadow-lg ring-1 ring-white/5 ${
+                      className={`min-w-0 max-w-[85%] rounded-2xl px-4 py-3 shadow-lg ring-1 ring-white/5 sm:max-w-md ${
                         mine
                           ? "bg-gradient-to-br from-blue-600 to-blue-500 text-white"
                           : "bg-white/10 text-gray-100"
@@ -807,15 +807,15 @@ export default function ApplicantsMessages() {
             </div>
   
             {/* Composer */}
-            <div className="px-3 sm:px-6 py-4 sm:py-5 border-t border-white/10 bg-[#101d32]/70 flex-shrink-0 pb-[env(safe-area-inset-bottom)]">
+            <div className="flex-shrink-0 border-t border-white/10 bg-[#101d32]/70 px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-6 sm:py-5">
               {error && (
                 <div className="mb-3 text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
                   {error}
                 </div>
               )}
               {hiringContext && (
-                <div className="mb-3 flex items-start gap-3 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
-                  <div className="flex-1 text-sm text-gray-100">
+                <div className="mb-3 flex max-h-36 min-w-0 items-start gap-3 overflow-y-auto rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                  <div className="min-w-0 flex-1 text-sm text-gray-100">
                     <div className="text-blue-200 font-semibold mb-1">Forwarding Job Post</div>
                     <div className="text-gray-200">
                       {(hiringDetails?.title || hiringContext.title) && (
@@ -834,7 +834,7 @@ export default function ApplicantsMessages() {
                         <div><span className="text-blue-300">Posted:</span> {new Date(hiringDetails.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</div>
                       )}
                       {hiringDetails?.description && (
-                        <div className="mt-2 text-gray-300 whitespace-pre-line">
+                        <div className="mt-2 whitespace-pre-line break-words text-gray-300 [overflow-wrap:anywhere]">
                           {hiringDetails.description}
                         </div>
                       )}
@@ -851,7 +851,7 @@ export default function ApplicantsMessages() {
                 </div>
               )}
               {file && (
-                <div className="mb-3 flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-3 py-3">
+                <div className="mb-3 flex min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3">
                   {file.type?.startsWith("image/") ? (
                     <img
                       src={URL.createObjectURL(file)}
@@ -861,7 +861,7 @@ export default function ApplicantsMessages() {
                   ) : (
                     <FileText className="w-6 h-6 text-blue-200" />
                   )}
-                  <div className="flex-1">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm text-gray-200 truncate">{file.name}</p>
                     <p className="text-[11px] text-gray-400">
                       {(file.size / 1024 / 1024).toFixed(2)} MB
@@ -878,7 +878,7 @@ export default function ApplicantsMessages() {
                 </div>
               )}
   
-              <form onSubmit={handleSend} className="flex items-center gap-2 sm:gap-3 mb-2">
+              <form onSubmit={handleSend} className="mb-1 flex min-w-0 items-center gap-2 sm:gap-3">
                 <label className="flex-shrink-0">
                   <div className="rounded-full bg-white/5 border border-white/10 p-2.5 sm:p-3 hover:bg-white/10 transition cursor-pointer">
                     <Paperclip className="w-5 h-5 text-gray-300" />
@@ -890,7 +890,7 @@ export default function ApplicantsMessages() {
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder="Type your message..."
-                  className="flex-1 bg-white/5 border border-white/10 rounded-full px-4 sm:px-5 py-2.5 sm:py-3 text-sm text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/70"
+                  className="min-w-0 flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/70 sm:px-5 sm:py-3"
                 />
                 <button
                   type="submit"
@@ -905,7 +905,7 @@ export default function ApplicantsMessages() {
         </div>
       </main>
   
-      <footer className="border-t border-white/10 bg-[#0f172a]/80 text-center text-xs text-gray-500 py-4">
+      <footer className="flex-shrink-0 border-t border-white/10 bg-[#0f172a]/80 py-2 text-center text-xs text-gray-500 sm:py-3">
         © {new Date().getFullYear()} JPM Security Agency • Talent & Recruitment Desk
       </footer>
   

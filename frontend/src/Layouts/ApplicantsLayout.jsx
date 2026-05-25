@@ -6,9 +6,10 @@ import logo from "../assets/jpmlogo.png";
 export default function ApplicantsLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const isMessagesPage = location.pathname.startsWith("/job-application-process/applicants/messages");
 
   return (
-    <div className="flex h-screen bg-[#0f172a]">
+    <div className="flex h-screen h-[100dvh] overflow-hidden bg-[#0f172a]">
       {/* ===== Sidebar ===== */}
       <aside
         className={`fixed top-0 left-0 h-full w-64 bg-[#1e293b] border-r border-gray-800 shadow-lg flex flex-col transform transition-transform duration-300 z-50
@@ -83,7 +84,7 @@ export default function ApplicantsLayout() {
       )}
 
       {/* ===== Main Content ===== */}
-      <main className="flex-1 flex flex-col bg-[#0f172a]">
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#0f172a]">
         {/* Mobile Topbar */}
         <div className="md:hidden flex items-center justify-between bg-[#1e293b] border-b border-gray-800 shadow-md px-4 py-3">
           <button 
@@ -95,8 +96,8 @@ export default function ApplicantsLayout() {
           <span className="font-bold text-gray-100">Applicants Portal</span>
         </div>
 
-        {/* This is the only scrollable area */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Regular pages scroll here; chat pages manage their own message-pane scroll. */}
+        <div className={`min-h-0 flex-1 ${isMessagesPage ? "overflow-hidden" : "overflow-y-auto"}`}>
           <Outlet />
         </div>
       </main>

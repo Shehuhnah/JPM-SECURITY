@@ -165,6 +165,8 @@ export default function AdminGuardUpdates2() {
   const [loadingPage, setLoadingPage] = useState(true);
   const [error, setError] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
+  const [categorySearch, setCategorySearch] = useState("All");
+  const [showCategoryOptions, setShowCategoryOptions] = useState(false);
   const [dateFromFilter, setDateFromFilter] = useState("");
   const [dateToFilter, setDateToFilter] = useState("");
   const getLogCategory = (log) =>
@@ -179,6 +181,14 @@ export default function AdminGuardUpdates2() {
       .filter(Boolean);
     return ["All", ...Array.from(new Set(categories)).sort((a, b) => a.localeCompare(b))];
   }, [logs, isGuardView]);
+  const filteredCategoryOptions = useMemo(() => {
+    const query = categorySearch.trim().toLowerCase();
+    if (!query) {
+      return categoryOptions;
+    }
+
+    return categoryOptions.filter((category) => category.toLowerCase().includes(query));
+  }, [categoryOptions, categorySearch]);
   const filteredLogs = useMemo(
     () =>
       logs.filter((log) => {
@@ -247,6 +257,10 @@ export default function AdminGuardUpdates2() {
       navigate("/admin/login");
     }
   }, [user, loading, navigate]);
+
+  useEffect(() => {
+    setCategorySearch(categoryFilter);
+  }, [categoryFilter]);
 
   useEffect(() => {
     if (id) {
@@ -554,21 +568,56 @@ export default function AdminGuardUpdates2() {
               </div>
 
               <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(180px,1fr)_minmax(150px,0.75fr)_minmax(150px,0.75fr)_auto]">
-                <div>
+                <div className="relative">
                   <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                     Category
                   </label>
-                  <select
-                    value={categoryFilter}
-                    onChange={(event) => setCategoryFilter(event.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-[#0f172a] px-3 py-2.5 text-sm text-slate-100 outline-none transition focus:ring-2 focus:ring-blue-500/60"
-                  >
-                    {categoryOptions.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
+                  <input
+                    type="text"
+                    value={categorySearch}
+                    onFocus={() => setShowCategoryOptions(true)}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setCategorySearch(value);
+                      setShowCategoryOptions(true);
+
+                      const exactMatch = categoryOptions.find(
+                        (category) => category.toLowerCase() === value.trim().toLowerCase()
+                      );
+                      if (exactMatch) {
+                        setCategoryFilter(exactMatch);
+                      } else if (!value.trim()) {
+                        setCategoryFilter("All");
+                      }
+                    }}
+                    onBlur={() => {
+                      window.setTimeout(() => setShowCategoryOptions(false), 150);
+                    }}
+                    placeholder="Search category..."
+                    className="w-full rounded-lg border border-slate-700 bg-[#0f172a] px-3 py-2.5 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500/60"
+                  />
+                  {showCategoryOptions && filteredCategoryOptions.length > 0 ? (
+                    <div className="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-xl border border-slate-700 bg-[#0b1220] shadow-2xl">
+                      {filteredCategoryOptions.map((category) => (
+                        <button
+                          key={category}
+                          type="button"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => {
+                            setCategoryFilter(category);
+                            setCategorySearch(category);
+                            setShowCategoryOptions(false);
+                          }}
+                          className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition hover:bg-slate-800 ${
+                            categoryFilter === category ? "bg-slate-800 text-white" : "text-slate-200"
+                          }`}
+                        >
+                          <span>{category}</span>
+                          {categoryFilter === category ? <span className="text-xs text-cyan-400">Selected</span> : null}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
 
                 <div>
@@ -601,6 +650,7 @@ export default function AdminGuardUpdates2() {
                     type="button"
                     onClick={() => {
                       setCategoryFilter("All");
+                      setCategorySearch("All");
                       setDateFromFilter("");
                       setDateToFilter("");
                     }}
