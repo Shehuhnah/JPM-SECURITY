@@ -126,6 +126,7 @@ export default function ApplicantsMessages() {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
+  const previousMessageCountRef = useRef(0);
   const bootstrappedRef = useRef(false);
   const subjectSentRef = useRef(false); // legacy, no longer auto-sending
   const [hiringContext, setHiringContext] = useState(null);
@@ -154,16 +155,22 @@ export default function ApplicantsMessages() {
   }, []);
 
   useEffect(() => {
-    if (shouldAutoScrollRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!messagesContainerRef.current) return;
+    const hasNewMessages = messages.length > previousMessageCountRef.current;
+    if (hasNewMessages && shouldAutoScrollRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
     }
-  }, [messages, session?.conversationId]);
+    previousMessageCountRef.current = messages.length;
+  }, [messages.length]);
 
   const handleMessagesScroll = () => {
     const container = messagesContainerRef.current;
     if (!container) return;
     const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    shouldAutoScrollRef.current = distanceFromBottom < 120;
+    shouldAutoScrollRef.current = distanceFromBottom < 24;
   };
 
   const persistSession = (data) => {
@@ -202,6 +209,7 @@ export default function ApplicantsMessages() {
 
   useEffect(() => {
     shouldAutoScrollRef.current = true;
+    previousMessageCountRef.current = 0;
   }, [session?.conversationId]);
 
   useEffect(() => {

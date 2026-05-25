@@ -43,6 +43,53 @@ const splitCoverageDays = (coverageDays = []) => {
   };
 };
 
+const getPeriodLayout = (coverageDays = []) => {
+  if (coverageDays.length === 0) {
+    return {
+      primaryDays: [],
+      secondaryDays: [],
+      headerColumnCount: 1,
+      hasSecondaryBlock: false,
+    };
+  }
+
+  const sameMonth = coverageDays.every(
+    (date) =>
+      date.getFullYear() === coverageDays[0].getFullYear() &&
+      date.getMonth() === coverageDays[0].getMonth()
+  );
+
+  const lastDayOfMonth = new Date(
+    coverageDays[0].getFullYear(),
+    coverageDays[0].getMonth() + 1,
+    0
+  ).getDate();
+  const isFullMonth =
+    sameMonth &&
+    coverageDays[0].getDate() === 1 &&
+    coverageDays[coverageDays.length - 1].getDate() === lastDayOfMonth &&
+    coverageDays.length === lastDayOfMonth;
+
+  if (!isFullMonth) {
+    return {
+      primaryDays: coverageDays,
+      secondaryDays: [],
+      headerColumnCount: coverageDays.length,
+      hasSecondaryBlock: false,
+    };
+  }
+
+  const primaryDays = coverageDays.filter((date) => date.getDate() <= 15);
+  const secondaryDays = coverageDays.filter((date) => date.getDate() > 15);
+
+  return {
+    primaryDays,
+    secondaryDays,
+    headerColumnCount: Math.max(primaryDays.length, secondaryDays.length, 1),
+    hasSecondaryBlock: true,
+  };
+};
+
 const toDateKey = (date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
@@ -68,9 +115,12 @@ export const generateWorkHoursPDF = (guard, attendanceRecords, periodCover, opti
         coverageDays.length > 0
           ? coverageDays
           : Array.from({ length: 31 }, (_, index) => new Date(2026, 0, index + 1));
-      const { topDays, bottomDays } = splitCoverageDays(effectiveCoverageDays);
-      const headerColumnCount = Math.max(topDays.length, bottomDays.length, 1);
-      const hasBottomHalf = bottomDays.length > 0;
+      const {
+        primaryDays: topDays,
+        secondaryDays: bottomDays,
+        headerColumnCount,
+        hasSecondaryBlock: hasBottomHalf,
+      } = getPeriodLayout(effectiveCoverageDays);
 
       // Map day => hours
       const dayShiftHoursMap = new Map();
@@ -237,9 +287,12 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
         coverageDays.length > 0
           ? coverageDays
           : Array.from({ length: 16 }, (_, index) => new Date(2026, 0, index + 1));
-      const { topDays, bottomDays } = splitCoverageDays(effectiveCoverageDays);
-      const headerColumnCount = Math.max(topDays.length, bottomDays.length, 1);
-      const hasBottomHalf = bottomDays.length > 0;
+      const {
+        primaryDays: topDays,
+        secondaryDays: bottomDays,
+        headerColumnCount,
+        hasSecondaryBlock: hasBottomHalf,
+      } = getPeriodLayout(effectiveCoverageDays);
 
       // --- 2. LAYOUT CONFIGURATION ---
       const pageW = doc.page.width;

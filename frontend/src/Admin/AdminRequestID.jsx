@@ -918,20 +918,6 @@ export default function RequestedIDs() {
                           placeholder="Search employee..."
                         />
                       </div>
-
-                      <div className="rounded-2xl border border-blue-500/15 bg-blue-500/5 p-4">
-                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-300">Request Preview</div>
-                        <div className="mt-3 space-y-3 text-sm">
-                          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3">
-                            <span className="text-slate-500">Selected</span>
-                            <span className="truncate text-right text-white font-medium">{selectedCreateTarget?.label || "No employee selected"}</span>
-                          </div>
-                          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3">
-                            <span className="text-slate-500">Type</span>
-                            <span className="truncate text-right text-slate-300">{createRequestType || "Choose a type"}</span>
-                          </div>
-                        </div>
-                      </div>
                     </div>
 
                     <div className="space-y-5">
@@ -959,17 +945,6 @@ export default function RequestedIDs() {
                           className="w-full resize-none rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60"
                         />
                       </div>
-
-                      <div className="rounded-xl border border-gray-700 bg-[#1e293b] p-4">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                          <IdCard className="text-blue-400" size={16} />
-                          Submission Notes
-                        </div>
-                        <p className="mt-2 text-sm leading-6 text-slate-400">
-                          The selected employee and request type will be used to generate the request record.
-                        </p>
-                      </div>
-
                       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                         <button
                           onClick={() => setShowCreateModal(false)}

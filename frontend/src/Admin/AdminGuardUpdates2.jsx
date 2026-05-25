@@ -71,6 +71,24 @@ const toScheduleDate = (value) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
+const toDateKey = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-CA");
+};
+
+const dateInputStyles = `
+  .guard-updates-date-filter::-webkit-calendar-picker-indicator {
+    filter: brightness(0) invert(1);
+    opacity: 1;
+    cursor: pointer;
+  }
+  .guard-updates-date-filter {
+    color-scheme: dark;
+  }
+`;
+
 const InfoBadge = ({ icon: Icon, label, value, colorClass = "text-cyan-400" }) => (
   <div className="flex h-full items-start gap-4 rounded-2xl border border-slate-700/50 bg-slate-800/35 p-4">
     <div className={`mt-0.5 rounded-xl bg-slate-950/80 p-2.5 ${colorClass}`}>
@@ -146,14 +164,41 @@ export default function AdminGuardUpdates2() {
   const [logs, setLogs] = useState([]);
   const [loadingPage, setLoadingPage] = useState(true);
   const [error, setError] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [dateFromFilter, setDateFromFilter] = useState("");
+  const [dateToFilter, setDateToFilter] = useState("");
+  const getLogCategory = (log) =>
+    isGuardView
+      ? log?.category || log?.type || "Uncategorized"
+      : log?.category || log?.title || "Report";
+  const getLogEntryDate = (log) =>
+    isGuardView ? log?.createdAt : log?.reportDate || log?.createdAt;
+  const categoryOptions = useMemo(() => {
+    const categories = logs
+      .map(getLogCategory)
+      .filter(Boolean);
+    return ["All", ...Array.from(new Set(categories)).sort((a, b) => a.localeCompare(b))];
+  }, [logs, isGuardView]);
+  const filteredLogs = useMemo(
+    () =>
+      logs.filter((log) => {
+        const category = getLogCategory(log);
+        const dateKey = toDateKey(getLogEntryDate(log));
+        const matchesCategory = categoryFilter === "All" || category === categoryFilter;
+        const matchesStart = !dateFromFilter || (dateKey && dateKey >= dateFromFilter);
+        const matchesEnd = !dateToFilter || (dateKey && dateKey <= dateToFilter);
+        return matchesCategory && matchesStart && matchesEnd;
+      }),
+    [logs, categoryFilter, dateFromFilter, dateToFilter, isGuardView]
+  );
   const sortedLogs = useMemo(
     () =>
-      [...logs].sort((a, b) => {
-        const aDate = new Date((isGuardView ? a.createdAt : a.reportDate || a.createdAt) || 0).getTime();
-        const bDate = new Date((isGuardView ? b.createdAt : b.reportDate || b.createdAt) || 0).getTime();
+      [...filteredLogs].sort((a, b) => {
+        const aDate = new Date(getLogEntryDate(a) || 0).getTime();
+        const bDate = new Date(getLogEntryDate(b) || 0).getTime();
         return bDate - aDate;
       }),
-    [logs, isGuardView]
+    [filteredLogs, isGuardView]
   );
   const currentGuardSchedule = useMemo(() => {
     if (!isGuardView) return null;
@@ -352,6 +397,7 @@ export default function AdminGuardUpdates2() {
 
   return (
     <div className="min-h-screen bg-[#0f172a] pb-12 font-sans text-slate-200">
+      <style>{dateInputStyles}</style>
       <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
         <div className="mb-8">
           <Link to="/admin/AdminGuardUpdates" className="group inline-flex items-center gap-2 text-slate-400 transition hover:text-white">
@@ -506,6 +552,64 @@ export default function AdminGuardUpdates2() {
                   {sortedLogs.length} entries
                 </div>
               </div>
+
+              <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(180px,1fr)_minmax(150px,0.75fr)_minmax(150px,0.75fr)_auto]">
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Category
+                  </label>
+                  <select
+                    value={categoryFilter}
+                    onChange={(event) => setCategoryFilter(event.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-[#0f172a] px-3 py-2.5 text-sm text-slate-100 outline-none transition focus:ring-2 focus:ring-blue-500/60"
+                  >
+                    {categoryOptions.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    From
+                  </label>
+                  <input
+                    type="date"
+                    value={dateFromFilter}
+                    onChange={(event) => setDateFromFilter(event.target.value)}
+                    className="guard-updates-date-filter w-full rounded-lg border border-slate-700 bg-[#0f172a] px-3 py-2.5 text-sm text-slate-100 outline-none transition focus:ring-2 focus:ring-blue-500/60"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    To
+                  </label>
+                  <input
+                    type="date"
+                    value={dateToFilter}
+                    min={dateFromFilter || undefined}
+                    onChange={(event) => setDateToFilter(event.target.value)}
+                    className="guard-updates-date-filter w-full rounded-lg border border-slate-700 bg-[#0f172a] px-3 py-2.5 text-sm text-slate-100 outline-none transition focus:ring-2 focus:ring-blue-500/60"
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCategoryFilter("All");
+                      setDateFromFilter("");
+                      setDateToFilter("");
+                    }}
+                    className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-slate-700 px-4 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white lg:w-auto"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="custom-scrollbar flex-1 overflow-y-auto p-6">
@@ -601,7 +705,13 @@ export default function AdminGuardUpdates2() {
               ) : (
                 <div className="flex h-64 flex-col items-center justify-center text-slate-500">
                   <FileText size={48} className="mb-3 opacity-20" />
-                  <p>{isGuardView ? "No log activity recorded yet." : "No staff reports recorded yet."}</p>
+                  <p>
+                    {logs.length > 0
+                      ? "No entries match the selected filters."
+                      : isGuardView
+                        ? "No log activity recorded yet."
+                        : "No staff reports recorded yet."}
+                  </p>
                 </div>
               )}
             </div>

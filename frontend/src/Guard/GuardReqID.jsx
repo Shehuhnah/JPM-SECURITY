@@ -13,6 +13,24 @@ import { useNavigate } from "react-router-dom";
 
 const api = import.meta.env.VITE_API_URL;
 
+const toDateKey = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-CA");
+};
+
+const dateInputStyles = `
+  .guard-date-filter::-webkit-calendar-picker-indicator {
+    filter: brightness(0) invert(1);
+    opacity: 1;
+    cursor: pointer;
+  }
+  .guard-date-filter {
+    color-scheme: dark;
+  }
+`;
+
 export default function RequestIDPage() {
   // CHANGED: Renamed 'guard' to 'user' so it works for Subadmins too
   const { user, loading } = useAuth();
@@ -22,6 +40,7 @@ export default function RequestIDPage() {
   const [requests, setRequests] = useState([]);
   const [message, setMessage] = useState("");
   const [loadingPage, setLoadingPage] = useState(false);
+  const [dateFilter, setDateFilter] = useState("");
 
   // Fetch requests for the current user (Guard OR Subadmin)
   useEffect(() => {
@@ -101,8 +120,14 @@ export default function RequestIDPage() {
     }
   };
 
+  const filteredRequests = requests.filter((req) => {
+    if (!dateFilter) return true;
+    return toDateKey(req.createdAt) === dateFilter;
+  });
+
   return (
     <div className="min-h-screen bg-[#0f172a] text-gray-100 p-4 sm:p-6">
+      <style>{dateInputStyles}</style>
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-center justify-center text-center sm:text-left mb-8 gap-2">
         <FileText className="text-blue-400 w-8 h-8" />
@@ -187,19 +212,43 @@ export default function RequestIDPage() {
 
       {/* Request History */}
       <div className="space-y-5">
-        <h2 className="text-lg sm:text-xl font-semibold text-blue-400 flex items-center gap-2">
-          <Tag size={20} /> Your Previous Requests
-        </h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <h2 className="text-lg sm:text-xl font-semibold text-blue-400 flex items-center gap-2">
+            <Tag size={20} /> Your Previous Requests
+          </h2>
+          <div className="flex flex-col gap-2 sm:w-[260px]">
+            <label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Filter by date
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="guard-date-filter w-full rounded-lg border border-gray-700 bg-[#0f172a] px-3 py-2 text-sm text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {dateFilter ? (
+                <button
+                  type="button"
+                  onClick={() => setDateFilter("")}
+                  className="inline-flex h-10 items-center justify-center rounded-lg border border-gray-700 px-3 text-sm text-gray-300 transition hover:bg-slate-800 hover:text-white"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
 
-        {requests.length === 0 ? (
+        {filteredRequests.length === 0 ? (
           <div className="bg-[#1e293b] border border-gray-700 rounded-2xl p-6 sm:p-8 text-center">
             <FileText className="text-gray-500 w-10 h-10 mx-auto mb-3" />
             <p className="text-gray-400 italic text-sm sm:text-base">
-              No ID requests submitted yet.
+              {dateFilter ? "No ID requests found for the selected date." : "No ID requests submitted yet."}
             </p>
           </div>
         ) : (
-          requests.map((req) => (
+          filteredRequests.map((req) => (
             <div
               key={req._id}
               className="bg-[#1e293b] border border-gray-700 rounded-2xl p-4 sm:p-5 shadow-lg hover:shadow-blue-500/10 transition text-sm sm:text-base"
@@ -260,7 +309,7 @@ export default function RequestIDPage() {
 
                     <div className="space-y-1 text-gray-300 text-xs sm:text-sm">
                       <p>
-                        <Calendar className="inline w-4 h-4 mr-1" />
+                        <Calendar className="inline w-4 h-4 mr-1" color="#ffffff" />
                         Pickup Date:{" "}
                         {req.pickupDate
                           ? new Date(req.pickupDate).toLocaleDateString()
