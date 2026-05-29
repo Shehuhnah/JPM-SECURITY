@@ -202,12 +202,15 @@ export default function AdminLogReports() {
           <option value="Incident Report">Incident Report</option>
           <option value="HR Follow-up">HR Follow-up</option>
         </select>
-        <input
-          type="date"
-          value={filterDate}
-          onChange={(e) => setFilterDate(e.target.value)}
-          className="bg-[#1e293b] border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#2B7FFF] [color-scheme:dark]"
-        />
+        <div className="relative pt-2">
+          <label className="absolute left-3 -top-2.5 z-10 bg-[#0f172a] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#2B7FFF] border border-[#2B7FFF]/25 rounded-md shadow-lg shadow-black/30">Report Date</label>
+          <input
+            type="date"
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="bg-[#1e293b] border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#2B7FFF] [color-scheme:dark]"
+          />
+        </div>
         {(filterDate || filterCategory !== "All" || searchQuery) && (
           <button
             onClick={() => { setFilterDate(""); setFilterCategory("All"); setSearchQuery(""); }}

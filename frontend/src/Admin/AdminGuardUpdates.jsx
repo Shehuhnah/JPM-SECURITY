@@ -295,21 +295,28 @@ export default function AdminGuardUpdates() {
               ))}
           </select>
 
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm [color-scheme:dark]"
-            title="From date"
-          />
+          <div className="relative pt-2">
+            <label className="absolute left-3 -top-2.5 z-10 bg-[#0f172a] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#2B7FFF] border border-[#2B7FFF]/25 rounded-md shadow-lg shadow-black/30">Date Range</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm [color-scheme:dark]"
+                title="From date"
+              />
 
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm [color-scheme:dark]"
-            title="To date"
-          />
+              <span className="text-gray-500 text-sm shrink-0">to</span>
+
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm [color-scheme:dark]"
+                title="To date"
+              />
+            </div>
+          </div>
 
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />

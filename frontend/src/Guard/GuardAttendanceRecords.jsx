@@ -380,31 +380,35 @@ function GuardAttendanceRecords() {
               </select>
             </div>
 
-            {/* Date from */}
-            <div className="relative">
-              <CalendarDays size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-              <input
-                type="date"
-                value={filterDateFrom}
-                onChange={(e) => setFilterDateFrom(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-[#0f172a] py-2.5 pl-8 pr-3 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30 [color-scheme:dark]"
-                title="From date"
-              />
-              {!filterDateFrom && <span className="pointer-events-none absolute left-8 top-1/2 -translate-y-1/2 text-sm text-slate-500"></span>}
-            </div>
-
-            {/* Date to */}
-            <div className="relative">
-              <CalendarDays size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-              <input
-                type="date"
-                value={filterDateTo}
-                min={filterDateFrom || undefined}
-                onChange={(e) => setFilterDateTo(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-[#0f172a] py-2.5 pl-8 pr-3 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30 [color-scheme:dark]"
-                title="To date"
-              />
-              {!filterDateTo && <span className="pointer-events-none absolute left-8 top-1/2 -translate-y-1/2 text-sm text-slate-500"></span>}
+            {/* Date range */}
+            <div className="relative pt-2 sm:col-span-2">
+              <label className="absolute left-3 -top-2.5 z-10 bg-[#1e293b] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#2B7FFF] border border-[#2B7FFF]/25 rounded-md shadow-lg shadow-black/30">Date Range</label>
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+                <div className="relative">
+                  <CalendarDays size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                  <input
+                    type="date"
+                    value={filterDateFrom}
+                    onChange={(e) => setFilterDateFrom(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-[#0f172a] py-2.5 pl-8 pr-3 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30 [color-scheme:dark]"
+                    title="From date"
+                  />
+                  {!filterDateFrom && <span className="pointer-events-none absolute left-8 top-1/2 -translate-y-1/2 text-sm text-slate-500"></span>}
+                </div>
+                <div className="hidden text-center text-slate-500 sm:block">to</div>
+                <div className="relative">
+                  <CalendarDays size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                  <input
+                    type="date"
+                    value={filterDateTo}
+                    min={filterDateFrom || undefined}
+                    onChange={(e) => setFilterDateTo(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-[#0f172a] py-2.5 pl-8 pr-3 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30 [color-scheme:dark]"
+                    title="To date"
+                  />
+                  {!filterDateTo && <span className="pointer-events-none absolute left-8 top-1/2 -translate-y-1/2 text-sm text-slate-500"></span>}
+                </div>
+              </div>
             </div>
           </div>
         </div>

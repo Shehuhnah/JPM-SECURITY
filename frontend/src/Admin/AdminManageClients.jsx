@@ -135,13 +135,6 @@ const ClientModal = ({ isOpen, onClose, onSave, client }) => {
                           </div>
                         </div>
                       </div>
-
-                      <div className="rounded-2xl border border-blue-500/15 bg-blue-500/5 p-4">
-                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-300">Helper Notes</div>
-                        <p className="mt-2 text-sm leading-6 text-slate-400">
-                          All fields are required. Use a valid Philippine mobile number so follow-up coordination remains reliable.
-                        </p>
-                      </div>
                     </div>
 
                     <div className="space-y-5">
@@ -205,17 +198,6 @@ const ClientModal = ({ isOpen, onClose, onSave, client }) => {
                           />
                         </div>
                       </div>
-
-                      <div className="rounded-xl border border-gray-700 bg-[#1e293b] p-4">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                          <Building className="text-blue-400" size={16} />
-                          Client Record
-                        </div>
-                        <p className="mt-2 text-sm leading-6 text-slate-400">
-                          This client will appear in the deployment directory and can be updated later if details change.
-                        </p>
-                      </div>
-
                       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                         <button
                           type="button"

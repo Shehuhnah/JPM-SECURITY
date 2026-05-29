@@ -493,8 +493,10 @@ export default function AdminCOE() {
             </div>
 
             {/* Date Range Filter */}
-            <div className="flex items-center gap-2">
-              <div className="relative">
+            <div className="relative pt-2">
+              <label className="absolute left-3 -top-2.5 z-10 bg-[#0f172a] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#2B7FFF] border border-[#2B7FFF]/25 rounded-md shadow-lg shadow-black/30">Date Range</label>
+              <div className="flex items-center gap-2">
+                <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" size={14} />
                 <input
                   type="date"
@@ -504,7 +506,7 @@ export default function AdminCOE() {
                   className="bg-[#1e293b] border border-gray-700 text-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer [color-scheme:dark]"
                 />
               </div>
-              <span className="text-gray-500 text-sm shrink-0">—</span>
+              <span className="text-gray-500 text-sm shrink-0">to</span>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" size={14} />
                 <input
@@ -516,15 +518,16 @@ export default function AdminCOE() {
                   className="bg-[#1e293b] border border-gray-700 text-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer [color-scheme:dark]"
                 />
               </div>
-              {(dateFrom || dateTo) && (
-                <button
-                  onClick={() => { setDateFrom(""); setDateTo(""); }}
-                  title="Clear date filter"
-                  className="p-2 rounded-lg bg-slate-700/60 hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition"
-                >
-                  <X size={14} />
-                </button>
-              )}
+                {(dateFrom || dateTo) && (
+                  <button
+                    onClick={() => { setDateFrom(""); setDateTo(""); }}
+                    title="Clear date filter"
+                    className="p-2 rounded-lg bg-slate-700/60 hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Refresh */}

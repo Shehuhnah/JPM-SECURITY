@@ -172,10 +172,6 @@ const AddUserModal = ({ isOpen, onClose, onSave }) => {
                       <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0b1220] px-4 py-3"><span className="text-slate-500">Phone</span><span className="truncate text-right text-slate-300">{form.contactNumber || "Required"}</span></div>
                     </div>
                   </div>
-                  <div className="rounded-2xl border border-blue-500/15 bg-blue-500/5 p-4">
-                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-300">Helpful Notes</div>
-                    <p className="mt-2 text-sm leading-6 text-slate-400">Admin accounts receive elevated access automatically. Keep the email and phone number accurate for account recovery.</p>
-                  </div>
                 </div>
 
                 <div className="space-y-5">
