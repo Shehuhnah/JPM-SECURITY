@@ -17,6 +17,13 @@ import TablePagination from "../components/admin/TablePagination.jsx";
 const api = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
 const DETAIL_PAGE_SIZE = 10;
+const ATTENDANCE_STATUS_OPTIONS = [
+  { label: "All", value: "All" },
+  { label: "On Duty", value: "On Duty" },
+  { label: "Off Duty", value: "Off Duty" },
+  { label: "Leave", value: "Leave" },
+  { label: "Day Off", value: "Day Off" },
+];
 const isSameMonthRange = (from, to) =>
   Boolean(
     from &&
@@ -83,12 +90,15 @@ const datePickerStyles = `
 export default function GuardAttendancePage() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
-  const [_loadingPage, setLoadingPage] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [_error, setError] = useState(null);
   
   // Guard Details Modal State
   const [selectedGuardId, setSelectedGuardId] = useState(null);
   const [selectedGuardAttendance, setSelectedGuardAttendance] = useState([]);
+  const [selectedGuardSummaryAttendance, setSelectedGuardSummaryAttendance] = useState([]);
   const [detailPage, setDetailPage] = useState(1);
   const [detailTotalItems, setDetailTotalItems] = useState(0);
   const [detailTotalPages, setDetailTotalPages] = useState(1);
@@ -100,6 +110,7 @@ export default function GuardAttendancePage() {
   // Download Report Modal State
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [clientForReport, setClientForReport] = useState(null);
+  const [guardForReport, setGuardForReport] = useState(null);
   const [reportMode, setReportMode] = useState("cutoff");
   const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
   const [reportMonth, setReportMonth] = useState(() =>
@@ -131,7 +142,7 @@ export default function GuardAttendancePage() {
 
   const fetchAllAttendance = useCallback(async () => {
     try {
-      setLoadingPage(true);
+      setPageLoading(true);
       setError(null);
       const params = new URLSearchParams({
         page: String(currentPage),
@@ -153,7 +164,7 @@ export default function GuardAttendancePage() {
     } catch (err) {
       setError(err.message || "Failed to fetch attendance");
     } finally {
-      setLoadingPage(false);
+      setPageLoading(false);
     }
   }, [currentPage, search, selectedClient, filter, selectedDateRange.from, selectedDateRange.to]);
 
@@ -174,32 +185,81 @@ export default function GuardAttendancePage() {
 
   useEffect(() => {
     if (selectedGuardId) {
+      setSelectedGuardAttendance([]);
+      setSelectedGuardSummaryAttendance([]);
+      setDetailTotalItems(0);
+      setDetailTotalPages(1);
       setDetailPage(1);
+    } else {
+      setSelectedGuardAttendance([]);
+      setSelectedGuardSummaryAttendance([]);
+      setDetailTotalItems(0);
+      setDetailTotalPages(1);
+      setSummaryLoading(false);
+      setHistoryLoading(false);
     }
   }, [selectedGuardId]);
 
   useEffect(() => {
     if (!selectedGuardId) return;
+    let isActive = true;
+
+    const fetchGuardSummaryAttendance = async () => {
+      try {
+        setSummaryLoading(true);
+        const res = await fetch(`${api}/api/attendance/${selectedGuardId}`, { credentials: "include" });
+        const data = await res.json();
+        if (!isActive) return;
+        if (!res.ok) throw new Error(data?.message || "Failed to fetch guard attendance summary");
+        setSelectedGuardSummaryAttendance(Array.isArray(data) ? data : []);
+      } catch (err) {
+        if (!isActive) return;
+        setError(err.message);
+      } finally {
+        if (isActive) {
+          setSummaryLoading(false);
+        }
+      }
+    };
+    fetchGuardSummaryAttendance();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedGuardId]);
+
+  useEffect(() => {
+    if (!selectedGuardId) return;
+    let isActive = true;
+
     const fetchGuardAttendance = async () => {
       try {
-        setLoadingPage(true);
+        setHistoryLoading(true);
         const params = new URLSearchParams({
           page: String(detailPage),
           limit: String(DETAIL_PAGE_SIZE),
         });
         const res = await fetch(`${api}/api/attendance/${selectedGuardId}?${params.toString()}`, { credentials: "include" });
         const data = await res.json();
+        if (!isActive) return;
         if (!res.ok) throw new Error(data?.message || "Failed to fetch guard attendance");
         setSelectedGuardAttendance(data.items || []);
         setDetailTotalItems(data.total || 0);
         setDetailTotalPages(data.totalPages || 1);
       } catch (err) {
+        if (!isActive) return;
         setError(err.message);
       } finally {
-        setLoadingPage(false);
+        if (isActive) {
+          setHistoryLoading(false);
+        }
       }
     };
     fetchGuardAttendance();
+
+    return () => {
+      isActive = false;
+    };
   }, [selectedGuardId, detailPage]);
 
   // Derive unique client names
@@ -208,6 +268,22 @@ export default function GuardAttendancePage() {
   // Open the download modal
   const openDownloadModal = (clientName) => {
     setClientForReport(clientName);
+    setGuardForReport(null);
+    setReportMode("cutoff");
+    setReportYear(new Date().getFullYear());
+    setReportMonth(String(new Date().getMonth() + 1).padStart(2, "0"));
+    setReportCutoff("first-half");
+    setReportDateRange({ from: null, to: null });
+    setDownloadModalOpen(true);
+  };
+
+  const openGuardDownloadModal = (guardRecord) => {
+    if (!guardRecord?._id) return;
+    setGuardForReport({
+      id: guardRecord._id,
+      name: getPersonName(guardRecord, "Guard"),
+    });
+    setClientForReport(null);
     setReportMode("cutoff");
     setReportYear(new Date().getFullYear());
     setReportMonth(String(new Date().getMonth() + 1).padStart(2, "0"));
@@ -274,10 +350,11 @@ export default function GuardAttendancePage() {
       const fromStr = format(fromDate, 'yyyy-MM-dd');
       const toStr = format(toDate, 'yyyy-MM-dd');
 
-      const res = await fetch(
-        `${api}/api/attendance/download-working-hours/client/${encodeURIComponent(clientForReport)}?from=${fromStr}&to=${toStr}`, 
-        { credentials: 'include' }
-      );
+      const downloadUrl = guardForReport?.id
+        ? `${api}/api/attendance/download-working-hours/${encodeURIComponent(guardForReport.id)}?from=${fromStr}&to=${toStr}`
+        : `${api}/api/attendance/download-working-hours/client/${encodeURIComponent(clientForReport)}?from=${fromStr}&to=${toStr}`;
+
+      const res = await fetch(downloadUrl, { credentials: 'include' });
 
       if (!res.ok) {
         // Catch 404 specifically to show a friendlier message
@@ -296,7 +373,9 @@ export default function GuardAttendancePage() {
       a.href = url;
       
       const disposition = res.headers.get('content-disposition');
-      let filename = `Report_${clientForReport}.pdf`;
+      let filename = guardForReport?.name
+        ? `DTR_${guardForReport.name.replace(/\s+/g, "_")}_${fromStr}_${toStr}.pdf`
+        : `Report_${clientForReport}.pdf`;
       if (disposition && disposition.indexOf('attachment') !== -1) {
           const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
           const matches = filenameRegex.exec(disposition);
@@ -379,11 +458,379 @@ export default function GuardAttendancePage() {
     };
   }, [reportCutoff, reportDateRange, reportMode, reportMonth, reportYear]);
 
+  const statusCounts = useMemo(() => {
+    const counts = ATTENDANCE_STATUS_OPTIONS.reduce((acc, item) => ({ ...acc, [item.value]: 0 }), {});
+    counts.All = totalItems;
+    allAttendance.forEach((record) => {
+      const status = record.status || "Off Duty";
+      counts[status] = (counts[status] || 0) + 1;
+    });
+    return counts;
+  }, [allAttendance, totalItems]);
+
+  const guardCards = useMemo(() => {
+    const seen = new Set();
+    return allAttendance.filter((record) => {
+      const guardId = record.guard?._id || record._id;
+      if (seen.has(guardId)) return false;
+      seen.add(guardId);
+      return true;
+    });
+  }, [allAttendance]);
+
+  const selectedGuardRecord = allAttendance.find((record) => record.guard?._id === selectedGuardId);
+  const getRecordDateValue = (record) => record?.timeIn || record?.scheduleId?.timeIn;
+
+  const selectedSummary = useMemo(() => {
+    const summary = {
+      total: selectedGuardSummaryAttendance.length,
+      onDuty: 0,
+      absent: 0,
+      leave: 0,
+      dayOff: 0,
+    };
+
+    selectedGuardSummaryAttendance.forEach((record) => {
+      const status = record.status || "";
+      if (status === "Absent") summary.absent += 1;
+      else if (status === "Leave") summary.leave += 1;
+      else if (status === "Day Off" || status === "Off Duty") summary.dayOff += 1;
+      else if (status === "On Duty" || status === "Present" || record.timeIn) summary.onDuty += 1;
+    });
+
+    return summary;
+  }, [selectedGuardSummaryAttendance]);
+
   return (
     <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
         <style>{datePickerStyles}</style>
         <ToastContainer />
-        <main className="flex-1 flex flex-col p-4 md:p-6 bg-slate-900/50 min-h-screen">
+        <main className="flex-1 bg-[#0f172a] p-4 md:p-6 min-h-screen">
+          <div className="mb-6">
+            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Guards Attendance</h2>
+                <p className="mt-1 text-sm text-slate-400">Click a guard to view attendance summary and history.</p>
+              </div>
+              <button onClick={fetchAllAttendance} className="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-700 bg-[#1e293b] px-4 py-2.5 text-sm text-slate-300 transition hover:border-blue-500/50 hover:text-blue-300">
+                <RefreshCcw className="size-4" /> Refresh
+              </button>
+            </div>
+          </div>
+
+          {(loading || pageLoading) && (
+            <div className="p-4 mb-4 bg-blue-500/10 border border-blue-500/20 text-blue-300 rounded-lg text-sm flex items-center gap-2 animate-pulse">
+              <RefreshCcw className="animate-spin size-4" /> Loading attendance records...
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_460px] gap-6">
+            <div className="space-y-6 min-w-0">
+              <section className="rounded-2xl border border-slate-800 bg-[#111827] p-4 md:p-5 shadow-xl">
+                <div className="mb-5 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">Guards Overview</h3>
+                    <p className="text-sm text-slate-400">Showing <span className="font-semibold text-slate-200">{totalItems}</span> matching attendance records.</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_auto] gap-3">
+                    <div className="relative min-w-0 sm:w-72">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                      <input type="text" placeholder="Search guard..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-[#0f172a] py-2.5 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-500 outline-none transition focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/20" />
+                    </div>
+                    <div className="relative">
+                      <button onClick={() => setIsDateFilterOpen(!isDateFilterOpen)} className={`w-full rounded-xl border px-4 py-2.5 text-sm flex items-center justify-between gap-3 transition ${selectedDateRange.from ? "border-blue-500/50 bg-blue-500/10 text-white" : "border-slate-700 bg-[#0f172a] text-slate-400 hover:border-slate-600"}`}>
+                        <span className="flex items-center gap-2">
+                          <CalendarDays className={selectedDateRange.from ? "text-blue-400" : "text-slate-500"} size={17} />
+                          {selectedDateRange.from ? (selectedDateRange.to ? `${format(selectedDateRange.from, "MMM d")} - ${format(selectedDateRange.to, "MMM d")}` : format(selectedDateRange.from, "MMM d, yyyy")) : "Date Range"}
+                        </span>
+                      </button>
+                      {isDateFilterOpen && (
+                        <div className="absolute right-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-50">
+                          <DayPicker mode="range" selected={selectedDateRange} onSelect={setSelectedDateRange} className="text-sm w-full" />
+                          <div className="flex justify-end gap-2 pt-4 border-t border-slate-700 mt-2">
+                            <button onClick={() => { setSelectedDateRange({ from: null, to: null }); setIsDateFilterOpen(false); }} className="text-xs text-slate-400 hover:text-white px-2 py-1 transition rounded hover:bg-slate-700">Clear</button>
+                            <button onClick={() => setIsDateFilterOpen(false)} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded font-medium transition">Apply</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <select value={selectedClient} onChange={(e) => setSelectedClient(e.target.value)} className="rounded-xl border border-slate-700 bg-[#0f172a] px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/20">
+                      <option value="">All Clients</option>
+                      {clientList.map((client) => <option key={client} value={client}>{client}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+                  {ATTENDANCE_STATUS_OPTIONS.map((item) => (
+                    <button key={item.value} type="button" onClick={() => setFilter(item.value)} className={`rounded-xl border px-4 py-4 text-left transition ${filter === item.value ? "border-blue-500/70 bg-blue-500/10 shadow-lg shadow-blue-950/30" : "border-slate-800 bg-[#0f172a] hover:border-slate-600"}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium text-slate-300">{item.label}</span>
+                        <span className="rounded-lg bg-slate-800 px-2 py-1 text-sm font-bold text-blue-300">{statusCounts[item.value] || 0}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {pageLoading ? (
+                  <GuardCardSkeletonGrid />
+                ) : guardCards.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {guardCards.map((record) => {
+                      const isSelected = record.guard?._id === selectedGuardId;
+                      return (
+                        <button key={record._id} type="button" onClick={() => record.guard?._id && setSelectedGuardId(record.guard._id)} className={`rounded-2xl border bg-[#0f172a] p-4 text-left transition hover:border-blue-500/50 ${isSelected ? "border-blue-500 shadow-lg shadow-blue-950/40" : "border-slate-800"}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              {record.guard?.photo ? (
+                                <img src={record.guard.photo} alt={getPersonName(record.guard)} className="size-14 rounded-full object-cover border border-slate-700" />
+                              ) : (
+                                <div className="size-14 rounded-full border border-slate-700 bg-slate-800 flex items-center justify-center text-slate-400"><User size={24} /></div>
+                              )}
+                              <div className="min-w-0">
+                                <div className="font-semibold text-white truncate">{getPersonName(record.guard, "Unknown Guard")}</div>
+                                <div className="mt-1 text-xs text-slate-500 truncate">{record.scheduleId?.client || "Unassigned Client"}</div>
+                              </div>
+                            </div>
+                            {getStatusBadge(record.status)}
+                          </div>
+                          <div className="mt-4 space-y-2 text-sm text-slate-400">
+                            <div className="flex items-center gap-2"><Shield size={15} className="text-slate-500" /> Security Guard</div>
+                            <div className="flex items-center gap-2"><Clock size={15} className="text-slate-500" /> {record.scheduleId?.shiftType || "Shift not set"}</div>
+                            <div className="flex items-center gap-2"><MapPin size={15} className="text-slate-500" /> <span className="truncate">{record.scheduleId?.deploymentLocation || "No duty station"}</span></div>
+                          </div>
+                          <div className="mt-4 rounded-xl bg-blue-600 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-blue-500">View Attendance</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 text-slate-500 border border-dashed border-slate-800 rounded-2xl">
+                    <Clock size={44} className="mb-3 opacity-25" />
+                    <p>No attendance records found matching your filters.</p>
+                  </div>
+                )}
+              </section>
+
+              <section className="rounded-2xl border border-slate-800 bg-[#111827] p-4 md:p-5 shadow-xl">
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold text-white">Client Groups</h3>
+                  <p className="text-sm text-slate-400">View guards by client assignment.</p>
+                </div>
+                <div className="space-y-3">
+                  {pageLoading ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 3 }).map((_, index) => (
+                        <div key={index} className="h-16 animate-pulse rounded-xl border border-slate-800 bg-[#0f172a]" />
+                      ))}
+                    </div>
+                  ) : Object.entries(groupedAttendance).map(([clientName, records]) => (
+                    <div key={clientName} className="rounded-xl border border-slate-800 bg-[#0f172a] px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-white truncate">{clientName}</div>
+                          <div className="text-xs text-slate-500">{records.length} attendance record{records.length === 1 ? "" : "s"}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-lg bg-slate-800 px-2 py-1 text-sm font-bold text-blue-300">{records.length}</span>
+                          <button type="button" onClick={() => openDownloadModal(clientName)} className="inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs font-medium text-blue-300 transition hover:bg-blue-500/20">
+                            <FileDown size={14} /> DTR
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <TablePagination page={currentPage} limit={PAGE_SIZE} totalItems={totalItems} currentCount={allAttendance.length} totalPages={totalPages} label="attendance records" onPageChange={setCurrentPage} />
+            </div>
+
+            <aside className="hidden md:block 2xl:sticky 2xl:top-6 h-fit rounded-2xl border border-slate-800 bg-[#111827] shadow-2xl overflow-hidden">
+              {selectedGuardId && selectedGuardInfo ? (
+                <>
+                  <div className="flex items-start justify-between gap-4 border-b border-slate-800 p-5">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {selectedGuardInfo.photo ? (
+                        <img src={selectedGuardInfo.photo} alt={getPersonName(selectedGuardInfo)} className="size-14 rounded-full object-cover border border-slate-700" />
+                      ) : (
+                        <div className="size-14 rounded-full border border-slate-700 bg-slate-800 flex items-center justify-center text-slate-400"><User size={24} /></div>
+                      )}
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-bold text-white truncate">{getPersonName(selectedGuardInfo)}</h3>
+                        <p className="text-sm text-slate-400">{selectedGuardRecord?.scheduleId?.position || "Security Guard"}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setSelectedGuardId(null)} className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-800 hover:text-white"><X size={18} /></button>
+                  </div>
+                  <div className="border-b border-slate-800 px-5">
+                    <div className="flex gap-6 text-sm">
+                      <span className="border-b-2 border-blue-500 py-3 font-semibold text-blue-300">Summary</span>
+                    </div>
+                  </div>
+                  <div className="space-y-5 p-5">
+                    <div>
+                      <h4 className="mb-3 font-semibold text-white">Attendance Summary</h4>
+                      <div className="rounded-xl border border-slate-800 bg-[#0f172a] px-4 py-3 text-sm text-slate-300">
+                        <CalendarDays size={16} className="mr-2 inline text-blue-400" />
+                        {summaryLoading ? "Loading selected dates..." : selectedDateRange.from ? (selectedDateRange.to ? `${format(selectedDateRange.from, "MMM d")} - ${format(selectedDateRange.to, "MMM d, yyyy")}` : format(selectedDateRange.from, "MMM d, yyyy")) : "Current loaded records"}
+                      </div>
+                    </div>
+                    {summaryLoading ? (
+                      <SummarySkeleton />
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-2 gap-3">
+                          <SummaryTile label="On Duty" value={selectedSummary.onDuty} total={selectedSummary.total} color="emerald" />
+                          <SummaryTile label="Absent" value={selectedSummary.absent} total={selectedSummary.total} color="red" />
+                          <SummaryTile label="Leave" value={selectedSummary.leave} total={selectedSummary.total} color="amber" />
+                          <SummaryTile label="Day Off" value={selectedSummary.dayOff} total={selectedSummary.total} color="purple" />
+                        </div>
+
+                        <SummaryDonut summary={selectedSummary} />
+                      </>
+                    )}
+
+                    <div>
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <h4 className="font-semibold text-white">Attendance History</h4>
+                        {selectedGuardInfo ? (
+                          <button type="button" onClick={() => openGuardDownloadModal(selectedGuardInfo)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500">
+                            <FileDown size={14} /> Download DTR
+                          </button>
+                        ) : null}
+                      </div>
+                      <div className="overflow-hidden rounded-xl border border-slate-800">
+                        <table className="w-full text-left text-sm">
+                          <thead className="bg-[#0f172a] text-xs text-slate-500">
+                            <tr><th className="px-3 py-3 font-medium">Date</th><th className="px-3 py-3 font-medium">Time In</th><th className="px-3 py-3 font-medium">Time Out</th><th className="px-3 py-3 font-medium">Remarks</th></tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800">
+                            {historyLoading ? (
+                              <tr>
+                                <td colSpan={4} className="px-3 py-8 text-center text-sm text-blue-300">
+                                  <RefreshCcw className="mx-auto mb-2 size-4 animate-spin" /> Loading attendance history...
+                                </td>
+                              </tr>
+                            ) : selectedGuardAttendance.slice(0, 6).map((record) => (
+                              <tr key={record._id} className="text-slate-300">
+                                <td className="px-3 py-3">{getRecordDateValue(record) ? format(new Date(getRecordDateValue(record)), "MMM d, yyyy") : "--"}</td>
+                                <td className="px-3 py-3">{record.timeIn ? format(new Date(record.timeIn), "hh:mm a") : "--"}</td>
+                                <td className="px-3 py-3">{record.timeOut ? format(new Date(record.timeOut), "hh:mm a") : "--"}</td>
+                                <td className="px-3 py-3">{record.status === "Absent" ? <span className="text-red-300">{record.remarks || "Absent"}</span> : <button onClick={() => openEvidencePreview(record)} className="text-blue-300 hover:text-blue-200">{record.remarks || "View"}</button>}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {!historyLoading && selectedGuardAttendance.length === 0 ? <div className="py-10 text-center text-sm text-slate-500">No attendance history found.</div> : null}
+                      </div>
+                      <TablePagination page={detailPage} limit={DETAIL_PAGE_SIZE} totalItems={detailTotalItems} currentCount={selectedGuardAttendance.length} totalPages={detailTotalPages} label="attendance entries" onPageChange={setDetailPage} />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex min-h-[420px] flex-col items-center justify-center p-8 text-center text-slate-500">
+                  <Shield size={44} className="mb-3 opacity-25" />
+                  <h3 className="font-semibold text-slate-300">Select a guard</h3>
+                  <p className="mt-1 text-sm">Attendance summary and history will appear here.</p>
+                </div>
+              )}
+            </aside>
+          </div>
+        </main>
+
+        {selectedGuardId && selectedGuardInfo ? (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setSelectedGuardId(null)} />
+            <div className="absolute inset-x-0 bottom-0 max-h-[92dvh] overflow-hidden rounded-t-3xl border-t border-slate-700 bg-[#111827] shadow-2xl">
+              <div className="flex items-start justify-between gap-4 border-b border-slate-800 p-5">
+                <div className="flex items-center gap-3 min-w-0">
+                  {selectedGuardInfo.photo ? (
+                    <img src={selectedGuardInfo.photo} alt={getPersonName(selectedGuardInfo)} className="size-14 rounded-full object-cover border border-slate-700" />
+                  ) : (
+                    <div className="size-14 rounded-full border border-slate-700 bg-slate-800 flex items-center justify-center text-slate-400"><User size={24} /></div>
+                  )}
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-bold text-white truncate">{getPersonName(selectedGuardInfo)}</h3>
+                    <p className="text-sm text-slate-400">{selectedGuardRecord?.scheduleId?.position || "Security Guard"}</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedGuardId(null)} className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-800 hover:text-white"><X size={18} /></button>
+              </div>
+
+              <div className="max-h-[calc(92dvh-89px)] space-y-5 overflow-y-auto p-5 custom-scrollbar">
+                <div>
+                  <h4 className="mb-3 font-semibold text-white">Attendance Summary</h4>
+                  <div className="rounded-xl border border-slate-800 bg-[#0f172a] px-4 py-3 text-sm text-slate-300">
+                    <CalendarDays size={16} className="mr-2 inline text-blue-400" />
+                    {summaryLoading ? "Loading selected dates..." : selectedDateRange.from ? (selectedDateRange.to ? `${format(selectedDateRange.from, "MMM d")} - ${format(selectedDateRange.to, "MMM d, yyyy")}` : format(selectedDateRange.from, "MMM d, yyyy")) : "Current loaded records"}
+                  </div>
+                </div>
+
+                {summaryLoading ? (
+                  <SummarySkeleton />
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <SummaryTile label="On Duty" value={selectedSummary.onDuty} total={selectedSummary.total} color="emerald" />
+                      <SummaryTile label="Absent" value={selectedSummary.absent} total={selectedSummary.total} color="red" />
+                      <SummaryTile label="Leave" value={selectedSummary.leave} total={selectedSummary.total} color="amber" />
+                      <SummaryTile label="Day Off" value={selectedSummary.dayOff} total={selectedSummary.total} color="purple" />
+                    </div>
+
+                    <SummaryDonut summary={selectedSummary} />
+                  </>
+                )}
+
+                <div>
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h4 className="font-semibold text-white">Attendance History</h4>
+                    {selectedGuardInfo ? (
+                      <button type="button" onClick={() => openGuardDownloadModal(selectedGuardInfo)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500">
+                        <FileDown size={14} /> DTR
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-3">
+                    {historyLoading ? (
+                      <div className="rounded-xl border border-slate-800 bg-[#0f172a] py-10 text-center text-sm text-blue-300">
+                        <RefreshCcw className="mx-auto mb-2 size-4 animate-spin" /> Loading attendance history...
+                      </div>
+                    ) : selectedGuardAttendance.slice(0, 6).map((record) => (
+                      <div key={record._id} className="rounded-xl border border-slate-800 bg-[#0f172a] p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-semibold text-white">{getRecordDateValue(record) ? format(new Date(getRecordDateValue(record)), "MMM d, yyyy") : "--"}</div>
+                            <div className="mt-1 text-xs text-slate-500">
+                              {record.timeIn ? format(new Date(record.timeIn), "hh:mm a") : "--"} - {record.timeOut ? format(new Date(record.timeOut), "hh:mm a") : "--"}
+                            </div>
+                          </div>
+                          {record.status === "Absent" ? (
+                            <span className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-300">
+                              {record.remarks || "Absent"}
+                            </span>
+                          ) : (
+                            <button onClick={() => openEvidencePreview(record)} className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs font-medium text-blue-300">
+                              {record.remarks || "View"}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {!historyLoading && selectedGuardAttendance.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-slate-800 py-10 text-center text-sm text-slate-500">No attendance history found.</div>
+                    ) : null}
+                  </div>
+
+                  <TablePagination page={detailPage} limit={DETAIL_PAGE_SIZE} totalItems={detailTotalItems} currentCount={selectedGuardAttendance.length} totalPages={detailTotalPages} label="attendance entries" onPageChange={setDetailPage} />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <main className="hidden">
           {/* Header & Controls (Same as before) */}
           <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between mb-8 gap-6">
               <div className="flex items-center gap-3">
@@ -561,7 +1008,7 @@ export default function GuardAttendancePage() {
                       Download Report
                     </Dialog.Title>
                     <p className="text-sm text-gray-400 mt-2 px-4">
-                      Select date period for <strong className="text-white">{clientForReport}</strong>
+                      Select date period for <strong className="text-white">{guardForReport?.name || clientForReport}</strong>
                     </p>
                   </div>
 
@@ -743,7 +1190,7 @@ export default function GuardAttendancePage() {
       </Transition>
 
       {/* --- Detail Modal (Responsive) --- */}
-      <Transition appear show={selectedGuardId !== null} as={Fragment}>
+      <Transition appear show={false} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={() => setSelectedGuardId(null)}>
           <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
@@ -955,6 +1402,126 @@ export default function GuardAttendancePage() {
           </Dialog>
         </Transition>
       )}
+    </div>
+  );
+}
+
+function GuardCardSkeletonGrid() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={index} className="rounded-2xl border border-slate-800 bg-[#0f172a] p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="size-14 animate-pulse rounded-full bg-slate-800" />
+              <div className="space-y-2">
+                <div className="h-4 w-32 animate-pulse rounded bg-slate-800" />
+                <div className="h-3 w-24 animate-pulse rounded bg-slate-800" />
+              </div>
+            </div>
+            <div className="h-6 w-16 animate-pulse rounded-full bg-slate-800" />
+          </div>
+          <div className="mt-4 space-y-2">
+            <div className="h-3 w-36 animate-pulse rounded bg-slate-800" />
+            <div className="h-3 w-44 animate-pulse rounded bg-slate-800" />
+            <div className="h-3 w-40 animate-pulse rounded bg-slate-800" />
+          </div>
+          <div className="mt-4 h-10 animate-pulse rounded-xl bg-slate-800" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SummarySkeleton() {
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="h-24 animate-pulse rounded-xl border border-slate-800 bg-[#0f172a]" />
+        ))}
+      </div>
+      <div className="rounded-2xl border border-slate-800 bg-[#0f172a] p-4">
+        <div className="flex flex-col sm:flex-row items-center gap-5">
+          <div className="size-44 shrink-0 animate-pulse rounded-full bg-slate-800" />
+          <div className="grid flex-1 grid-cols-1 gap-3 w-full">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="h-4 animate-pulse rounded bg-slate-800" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function SummaryTile({ label, value, total, color }) {
+  const palette = {
+    emerald: "border-emerald-500/20 bg-emerald-500/10 text-emerald-300",
+    red: "border-red-500/20 bg-red-500/10 text-red-300",
+    amber: "border-amber-500/20 bg-amber-500/10 text-amber-300",
+    purple: "border-purple-500/20 bg-purple-500/10 text-purple-300",
+  };
+  const percentage = total ? Math.round((value / total) * 1000) / 10 : 0;
+
+  return (
+    <div className={`rounded-xl border p-4 text-center ${palette[color] || palette.emerald}`}>
+      <div className="text-xs font-medium">{label}</div>
+      <div className="mt-1 text-2xl font-bold text-white">{value}</div>
+      <div className="mt-1 text-xs opacity-80">{percentage}%</div>
+    </div>
+  );
+}
+
+function SummaryDonut({ summary }) {
+  const total = summary.total || 0;
+  const slices = [
+    { label: "On Duty", value: summary.onDuty, color: "#10b981", text: "text-emerald-300" },
+    { label: "Absent", value: summary.absent, color: "#ef4444", text: "text-red-300" },
+    { label: "Leave", value: summary.leave, color: "#f59e0b", text: "text-amber-300" },
+    { label: "Day Off", value: summary.dayOff, color: "#a855f7", text: "text-purple-300" },
+  ];
+
+  let cursor = 0;
+  const gradientStops = slices
+    .map((slice) => {
+      const start = cursor;
+      const size = total ? (slice.value / total) * 100 : 0;
+      cursor += size;
+      return `${slice.color} ${start}% ${cursor}%`;
+    })
+    .join(", ");
+
+  const chartBackground = total
+    ? `conic-gradient(${gradientStops})`
+    : "conic-gradient(#334155 0% 100%)";
+
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-[#0f172a] p-4">
+      <div className="flex flex-col sm:flex-row items-center gap-5">
+        <div className="relative size-44 shrink-0 rounded-full" style={{ background: chartBackground }}>
+          <div className="absolute inset-10 rounded-full bg-[#0f172a] border border-slate-800 flex flex-col items-center justify-center">
+            <span className="text-2xl font-bold text-white">{total}</span>
+            <span className="text-xs text-slate-500">records</span>
+          </div>
+        </div>
+        <div className="grid flex-1 grid-cols-1 gap-3 text-sm">
+          {slices.map((slice) => {
+            const percentage = total ? Math.round((slice.value / total) * 1000) / 10 : 0;
+            return (
+              <div key={slice.label} className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-slate-300">
+                  <span className="size-3 rounded-sm" style={{ backgroundColor: slice.color }} />
+                  {slice.label}
+                </span>
+                <span className={`font-semibold ${slice.text}`}>
+                  {slice.value} ({percentage}%)
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

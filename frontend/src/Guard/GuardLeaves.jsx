@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DayPicker } from "react-day-picker";
 import { eachDayOfInterval, format } from "date-fns";
@@ -26,10 +26,17 @@ const LEAVE_TYPE_OPTIONS = {
 
 const datePickerStyles = `
   .rdp {
-    --rdp-cell-size: 34px;
+    --rdp-cell-size: 36px;
     --rdp-accent-color: #2563eb;
     --rdp-background-color: #0f172a;
     margin: 0;
+    width: 100%;
+  }
+  .rdp-months,
+  .rdp-month,
+  .rdp-table {
+    width: 100%;
+    max-width: none;
   }
   .rdp-caption_label {
     font-weight: 700;
@@ -45,43 +52,71 @@ const datePickerStyles = `
   }
   .rdp-day_button {
     color: #cbd5e1;
+    width: var(--rdp-cell-size);
+    height: var(--rdp-cell-size);
+    font-size: 0.95rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
   }
   .rdp-button_previous,
   .rdp-button_next,
   .rdp-nav_button {
     color: #94a3b8;
   }
-  .rdp-day:hover:not([disabled]) {
-    background-color: #1e293b;
-    border-radius: 8px;
+  .rdp-day_button:hover:not([disabled]) {
+    background-color: #1e293b !important;
+    color: #ffffff;
   }
+  
+  /* React Day Picker v9 selection & range modifiers */
+  .rdp-day_selected,
+  .rdp-selected,
+  .rdp-range_start,
+  .rdp-range_end,
+  .rdp-day_range_start,
+  .rdp-day_range_end {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    border-radius: 8px !important;
+  }
+  
+  .rdp-day_selected .rdp-day_button,
   .rdp-selected .rdp-day_button,
   .rdp-range_start .rdp-day_button,
-  .rdp-range_end .rdp-day_button {
-    background-color: #2563eb;
-    color: #ffffff;
-    border-radius: 8px;
-    font-weight: 700;
+  .rdp-range_end .rdp-day_button,
+  .rdp-day_range_start .rdp-day_button,
+  .rdp-day_range_end .rdp-day_button {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    border-radius: 8px !important;
+    font-weight: 700 !important;
   }
-  .rdp-range_middle .rdp-day_button {
-    background-color: rgba(37, 99, 235, 0.30);
-    color: #dbeafe;
-    border-radius: 0;
-    font-weight: 600;
+
+  .rdp-range_middle,
+  .rdp-day_range_middle {
+    background-color: rgba(37, 99, 235, 0.2) !important;
+    color: #60a5fa !important;
+    border-radius: 0px !important;
   }
-  .rdp-range_start .rdp-day_button,
-  .rdp-range_end .rdp-day_button {
-    background-color: #2563eb;
-    color: #ffffff;
+
+  .rdp-range_middle .rdp-day_button,
+  .rdp-day_range_middle .rdp-day_button {
+    background-color: rgba(37, 99, 235, 0.2) !important;
+    color: #60a5fa !important;
+    border-radius: 0px !important;
+    font-weight: 600 !important;
   }
+
   .rdp-day_button:focus-visible {
     outline: 2px solid #60a5fa;
     outline-offset: 2px;
   }
+  .rdp-day_disabled,
   .rdp-day_disabled .rdp-day_button {
-    color: #475569;
+    color: #475569 !important;
     text-decoration: line-through;
-    opacity: 0.5;
+    opacity: 0.4;
+    background-color: transparent !important;
   }
   .rdp-day_scheduled {
     position: relative;
@@ -120,27 +155,27 @@ export default function GuardLeaves() {
   const [reason, setReason] = useState("");
   const [loadingPage, setLoadingPage] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const availableLeaveTypes = useMemo(
     () => LEAVE_TYPE_OPTIONS[user?.sex] || LEAVE_TYPE_OPTIONS.default,
     [user]
   );
+  const isStaffUser = user?.role === "Admin" || user?.role === "Subadmin";
 
-  const fetchData = async (guardId) => {
+  const fetchData = useCallback(async (personId) => {
     setLoadingPage(true);
     try {
-      const [leaveRes, scheduleRes] = await Promise.all([
-        fetch(`${api}/api/leaves/my`, { credentials: "include" }),
-        fetch(`${api}/api/schedules/guard/${guardId}`, { credentials: "include" }),
-      ]);
+      const leaveRes = await fetch(`${api}/api/leaves/my`, { credentials: "include" });
+      const scheduleRes = isStaffUser
+        ? null
+        : await fetch(`${api}/api/schedules/guard/${personId}`, { credentials: "include" });
 
-      const [leaveData, scheduleData] = await Promise.all([
-        leaveRes.json(),
-        scheduleRes.json(),
-      ]);
+      const leaveData = await leaveRes.json();
+      const scheduleData = scheduleRes ? await scheduleRes.json() : [];
 
       if (!leaveRes.ok) throw new Error(leaveData.message || "Failed to load leave requests.");
-      if (!scheduleRes.ok) throw new Error(scheduleData.message || "Failed to load schedules.");
+      if (scheduleRes && !scheduleRes.ok) throw new Error(scheduleData.message || "Failed to load schedules.");
 
       setLeaveRequests(Array.isArray(leaveData) ? leaveData : []);
       setScheduleDates(
@@ -149,24 +184,24 @@ export default function GuardLeaves() {
           : []
       );
     } catch (error) {
-      console.error("Error fetching guard leave data:", error);
+      console.error("Error fetching leave data:", error);
       toast.error(error.message || "Failed to load leave data.");
     } finally {
       setLoadingPage(false);
     }
-  };
+  }, [isStaffUser]);
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate("/guard/login");
+      navigate("/admin/login");
       return;
     }
 
     if (user?._id) {
-      document.title = "Leave Request | JPM Security";
+      document.title = isStaffUser ? "Leaves | JPM Security" : "Leave Request | JPM Security";
       fetchData(user._id);
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, isStaffUser, fetchData]);
 
   const reservedLeaveDates = useMemo(() => {
     const reserved = leaveRequests
@@ -294,206 +329,199 @@ export default function GuardLeaves() {
       <ToastContainer theme="dark" position="top-right" autoClose={3000} />
 
       <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-blue-600/10 border border-blue-600/20">
-            <CalendarDays className="text-blue-400" size={24} />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-blue-600/10 border border-blue-600/20">
+              <CalendarDays className="text-blue-400" size={24} />
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-white">{isStaffUser ? "Leaves" : "Leave Request"}</h1>
+              <p className="text-sm text-slate-400">Request new leave days and track your approval status.</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white">Leave Request</h1>
-            <p className="text-sm text-slate-400">Select a leave range, remove exception dates, and submit for approval.</p>
-          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-white font-semibold text-sm shadow-lg shadow-blue-900/30 transition self-start sm:self-center cursor-pointer"
+          >
+            <CalendarDays size={18} /> Request Leave
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[430px,1fr] gap-6">
-          <form onSubmit={handleSubmit} className="bg-[#1e293b] border border-slate-700 rounded-3xl p-5 md:p-6 shadow-xl space-y-5">
+        {/* My Leave History (Main Content) */}
+        <div className="bg-[#1e293b] border border-slate-700 rounded-3xl p-5 md:p-6 shadow-xl">
+          <div className="flex items-center gap-3 mb-6">
+            <FileText className="text-blue-400" size={20} />
             <div>
-              <h2 className="text-lg font-semibold text-white mb-1">New Request</h2>
-              <p className="text-sm text-slate-400">
-                Existing leave dates are blocked. Approved schedules are highlighted so you can see what this request affects.
-              </p>
+              <h2 className="text-lg font-semibold text-white">My Leave History</h2>
+              <p className="text-sm text-slate-400">Track approval status and requested dates.</p>
             </div>
+          </div>
 
-            <div className="bg-[#0f172a] border border-slate-700 rounded-2xl p-4 overflow-x-auto">
-              <DayPicker
-                mode="range"
-                selected={leaveRange}
-                onSelect={setLeaveRange}
-                disabled={disabledDates}
-                modifiers={{ scheduled: scheduledDates }}
-                modifiersClassNames={{ scheduled: "rdp-day_scheduled" }}
-              />
+          {leaveRequests.length === 0 ? (
+            <div className="h-64 flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-700 rounded-2xl">
+              <AlertCircle size={42} className="mb-3 opacity-30" />
+              <p>No leave requests yet.</p>
             </div>
+          ) : (
+            <div className="space-y-4">
+              {leaveRequests.map((request) => {
+                const StatusIcon = statusIconMap[request.status] || Clock;
+                return (
+                  <div key={request._id} className="bg-slate-900/40 border border-slate-700 rounded-2xl p-4 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div>
+                        <p className="text-sm text-slate-400">Requested on {new Date(request.createdAt).toLocaleDateString()}</p>
+                        <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-blue-300">
+                          {request.leaveType || "Unspecified"}
+                        </p>
+                        <p className="text-sm text-slate-300 mt-1">{request.reason}</p>
+                      </div>
+                      <span className={`inline-flex items-center gap-2 text-xs font-bold uppercase px-3 py-1.5 rounded-full border ${statusClassMap[request.status] || statusClassMap.Pending}`}>
+                        <StatusIcon size={14} />
+                        {request.status}
+                      </span>
+                    </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <SummaryTile label="Start" value={leaveRange?.from ? format(leaveRange.from, "MMM dd, yyyy") : "Not set"} />
-              <SummaryTile label="End" value={leaveRange?.to ? format(leaveRange.to, "MMM dd, yyyy") : "Not set"} />
-              <SummaryTile label="Included" value={`${includedDates.length} day${includedDates.length === 1 ? "" : "s"}`} />
-              <SummaryTile label="Excluded" value={`${excludedDates.length} day${excludedDates.length === 1 ? "" : "s"}`} />
-            </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <SummaryTile label="Range Start" value={request.startDate || request.dates?.[0] || "N/A"} compact />
+                      <SummaryTile label="Range End" value={request.endDate || request.dates?.[request.dates.length - 1] || "N/A"} compact />
+                      <SummaryTile label="Included Days" value={`${request.dates?.length || 0}`} compact />
+                    </div>
 
-            {overlappingScheduleDates.length > 0 && (
-              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-                {overlappingScheduleDates.length} selected leave day{overlappingScheduleDates.length === 1 ? "" : "s"} currently match approved schedules.
-              </div>
-            )}
+                    <div className="flex flex-wrap gap-2">
+                      {(request.dates || []).map((date) => (
+                        <span key={date} className="px-3 py-1 text-xs rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                          {new Date(`${date}T00:00:00`).toLocaleDateString()}
+                        </span>
+                      ))}
+                    </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Type of Leave</label>
-              <select
-                value={leaveType}
-                onChange={(event) => setLeaveType(event.target.value)}
-                required
-                className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {availableLeaveTypes.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            </div>
+                    {request.excludedDates?.length > 0 && (
+                      <div className="text-sm text-slate-400">
+                        Excluded dates:{" "}
+                        <span className="text-slate-200">
+                          {request.excludedDates.join(", ")}
+                        </span>
+                      </div>
+                    )}
 
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Reason for Leave</label>
-              <textarea
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                rows={6}
-                placeholder="Enter the reason for your leave request..."
-                className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium py-3 rounded-2xl transition"
-            >
-              {submitting ? "Submitting..." : "Submit Leave Request"}
-            </button>
-          </form>
-
-          <div className="space-y-6">
-            <div className="bg-[#1e293b] border border-slate-700 rounded-3xl p-5 md:p-6 shadow-xl">
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-white">Included Leave Dates</h2>
-                  <p className="text-sm text-slate-400">Remove any dates inside the selected range that should stay on duty.</p>
-                </div>
-                <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
-                  {includedDates.length} active
-                </span>
-              </div>
-
-              {includedDates.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {includedDates.map((date) => (
-                    <button
-                      key={date}
-                      type="button"
-                      onClick={() => toggleExcludedDate(date)}
-                      className="inline-flex items-center gap-2 px-3 py-2 text-xs rounded-full bg-slate-900 text-slate-200 border border-slate-700 hover:border-red-400/50 hover:text-red-300 transition"
-                    >
-                      {new Date(`${date}T00:00:00`).toLocaleDateString()}
-                      <X size={12} />
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-slate-500">Select a complete date range first.</p>
-              )}
-
-              {excludedDates.length > 0 && (
-                <div className="mt-5 border-t border-slate-700 pt-5">
-                  <div className="flex items-center justify-between gap-3 mb-3">
-                    <h3 className="text-sm font-semibold text-white">Excluded From Leave</h3>
-                    <span className="text-xs text-slate-400">Tap to restore</span>
+                    {request.reviewRemarks ? (
+                      <div className="text-sm text-slate-400 border-t border-slate-700 pt-3">
+                        Review note: <span className="text-slate-200">{request.reviewRemarks}</span>
+                      </div>
+                    ) : null}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {excludedDates.map((date) => (
-                      <button
-                        key={date}
-                        type="button"
-                        onClick={() => toggleExcludedDate(date)}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-xs rounded-full bg-red-500/10 text-red-300 border border-red-500/20 hover:bg-red-500/20 transition"
-                      >
-                        {new Date(`${date}T00:00:00`).toLocaleDateString()}
-                        <CheckCircle size={12} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+                );
+              })}
             </div>
+          )}
+        </div>
 
-            <div className="bg-[#1e293b] border border-slate-700 rounded-3xl p-5 md:p-6 shadow-xl">
-              <div className="flex items-center gap-3 mb-6">
-                <FileText className="text-blue-400" size={20} />
+        {/* Submit Leave Request Modal (Identical to Admin leaves request modal style) */}
+        {showCreateModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm">
+            <div className="w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-3xl border border-blue-500/20 bg-[#0f172a] shadow-2xl shadow-black/50">
+              <div className="sticky top-0 z-10 border-b border-blue-500/10 bg-[linear-gradient(135deg,rgba(37,99,235,0.18),rgba(15,23,42,0.98))] px-6 py-5 flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-semibold text-white">My Leave History</h2>
-                  <p className="text-sm text-slate-400">Track approval status and requested dates.</p>
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">New Leave Request</div>
+                  <h3 className="mt-1 text-xl font-semibold text-white">Submit Leave Request</h3>
+                  <p className="mt-1 text-sm text-slate-400">Pick a date range, remove dates if needed, then submit.</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => { setShowCreateModal(false); resetForm(); }}
+                  className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:text-white cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
               </div>
 
-              {leaveRequests.length === 0 ? (
-                <div className="h-64 flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-700 rounded-2xl">
-                  <AlertCircle size={42} className="mb-3 opacity-30" />
-                  <p>No leave requests yet.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {leaveRequests.map((request) => {
-                    const StatusIcon = statusIconMap[request.status] || Clock;
-                    return (
-                      <div key={request._id} className="bg-slate-900/40 border border-slate-700 rounded-2xl p-4 space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                          <div>
-                            <p className="text-sm text-slate-400">Requested on {new Date(request.createdAt).toLocaleDateString()}</p>
-                            <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-blue-300">
-                              {request.leaveType || "Unspecified"}
-                            </p>
-                            <p className="text-sm text-slate-300 mt-1">{request.reason}</p>
-                          </div>
-                          <span className={`inline-flex items-center gap-2 text-xs font-bold uppercase px-3 py-1.5 rounded-full border ${statusClassMap[request.status] || statusClassMap.Pending}`}>
-                            <StatusIcon size={14} />
-                            {request.status}
-                          </span>
-                        </div>
+              <div className="p-6">
+                <form onSubmit={async (e) => { await handleSubmit(e); if (!submitting) setShowCreateModal(false); }} className="grid gap-6 xl:grid-cols-[340px_1fr]">
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-gray-700 bg-[#1e293b] p-3 flex flex-col items-center">
+                      <DayPicker
+                        mode="range"
+                        selected={leaveRange}
+                        onSelect={setLeaveRange}
+                        disabled={disabledDates}
+                        modifiers={{ scheduled: scheduledDates }}
+                        modifiersClassNames={{ scheduled: "rdp-day_scheduled" }}
+                      />
+                      <p className="mt-3 text-[11px] text-slate-400 text-center">
+                        Dates with existing leave or duty schedules are disabled.
+                      </p>
+                    </div>
+                  </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <SummaryTile label="Range Start" value={request.startDate || request.dates?.[0] || "N/A"} compact />
-                          <SummaryTile label="Range End" value={request.endDate || request.dates?.[request.dates.length - 1] || "N/A"} compact />
-                          <SummaryTile label="Included Days" value={`${request.dates?.length || 0}`} compact />
-                        </div>
+                  <div className="space-y-5">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <SummaryTile label="Range Start" value={leaveRange?.from ? format(leaveRange.from, "MMM dd, yyyy") : "Not set"} compact />
+                      <SummaryTile label="Range End" value={leaveRange?.to ? format(leaveRange.to, "MMM dd, yyyy") : "Not set"} compact />
+                      <SummaryTile label="Included" value={`${includedDates.length} day${includedDates.length === 1 ? "" : "s"}`} compact />
+                      <SummaryTile label="Excluded" value={`${excludedDates.length} day${excludedDates.length === 1 ? "" : "s"}`} compact />
+                    </div>
 
+                    <div className="rounded-xl border border-gray-700 bg-[#1e293b] p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Included Leave Dates</span>
+                        <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">{includedDates.length} active</span>
+                      </div>
+                      {includedDates.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
-                          {(request.dates || []).map((date) => (
-                            <span key={date} className="px-3 py-1 text-xs rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                              {new Date(`${date}T00:00:00`).toLocaleDateString()}
-                            </span>
+                          {includedDates.map((date) => (
+                            <button key={date} type="button" onClick={() => toggleExcludedDate(date)}
+                              className="inline-flex items-center gap-2 rounded-md border border-gray-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-red-400/50 hover:text-red-300 cursor-pointer">
+                              {format(new Date(`${date}T00:00:00`), "MMM dd, yyyy")}<X size={12} />
+                            </button>
                           ))}
                         </div>
-
-                        {request.excludedDates?.length > 0 && (
-                          <div className="text-sm text-slate-400">
-                            Excluded dates:{" "}
-                            <span className="text-slate-200">
-                              {request.excludedDates.join(", ")}
-                            </span>
+                      ) : <p className="text-sm text-slate-500">No active leave dates selected.</p>}
+                      {excludedDates.length > 0 && (
+                        <div className="mt-5 border-t border-gray-700 pt-4">
+                          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Excluded Dates</div>
+                           <div className="flex flex-wrap gap-2">
+                            {excludedDates.map((date) => (
+                              <button key={date} type="button" onClick={() => toggleExcludedDate(date)}
+                                className="inline-flex items-center gap-2 rounded-md border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/20 cursor-pointer">
+                                {format(new Date(`${date}T00:00:00`), "MMM dd, yyyy")}<CheckCircle size={12} />
+                              </button>
+                            ))}
                           </div>
-                        )}
+                        </div>
+                      )}
+                    </div>
 
-                        {request.reviewRemarks ? (
-                          <div className="text-sm text-slate-400 border-t border-slate-700 pt-3">
-                            Review note: <span className="text-slate-200">{request.reviewRemarks}</span>
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Type of Leave</label>
+                      <select value={leaveType} onChange={(event) => setLeaveType(event.target.value)} required
+                        className="w-full rounded-lg border border-slate-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500">
+                        {availableLeaveTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Reason</label>
+                      <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={5}
+                        placeholder="Provide the reason for this leave request."
+                        className="w-full resize-none rounded-xl border border-slate-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+
+                    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                      <button type="button" onClick={() => { setShowCreateModal(false); resetForm(); }}
+                        className="rounded-lg border border-slate-700 px-5 py-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white cursor-pointer">Cancel</button>
+                      <button type="submit" disabled={submitting}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-60 cursor-pointer">
+                        {submitting ? <Clock className="animate-spin" size={16} /> : <CheckCircle size={16} />}
+                        {submitting ? "Submitting..." : "Submit Request"}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

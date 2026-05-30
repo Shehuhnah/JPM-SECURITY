@@ -51,26 +51,54 @@ const api = import.meta.env.VITE_API_URL;
 // --- Custom CSS for Dark Mode Date Picker ---
 const datePickerStyles = `
   .rdp {
-    --rdp-cell-size: 40px;
+    --rdp-cell-size: 34px;
     --rdp-accent-color: #3b82f6;
     --rdp-background-color: #1e293b;
     margin: 0;
   }
-  .rdp-day_selected:not([disabled]) { 
-    background-color: #3b82f6; 
-    color: white;
-    font-weight: bold;
+  .rdp-caption_label {
+    color: #f8fafc;
+    font-weight: 700;
+  }
+  .rdp-weekday {
+    color: #94a3b8;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+  }
+  .rdp-day,
+  .rdp-day_button {
+    color: #cbd5e1;
   }
   .rdp-day:hover:not([disabled]) { 
     background-color: #334155; 
+    border-radius: 8px;
   }
-  .rdp-caption_label, .rdp-head_cell, .rdp-day {
-    color: #e2e8f0;
+  .rdp-selected .rdp-day_button,
+  .rdp-range_start .rdp-day_button,
+  .rdp-range_end .rdp-day_button {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border-radius: 8px;
+    font-weight: 700;
+  }
+  .rdp-range_middle .rdp-day_button {
+    background-color: rgba(59, 130, 246, 0.30);
+    color: #dbeafe;
+    border-radius: 0;
+    font-weight: 600;
   }
   .rdp-button:hover:not([disabled]) {
     background-color: #334155;
   }
-  .rdp-nav_button { color: #94a3b8; }
+  .rdp-button_previous,
+  .rdp-button_next,
+  .rdp-nav_button {
+    color: #94a3b8;
+  }
+  .rdp-day_button:focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+  }
 `;
 
 export default function AdminDashboard() {

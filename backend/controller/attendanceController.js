@@ -1,7 +1,7 @@
 import Attendance from "../models/Attendance.model.js";
 import Schedule from "../models/schedule.model.js";
 import Guard from "../models/guard.model.js";
-import { generateWorkHoursPDF, generateWorkHoursByClientPDF, generateStaffAttendancePDF } from "../utils/workingHoursPdfGenerator.js";
+import { generateWorkHoursByClientPDF, generateStaffAttendancePDF } from "../utils/workingHoursPdfGenerator.js";
 import { getAttendanceMinutesBreakdown } from "../utils/attendanceHours.js";
 
 const getGuardDisplayName = (guard = {}) => {
@@ -24,6 +24,90 @@ const getManilaDateKey = (value = new Date()) =>
     month: "2-digit",
     day: "2-digit",
   }).format(new Date(value));
+
+const getAttendanceRecordDate = (attendance) =>
+  attendance?.timeIn
+    ? new Date(attendance.timeIn)
+    : parseAsPHT(attendance?.scheduleId?.timeIn);
+
+const getAttendanceStatusPriority = (attendance) => {
+  const status = attendance?.status || "";
+  if (status === "On Duty") return 4;
+  if (status === "Off Duty" || status === "Present") return 3;
+  if (status === "Leave") return 2;
+  if (status === "Absent") return 1;
+  return 0;
+};
+
+const sortAttendanceForDisplay = (a, b) => {
+  const dateA = getAttendanceRecordDate(a);
+  const dateB = getAttendanceRecordDate(b);
+  const timeA = dateA && !Number.isNaN(dateA.getTime()) ? dateA.getTime() : 0;
+  const timeB = dateB && !Number.isNaN(dateB.getTime()) ? dateB.getTime() : 0;
+
+  if (timeA !== timeB) {
+    return timeB - timeA;
+  }
+
+  const priorityDiff = getAttendanceStatusPriority(b) - getAttendanceStatusPriority(a);
+  if (priorityDiff !== 0) {
+    return priorityDiff;
+  }
+
+  return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+};
+
+const markMissedScheduleAbsences = async ({ guardId = null } = {}) => {
+  const now = new Date();
+  const scheduleQuery = {
+    isApproved: "Approved",
+    status: { $ne: "Cancelled" },
+  };
+
+  if (guardId) {
+    scheduleQuery.guardId = guardId;
+  }
+
+  const schedules = await Schedule.find(scheduleQuery).select("guardId timeIn timeOut");
+  const endedSchedules = schedules.filter((schedule) => {
+    const shiftEnd = parseAsPHT(schedule.timeOut);
+    return shiftEnd && shiftEnd < now;
+  });
+
+  if (endedSchedules.length === 0) {
+    return 0;
+  }
+
+  const scheduleIds = endedSchedules.map((schedule) => schedule._id);
+  const existingAttendance = await Attendance.find({ scheduleId: { $in: scheduleIds } }).select("scheduleId");
+  const attendedScheduleIds = new Set(existingAttendance.map((attendance) => attendance.scheduleId.toString()));
+
+  const absentRecords = endedSchedules
+    .filter((schedule) => !attendedScheduleIds.has(schedule._id.toString()))
+    .map((schedule) => ({
+      guard: schedule.guardId,
+      scheduleId: schedule._id,
+      status: "Absent",
+      remarks: "No attendance recorded for scheduled duty.",
+    }));
+
+  if (absentRecords.length === 0) {
+    return 0;
+  }
+
+  const result = await Attendance.bulkWrite(
+    absentRecords.map((record) => ({
+      updateOne: {
+        filter: { scheduleId: record.scheduleId },
+        update: { $setOnInsert: record },
+        upsert: true,
+      },
+    })),
+    { ordered: false }
+  );
+
+  return result.upsertedCount || 0;
+};
 
 const isScheduleWithinCurrentDay = (schedule, now = new Date()) => {
   if (!schedule?.timeIn || !schedule?.timeOut) {
@@ -68,6 +152,7 @@ export const createAttendance = async (req, res) => {
   try {
     const guardId = req.user.id;
     const { scheduleId, location, photo } = req.body;
+    await markMissedScheduleAbsences({ guardId });
 
     const schedule = await Schedule.findById(scheduleId);
     if (!schedule) {
@@ -204,6 +289,8 @@ export const updateAttendance = async (req, res) => {
  */
 export const getAttendances = async (req, res) => {
   try {
+    await markMissedScheduleAbsences();
+
     const shouldPaginate =
       req.query.page !== undefined ||
       req.query.limit !== undefined ||
@@ -222,8 +309,9 @@ export const getAttendances = async (req, res) => {
         .populate({
             path: 'scheduleId',
             select: 'client deploymentLocation position shiftType timeIn timeOut'
-        })
-        .sort({ createdAt: -1 });
+        });
+
+      attendances.sort(sortAttendanceForDisplay);
 
       return res.json(attendances);
     }
@@ -244,8 +332,7 @@ export const getAttendances = async (req, res) => {
       .populate({
           path: 'scheduleId',
           select: 'client deploymentLocation position shiftType timeIn timeOut'
-      })
-      .sort({ createdAt: -1 });
+      });
 
     const filteredAttendances = attendances.filter((attendance) => {
       const recordClient = attendance.scheduleId?.client || "";
@@ -265,12 +352,8 @@ export const getAttendances = async (req, res) => {
       }
 
       if (from || to) {
-        if (!attendance.timeIn) {
-          return false;
-        }
-
-        const recordDate = new Date(attendance.timeIn);
-        if (Number.isNaN(recordDate.getTime())) {
+        const recordDate = getAttendanceRecordDate(attendance);
+        if (!recordDate || Number.isNaN(recordDate.getTime())) {
           return false;
         }
 
@@ -295,6 +378,8 @@ export const getAttendances = async (req, res) => {
 
       return true;
     });
+
+    filteredAttendances.sort(sortAttendanceForDisplay);
 
     const uniqueRecords = [];
     const seen = new Set();
@@ -331,6 +416,8 @@ export const getAttendances = async (req, res) => {
 export const getGuardAttendance = async (req, res) => {
   try {
     const guardId = req.params.id;
+    await markMissedScheduleAbsences({ guardId });
+
     const shouldPaginate =
       req.query.page !== undefined ||
       req.query.limit !== undefined;
@@ -340,8 +427,9 @@ export const getGuardAttendance = async (req, res) => {
         .populate({
             path: 'scheduleId',
             select: 'client deploymentLocation shiftType timeIn timeOut'
-        })
-        .sort({ createdAt: -1 });
+        });
+
+      attendance.sort(sortAttendanceForDisplay);
 
       return res.json(attendance);
     }
@@ -350,17 +438,14 @@ export const getGuardAttendance = async (req, res) => {
     const limit = parsePositiveInt(req.query.limit, 10);
     const skip = (page - 1) * limit;
 
-    const [items, total] = await Promise.all([
-      Attendance.find({ guard: guardId })
-        .populate({
-            path: 'scheduleId',
-            select: 'client deploymentLocation shiftType timeIn timeOut'
-        })
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
-      Attendance.countDocuments({ guard: guardId }),
-    ]);
+    const attendance = await Attendance.find({ guard: guardId })
+      .populate({
+          path: 'scheduleId',
+          select: 'client deploymentLocation shiftType timeIn timeOut'
+      });
+    attendance.sort(sortAttendanceForDisplay);
+    const total = attendance.length;
+    const items = attendance.slice(skip, skip + limit);
 
     res.json({
       items,
@@ -426,7 +511,9 @@ export const downloadWorkHours = async (req, res) => {
 
         attendanceRecords.sort((a, b) => new Date(a.timeIn) - new Date(b.timeIn));
         
-        const pdfBuffer = await generateWorkHoursPDF(guard, attendanceRecords, periodCover, {
+        const detachment = attendanceRecords[0]?.scheduleId?.client || guard.position || "N/A";
+        const guardAttendanceMap = new Map([[guard, attendanceRecords]]);
+        const pdfBuffer = await generateWorkHoursByClientPDF(detachment, guardAttendanceMap, periodCover, {
           startDate,
           endDate,
         });

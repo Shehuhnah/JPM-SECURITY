@@ -14,7 +14,6 @@ const initialForm = {
   title: "",
   category: "Daily Summary",
   reportDate: new Date().toISOString().split("T")[0],
-  attendanceId: "",
   details: "",
   image: null,
 };
@@ -26,20 +25,11 @@ const CATEGORY_META = {
   "HR Follow-up":       { color: "purple", icon: CheckSquare,   bg: "bg-purple-500/10", text: "text-purple-300", border: "border-purple-500/20" },
 };
 
-const formatDateTime = (value) => {
-  if (!value) return "--";
-  return new Date(value).toLocaleString([], {
-    year: "numeric", month: "short", day: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
-};
-
 export default function AdminLogReports() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState(initialForm);
   const [reports, setReports] = useState([]);
-  const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState("");
@@ -57,16 +47,10 @@ export default function AdminLogReports() {
   const fetchPageData = async () => {
     try {
       setPageLoading(true);
-      const [reportsRes, attendanceRes] = await Promise.all([
-        fetch(`${api}/api/admin-reports`, { credentials: "include" }),
-        fetch(`${api}/api/admin-attendance/me`, { credentials: "include" }),
-      ]);
+      const reportsRes = await fetch(`${api}/api/admin-reports`, { credentials: "include" });
       const reportsData = await reportsRes.json();
-      const attendanceData = await attendanceRes.json();
       if (!reportsRes.ok) throw new Error(reportsData.message || "Failed to fetch reports.");
-      if (!attendanceRes.ok) throw new Error(attendanceData.message || "Failed to fetch attendance.");
       setReports(Array.isArray(reportsData) ? reportsData : []);
-      setAttendanceRecords(attendanceData?.recentRecords || []);
     } catch (error) {
       toast.error(error.message || "Failed to load reports page.");
     } finally {
@@ -117,7 +101,6 @@ export default function AdminLogReports() {
       payload.append("title", form.title);
       payload.append("category", form.category);
       payload.append("reportDate", form.reportDate);
-      payload.append("attendanceId", form.attendanceId);
       payload.append("details", form.details);
       if (form.image) payload.append("image", form.image);
 
@@ -173,10 +156,9 @@ export default function AdminLogReports() {
       </div>
 
       {/* ===== Stats ===== */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         <StatCard title="Total Reports" value={reports.length} icon={BarChart3} color="blue" />
         <StatCard title="My Reports" value={myReportsCount} icon={User} color="purple" />
-        <StatCard title="Attendance Linked" value={attendanceRecords.length} icon={CheckSquare} color="green" />
       </div>
 
       {/* ===== Filters ===== */}
@@ -238,7 +220,7 @@ export default function AdminLogReports() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredReports.map((report) => (
-            <ReportCard key={report._id} report={report} api={api} />
+            <ReportCard key={report._id} report={report} />
           ))}
         </div>
       )}
@@ -294,17 +276,6 @@ export default function AdminLogReports() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Linked Attendance</label>
-                  <select name="attendanceId" value={form.attendanceId} onChange={handleChange}
-                    className="w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#2B7FFF]">
-                    <option value="">No linked attendance</option>
-                    {attendanceRecords.map((rec) => (
-                      <option key={rec._id} value={rec._id}>{rec.dateKey} | {rec.status}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">Details <span className="text-red-400">*</span></label>
                   <textarea name="details" value={form.details} onChange={handleChange} required rows={6}
                     className="w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#2B7FFF] resize-none"
@@ -353,7 +324,8 @@ export default function AdminLogReports() {
   );
 }
 
-function StatCard({ title, value, icon: Icon, color }) {
+function StatCard({ title, value, icon, color }) {
+  const StatIcon = icon;
   const colors = {
     blue:   { bg: "bg-blue-500/10",   border: "border-blue-500/20",   icon: "text-blue-400",   val: "text-blue-300" },
     purple: { bg: "bg-purple-500/10", border: "border-purple-500/20", icon: "text-purple-400", val: "text-purple-300" },
@@ -362,7 +334,7 @@ function StatCard({ title, value, icon: Icon, color }) {
   return (
     <div className={`bg-[#1e293b] border ${colors.border} rounded-2xl p-5 shadow-lg flex items-center gap-4`}>
       <div className={`${colors.bg} p-3 rounded-xl`}>
-        <Icon size={22} className={colors.icon} />
+        <StatIcon size={22} className={colors.icon} />
       </div>
       <div>
         <div className="text-xs text-slate-500 font-medium uppercase tracking-wide">{title}</div>
@@ -372,7 +344,7 @@ function StatCard({ title, value, icon: Icon, color }) {
   );
 }
 
-function ReportCard({ report, api }) {
+function ReportCard({ report }) {
   const meta = CATEGORY_META[report.category] || CATEGORY_META["Daily Summary"];
   const CategoryIcon = meta.icon;
   return (
@@ -421,11 +393,6 @@ function ReportCard({ report, api }) {
         <span className="flex items-center gap-1">
           <Tag size={11} /> {report.createdBy?.role || "Staff"}
         </span>
-        {report.attendanceId && (
-          <span className="flex items-center gap-1">
-            <CheckSquare size={11} /> Attendance: {formatDateTime(report.attendanceId.timeIn)}
-          </span>
-        )}
       </div>
     </div>
   );

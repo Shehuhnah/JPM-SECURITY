@@ -140,30 +140,34 @@ export default function AdminLayout() {
     }
   };
 
-  const idRequestLabel = user?.role === "Subadmin" ? "Manage ID Request" : "View ID Request";
   const coeRequestLabel = user?.role === "Subadmin" ? "View COE Request" : "Manage COE Request";
 
 
   // Main Navigation Items (Removed Request ID/COE to put in dropdown)
   const navItems = [
     { to: "/admin", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
+
+    // Staff/admin workspace
     { to: "/admin/staff-attendance", label: "My Attendance", icon: <Clock size={18} /> },
     { to: "/admin/log-reports", label: "My Log Reports", icon: <FilePenLine size={18} /> },
     { to: "/admin/profile", label: "My Profile", icon: <Settings size={18} /> },
+    { to: "/admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
+
+    // Guard operations
     { to: "/admin/deployment", label: "Deployment", icon: <Calendar size={18} /> },
     { to: "/admin/schedule-approval", label: "Schedules Approval", icon: <Calendar size={18} /> },
-    { to: "/admin/AdminMessages", label: "Messages", icon: <Mail size={18} /> },
-    { to: "/admin/manage-clients", label: "Clients", icon: <Building size={18} /> },
+    { to: "/admin/AdminAttendance", label: "Guards Attendance", icon: <Clock size={18} /> },
     { to: "/admin/leaves", label: "Manage Leaves", icon: <CalendarDays size={18} /> },
     { to: "/admin/AdminGuardUpdates", label: "Updates", icon: <Shield size={18} /> },
-    { to: "/admin/gallery-manager", label: "Gallery", icon: <ImagePlus size={18} /> },
-    { to: "/admin/AdminAttendance", label: "Guards Attendance", icon: <Clock size={18} /> },
+    { to: "/admin/manage-clients", label: "Clients", icon: <Building size={18} /> },
     { to: "/admin/Request-ID", label: "Manage ID Request", icon: <IdCardLanyard size={18} /> },
     { to: "/admin/AdminCOE", label: coeRequestLabel, icon: <FileText size={18} /> },
+    { to: "/admin/gallery-manager", label: "Gallery", icon: <ImagePlus size={18} /> },
   ];
 
   // New Dropdown Items
   const requestItems = [
+    { to: "/admin/my-leaves", label: "Leaves", icon: <CalendarDays size={16} /> },
     { to: "admin-request-id", label: "ID Request", icon: <IdCardLanyard size={16}/> },
     { to: "request-coe", label: "COE Request", icon: <FileText size={16} /> },
   ];
@@ -179,8 +183,48 @@ export default function AdminLayout() {
     { to: "/admin/AdminGuardsProfile", label: "Guards", icon: <Users size={16} /> },
   ];
 
-  const userManagementAnchorLabel =
-    user?.role === "Subadmin" ? "Deployment" : "Schedules Approval";
+  const requestsAnchorLabel = "My Log Reports";
+  const userManagementAnchorLabel = "My Profile";
+  const postsAnchorTo = "/admin/AdminCOE";
+
+  const renderRequestsDropdown = () => (
+    <div>
+      <button
+        onClick={() => setRequestsDropdown(!requestsDropdown)}
+        className="flex items-center justify-between w-full p-2 rounded hover:bg-[#0b2433]"
+      >
+        <div className="flex items-center gap-3">
+          <ClipboardList size={18} />
+          <span>My Requests</span>
+        </div>
+        <ChevronDown
+          size={16}
+          className={`transition-transform ${requestsDropdown ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {requestsDropdown && (
+        <ul className="ml-8 mt-1 space-y-1 text-sm">
+          {requestItems.map((item, idx) => (
+            <li key={idx}>
+              <NavLink
+                to={item.to}
+                className={({ isActive }) =>
+                  `flex items-center gap-2 p-2 rounded ${
+                    isActive ? "bg-[#142235] text-white" : "hover:bg-[#0b2433]"
+                  }`
+                }
+                onClick={() => setSidebarOpen(false)}
+              >
+                {item.icon}
+                {item.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 
   const renderUserManagementDropdown = () => (
     <div>
@@ -201,6 +245,46 @@ export default function AdminLayout() {
       {userManagementDropdown && (
         <ul className="ml-8 mt-1 space-y-1 text-sm">
           {userManagementItems.map((item, idx) => (
+            <li key={idx}>
+              <NavLink
+                to={item.to}
+                className={({ isActive }) =>
+                  `flex items-center gap-2 p-2 rounded ${
+                    isActive ? "bg-[#142235] text-white" : "hover:bg-[#0b2433]"
+                  }`
+                }
+                onClick={() => setSidebarOpen(false)}
+              >
+                {item.icon}
+                {item.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+
+  const renderPostsDropdown = () => (
+    <div>
+      <button
+        onClick={() => setPostsDropdown(!postsDropdown)}
+        className="flex items-center justify-between w-full p-2 rounded hover:bg-[#0b2433]"
+      >
+        <div className="flex items-center gap-3">
+          <User size={18} />
+          <span>Manage Posts</span>
+        </div>
+
+        <ChevronDown
+          size={16}
+          className={`transition-transform ${postsDropdown ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {postsDropdown && (
+        <ul className="ml-8 mt-1 space-y-1 text-sm">
+          {postItems.map((item, idx) => (
             <li key={idx}>
               <NavLink
                 to={item.to}
@@ -335,6 +419,7 @@ export default function AdminLayout() {
                       </ul>
                     )}
                     {item.label === userManagementAnchorLabel && renderUserManagementDropdown()}
+                    {item.to === postsAnchorTo && renderPostsDropdown()}
                   </Fragment>
                 );
               }
@@ -355,90 +440,12 @@ export default function AdminLayout() {
                     <span>{item.label}</span>
                   </NavLink>
 
+                  {item.label === requestsAnchorLabel && (user?.role === "Subadmin" || user?.role === "Admin") && renderRequestsDropdown()}
                   {item.label === userManagementAnchorLabel && renderUserManagementDropdown()}
+                  {item.to === postsAnchorTo && renderPostsDropdown()}
                 </Fragment>
               );
             })}
-
-          {/* NEW: REQUESTS DROPDOWN */}
-          {/* Admin is the unrestricted role, so keep request links visible there too. */}
-          {(user?.role === "Subadmin" || user?.role === "Admin") && ( 
-            <div>
-              <button
-                onClick={() => setRequestsDropdown(!requestsDropdown)}
-                className="flex items-center justify-between w-full p-2 rounded hover:bg-[#0b2433]"
-              >
-                <div className="flex items-center gap-3">
-                  <ClipboardList size={18} />
-                  <span>My Requests</span>
-                </div>
-                <ChevronDown
-                  size={16}
-                  className={`transition-transform ${requestsDropdown ? "rotate-180" : ""}`}
-                />
-              </button>
-
-              {requestsDropdown && (
-                <ul className="ml-8 mt-1 space-y-1 text-sm">
-                  {requestItems.map((item, idx) => (
-                    <li key={idx}>
-                      <NavLink
-                        to={item.to}
-                        className={({ isActive }) =>
-                          `flex items-center gap-2 p-2 rounded ${
-                            isActive ? "bg-[#142235] text-white" : "hover:bg-[#0b2433]"
-                          }`
-                        }
-                        onClick={() => setSidebarOpen(false)}
-                      >
-                        {item.icon}
-                        {item.label}
-                      </NavLink>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-
-          {/* POSTS DROPDOWN */}
-          <div>
-            <button
-              onClick={() => setPostsDropdown(!postsDropdown)}
-              className="flex items-center justify-between w-full p-2 rounded hover:bg-[#0b2433]"
-            >
-              <div className="flex items-center gap-3">
-                <User size={18} />
-                <span>Manage Posts</span>
-              </div>
-
-              <ChevronDown
-                size={16}
-                className={`transition-transform ${postsDropdown ? "rotate-180" : ""}`}
-              />
-            </button>
-
-            {postsDropdown && (
-              <ul className="ml-8 mt-1 space-y-1 text-sm">
-                {postItems.map((item, idx) => (
-                  <li key={idx}>
-                    <NavLink
-                      to={item.to}
-                      className={({ isActive }) =>
-                        `flex items-center gap-2 p-2 rounded ${
-                          isActive ? "bg-[#142235] text-white" : "hover:bg-[#0b2433]"
-                        }`
-                      }
-                      onClick={() => setSidebarOpen(false)}
-                    >
-                      {item.icon}
-                      {item.label}
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
         </nav>
 
         {/* Logout */}

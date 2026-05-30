@@ -162,7 +162,6 @@ export default function AdminLeaves() {
   const [loadingPage, setLoadingPage] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [reviewingId, setReviewingId] = useState("");
-  const [isFormOpen, setIsFormOpen] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [approveModal, setApproveModal] = useState({ open: false, request: null });
   const [declineModal, setDeclineModal] = useState({ open: false, requestId: "", name: "" });
@@ -182,7 +181,6 @@ export default function AdminLeaves() {
     name: "",
   });
 
-  const isAdmin = user?.role === "Admin";
   const canRequestLeave = user?.role === "Admin" || user?.role === "Subadmin";
   const canReview = user?.role === "Admin" || user?.role === "Subadmin";
 
@@ -477,7 +475,6 @@ export default function AdminLeaves() {
 
       toast.success("Leave request submitted.");
       resetForm();
-      setIsFormOpen(false);
       await fetchRequests();
     } catch (error) {
       toast.error(error.message || "Failed to submit request.");
@@ -693,16 +690,6 @@ export default function AdminLeaves() {
     approved: requests.filter((request) => request.status === "Approved").length,
     declined: requests.filter((request) => request.status === "Declined").length,
   }), [requests]);
-
-  const myLeaves = useMemo(() => {
-    if (!user?._id) return [];
-    return requests.filter((request) => {
-      if (request.requesterRole === "Guard") {
-        return request.guard?._id === user._id || request.guard === user._id;
-      }
-      return request.staff?._id === user._id || request.staff === user._id;
-    });
-  }, [requests, user]);
 
   if (loading || loadingPage) {
     return (
@@ -1082,44 +1069,6 @@ export default function AdminLeaves() {
               </div>
             </div>
           </div>
-        )}
-
-        {/* My Leave History */}
-        {canRequestLeave && myLeaves.length > 0 && (
-          <section className="overflow-hidden rounded-2xl border border-blue-500/20 bg-[#1e293b] shadow-lg">
-            <div className="border-b border-blue-500/10 bg-[linear-gradient(135deg,rgba(37,99,235,0.12),rgba(30,41,59,0.95))] px-5 py-4 flex items-center gap-3">
-              <History size={18} className="text-blue-400" />
-              <div>
-                <h2 className="text-base font-semibold text-white">My Leave History</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Your personal leave requests ({myLeaves.length})</p>
-              </div>
-            </div>
-            <div className="divide-y divide-gray-700/50">
-              {myLeaves.map((request) => {
-                const sc = statusConfig[request.status] || statusConfig.Pending;
-                return (
-                  <div key={request._id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 hover:bg-slate-800/40 transition">
-                    <div className="flex items-start gap-4 min-w-0">
-                      <div className={`mt-0.5 rounded-full px-2.5 py-1 text-xs font-semibold border ${sc.bg} ${sc.color} ${sc.border} whitespace-nowrap`}>
-                        {request.status}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-white">{request.leaveType || "Unspecified"}</p>
-                        <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{request.reason}</p>
-                        {request.reviewRemarks && (
-                          <p className="text-xs text-slate-500 mt-1">Note: <span className="text-slate-300">{request.reviewRemarks}</span></p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0 text-xs text-slate-400 space-y-1">
-                      <div className="font-medium text-slate-300">{request.startDate || request.dates?.[0] || "N/A"} → {request.endDate || request.dates?.[request.dates.length - 1] || "N/A"}</div>
-                      <div>{request.dates?.length || 0} day{(request.dates?.length || 0) !== 1 ? "s" : ""} included</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
         )}
 
         <section className="overflow-hidden rounded-2xl border border-gray-700 bg-[#1e293b] shadow-lg">

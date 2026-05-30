@@ -129,6 +129,7 @@ const Router = () => {
                 { path: "applicant-message", element: <SubadminApplicantMessage/>},
                 { path: "manage-clients", element: <AdminManageClients />},
                 { path: "leaves", element: <AdminLeaves />},
+                { path: "my-leaves", element: <GuardLeaves />},
                 { path: "gallery-manager", element: <AdminGalleryManager />},
                 { path: "admin-request-id", element: <GuardReqID/>},
                 { path: "profile", element: <AdminProfile />},
