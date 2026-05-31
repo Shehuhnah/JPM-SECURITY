@@ -1,9 +1,13 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { getAttendanceMinutesBreakdown } from './attendanceHours.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const MANILA_TIME_ZONE = 'Asia/Manila';
+const headerPdfPath = path.resolve(__dirname, '..', 'assets', 'headerpdf', 'header.png');
 const manilaDatePartsFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: MANILA_TIME_ZONE,
   year: 'numeric',
@@ -352,10 +356,9 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
       const drawPageHeader = (isFirstPage) => {
         currentY = margin;
         if (isFirstPage) {
-          const headerPath = path.join(process.cwd(), "backend", "assets", "headerpdf", "header.png");
-          if (fs.existsSync(headerPath)) {
+          if (fs.existsSync(headerPdfPath)) {
             const imageWidth = 450;
-            doc.image(headerPath, (pageW - imageWidth) / 2, margin - 15, { width: imageWidth });
+            doc.image(headerPdfPath, (pageW - imageWidth) / 2, margin - 15, { width: imageWidth });
           }
           currentY += 60;
         } else {
@@ -681,10 +684,9 @@ export const generateStaffAttendancePDF = (staff, attendanceRecords, periodCover
       let currentY = margin;
 
       // ── Corporate header image ──────────────────────────────────────────
-      const headerImgPath = path.join(process.cwd(), 'backend', 'assets', 'headerpdf', 'header.png');
-      if (fs.existsSync(headerImgPath)) {
+      if (fs.existsSync(headerPdfPath)) {
         const imgW = 420;
-        doc.image(headerImgPath, (pageW - imgW) / 2, currentY - 10, { width: imgW });
+        doc.image(headerPdfPath, (pageW - imgW) / 2, currentY - 10, { width: imgW });
         currentY += 66; // Increased space between header logo and content
       } else {
         // Fallback text header

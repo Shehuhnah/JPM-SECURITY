@@ -20,7 +20,8 @@ import {
   Info,
   Hourglass,
   Bell,
-  MessageCircle
+  MessageCircle,
+  LayoutDashboard,
 } from "lucide-react";
 
 import { useAuth } from "../hooks/useAuth";
@@ -180,6 +181,7 @@ export default function GuardsLayout() {
   };
 
   const navItems = [
+    { to: "/guard/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
     { to: "/guard/announcements", label: "Announcement", icon: <Megaphone size={18} /> },
     { to: "/guard/detachment", label: "Detachment / Deployment", icon: <Shield size={18} /> },
     { to: "/guard/my-attendance", label: "My Attendance", icon: <Clock size={18} /> },

@@ -392,19 +392,10 @@ function GuardAttendanceRecords() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">Attendance Dashboard</h1>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-400 border border-blue-500/20">
-                  <Shield size={12} /> Guard Mode
-                </span>
               </div>
               <p className="text-sm text-slate-400 mt-1">
-                Real-time tracking, metrics, and DTR documentation.
+                Tracking, metrics, and DTR documentation.
               </p>
-              <div className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-300 bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-700/50 w-fit">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                <span className="font-bold text-slate-200">{getPersonName(guard, "Guard")}</span>
-                <span className="text-slate-500">•</span>
-                <span>ID: {guard?.guardId || "N/A"}</span>
-              </div>
             </div>
           </div>
           
@@ -423,126 +414,7 @@ function GuardAttendanceRecords() {
               <FileDown size={18} />
               Export DTR Report
             </button>
-            <div className="hidden md:block h-12 w-[1px] bg-slate-800" />
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 px-5 py-4 text-center min-w-36 backdrop-blur-md">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Filtered Runs</div>
-              <div className="mt-1 text-2xl font-black text-blue-400">
-                {kpis.totalCount}
-                <span className="text-sm font-semibold text-slate-500 ml-1">/ {records.length}</span>
-              </div>
-            </div>
           </div>
-        </div>
-
-        {/* ── KPI Dashboard Cards Grid ──────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-          
-          {/* Card 1: Today's status */}
-          <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/30 p-5 shadow-lg backdrop-blur-md transition-all duration-300 hover:border-slate-700/80 hover:translate-y-[-2px]">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl" />
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Today's Shift</span>
-              <div className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                kpis.todayRecord 
-                  ? kpis.todayRecord.status === "Off Duty" 
-                    ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" 
-                    : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                  : "bg-slate-800 text-slate-400 border border-slate-700"
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${
-                  kpis.todayRecord 
-                    ? kpis.todayRecord.status === "Off Duty" ? "bg-blue-500" : "bg-emerald-500 animate-pulse" 
-                    : "bg-slate-500"
-                }`} />
-                {kpis.todayRecord ? kpis.todayRecord.status : "No Attendance"}
-              </div>
-            </div>
-            
-            {kpis.todayRecord ? (
-              <div className="space-y-2">
-                <div className="text-lg font-bold text-white truncate">
-                  {kpis.todayRecord.scheduleId?.client || "Assigned Site"}
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="block text-slate-500">In</span>
-                    <span className="font-semibold text-emerald-400">{formatTime(kpis.todayRecord.timeIn)}</span>
-                  </div>
-                  <div>
-                    <span className="block text-slate-500">Out</span>
-                    <span className="font-semibold text-slate-300">{formatTime(kpis.todayRecord.timeOut)}</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-1 py-1">
-                <div className="text-lg font-extrabold text-slate-300">Rest / No Shift</div>
-                <p className="text-xs text-slate-500">No time in recorded for today ({format(new Date(), "MMM dd, yyyy")}).</p>
-              </div>
-            )}
-          </div>
-
-          {/* Card 2: Hours worked */}
-          <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/30 p-5 shadow-lg backdrop-blur-md transition-all duration-300 hover:border-slate-700/80 hover:translate-y-[-2px]">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl" />
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Hours</span>
-              <div className="rounded-xl bg-blue-500/10 p-2 text-blue-400">
-                <Clock size={16} />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="text-3xl font-black text-white tracking-tight">
-                {kpis.totalHoursStr}
-              </div>
-              <p className="text-xs text-slate-500 truncate">
-                Accumulated inside active range
-              </p>
-            </div>
-          </div>
-
-          {/* Card 3: Shift Completion Rate */}
-          <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/30 p-5 shadow-lg backdrop-blur-md transition-all duration-300 hover:border-slate-700/80 hover:translate-y-[-2px]">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl" />
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Completion Rate</span>
-              <div className="rounded-xl bg-indigo-500/10 p-2 text-indigo-400">
-                <CheckCircle2 size={16} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl font-black text-white">{kpis.completionRate}%</span>
-                <span className="text-xs text-slate-500">({kpis.completedCount}/{kpis.totalCount})</span>
-              </div>
-              <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-500" 
-                  style={{ width: `${kpis.completionRate}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Card 4: Top Assignment Location */}
-          <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/30 p-5 shadow-lg backdrop-blur-md transition-all duration-300 hover:border-slate-700/80 hover:translate-y-[-2px]">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl" />
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Primary Assignment</span>
-              <div className="rounded-xl bg-purple-500/10 p-2 text-purple-400">
-                <Briefcase size={16} />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="text-lg font-black text-white truncate" title={kpis.topClient}>
-                {kpis.topClient}
-              </div>
-              <p className="text-xs text-slate-500">
-                Logged {kpis.topClientCount} shifts on this site
-              </p>
-            </div>
-          </div>
-
         </div>
 
         {/* ── Filter Bar ──────────────────────────────────────── */}

@@ -646,7 +646,7 @@ export default function GuardAttendancePage() {
               <TablePagination page={currentPage} limit={PAGE_SIZE} totalItems={totalItems} currentCount={allAttendance.length} totalPages={totalPages} label="attendance records" onPageChange={setCurrentPage} />
             </div>
 
-            <aside className="hidden md:block 2xl:sticky 2xl:top-6 h-fit rounded-2xl border border-slate-800 bg-[#111827] shadow-2xl overflow-hidden">
+            <aside className="hidden 2xl:sticky 2xl:top-6 2xl:block h-fit rounded-2xl border border-slate-800 bg-[#111827] shadow-2xl overflow-hidden">
               {selectedGuardId && selectedGuardInfo ? (
                 <>
                   <div className="flex items-start justify-between gap-4 border-b border-slate-800 p-5">
@@ -740,9 +740,9 @@ export default function GuardAttendancePage() {
         </main>
 
         {selectedGuardId && selectedGuardInfo ? (
-          <div className="fixed inset-0 z-50 md:hidden">
+          <div className="fixed inset-0 z-50 2xl:hidden">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setSelectedGuardId(null)} />
-            <div className="absolute inset-x-0 bottom-0 max-h-[92dvh] overflow-hidden rounded-t-3xl border-t border-slate-700 bg-[#111827] shadow-2xl">
+            <div className="absolute inset-y-0 right-0 flex h-full w-full max-w-[460px] flex-col overflow-hidden border-l border-slate-700 bg-[#111827] shadow-2xl">
               <div className="flex items-start justify-between gap-4 border-b border-slate-800 p-5">
                 <div className="flex items-center gap-3 min-w-0">
                   {selectedGuardInfo.photo ? (
@@ -758,7 +758,7 @@ export default function GuardAttendancePage() {
                 <button onClick={() => setSelectedGuardId(null)} className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-800 hover:text-white"><X size={18} /></button>
               </div>
 
-              <div className="max-h-[calc(92dvh-89px)] space-y-5 overflow-y-auto p-5 custom-scrollbar">
+              <div className="flex-1 space-y-5 overflow-y-auto p-5 custom-scrollbar">
                 <div>
                   <h4 className="mb-3 font-semibold text-white">Attendance Summary</h4>
                   <div className="rounded-xl border border-slate-800 bg-[#0f172a] px-4 py-3 text-sm text-slate-300">

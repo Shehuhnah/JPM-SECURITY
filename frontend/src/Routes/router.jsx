@@ -40,6 +40,7 @@ import AdminProfile from "../Admin/AdminProfile.jsx";
 
 // Guard pages
 import GuardLogin from "../Guard/GuardLogin.jsx";
+import GuardDashboard from "../Guard/GuardDashboard.jsx";
 import GuardForgotPassword from "../Guard/GuardForgotPassword.jsx";
 import GuardDetachment from "../Guard/GuardDetachment.jsx";
 import GuardAnnouncement from "../Guard/GuardAnnouncement.jsx";
@@ -154,6 +155,8 @@ const Router = () => {
                 </RoleGuard>
               ),
               children: [
+                { index: true, element: <GuardDashboard /> },
+                { path: "dashboard", element: <GuardDashboard /> },
                 { path: "guard-attendance/time-in", element: <GuardAttendanceTimeIn /> },
                 { path: "guard-attendance/time-out", element: <GuardAttendanceTimeOut /> },
                 { path: "my-attendance", element: <GuardAttendanceRecords /> },

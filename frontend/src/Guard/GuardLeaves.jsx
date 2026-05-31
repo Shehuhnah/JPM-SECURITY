@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DayPicker } from "react-day-picker";
 import { eachDayOfInterval, format } from "date-fns";
@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CheckCircle,
   Clock,
+  Filter,
   FileText,
   X,
   XCircle,
@@ -122,10 +123,30 @@ const datePickerStyles = `
     position: relative;
     box-shadow: inset 0 -3px 0 0 rgba(251, 191, 36, 0.95);
   }
+  .guard-leave-date-filter::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(2);
+    opacity: 1;
+    cursor: pointer;
+  }
+  .guard-leave-date-filter {
+    color-scheme: dark;
+  }
 `;
 
 const toDateOnly = (value) => (typeof value === "string" ? value.slice(0, 10) : format(value, "yyyy-MM-dd"));
 const toLocalDate = (value) => new Date(`${value}T00:00:00`);
+const normalizeDateKey = (value) => (value ? String(value).slice(0, 10) : "");
+const formatWordDate = (value) => {
+  const dateKey = normalizeDateKey(value);
+  if (!dateKey) return "N/A";
+  return format(toLocalDate(dateKey), "MMMM d, yyyy");
+};
+const formatWordDateTime = (value) => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return format(date, "MMMM d, yyyy");
+};
 
 const buildRangeDates = (range) => {
   if (!range?.from || !range?.to) return [];
@@ -156,6 +177,9 @@ export default function GuardLeaves() {
   const [loadingPage, setLoadingPage] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [historyDateFilter, setHistoryDateFilter] = useState("");
+  const [historyLeaveTypeFilter, setHistoryLeaveTypeFilter] = useState("");
+  const historyDateInputRef = useRef(null);
 
   const availableLeaveTypes = useMemo(
     () => LEAVE_TYPE_OPTIONS[user?.sex] || LEAVE_TYPE_OPTIONS.default,
@@ -210,6 +234,59 @@ export default function GuardLeaves() {
     return [...new Set(reserved)].sort();
   }, [leaveRequests]);
 
+  const historyLeaveTypes = useMemo(() => {
+    const types = leaveRequests
+      .map((request) => request.leaveType)
+      .filter(Boolean);
+    return [...new Set(types)].sort();
+  }, [leaveRequests]);
+
+  const filteredLeaveRequests = useMemo(() => {
+    return leaveRequests.filter((request) => {
+      if (historyLeaveTypeFilter && request.leaveType !== historyLeaveTypeFilter) {
+        return false;
+      }
+
+      if (historyDateFilter) {
+        const requestDates = (request.dates || []).map(normalizeDateKey);
+        const startDate = normalizeDateKey(request.startDate || requestDates[0]);
+        const endDate = normalizeDateKey(request.endDate || requestDates[requestDates.length - 1]);
+        const matchesExplicitDate = requestDates.includes(historyDateFilter);
+        const matchesRange =
+          startDate &&
+          endDate &&
+          historyDateFilter >= startDate &&
+          historyDateFilter <= endDate;
+
+        if (!matchesExplicitDate && !matchesRange) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [historyDateFilter, historyLeaveTypeFilter, leaveRequests]);
+
+  const hasHistoryFilters = Boolean(historyDateFilter || historyLeaveTypeFilter);
+
+  const clearHistoryFilters = () => {
+    setHistoryDateFilter("");
+    setHistoryLeaveTypeFilter("");
+  };
+
+  const openHistoryDatePicker = () => {
+    const input = historyDateInputRef.current;
+    if (!input) return;
+
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+
+    input.focus();
+    input.click();
+  };
+
   const rangeDates = useMemo(() => buildRangeDates(leaveRange), [leaveRange]);
 
   useEffect(() => {
@@ -219,11 +296,6 @@ export default function GuardLeaves() {
   const includedDates = useMemo(
     () => rangeDates.filter((date) => !excludedDates.includes(date)),
     [excludedDates, rangeDates]
-  );
-
-  const overlappingScheduleDates = useMemo(
-    () => includedDates.filter((date) => scheduleDates.includes(date)),
-    [includedDates, scheduleDates]
   );
 
   const disabledDates = useMemo(
@@ -349,11 +421,64 @@ export default function GuardLeaves() {
 
         {/* My Leave History (Main Content) */}
         <div className="bg-[#1e293b] border border-slate-700 rounded-3xl p-5 md:p-6 shadow-xl">
-          <div className="flex items-center gap-3 mb-6">
-            <FileText className="text-blue-400" size={20} />
-            <div>
-              <h2 className="text-lg font-semibold text-white">My Leave History</h2>
-              <p className="text-sm text-slate-400">Track approval status and requested dates.</p>
+          <div className="flex flex-col gap-5 mb-6">
+            <div className="flex items-center gap-3">
+              <FileText className="text-blue-400" size={20} />
+              <div>
+                <h2 className="text-lg font-semibold text-white">My Leave History</h2>
+                <p className="text-sm text-slate-400">Track approval status and requested dates.</p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+              <label className="space-y-2">
+                <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  <Filter size={14} /> Leave Date
+                </span>
+                <button
+                  type="button"
+                  onClick={openHistoryDatePicker}
+                  className="relative flex min-h-[46px] w-full items-center rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 pr-12 text-left text-sm text-white outline-none transition hover:border-blue-500 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                >
+                  <span className={historyDateFilter ? "text-white" : "text-slate-500"}>
+                    {historyDateFilter ? formatWordDate(historyDateFilter) : "Select leave date"}
+                  </span>
+                  <CalendarDays className="absolute right-4 text-white" size={18} />
+                  <input
+                    ref={historyDateInputRef}
+                    type="date"
+                    value={historyDateFilter}
+                    onChange={(event) => setHistoryDateFilter(event.target.value)}
+                    className="guard-leave-date-filter pointer-events-none absolute h-px w-px opacity-0"
+                    aria-label="Filter leave history by date"
+                    tabIndex={-1}
+                  />
+                </button>
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Type of Leave</span>
+                <select
+                  value={historyLeaveTypeFilter}
+                  onChange={(event) => setHistoryLeaveTypeFilter(event.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All leave types</option>
+                  {historyLeaveTypes.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </label>
+
+              {hasHistoryFilters ? (
+                <button
+                  type="button"
+                  onClick={clearHistoryFilters}
+                  className="self-end rounded-lg border border-slate-700 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white cursor-pointer"
+                >
+                  Clear Filters
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -362,15 +487,20 @@ export default function GuardLeaves() {
               <AlertCircle size={42} className="mb-3 opacity-30" />
               <p>No leave requests yet.</p>
             </div>
+          ) : filteredLeaveRequests.length === 0 ? (
+            <div className="h-64 flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-700 rounded-2xl">
+              <AlertCircle size={42} className="mb-3 opacity-30" />
+              <p>No leave requests match the selected filters.</p>
+            </div>
           ) : (
             <div className="space-y-4">
-              {leaveRequests.map((request) => {
+              {filteredLeaveRequests.map((request) => {
                 const StatusIcon = statusIconMap[request.status] || Clock;
                 return (
                   <div key={request._id} className="bg-slate-900/40 border border-slate-700 rounded-2xl p-4 space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                       <div>
-                        <p className="text-sm text-slate-400">Requested on {new Date(request.createdAt).toLocaleDateString()}</p>
+                        <p className="text-sm text-slate-400">Requested on {formatWordDateTime(request.createdAt)}</p>
                         <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-blue-300">
                           {request.leaveType || "Unspecified"}
                         </p>
@@ -383,15 +513,15 @@ export default function GuardLeaves() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <SummaryTile label="Range Start" value={request.startDate || request.dates?.[0] || "N/A"} compact />
-                      <SummaryTile label="Range End" value={request.endDate || request.dates?.[request.dates.length - 1] || "N/A"} compact />
+                      <SummaryTile label="Range Start" value={formatWordDate(request.startDate || request.dates?.[0])} compact />
+                      <SummaryTile label="Range End" value={formatWordDate(request.endDate || request.dates?.[request.dates.length - 1])} compact />
                       <SummaryTile label="Included Days" value={`${request.dates?.length || 0}`} compact />
                     </div>
 
                     <div className="flex flex-wrap gap-2">
                       {(request.dates || []).map((date) => (
                         <span key={date} className="px-3 py-1 text-xs rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                          {new Date(`${date}T00:00:00`).toLocaleDateString()}
+                          {formatWordDate(date)}
                         </span>
                       ))}
                     </div>
@@ -400,7 +530,7 @@ export default function GuardLeaves() {
                       <div className="text-sm text-slate-400">
                         Excluded dates:{" "}
                         <span className="text-slate-200">
-                          {request.excludedDates.join(", ")}
+                          {request.excludedDates.map(formatWordDate).join(", ")}
                         </span>
                       </div>
                     )}
@@ -456,8 +586,8 @@ export default function GuardLeaves() {
 
                   <div className="space-y-5">
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                      <SummaryTile label="Range Start" value={leaveRange?.from ? format(leaveRange.from, "MMM dd, yyyy") : "Not set"} compact />
-                      <SummaryTile label="Range End" value={leaveRange?.to ? format(leaveRange.to, "MMM dd, yyyy") : "Not set"} compact />
+                      <SummaryTile label="Range Start" value={leaveRange?.from ? format(leaveRange.from, "MMMM d, yyyy") : "Not set"} compact />
+                      <SummaryTile label="Range End" value={leaveRange?.to ? format(leaveRange.to, "MMMM d, yyyy") : "Not set"} compact />
                       <SummaryTile label="Included" value={`${includedDates.length} day${includedDates.length === 1 ? "" : "s"}`} compact />
                       <SummaryTile label="Excluded" value={`${excludedDates.length} day${excludedDates.length === 1 ? "" : "s"}`} compact />
                     </div>
@@ -472,7 +602,7 @@ export default function GuardLeaves() {
                           {includedDates.map((date) => (
                             <button key={date} type="button" onClick={() => toggleExcludedDate(date)}
                               className="inline-flex items-center gap-2 rounded-md border border-gray-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-red-400/50 hover:text-red-300 cursor-pointer">
-                              {format(new Date(`${date}T00:00:00`), "MMM dd, yyyy")}<X size={12} />
+                              {formatWordDate(date)}<X size={12} />
                             </button>
                           ))}
                         </div>
@@ -484,7 +614,7 @@ export default function GuardLeaves() {
                             {excludedDates.map((date) => (
                               <button key={date} type="button" onClick={() => toggleExcludedDate(date)}
                                 className="inline-flex items-center gap-2 rounded-md border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/20 cursor-pointer">
-                                {format(new Date(`${date}T00:00:00`), "MMM dd, yyyy")}<CheckCircle size={12} />
+                                {formatWordDate(date)}<CheckCircle size={12} />
                               </button>
                             ))}
                           </div>

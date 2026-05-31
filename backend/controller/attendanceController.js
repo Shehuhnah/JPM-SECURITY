@@ -25,6 +25,16 @@ const getManilaDateKey = (value = new Date()) =>
     day: "2-digit",
   }).format(new Date(value));
 
+const getManilaDateLabel = (value) =>
+  new Intl.DateTimeFormat("en-PH", {
+    timeZone: "Asia/Manila",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+
+const getLastDayOfMonth = (year, month) => new Date(year, month, 0).getDate();
+
 const getAttendanceRecordDate = (attendance) =>
   attendance?.timeIn
     ? new Date(attendance.timeIn)
@@ -539,31 +549,35 @@ export const downloadWorkHoursByClient = async (req, res) => {
         const { clientName } = req.params;
         const { from, to } = req.query; 
         
-        let startDate, endDate, periodCover;
+        let startDate, endDate, periodCover, startKey, endKey;
 
         // 1. SETUP DATES (Target Range)
         if (from && to) {
-            startDate = new Date(from);
-            endDate = new Date(to);
-            periodCover = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+            startKey = String(from).slice(0, 10);
+            endKey = String(to).slice(0, 10);
+            startDate = new Date(`${startKey}T00:00:00+08:00`);
+            endDate = new Date(`${endKey}T23:59:59+08:00`);
+            const startLabel = getManilaDateLabel(startDate);
+            const endLabel = getManilaDateLabel(endDate);
+            periodCover = startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
         } else {
             // Default Fallback
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = today.getMonth();
-            if (today.getDate() <= 15) {
-                startDate = new Date(year, month, 1);
-                endDate = new Date(year, month, 15);
+            const todayKey = getManilaDateKey(new Date());
+            const [yearStr, monthStr, dayStr] = todayKey.split("-");
+            const year = Number(yearStr);
+            const month = Number(monthStr);
+            const day = Number(dayStr);
+            if (day <= 15) {
+                startKey = `${yearStr}-${monthStr}-01`;
+                endKey = `${yearStr}-${monthStr}-15`;
             } else {
-                startDate = new Date(year, month, 16);
-                endDate = new Date(year, month + 1, 0); 
+                startKey = `${yearStr}-${monthStr}-16`;
+                endKey = `${yearStr}-${monthStr}-${String(getLastDayOfMonth(year, month)).padStart(2, "0")}`;
             }
-            periodCover = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+            startDate = new Date(`${startKey}T00:00:00+08:00`);
+            endDate = new Date(`${endKey}T23:59:59+08:00`);
+            periodCover = `${getManilaDateLabel(startDate)} - ${getManilaDateLabel(endDate)}`;
         }
-
-        // Set strict boundaries for the REQUESTED range
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
 
         console.log(`[PDF] Request: ${clientName}`);
         console.log(`[PDF] Target Range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
@@ -586,25 +600,14 @@ export const downloadWorkHoursByClient = async (req, res) => {
                 return false;
             }
 
-            // B. CHECK DATE (String -> Date Conversion)
-            // We must manually parse the "Wed Dec 03..." string
-            const recordDate = new Date(record.timeIn);
+            // B. CHECK DATE using a Manila date key so production timezone does not alter the table range.
+            const recordDate = getAttendanceRecordDate(record);
             
             // Invalid Date Check
             if (isNaN(recordDate.getTime())) return false;
 
-            // Manual Timezone Adjustment (UTC -> PH Time +8h)
-            // If your server considers the string as UTC, shift it to match your local expectation
-            const phTime = new Date(recordDate.getTime() + (8 * 60 * 60 * 1000));
-            const checkTime = phTime.getTime();
-
-            // C. WIDENED SEARCH LOGIC (Buffer of +/- 24 hours)
-            // Since we are comparing timestamps, we accept records from "The day before" 
-            // to account for the timezone shift.
-            const searchStart = startDate.getTime() - (24 * 60 * 60 * 1000); 
-            const searchEnd = endDate.getTime() + (24 * 60 * 60 * 1000);
-
-            return checkTime >= searchStart && checkTime <= searchEnd;
+            const recordKey = getManilaDateKey(recordDate);
+            return recordKey >= startKey && recordKey <= endKey;
         });
 
         if (clientAttendance.length === 0) {
