@@ -282,10 +282,11 @@ export const downloadMyStaffAttendance = async (req, res) => {
     const records = await AdminAttendance.find({
       user: userId,
       dateKey: { $gte: startKey, $lte: endKey },
+      timeOut: { $ne: null },
     }).sort({ dateKey: 1 });
 
     if (records.length === 0) {
-      return res.status(404).json({ message: "No data found for the selected dates. Please select the correct date period." });
+      return res.status(404).json({ message: "No completed attendance records found for the selected dates. Ongoing attendance is not included in DTR downloads." });
     }
 
     const staff = {

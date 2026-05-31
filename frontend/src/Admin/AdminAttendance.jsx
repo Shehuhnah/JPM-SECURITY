@@ -414,8 +414,11 @@ export default function GuardAttendancePage() {
           "Off Duty": "bg-slate-500/10 text-slate-400 border-slate-500/20",
           "Late": "bg-amber-500/10 text-amber-400 border-amber-500/20",
           "Absent": "bg-red-500/10 text-red-400 border-red-500/20",
+          "On Leave": "bg-blue-500/10 text-blue-400 border-blue-500/20",
+          "Leave": "bg-blue-500/10 text-blue-400 border-blue-500/20",
       };
-      return <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${styles[status] || styles["Off Duty"]}`}>{status}</span>;
+      const resolvedStatus = status || "Off Duty";
+      return <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${styles[resolvedStatus] || styles["Off Duty"]}`}>{resolvedStatus}</span>;
   };
 
   const openEvidencePreview = (record, preferredType = "timeIn") => {
@@ -578,6 +581,7 @@ export default function GuardAttendancePage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {guardCards.map((record) => {
                       const isSelected = record.guard?._id === selectedGuardId;
+                      const displaySchedule = record.todaySchedule || record.scheduleId;
                       return (
                         <button key={record._id} type="button" onClick={() => record.guard?._id && setSelectedGuardId(record.guard._id)} className={`rounded-2xl border bg-[#0f172a] p-4 text-left transition hover:border-blue-500/50 ${isSelected ? "border-blue-500 shadow-lg shadow-blue-950/40" : "border-slate-800"}`}>
                           <div className="flex items-start justify-between gap-3">
@@ -589,15 +593,15 @@ export default function GuardAttendancePage() {
                               )}
                               <div className="min-w-0">
                                 <div className="font-semibold text-white truncate">{getPersonName(record.guard, "Unknown Guard")}</div>
-                                <div className="mt-1 text-xs text-slate-500 truncate">{record.scheduleId?.client || "Unassigned Client"}</div>
+                                <div className="mt-1 text-xs text-slate-500 truncate">{displaySchedule?.client || "Unassigned Client"}</div>
                               </div>
                             </div>
-                            {getStatusBadge(record.status)}
+                            {getStatusBadge(record.todayStatus || record.status)}
                           </div>
                           <div className="mt-4 space-y-2 text-sm text-slate-400">
                             <div className="flex items-center gap-2"><Shield size={15} className="text-slate-500" /> Security Guard</div>
-                            <div className="flex items-center gap-2"><Clock size={15} className="text-slate-500" /> {record.scheduleId?.shiftType || "Shift not set"}</div>
-                            <div className="flex items-center gap-2"><MapPin size={15} className="text-slate-500" /> <span className="truncate">{record.scheduleId?.deploymentLocation || "No duty station"}</span></div>
+                            <div className="flex items-center gap-2"><Clock size={15} className="text-slate-500" /> {displaySchedule?.shiftType || "Shift not set"}</div>
+                            <div className="flex items-center gap-2"><MapPin size={15} className="text-slate-500" /> <span className="truncate">{displaySchedule?.deploymentLocation || "No duty station"}</span></div>
                           </div>
                           <div className="mt-4 rounded-xl bg-blue-600 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-blue-500">View Attendance</div>
                         </button>
@@ -910,7 +914,7 @@ export default function GuardAttendancePage() {
                                               <td className="px-6 py-4"><div className="font-medium text-white flex items-center gap-2"><User size={16} className="text-gray-500" />{getPersonName(rec.guard, "Unknown Guard")}</div></td>
                                               <td className="px-6 py-4 text-gray-300">{rec.scheduleId?.deploymentLocation || "—"}</td>
                                               <td className="px-6 py-4"><div className="text-gray-300">{rec.scheduleId?.position}</div><div className="text-xs text-gray-500">{rec.scheduleId?.shiftType}</div></td>
-                                              <td className="px-6 py-4">{getStatusBadge(rec.status)}</td>
+                                              <td className="px-6 py-4">{getStatusBadge(rec.todayStatus || rec.status)}</td>
                                               <td className="px-6 py-4 text-sm text-gray-300">
                                                 {rec.remarks ? (
                                                   <span className="inline-flex rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-300">
@@ -939,7 +943,7 @@ export default function GuardAttendancePage() {
                                                   <div className="text-xs text-gray-500 flex items-center gap-1"><MapPin size={10} />{rec.scheduleId?.deploymentLocation}</div>
                                               </div>
                                           </div>
-                                          {getStatusBadge(rec.status)}
+                                          {getStatusBadge(rec.todayStatus || rec.status)}
                                       </div>
                                       <div className="flex items-center justify-between text-sm pl-12 pr-1">
                                           <div className="text-gray-400"><span className="text-gray-500 text-xs block">Shift</span>{rec.scheduleId?.shiftType} ({rec.scheduleId?.position})</div>

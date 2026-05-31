@@ -1,6 +1,7 @@
 import Attendance from "../models/Attendance.model.js";
 import Schedule from "../models/schedule.model.js";
 import Guard from "../models/guard.model.js";
+import LeaveRequest from "../models/leaveRequest.model.js";
 import { generateWorkHoursByClientPDF, generateStaffAttendancePDF } from "../utils/workingHoursPdfGenerator.js";
 import { getAttendanceMinutesBreakdown } from "../utils/attendanceHours.js";
 
@@ -65,6 +66,88 @@ const sortAttendanceForDisplay = (a, b) => {
   }
 
   return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+};
+
+const isScheduleOnDate = (schedule, dateKey) => {
+  if (!schedule?.timeIn && !schedule?.timeOut) return false;
+  return String(schedule.timeIn || "").slice(0, 10) === dateKey || String(schedule.timeOut || "").slice(0, 10) === dateKey;
+};
+
+const attachTodayStatuses = async (records) => {
+  const todayKey = getManilaDateKey();
+  const now = new Date();
+  const guardIds = [
+    ...new Set(records.map((record) => record.guard?._id?.toString()).filter(Boolean)),
+  ];
+
+  if (guardIds.length === 0) return records;
+
+  const [todaySchedules, todayAttendance, todayLeaves] = await Promise.all([
+    Schedule.find({
+      guardId: { $in: guardIds },
+      isApproved: "Approved",
+      status: { $ne: "Cancelled" },
+    }).select("guardId client deploymentLocation position shiftType timeIn timeOut"),
+    Attendance.find({ guard: { $in: guardIds } })
+      .select("guard scheduleId timeIn status")
+      .populate({ path: "scheduleId", select: "timeIn timeOut" }),
+    LeaveRequest.find({
+      requesterRole: "Guard",
+      guard: { $in: guardIds },
+      status: "Approved",
+      dates: todayKey,
+    }).select("guard"),
+  ]);
+
+  const schedulesByGuard = new Map();
+  todaySchedules
+    .filter((schedule) => isScheduleOnDate(schedule, todayKey))
+    .forEach((schedule) => {
+      const guardId = schedule.guardId?.toString();
+      if (!guardId) return;
+      const current = schedulesByGuard.get(guardId);
+      const currentStart = current ? parseAsPHT(current.timeIn)?.getTime() || Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
+      const nextStart = parseAsPHT(schedule.timeIn)?.getTime() || Number.MAX_SAFE_INTEGER;
+      if (!current || nextStart < currentStart) schedulesByGuard.set(guardId, schedule);
+    });
+
+  const attendedGuardIds = new Set(
+    todayAttendance
+      .filter((attendance) => {
+        if (!attendance.timeIn) return false;
+        const timeInKey = getManilaDateKey(attendance.timeIn);
+        const scheduleKeyMatches = isScheduleOnDate(attendance.scheduleId, todayKey);
+        return timeInKey === todayKey || scheduleKeyMatches;
+      })
+      .map((attendance) => attendance.guard?.toString())
+      .filter(Boolean)
+  );
+
+  const leaveGuardIds = new Set(
+    todayLeaves.map((leave) => leave.guard?.toString()).filter(Boolean)
+  );
+
+  return records.map((record) => {
+    const guardId = record.guard?._id?.toString();
+    const todaySchedule = schedulesByGuard.get(guardId);
+    let todayStatus = "Off Duty";
+
+    if (leaveGuardIds.has(guardId)) {
+      todayStatus = "On Leave";
+    } else if (attendedGuardIds.has(guardId)) {
+      todayStatus = "On Duty";
+    } else if (todaySchedule) {
+      const shiftStart = parseAsPHT(todaySchedule.timeIn);
+      todayStatus = shiftStart && now >= shiftStart ? "Absent" : "Off Duty";
+    }
+
+    const objectRecord = typeof record.toObject === "function" ? record.toObject() : record;
+    return {
+      ...objectRecord,
+      todayStatus,
+      todaySchedule: todaySchedule ? todaySchedule.toObject() : null,
+    };
+  });
 };
 
 const markMissedScheduleAbsences = async ({ guardId = null } = {}) => {
@@ -323,7 +406,7 @@ export const getAttendances = async (req, res) => {
 
       attendances.sort(sortAttendanceForDisplay);
 
-      return res.json(attendances);
+      return res.json(await attachTodayStatuses(attendances));
     }
 
     const page = parsePositiveInt(req.query.page, 1);
@@ -407,10 +490,11 @@ export const getAttendances = async (req, res) => {
       uniqueRecords.push(attendance);
     }
 
-    const total = uniqueRecords.length;
+    const recordsWithTodayStatuses = await attachTodayStatuses(uniqueRecords);
+    const total = recordsWithTodayStatuses.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const startIndex = (page - 1) * limit;
-    const items = uniqueRecords.slice(startIndex, startIndex + limit);
+    const items = recordsWithTodayStatuses.slice(startIndex, startIndex + limit);
 
     res.json({ items, total, page, limit, totalPages });
   } catch (error) {
@@ -514,10 +598,14 @@ export const downloadWorkHours = async (req, res) => {
         const allAttendance = await Attendance.find({ guard: guardId }).populate('scheduleId');
 
         const attendanceRecords = allAttendance.filter(record => {
-            if (!record.timeIn) return false;
+            if (!record.timeIn || !record.timeOut) return false;
             const recordDate = new Date(record.timeIn);
             return recordDate >= startDate && recordDate <= endDate;
         });
+
+        if (attendanceRecords.length === 0) {
+            return res.status(404).json({ message: "No completed attendance records found for the selected dates. Ongoing attendance is not included in DTR downloads." });
+        }
 
         attendanceRecords.sort((a, b) => new Date(a.timeIn) - new Date(b.timeIn));
         
@@ -591,7 +679,7 @@ export const downloadWorkHoursByClient = async (req, res) => {
         // 3. FILTER MANUALLY (JavaScript)
         const clientAttendance = allAttendance.filter(record => {
             // Basic Safety Checks
-            if (!record.timeIn || !record.scheduleId || !record.guard) return false;
+            if (!record.timeIn || !record.timeOut || !record.scheduleId || !record.guard) return false;
 
             // A. CHECK CLIENT NAME (String Comparison)
             // Your schema has 'client' as a direct string in Schedule
@@ -613,7 +701,7 @@ export const downloadWorkHoursByClient = async (req, res) => {
         if (clientAttendance.length === 0) {
             console.log(`[PDF] 0 records match.`);
             return res.status(404).json({ 
-                message: `No records found for ${clientName}. (Checked ${allAttendance.length} total records)` 
+                message: `No completed attendance records found for ${clientName}. Ongoing attendance is not included in DTR downloads.` 
             });
         }
 
@@ -727,7 +815,7 @@ export const downloadMyGuardDTR = async (req, res) => {
 
     const attendanceRecords = allRecords
       .filter(r => {
-        if (!r.timeIn) return false;
+        if (!r.timeIn || !r.timeOut) return false;
         const d = new Date(r.timeIn);
         const match = d >= startDate && d <= endDate;
         fs.appendFileSync(logPath, `  Filtering record id ${r._id}: parsedTimeIn=${d.toISOString()}, inRange=${match}\n`);
@@ -738,7 +826,7 @@ export const downloadMyGuardDTR = async (req, res) => {
     fs.appendFileSync(logPath, `Filtered Attendance Count: ${attendanceRecords.length}\n`);
 
     if (attendanceRecords.length === 0) {
-      return res.status(404).json({ message: "No data found for the selected dates. Please select the correct date period." });
+      return res.status(404).json({ message: "No completed attendance records found for the selected dates. Ongoing attendance is not included in DTR downloads." });
     }
 
     // Map guard to the shape generateStaffAttendancePDF expects
