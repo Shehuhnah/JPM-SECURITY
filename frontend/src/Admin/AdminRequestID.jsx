@@ -16,8 +16,13 @@ import {
   Plus,
   Trash2,
   X,
-  Filter
+  Filter,
+  CalendarDays,
+  ChevronDown
 } from "lucide-react";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/dist/style.css";
+import { format } from "date-fns";
 import { Dialog, Transition } from "@headlessui/react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -131,8 +136,7 @@ export default function RequestedIDs() {
   const [requests, setRequests] = useState([]);
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateRange, setDateRange] = useState({ from: null, to: null });
   const [loadingPage, setLoadingPage] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -181,8 +185,8 @@ export default function RequestedIDs() {
 
       if (search.trim()) params.set("q", search.trim());
       if (filter !== "All") params.set("status", filter);
-      if (dateFrom) params.set("dateFrom", dateFrom);
-      if (dateTo) params.set("dateTo", dateTo);
+      if (dateRange.from) params.set("dateFrom", format(dateRange.from, "yyyy-MM-dd"));
+      if (dateRange.to) params.set("dateTo", format(dateRange.to, "yyyy-MM-dd"));
 
       const res = await fetch(`${api}/api/idrequests?${params.toString()}`, {
         credentials: "include",
@@ -212,11 +216,11 @@ export default function RequestedIDs() {
 
   useEffect(() => {
     fetchRequests();
-  }, [user, currentPage, search, filter, dateFrom, dateTo]);
+  }, [user, currentPage, search, filter, dateRange]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filter, dateFrom, dateTo]);
+  }, [search, filter, dateRange]);
 
   useEffect(() => {
     if (!canCreateForOthers) return;
@@ -561,42 +565,19 @@ export default function RequestedIDs() {
             </div>
 
             {/* Date Range Filter */}
-            <div className="relative pt-2">
-              <label className="absolute left-3 -top-2.5 z-10 bg-[#0f172a] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#2B7FFF] border border-[#2B7FFF]/25 rounded-md shadow-lg shadow-black/30">Date Range</label>
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" size={14} />
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    title="From date"
-                    className="bg-[#1e293b] border border-gray-700 text-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer [color-scheme:dark]"
-                  />
-                </div>
-                <span className="text-gray-500 text-sm shrink-0">to</span>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" size={14} />
-                  <input
-                    type="date"
-                    value={dateTo}
-                    min={dateFrom || undefined}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    title="To date"
-                    className="bg-[#1e293b] border border-gray-700 text-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer [color-scheme:dark]"
-                  />
-                </div>
-                {(dateFrom || dateTo) && (
+             
+              <div className="flex items-center gap-3">
+                <DateRangeFilter dateRange={dateRange} setDateRange={setDateRange} />
+                {(dateRange.from || dateRange.to) && (
                   <button
-                    onClick={() => { setDateFrom(""); setDateTo(""); }}
+                    onClick={() => setDateRange({ from: null, to: null })}
                     title="Clear date filter"
-                    className="p-2 rounded-lg bg-slate-700/60 hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition"
+                    className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700/60 border border-slate-700/50"
                   >
-                    <X size={14} />
+                    Clear
                   </button>
                 )}
               </div>
-            </div>
 
             {/* Refresh */}
             <button
@@ -1234,3 +1215,79 @@ function StatusBadge({ status }) {
       return null;
   }
 }
+
+const datePickerStyles = `
+  .rdp {
+    --rdp-cell-size: 36px;
+    --rdp-accent-color: #2563eb;
+    --rdp-background-color: #111827;
+    margin: 0;
+  }
+  .rdp-caption_label { color: #f8fafc; font-weight: 700; }
+  .rdp-weekday { color: #ffffff; font-size: 0.75rem; text-transform: uppercase; }
+  .rdp-day { color: #f8fafc; }
+  .rdp-day_button { color: #f8fafc; }
+  .rdp-button_previous, .rdp-button_next, .rdp-nav_button { color: #e2e8f0; }
+  .rdp-day:hover:not([disabled]) { background-color: #1e293b; border-radius: 8px; }
+  .rdp-selected .rdp-day_button,
+  .rdp-range_start .rdp-day_button,
+  .rdp-range_end .rdp-day_button { background-color: #2563eb; color: #ffffff; border-radius: 8px; font-weight: 700; }
+  .rdp-range_middle .rdp-day_button { background-color: rgba(59,130,246,0.35); color: #ffffff; border-radius: 0; font-weight: 600; }
+  .rdp-day_button:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+`;
+
+function DateRangeFilter({ dateRange, setDateRange }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <style>{datePickerStyles}</style>
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        className={`w-full rounded-xl border px-4 py-2.5 text-sm flex items-center justify-between gap-3 transition ${
+          dateRange.from
+            ? "border-blue-500/50 bg-blue-500/10 text-white"
+            : "border-slate-700 bg-[#0f172a] text-slate-400 hover:border-slate-600"
+        }`}
+      >
+        <span className="flex items-center gap-2">
+          <CalendarDays className={dateRange.from ? "text-blue-400" : "text-slate-500"} size={17} />
+          {dateRange.from
+            ? dateRange.to
+              ? `${format(dateRange.from, "MMM d")} - ${format(dateRange.to, "MMM d")}`
+              : format(dateRange.from, "MMM d, yyyy")
+            : "Date Range"}
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-[9999]">
+          <DayPicker
+            mode="range"
+            selected={dateRange}
+            onSelect={setDateRange}
+            className="text-sm w-full"
+          />
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-700 mt-2">
+            <button
+              type="button"
+              onClick={() => { setDateRange({ from: null, to: null }); setIsOpen(false); }}
+              className="text-xs text-slate-400 hover:text-white px-2 py-1 transition rounded hover:bg-slate-700"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded font-medium transition"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+

@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   Activity,
   Briefcase,
+  ChevronDown
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { getPersonName } from "../utils/name";
@@ -38,20 +39,20 @@ const toManilaDateKey = (value) => {
 const datePickerStyles = `
   .rdp {
     --rdp-cell-size: 36px;
-    --rdp-accent-color: #3b82f6;
-    --rdp-background-color: #0f172a;
+    --rdp-accent-color: #2563eb;
+    --rdp-background-color: #111827;
     margin: 0;
   }
   .rdp-caption_label { color: #f8fafc; font-weight: 700; }
-  .rdp-weekday { color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; }
+  .rdp-weekday { color: #ffffff; font-size: 0.75rem; text-transform: uppercase; }
   .rdp-day { color: #f8fafc; }
   .rdp-day_button { color: #f8fafc; }
   .rdp-button_previous, .rdp-button_next, .rdp-nav_button { color: #e2e8f0; }
   .rdp-day:hover:not([disabled]) { background-color: #1e293b; border-radius: 8px; }
   .rdp-selected .rdp-day_button,
   .rdp-range_start .rdp-day_button,
-  .rdp-range_end .rdp-day_button { background-color: #3b82f6; color: #ffffff; border-radius: 8px; font-weight: 700; }
-  .rdp-range_middle .rdp-day_button { background-color: rgba(59,130,246,0.2); color: #ffffff; border-radius: 0; font-weight: 600; }
+  .rdp-range_end .rdp-day_button { background-color: #2563eb; color: #ffffff; border-radius: 8px; font-weight: 700; }
+  .rdp-range_middle .rdp-day_button { background-color: rgba(59,130,246,0.35); color: #ffffff; border-radius: 0; font-weight: 600; }
   .rdp-day_button:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
 `;
 
@@ -174,8 +175,7 @@ function GuardAttendanceRecords() {
 
   // ── Filter state ────────────────────────────────────────────
   const [searchClient, setSearchClient] = useState("");
-  const [filterDateFrom, setFilterDateFrom] = useState("");
-  const [filterDateTo, setFilterDateTo] = useState("");
+  const [dateRange, setDateRange] = useState({ from: null, to: null });
   const [filterShiftType, setFilterShiftType] = useState("");
 
   useEffect(() => {
@@ -228,6 +228,9 @@ function GuardAttendanceRecords() {
 
   // ── Filtered records ─────────────────────────────────────────
   const filteredRecords = useMemo(() => {
+    const filterDateFrom = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "";
+    const filterDateTo = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : "";
+
     return sortedRecords.filter((record) => {
       // Client search
       if (searchClient.trim()) {
@@ -250,14 +253,13 @@ function GuardAttendanceRecords() {
 
       return true;
     });
-  }, [sortedRecords, searchClient, filterShiftType, filterDateFrom, filterDateTo]);
+  }, [sortedRecords, searchClient, filterShiftType, dateRange]);
 
-  const hasActiveFilters = searchClient.trim() || filterShiftType || filterDateFrom || filterDateTo;
+  const hasActiveFilters = searchClient.trim() || filterShiftType || dateRange.from || dateRange.to;
   const clearFilters = () => {
     setSearchClient("");
     setFilterShiftType("");
-    setFilterDateFrom("");
-    setFilterDateTo("");
+    setDateRange({ from: null, to: null });
   };
 
   const formatDate = (value) => {
@@ -352,7 +354,7 @@ function GuardAttendanceRecords() {
         </div>
 
         {/* ── Filter Bar ──────────────────────────────────────── */}
-        <div className="mb-6 rounded-2xl border border-slate-800/80 bg-slate-900/30 p-5 shadow-xl backdrop-blur-sm">
+        <div className="relative z-20 mb-6 rounded-2xl border border-slate-800/80 bg-slate-900/30 p-5 shadow-xl backdrop-blur-sm">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-widest text-slate-400">
               <Filter size={15} className="text-blue-500" />
@@ -396,31 +398,17 @@ function GuardAttendanceRecords() {
             </div>
 
             {/* Date range */}
-            <div className="relative sm:col-span-2">
-              <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-                <div className="relative">
-                  <CalendarDays size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-                  <input
-                    type="date"
-                    value={filterDateFrom}
-                    onChange={(e) => setFilterDateFrom(e.target.value)}
-                    className="w-full rounded-xl border border-slate-800 bg-[#070b12] py-2.5 pl-10 pr-3.5 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all [color-scheme:dark]"
-                    title="From date"
-                  />
-                </div>
-                <div className="text-center text-xs font-bold uppercase tracking-wider text-slate-600 sm:block">to</div>
-                <div className="relative">
-                  <CalendarDays size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-                  <input
-                    type="date"
-                    value={filterDateTo}
-                    min={filterDateFrom || undefined}
-                    onChange={(e) => setFilterDateTo(e.target.value)}
-                    className="w-full rounded-xl border border-slate-800 bg-[#070b12] py-2.5 pl-10 pr-3.5 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all [color-scheme:dark]"
-                    title="To date"
-                  />
-                </div>
-              </div>
+            <div className="relative z-50 sm:col-span-2 flex items-center gap-3">
+              <DateRangeFilter dateRange={dateRange} setDateRange={setDateRange} />
+              {(dateRange.from || dateRange.to) && (
+                <button
+                  onClick={() => setDateRange({ from: null, to: null })}
+                  title="Clear date filter"
+                  className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors px-2.5 py-2.5 rounded-lg bg-[#070b12] hover:bg-slate-900 border border-slate-800"
+                >
+                  Clear
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -817,5 +805,63 @@ function InfoCard({ icon, label, value, accent = false }) {
     </div>
   );
 }
+
+
+
+function DateRangeFilter({ dateRange, setDateRange }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative z-[9999]">
+      <style>{datePickerStyles}</style>
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        className={`w-full rounded-xl border px-4 py-2.5 text-sm flex items-center justify-between gap-3 transition ${
+          dateRange.from
+            ? "border-blue-500/50 bg-blue-500/10 text-white"
+            : "border-slate-700 bg-[#0f172a] text-slate-400 hover:border-slate-600"
+        }`}
+      >
+        <span className="flex items-center gap-2">
+          <CalendarDays className={dateRange.from ? "text-blue-400" : "text-slate-500"} size={17} />
+          {dateRange.from
+            ? dateRange.to
+              ? `${format(dateRange.from, "MMM d")} - ${format(dateRange.to, "MMM d")}`
+              : format(dateRange.from, "MMM d, yyyy")
+            : "Date Range"}
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-[9999]">
+          <DayPicker
+            mode="range"
+            selected={dateRange}
+            onSelect={setDateRange}
+            className="text-sm w-full"
+          />
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-700 mt-2">
+            <button
+              type="button"
+              onClick={() => { setDateRange({ from: null, to: null }); setIsOpen(false); }}
+              className="text-xs text-slate-400 hover:text-white px-2 py-1 transition rounded hover:bg-slate-700"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded font-medium transition"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 export default GuardAttendanceRecords;

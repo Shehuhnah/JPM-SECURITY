@@ -1,8 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardList, Clock, FileText, Image as ImageIcon, LogIn, MapPin, Building2, Filter, Search } from "lucide-react";
+import { ClipboardList, Clock, FileText, Image as ImageIcon, LogIn, MapPin, Building2, Filter, Search, CalendarDays } from "lucide-react";
+import { format } from "date-fns";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/dist/style.css";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { getPersonName } from "../utils/name";
+
+const datePickerStyles = `
+  .rdp {
+    --rdp-cell-size: 36px;
+    --rdp-accent-color: #2563eb;
+    --rdp-background-color: #111827;
+    margin: 0;
+  }
+  .rdp-caption_label { color: #f8fafc; font-weight: 700; }
+  .rdp-weekday { color: #ffffff; font-size: 0.75rem; text-transform: uppercase; }
+  .rdp-day { color: #f8fafc; }
+  .rdp-day_button { color: #f8fafc; }
+  .rdp-button_previous, .rdp-button_next, .rdp-nav_button { color: #e2e8f0; }
+  .rdp-day:hover:not([disabled]) { background-color: #1e293b; border-radius: 8px; }
+  .rdp-selected .rdp-day_button,
+  .rdp-range_start .rdp-day_button,
+  .rdp-range_end .rdp-day_button { background-color: #2563eb; color: #ffffff; border-radius: 8px; font-weight: 700; }
+  .rdp-range_middle .rdp-day_button { background-color: rgba(59,130,246,0.35); color: #ffffff; border-radius: 0; font-weight: 600; }
+  .rdp-day_button:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+`;
 
 export default function GuardLogBook() {
   const api = import.meta.env.VITE_API_URL;
@@ -22,6 +45,8 @@ export default function GuardLogBook() {
   const [imagePreview, setImagePreview] = useState("");
   const [deploymentFilter, setDeploymentFilter] = useState("All");
   const [logSearch, setLogSearch] = useState("");
+  const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
+  const [selectedDateRange, setSelectedDateRange] = useState({ from: null, to: null });
 
   useEffect(() => {
     if (!guard && !loading) {
@@ -167,12 +192,20 @@ export default function GuardLogBook() {
 
       const matchesDeployment = deploymentFilter === "All" || deploymentValue === deploymentFilter;
       const matchesSearch = !logSearch.trim() || haystack.includes(logSearch.trim().toLowerCase());
-      return matchesDeployment && matchesSearch;
+      const matchesDate = (() => {
+        if (!selectedDateRange.from) return true;
+        const logDate = new Date(log.createdAt);
+        const from = new Date(selectedDateRange.from); from.setHours(0, 0, 0, 0);
+        const to = new Date(selectedDateRange.to || selectedDateRange.from); to.setHours(23, 59, 59, 999);
+        return logDate >= from && logDate <= to;
+      })();
+      return matchesDeployment && matchesSearch && matchesDate;
     });
-  }, [deploymentFilter, logSearch, logs]);
+  }, [deploymentFilter, logSearch, logs, selectedDateRange.from, selectedDateRange.to]);
 
   return (
     <div className="min-h-screen bg-[#0f172a] p-6 text-gray-100">
+      <style>{datePickerStyles}</style>
       <div className="mb-8 flex items-center justify-center">
         <ClipboardList className="mr-3 h-7 w-7 text-blue-400" />
         <h1 className="text-2xl font-bold tracking-wide text-white">Guard Logbook</h1>
@@ -294,7 +327,7 @@ export default function GuardLogBook() {
           <Filter size={16} />
           Past Deployment Filter
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_260px_auto]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
             <input
@@ -318,6 +351,35 @@ export default function GuardLogBook() {
                 </option>
               ))}
             </select>
+          </div>
+          {/* Date Range Filter */}
+          <div className="relative z-[9999]">
+            <button
+              onClick={() => setIsDateFilterOpen(!isDateFilterOpen)}
+              className={`w-full rounded-xl border px-4 py-2.5 text-sm flex items-center justify-between gap-3 transition ${
+                selectedDateRange.from
+                  ? "border-blue-500/50 bg-blue-500/10 text-white"
+                  : "border-slate-700 bg-[#0f172a] text-slate-400 hover:border-slate-600"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <CalendarDays className={selectedDateRange.from ? "text-blue-400" : "text-slate-500"} size={17} />
+                {selectedDateRange.from
+                  ? selectedDateRange.to
+                    ? `${format(selectedDateRange.from, "MMM d")} - ${format(selectedDateRange.to, "MMM d")}`
+                    : format(selectedDateRange.from, "MMM d, yyyy")
+                  : "Date Range"}
+              </span>
+            </button>
+            {isDateFilterOpen && (
+              <div className="absolute right-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-[9999]">
+                <DayPicker mode="range" selected={selectedDateRange} onSelect={setSelectedDateRange} className="text-sm w-full" />
+                <div className="flex justify-end gap-2 pt-4 border-t border-slate-700 mt-2">
+                  <button onClick={() => { setSelectedDateRange({ from: null, to: null }); setIsDateFilterOpen(false); }} className="text-xs text-slate-400 hover:text-white px-2 py-1 transition rounded hover:bg-slate-700">Clear</button>
+                  <button onClick={() => setIsDateFilterOpen(false)} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded font-medium transition">Apply</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

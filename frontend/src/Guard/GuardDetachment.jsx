@@ -3,10 +3,32 @@ import { CalendarDays, Clock, MapPin, List, Calendar, ChevronLeft, ChevronRight 
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { format, getMonth, getYear, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay } from "date-fns";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/dist/style.css";
 
 const api = import.meta.env.VITE_API_URL;
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const datePickerStyles = `
+  .rdp {
+    --rdp-cell-size: 36px;
+    --rdp-accent-color: #2563eb;
+    --rdp-background-color: #111827;
+    margin: 0;
+  }
+  .rdp-caption_label { color: #f8fafc; font-weight: 700; }
+  .rdp-weekday { color: #ffffff; font-size: 0.75rem; text-transform: uppercase; }
+  .rdp-day { color: #f8fafc; }
+  .rdp-day_button { color: #f8fafc; }
+  .rdp-button_previous, .rdp-button_next, .rdp-nav_button { color: #e2e8f0; }
+  .rdp-day:hover:not([disabled]) { background-color: #1e293b; border-radius: 8px; }
+  .rdp-selected .rdp-day_button,
+  .rdp-range_start .rdp-day_button,
+  .rdp-range_end .rdp-day_button { background-color: #2563eb; color: #ffffff; border-radius: 8px; font-weight: 700; }
+  .rdp-range_middle .rdp-day_button { background-color: rgba(59,130,246,0.35); color: #ffffff; border-radius: 0; font-weight: 600; }
+  .rdp-day_button:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+`;
 
 // --- Helper Functions ---
 const formatTimeDisplay = (timeString) => {
@@ -165,9 +187,17 @@ const MonthNavigator = ({ currentMonth, setCurrentMonth }) => {
 };
 
 const ListView = ({ schedules, currentMonth, setCurrentMonth }) => {
+  const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
+  const [selectedDateRange, setSelectedDateRange] = useState({ from: null, to: null });
+
   const filteredSchedules = schedules.filter(s => {
     try {
       const scheduleDate = new Date(s.timeIn);
+      if (selectedDateRange.from) {
+        const from = new Date(selectedDateRange.from); from.setHours(0, 0, 0, 0);
+        const to = new Date(selectedDateRange.to || selectedDateRange.from); to.setHours(23, 59, 59, 999);
+        return scheduleDate >= from && scheduleDate <= to;
+      }
       return getYear(scheduleDate) === getYear(currentMonth) && getMonth(scheduleDate) === getMonth(currentMonth);
     } catch {
       return false;
@@ -185,12 +215,51 @@ const ListView = ({ schedules, currentMonth, setCurrentMonth }) => {
 
   return (
     <div className="min-w-0 max-w-full space-y-6 overflow-x-hidden pb-20">
-      <MonthNavigator currentMonth={currentMonth} setCurrentMonth={setCurrentMonth} />
-      
+      <style>{datePickerStyles}</style>
+
+      {/* Date Range Filter */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative z-[9999]">
+          <button
+            onClick={() => setIsDateFilterOpen(!isDateFilterOpen)}
+            className={`rounded-xl border px-4 py-2.5 text-sm flex items-center gap-3 transition ${
+              selectedDateRange.from
+                ? "border-blue-500/50 bg-blue-500/10 text-white"
+                : "border-slate-700 bg-[#0f172a] text-slate-400 hover:border-slate-600"
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <CalendarDays className={selectedDateRange.from ? "text-blue-400" : "text-slate-500"} size={17} />
+              {selectedDateRange.from
+                ? selectedDateRange.to
+                  ? `${format(selectedDateRange.from, "MMM d")} - ${format(selectedDateRange.to, "MMM d")}`
+                  : format(selectedDateRange.from, "MMM d, yyyy")
+                : "Date Range"}
+            </span>
+          </button>
+          {isDateFilterOpen && (
+            <div className="absolute left-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-[9999]">
+              <DayPicker mode="range" selected={selectedDateRange} onSelect={setSelectedDateRange} className="text-sm w-full" />
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-700 mt-2">
+                <button onClick={() => { setSelectedDateRange({ from: null, to: null }); setIsDateFilterOpen(false); }} className="text-xs text-slate-400 hover:text-white px-2 py-1 transition rounded hover:bg-slate-700">Clear</button>
+                <button onClick={() => setIsDateFilterOpen(false)} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded font-medium transition">Apply</button>
+              </div>
+            </div>
+          )}
+        </div>
+        {selectedDateRange.from && (
+          <span className="text-xs text-slate-400">Showing schedules in selected range</span>
+        )}
+      </div>
+
+      {!selectedDateRange.from && (
+        <MonthNavigator currentMonth={currentMonth} setCurrentMonth={setCurrentMonth} />
+      )}
+
       {sortedDates.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-gray-500 bg-[#1e293b]/30 rounded-2xl border border-gray-800 border-dashed">
             <CalendarDays size={48} className="mb-4 opacity-20"/>
-            <p>No schedules found for this month.</p>
+            <p>{selectedDateRange.from ? "No schedules found for this date range." : "No schedules found for this month."}</p>
         </div>
       ) : (
         sortedDates.map((date) => (

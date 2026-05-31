@@ -26,7 +26,10 @@ import {
   RefreshCcw,
   ShieldCheck,
   TrendingUp,
+  ChevronDown
 } from "lucide-react";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/dist/style.css";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "../hooks/useAuth";
@@ -140,7 +143,7 @@ export default function GuardDashboard() {
   const [schedules, setSchedules] = useState([]);
   const [leaves, setLeaves] = useState([]);
   const [logs, setLogs] = useState([]);
-  const [dateRange, setDateRange] = useState({ from: "", to: "" });
+  const [dateRange, setDateRange] = useState({ from: null, to: null });
 
   const fetchDashboardData = useCallback(async () => {
     if (!guard?._id) return;
@@ -191,8 +194,8 @@ export default function GuardDashboard() {
   }, [fetchDashboardData, guard, loading, navigate]);
 
   const filtered = useMemo(() => {
-    const from = dateRange.from;
-    const to = dateRange.to || dateRange.from;
+    const from = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "";
+    const to = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : (dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "");
 
     const filteredAttendance = attendance.filter((record) => isDateInRange(getAttendanceDate(record), from, to));
     const filteredSchedules = schedules.filter((schedule) => isDateInRange(getScheduleDate(schedule), from, to));
@@ -383,7 +386,7 @@ export default function GuardDashboard() {
       .slice(0, 8);
   }, [filtered.attendance, filtered.leaves, filtered.logs]);
 
-  const clearDateRange = () => setDateRange({ from: "", to: "" });
+  const clearDateRange = () => setDateRange({ from: null, to: null });
 
   if (loading || pageLoading) {
     return (
@@ -414,33 +417,17 @@ export default function GuardDashboard() {
           </div>
 
           <div className="rounded-2xl border border-slate-800 bg-[#111827] p-4">
-            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
-              <label className="space-y-1">
-                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">From</span>
-                <input
-                  type="date"
-                  value={dateRange.from}
-                  onChange={(event) => setDateRange((prev) => ({ ...prev, from: event.target.value }))}
-                  className="w-full rounded-lg border border-slate-700 bg-[#0f172a] px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </label>
-              <label className="space-y-1">
-                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">To</span>
-                <input
-                  type="date"
-                  value={dateRange.to}
-                  min={dateRange.from || undefined}
-                  onChange={(event) => setDateRange((prev) => ({ ...prev, to: event.target.value }))}
-                  className="w-full rounded-lg border border-slate-700 bg-[#0f172a] px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={clearDateRange}
-                className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
-              >
-                All Data
-              </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <DateRangeFilter dateRange={dateRange} setDateRange={setDateRange} />
+              {(dateRange.from || dateRange.to) && (
+                <button
+                  type="button"
+                  onClick={clearDateRange}
+                  className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700/60 border border-slate-700/50 font-semibold"
+                >
+                  All Data
+                </button>
+              )}
               <button
                 type="button"
                 onClick={fetchDashboardData}
@@ -574,6 +561,81 @@ function ActivityItem({ item }) {
         </div>
         <p className="mt-1 line-clamp-2 text-sm text-slate-400">{item.detail}</p>
       </div>
+    </div>
+  );
+}
+
+const datePickerStyles = `
+  .rdp {
+    --rdp-cell-size: 36px;
+    --rdp-accent-color: #2563eb;
+    --rdp-background-color: #111827;
+    margin: 0;
+  }
+  .rdp-caption_label { color: #f8fafc; font-weight: 700; }
+  .rdp-weekday { color: #ffffff; font-size: 0.75rem; text-transform: uppercase; }
+  .rdp-day { color: #f8fafc; }
+  .rdp-day_button { color: #f8fafc; }
+  .rdp-button_previous, .rdp-button_next, .rdp-nav_button { color: #e2e8f0; }
+  .rdp-day:hover:not([disabled]) { background-color: #1e293b; border-radius: 8px; }
+  .rdp-selected .rdp-day_button,
+  .rdp-range_start .rdp-day_button,
+  .rdp-range_end .rdp-day_button { background-color: #2563eb; color: #ffffff; border-radius: 8px; font-weight: 700; }
+  .rdp-range_middle .rdp-day_button { background-color: rgba(59,130,246,0.35); color: #ffffff; border-radius: 0; font-weight: 600; }
+  .rdp-day_button:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+`;
+
+function DateRangeFilter({ dateRange, setDateRange }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <style>{datePickerStyles}</style>
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        className={`w-full rounded-xl border px-4 py-2.5 text-sm flex items-center justify-between gap-3 transition ${
+          dateRange.from
+            ? "border-blue-500/50 bg-blue-500/10 text-white"
+            : "border-slate-700 bg-[#0f172a] text-slate-400 hover:border-slate-600"
+        }`}
+      >
+        <span className="flex items-center gap-2">
+          <CalendarDays className={dateRange.from ? "text-blue-400" : "text-slate-500"} size={17} />
+          {dateRange.from
+            ? dateRange.to
+              ? `${format(dateRange.from, "MMM d")} - ${format(dateRange.to, "MMM d")}`
+              : format(dateRange.from, "MMM d, yyyy")
+            : "Date Range"}
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-[9999]">
+          <DayPicker
+            mode="range"
+            selected={dateRange}
+            onSelect={setDateRange}
+            className="text-sm w-full"
+          />
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-700 mt-2">
+            <button
+              type="button"
+              onClick={() => { setDateRange({ from: null, to: null }); setIsOpen(false); }}
+              className="text-xs text-slate-400 hover:text-white px-2 py-1 transition rounded hover:bg-slate-700"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded font-medium transition"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, Fragment } from "react";
+import { useEffect, useState, Fragment, useMemo } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import {
   Search,
@@ -23,14 +23,38 @@ import {
   Plus,
   Paperclip,
   AlertTriangle,
+  CalendarDays,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
+import { format } from "date-fns";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/dist/style.css";
 import TablePagination from "../components/admin/TablePagination.jsx";
 const api = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
+
+const datePickerStyles = `
+  .rdp {
+    --rdp-cell-size: 36px;
+    --rdp-accent-color: #2563eb;
+    --rdp-background-color: #111827;
+    margin: 0;
+  }
+  .rdp-caption_label { color: #f8fafc; font-weight: 700; }
+  .rdp-weekday { color: #ffffff; font-size: 0.75rem; text-transform: uppercase; }
+  .rdp-day { color: #f8fafc; }
+  .rdp-day_button { color: #f8fafc; }
+  .rdp-button_previous, .rdp-button_next, .rdp-nav_button { color: #e2e8f0; }
+  .rdp-day:hover:not([disabled]) { background-color: #1e293b; border-radius: 8px; }
+  .rdp-selected .rdp-day_button,
+  .rdp-range_start .rdp-day_button,
+  .rdp-range_end .rdp-day_button { background-color: #2563eb; color: #ffffff; border-radius: 8px; font-weight: 700; }
+  .rdp-range_middle .rdp-day_button { background-color: rgba(59,130,246,0.35); color: #ffffff; border-radius: 0; font-weight: 600; }
+  .rdp-day_button:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+`;
 const APPLICANT_RESUME_ACCEPT = ".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.zip";
 const APPLICANT_RESUME_TYPES = [
   "image/jpeg",
@@ -102,6 +126,8 @@ export default function ApplicantsList() {
   const [deleteApplicantModal, setDeleteApplicantModal] = useState({ open: false, applicant: null });
   const [deletingApplicant, setDeletingApplicant] = useState(false);
   const [hireFieldErrors, setHireFieldErrors] = useState({});
+  const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
+  const [selectedDateRange, setSelectedDateRange] = useState({ from: null, to: null });
   
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -406,6 +432,8 @@ export default function ApplicantsList() {
       if (search.trim()) params.set("q", search.trim());
       if (statusFilter !== "All") params.set("status", statusFilter);
       if (applicationTypeFilter !== "All") params.set("applicationType", applicationTypeFilter);
+      if (selectedDateRange.from) params.set("from", format(selectedDateRange.from, "yyyy-MM-dd"));
+      if (selectedDateRange.to) params.set("to", format(selectedDateRange.to, "yyyy-MM-dd"));
 
       const res = await fetch(`${api}/api/applicants?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
@@ -424,11 +452,11 @@ export default function ApplicantsList() {
 
   useEffect(() => {
     if (user) fetchApplicants();
-  }, [user, currentPage, search, statusFilter, applicationTypeFilter]);
+  }, [user, currentPage, search, statusFilter, applicationTypeFilter, selectedDateRange.from, selectedDateRange.to]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter, applicationTypeFilter]);
+  }, [search, statusFilter, applicationTypeFilter, selectedDateRange.from, selectedDateRange.to]);
 
   const updateStatus = async (id, status) => {
     try {
@@ -770,10 +798,13 @@ export default function ApplicantsList() {
     </p>
   );
 
+  const displayedApplicants = applicants;
+
   return (
     <>
       <div className="flex min-h-screen bg-[#0f172a] text-gray-100">
         <ToastContainer theme="dark" />
+        <style>{datePickerStyles}</style>
         <main className="flex-1 p-4 md:p-6 bg-slate-900/50 min-h-screen">
             {/* --- Header Section --- */}
             <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between mb-8 gap-6">
@@ -840,6 +871,36 @@ export default function ApplicantsList() {
                         </select>
                     </div>
 
+                    {/* Date Range Filter */}
+                    <div className="relative z-[9999]">
+                      <button
+                        onClick={() => setIsDateFilterOpen(!isDateFilterOpen)}
+                        className={`w-full rounded-xl border px-4 py-2.5 text-sm flex items-center justify-between gap-3 transition ${
+                          selectedDateRange.from
+                            ? "border-blue-500/50 bg-blue-500/10 text-white"
+                            : "border-slate-700 bg-[#0f172a] text-slate-400 hover:border-slate-600"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <CalendarDays className={selectedDateRange.from ? "text-blue-400" : "text-slate-500"} size={17} />
+                          {selectedDateRange.from
+                            ? selectedDateRange.to
+                              ? `${format(selectedDateRange.from, "MMM d")} - ${format(selectedDateRange.to, "MMM d")}`
+                              : format(selectedDateRange.from, "MMM d, yyyy")
+                            : "Date Range"}
+                        </span>
+                      </button>
+                      {isDateFilterOpen && (
+                        <div className="absolute right-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-[9999]">
+                          <DayPicker mode="range" selected={selectedDateRange} onSelect={setSelectedDateRange} className="text-sm w-full" />
+                          <div className="flex justify-end gap-2 pt-4 border-t border-slate-700 mt-2">
+                            <button onClick={() => { setSelectedDateRange({ from: null, to: null }); setIsDateFilterOpen(false); }} className="text-xs text-slate-400 hover:text-white px-2 py-1 transition rounded hover:bg-slate-700">Clear</button>
+                            <button onClick={() => setIsDateFilterOpen(false)} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded font-medium transition">Apply</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Action Buttons Group */}
                     <div className="flex gap-2">
                         <button
@@ -884,7 +945,7 @@ export default function ApplicantsList() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-700/50">
-                        {applicants.length === 0 ? (
+                        {displayedApplicants.length === 0 ? (
                             <tr>
                                 <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                                     <div className="flex flex-col items-center gap-2">
@@ -894,7 +955,7 @@ export default function ApplicantsList() {
                                 </td>
                             </tr>
                         ) : (
-                            applicants.map((a, index) => (
+                            displayedApplicants.map((a, index) => (
                                 <tr key={a._id} className="group hover:bg-slate-800/50 transition duration-150">
                                     <td className="px-6 py-4 text-sm text-gray-400">
                                         {(currentPage - 1) * PAGE_SIZE + index + 1}
@@ -929,7 +990,7 @@ export default function ApplicantsList() {
 
             {/* MOBILE VIEW: Cards (Replaces table on small screens) */}
             <div className="md:hidden grid gap-4">
-                {applicants.map((a, index) => (
+                {displayedApplicants.map((a, index) => (
                     <div key={a._id} className="bg-[#1e293b] border border-gray-700 rounded-xl p-4 shadow-sm">
                         <div className="flex justify-between items-start mb-3">
                             <div>

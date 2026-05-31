@@ -11,7 +11,6 @@ const parsePositiveInt = (value, fallback) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-
 // 🟢 Get all applicants (latest first)
 export const getApplicants = async (req, res) => {
   try {
@@ -20,7 +19,9 @@ export const getApplicants = async (req, res) => {
       req.query.limit !== undefined ||
       req.query.status !== undefined ||
       req.query.applicationType !== undefined ||
-      req.query.q !== undefined;
+      req.query.q !== undefined ||
+      req.query.from !== undefined ||
+      req.query.to !== undefined;
 
     if (!shouldPaginate) {
       const applicants = await Applicant.find().sort({ createdAt: -1 });
@@ -32,6 +33,8 @@ export const getApplicants = async (req, res) => {
     const status = req.query.status;
     const applicationType = req.query.applicationType;
     const q = req.query.q?.trim();
+    const from = req.query.from;
+    const to = req.query.to;
 
     const filter = {};
 
@@ -48,6 +51,12 @@ export const getApplicants = async (req, res) => {
         { name: { $regex: q, $options: "i" } },
         { email: { $regex: q, $options: "i" } },
       ];
+    }
+
+    if (from || to) {
+      filter.createdAt = {};
+      if (from) filter.createdAt.$gte = new Date(from + "T00:00:00.000Z");
+      if (to) filter.createdAt.$lte = new Date(to + "T23:59:59.999Z");
     }
 
     const skip = (page - 1) * limit;

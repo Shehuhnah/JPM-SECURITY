@@ -962,6 +962,7 @@ export default function AdminStaffAttendance() {
 
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-400">
               <LegendItem label="Present" tone="bg-emerald-500/90 border-emerald-300/70" />
+              <LegendItem label="Absent" tone="bg-red-500/90 border-red-300/70 ring-2 ring-red-500/40" />
               <LegendItem label="Approved leave" tone="bg-amber-500/90 border-amber-300/70" />
               <LegendItem label="Pending leave" tone="bg-sky-500/90 border-sky-300/70" />
               <LegendItem label="No record / day off" tone="bg-slate-700/70 border-slate-500/60" />

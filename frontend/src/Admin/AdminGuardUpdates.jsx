@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Shield, UserX, AlertTriangle, Users } from "lucide-react";
+import { Search, Shield, UserX, AlertTriangle, Users, CalendarDays, ChevronDown } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { getPersonName } from "../utils/name";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/dist/style.css";
+import { format } from "date-fns";
 
 const api = import.meta.env.VITE_API_URL;
 
@@ -34,8 +37,7 @@ export default function AdminGuardUpdates() {
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateRange, setDateRange] = useState({ from: null, to: null });
   const [guards, setGuards] = useState([]);
   const [staff, setStaff] = useState([]);
   const [viewType, setViewType] = useState("guard");
@@ -191,8 +193,8 @@ export default function AdminGuardUpdates() {
     return rawDate;
   };
 
-  const dateFromObj = normalizeDate(dateFrom);
-  const dateToObj = normalizeDate(dateTo);
+  const dateFromObj = dateRange.from ? (() => { const d = new Date(dateRange.from); d.setHours(0, 0, 0, 0); return d; })() : null;
+  const dateToObj = dateRange.to ? (() => { const d = new Date(dateRange.to); d.setHours(0, 0, 0, 0); return d; })() : null;
 
   const filteredGuards = guards.filter((guard) =>
     getPersonName(guard, "").toLowerCase().includes(query) ||
@@ -295,28 +297,19 @@ export default function AdminGuardUpdates() {
               ))}
           </select>
 
-          <div className="relative pt-2">
-            <label className="absolute left-3 -top-2.5 z-10 bg-[#0f172a] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#2B7FFF] border border-[#2B7FFF]/25 rounded-md shadow-lg shadow-black/30">Date Range</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm [color-scheme:dark]"
-                title="From date"
-              />
-
-              <span className="text-gray-500 text-sm shrink-0">to</span>
-
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm [color-scheme:dark]"
-                title="To date"
-              />
+           
+            <div className="flex items-center gap-3">
+              <DateRangeFilter dateRange={dateRange} setDateRange={setDateRange} />
+              {(dateRange.from || dateRange.to) && (
+                <button
+                  type="button"
+                  onClick={() => setDateRange({ from: null, to: null })}
+                  className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700/60 border border-slate-700/50"
+                >
+                  Clear
+                </button>
+              )}
             </div>
-          </div>
 
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
@@ -411,3 +404,79 @@ export default function AdminGuardUpdates() {
     </div>
   );
 }
+
+const datePickerStyles = `
+  .rdp {
+    --rdp-cell-size: 36px;
+    --rdp-accent-color: #2563eb;
+    --rdp-background-color: #111827;
+    margin: 0;
+  }
+  .rdp-caption_label { color: #f8fafc; font-weight: 700; }
+  .rdp-weekday { color: #ffffff; font-size: 0.75rem; text-transform: uppercase; }
+  .rdp-day { color: #f8fafc; }
+  .rdp-day_button { color: #f8fafc; }
+  .rdp-button_previous, .rdp-button_next, .rdp-nav_button { color: #e2e8f0; }
+  .rdp-day:hover:not([disabled]) { background-color: #1e293b; border-radius: 8px; }
+  .rdp-selected .rdp-day_button,
+  .rdp-range_start .rdp-day_button,
+  .rdp-range_end .rdp-day_button { background-color: #2563eb; color: #ffffff; border-radius: 8px; font-weight: 700; }
+  .rdp-range_middle .rdp-day_button { background-color: rgba(59,130,246,0.35); color: #ffffff; border-radius: 0; font-weight: 600; }
+  .rdp-day_button:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+`;
+
+function DateRangeFilter({ dateRange, setDateRange }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <style>{datePickerStyles}</style>
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        className={`w-full rounded-xl border px-4 py-2.5 text-sm flex items-center justify-between gap-3 transition ${
+          dateRange.from
+            ? "border-blue-500/50 bg-blue-500/10 text-white"
+            : "border-slate-700 bg-[#0f172a] text-slate-400 hover:border-slate-600"
+        }`}
+      >
+        <span className="flex items-center gap-2">
+          <CalendarDays className={dateRange.from ? "text-blue-400" : "text-slate-500"} size={17} />
+          {dateRange.from
+            ? dateRange.to
+              ? `${format(dateRange.from, "MMM d")} - ${format(dateRange.to, "MMM d")}`
+              : format(dateRange.from, "MMM d, yyyy")
+            : "Date Range"}
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-[9999]">
+          <DayPicker
+            mode="range"
+            selected={dateRange}
+            onSelect={setDateRange}
+            className="text-sm w-full"
+          />
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-700 mt-2">
+            <button
+              type="button"
+              onClick={() => { setDateRange({ from: null, to: null }); setIsOpen(false); }}
+              className="text-xs text-slate-400 hover:text-white px-2 py-1 transition rounded hover:bg-slate-700"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded font-medium transition"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
