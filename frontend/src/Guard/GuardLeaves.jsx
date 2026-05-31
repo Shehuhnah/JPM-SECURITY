@@ -141,6 +141,7 @@ export default function GuardLeaves() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [historyDateRange, setHistoryDateRange] = useState({ from: undefined, to: undefined });
   const [historyLeaveTypeFilter, setHistoryLeaveTypeFilter] = useState("");
+  const [historyStatusFilter, setHistoryStatusFilter] = useState("");
 
   const availableLeaveTypes = useMemo(
     () => LEAVE_TYPE_OPTIONS[user?.sex] || LEAVE_TYPE_OPTIONS.default,
@@ -211,12 +212,23 @@ export default function GuardLeaves() {
     return [...new Set(types)].sort();
   }, [leaveRequests]);
 
+  const historyStatuses = useMemo(() => {
+    const statuses = leaveRequests
+      .map((request) => request.status)
+      .filter(Boolean);
+    return [...new Set(statuses)].sort();
+  }, [leaveRequests]);
+
   const filteredLeaveRequests = useMemo(() => {
     const fromKey = historyDateRange.from ? toDateOnly(historyDateRange.from) : "";
     const toKey = historyDateRange.to ? toDateOnly(historyDateRange.to) : fromKey;
 
     return leaveRequests.filter((request) => {
       if (historyLeaveTypeFilter && request.leaveType !== historyLeaveTypeFilter) {
+        return false;
+      }
+
+      if (historyStatusFilter && request.status !== historyStatusFilter) {
         return false;
       }
 
@@ -238,13 +250,14 @@ export default function GuardLeaves() {
 
       return true;
     });
-  }, [historyDateRange.from, historyDateRange.to, historyLeaveTypeFilter, leaveRequests]);
+  }, [historyDateRange.from, historyDateRange.to, historyLeaveTypeFilter, historyStatusFilter, leaveRequests]);
 
-  const hasHistoryFilters = Boolean(historyDateRange.from || historyLeaveTypeFilter);
+  const hasHistoryFilters = Boolean(historyDateRange.from || historyLeaveTypeFilter || historyStatusFilter);
 
   const clearHistoryFilters = () => {
     setHistoryDateRange({ from: undefined, to: undefined });
     setHistoryLeaveTypeFilter("");
+    setHistoryStatusFilter("");
   };
 
   const rangeDates = useMemo(() => buildRangeDates(leaveRange), [leaveRange]);
@@ -393,7 +406,7 @@ export default function GuardLeaves() {
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+            <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
               <div className="space-y-2">
                 <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                   <Filter size={14} /> Leave Date Range
@@ -414,6 +427,20 @@ export default function GuardLeaves() {
                   <option value="">All leave types</option>
                   {historyLeaveTypes.map((type) => (
                     <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Status</span>
+                <select
+                  value={historyStatusFilter}
+                  onChange={(event) => setHistoryStatusFilter(event.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All statuses</option>
+                  {historyStatuses.map((status) => (
+                    <option key={status} value={status}>{status}</option>
                   ))}
                 </select>
               </label>
