@@ -646,12 +646,7 @@ export const generateStaffAttendancePDF = (staff, attendanceRecords, periodCover
       const calcHours = (rec) => {
         if (!rec || !rec.timeIn) return null;
         if (!rec.timeOut) return null; // still on duty, don't show
-        const accMin = Number.isFinite(rec.accumulatedWorkedMinutes)
-          ? Math.max(0, rec.accumulatedWorkedMinutes)
-          : 0;
-        const segMs  = Math.max(0, new Date(rec.timeOut) - new Date(rec.timeIn));
-        const totalMin = Math.min(accMin + Math.round(segMs / 60000), 24 * 60);
-        return totalMin / 60; // fractional hours
+        return getAttendanceMinutesBreakdown(rec).totalMinutes / 60;
       };
 
       const calcUndertime = (hoursWorked) => {
