@@ -23,6 +23,7 @@ import "react-day-picker/dist/style.css";
 
 const api = import.meta.env.VITE_API_URL;
 const SUMMARY_DAYS = 15;
+const MANILA_TIME_ZONE = "Asia/Manila";
 
 const WEEKDAY_HEADERS = ["Sun", "Mon", "Tues", "Wed", "Thurs", "Fri", "Sat"];
 
@@ -56,7 +57,8 @@ const datePickerStyles = `
 
 const formatDateTime = (value) => {
   if (!value) return "--";
-  return new Date(value).toLocaleString([], {
+  return new Date(value).toLocaleString("en-PH", {
+    timeZone: MANILA_TIME_ZONE,
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -67,7 +69,8 @@ const formatDateTime = (value) => {
 
 const formatTime = (value) => {
   if (!value) return "--";
-  return new Date(value).toLocaleTimeString([], {
+  return new Date(value).toLocaleTimeString("en-PH", {
+    timeZone: MANILA_TIME_ZONE,
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -121,10 +124,8 @@ const getWorkedHoursLabel = (record, currentTime = new Date()) => {
 
 const getDateKey = (value) => {
   const date = new Date(value);
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-CA", { timeZone: MANILA_TIME_ZONE });
 };
 
 const formatWordDate = (dateStr) => {
@@ -425,7 +426,7 @@ export default function AdminStaffAttendance() {
   const liveTimeInLabel = getWorkedDurationLabel(todayRecord, liveNow);
 
   // Determine if the logged-in staff member is on approved leave today
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = getDateKey(new Date());
   const activeLeave = leaveRequests.find(
     (leave) =>
       leave.status === "Approved" &&
@@ -1057,7 +1058,7 @@ export default function AdminStaffAttendance() {
                           (rep) =>
                             rep.attendanceId?._id === selectedAttendance._id ||
                             rep.attendanceId?.dateKey === selectedAttendance.dateKey ||
-                            (rep.reportDate && new Date(rep.reportDate).toISOString().slice(0, 10) === selectedAttendance.dateKey)
+                            (rep.reportDate && getDateKey(rep.reportDate) === selectedAttendance.dateKey)
                         )
                       : null;
 

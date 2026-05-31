@@ -26,6 +26,15 @@ import "react-day-picker/dist/style.css";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+const MANILA_TIME_ZONE = "Asia/Manila";
+
+const toManilaDateKey = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-CA", { timeZone: MANILA_TIME_ZONE });
+};
+
 const datePickerStyles = `
   .rdp {
     --rdp-cell-size: 36px;
@@ -234,7 +243,7 @@ function GuardAttendanceRecords() {
       if (filterDateFrom || filterDateTo) {
         const timeIn = record.timeIn ? new Date(record.timeIn) : null;
         if (!timeIn || Number.isNaN(timeIn.getTime())) return false;
-        const recKey = timeIn.toISOString().slice(0, 10);
+        const recKey = toManilaDateKey(timeIn);
         if (filterDateFrom && recKey < filterDateFrom) return false;
         if (filterDateTo   && recKey > filterDateTo)   return false;
       }
@@ -255,14 +264,23 @@ function GuardAttendanceRecords() {
     if (!value) return "N/A";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "Invalid date";
-    return date.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" });
+    return date.toLocaleDateString("en-PH", {
+      timeZone: MANILA_TIME_ZONE,
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
   };
 
   const formatTime = (value) => {
     if (!value) return "N/A";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "Invalid time";
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return date.toLocaleTimeString("en-PH", {
+      timeZone: MANILA_TIME_ZONE,
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   const getTotalHours = (record) => {
@@ -292,13 +310,13 @@ function GuardAttendanceRecords() {
 
   // ── Real-Time Dashboard Metrics (KPIs) ──────────────────────
   const kpis = useMemo(() => {
-    const todayStr = format(new Date(), "yyyy-MM-dd");
+    const todayStr = toManilaDateKey(new Date());
 
     // 1. Today's status details
     const todayRecord = records.find((r) => {
       if (!r.timeIn) return false;
       try {
-        return format(new Date(r.timeIn), "yyyy-MM-dd") === todayStr;
+        return toManilaDateKey(r.timeIn) === todayStr;
       } catch {
         return false;
       }

@@ -3,18 +3,55 @@ import path from 'path';
 import fs from 'fs';
 import { getAttendanceMinutesBreakdown } from './attendanceHours.js';
 
+const MANILA_TIME_ZONE = 'Asia/Manila';
+const manilaDatePartsFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: MANILA_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+const getManilaParts = (dateVal) => {
+  const date = new Date(dateVal);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const parts = Object.fromEntries(
+    manilaDatePartsFormatter.formatToParts(date).map((part) => [part.type, part.value])
+  );
+
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+  };
+};
+
+const toDateKey = (dateVal) => {
+  const parts = getManilaParts(dateVal);
+  if (!parts) return '';
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
+};
+
+const getManilaDay = (dateVal) => getManilaParts(dateVal)?.day || 0;
+const getManilaMonth = (dateVal) => getManilaParts(dateVal)?.month || 0;
+const getManilaYear = (dateVal) => getManilaParts(dateVal)?.year || 0;
+const dateFromManilaDateKey = (dateKey) => new Date(`${dateKey}T12:00:00+08:00`);
+
 const buildCoverageDays = (startDate, endDate) => {
   if (!startDate || !endDate) return [];
 
   const dates = [];
-  const cursor = new Date(startDate);
-  cursor.setHours(0, 0, 0, 0);
-  const end = new Date(endDate);
-  end.setHours(0, 0, 0, 0);
+  const startKey = toDateKey(startDate);
+  const endKey = toDateKey(endDate);
+  if (!startKey || !endKey) return [];
+
+  const cursor = new Date(`${startKey}T00:00:00Z`);
+  const end = new Date(`${endKey}T00:00:00Z`);
 
   while (cursor <= end) {
-    dates.push(new Date(cursor));
-    cursor.setDate(cursor.getDate() + 1);
+    const key = cursor.toISOString().slice(0, 10);
+    dates.push(dateFromManilaDateKey(key));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
   return dates;
@@ -27,13 +64,13 @@ const splitCoverageDays = (coverageDays = []) => {
 
   const sameMonth = coverageDays.every(
     (date) =>
-      date.getFullYear() === coverageDays[0].getFullYear() &&
-      date.getMonth() === coverageDays[0].getMonth()
+      getManilaYear(date) === getManilaYear(coverageDays[0]) &&
+      getManilaMonth(date) === getManilaMonth(coverageDays[0])
   );
 
   if (sameMonth) {
-    const topDays = coverageDays.filter((date) => date.getDate() <= 15);
-    const bottomDays = coverageDays.filter((date) => date.getDate() > 15);
+    const topDays = coverageDays.filter((date) => getManilaDay(date) <= 15);
+    const bottomDays = coverageDays.filter((date) => getManilaDay(date) > 15);
     return { topDays, bottomDays };
   }
 
@@ -55,19 +92,19 @@ const getPeriodLayout = (coverageDays = []) => {
 
   const sameMonth = coverageDays.every(
     (date) =>
-      date.getFullYear() === coverageDays[0].getFullYear() &&
-      date.getMonth() === coverageDays[0].getMonth()
+      getManilaYear(date) === getManilaYear(coverageDays[0]) &&
+      getManilaMonth(date) === getManilaMonth(coverageDays[0])
   );
 
   const lastDayOfMonth = new Date(
-    coverageDays[0].getFullYear(),
-    coverageDays[0].getMonth() + 1,
+    getManilaYear(coverageDays[0]),
+    getManilaMonth(coverageDays[0]),
     0
   ).getDate();
   const isFullMonth =
     sameMonth &&
-    coverageDays[0].getDate() === 1 &&
-    coverageDays[coverageDays.length - 1].getDate() === lastDayOfMonth &&
+    getManilaDay(coverageDays[0]) === 1 &&
+    getManilaDay(coverageDays[coverageDays.length - 1]) === lastDayOfMonth &&
     coverageDays.length === lastDayOfMonth;
 
   if (!isFullMonth) {
@@ -79,8 +116,8 @@ const getPeriodLayout = (coverageDays = []) => {
     };
   }
 
-  const primaryDays = coverageDays.filter((date) => date.getDate() <= 15);
-  const secondaryDays = coverageDays.filter((date) => date.getDate() > 15);
+  const primaryDays = coverageDays.filter((date) => getManilaDay(date) <= 15);
+  const secondaryDays = coverageDays.filter((date) => getManilaDay(date) > 15);
 
   return {
     primaryDays,
@@ -89,9 +126,6 @@ const getPeriodLayout = (coverageDays = []) => {
     hasSecondaryBlock: true,
   };
 };
-
-const toDateKey = (date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 /**
  * Generate a grid-based timesheet PDF.
@@ -182,11 +216,11 @@ export const generateWorkHoursPDF = (guard, attendanceRecords, periodCover, opti
         doc.rect(x, tableY + headerRowHeight, dateCellWidth, headerRowHeight).stroke();
 
         if (topDays[index]) {
-          doc.text(topDays[index].getDate(), x, tableY + 5, { width: dateCellWidth, align: 'center' });
+          doc.text(getManilaDay(topDays[index]), x, tableY + 5, { width: dateCellWidth, align: 'center' });
         }
 
         if (bottomDays[index]) {
-          doc.text(bottomDays[index].getDate(), x, tableY + headerRowHeight + 5, { width: dateCellWidth, align: 'center' });
+          doc.text(getManilaDay(bottomDays[index]), x, tableY + headerRowHeight + 5, { width: dateCellWidth, align: 'center' });
         }
       }
 
@@ -359,10 +393,10 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
           doc.rect(currentX, headerY1, dateCellW, headerRowHeight).stroke();
           doc.rect(currentX, headerY2, dateCellW, headerRowHeight).stroke();
           if (topDays[index]) {
-            doc.text(String(topDays[index].getDate()), currentX, headerY1 + 6, { width: dateCellW, align: "center" });
+            doc.text(String(getManilaDay(topDays[index])), currentX, headerY1 + 6, { width: dateCellW, align: "center" });
           }
           if (bottomDays[index]) {
-            doc.text(String(bottomDays[index].getDate()), currentX, headerY2 + 6, { width: dateCellW, align: "center" });
+            doc.text(String(getManilaDay(bottomDays[index])), currentX, headerY2 + 6, { width: dateCellW, align: "center" });
           }
           currentX += dateCellW;
         }
@@ -572,14 +606,14 @@ export const generateStaffAttendancePDF = (staff, attendanceRecords, periodCover
         effectiveDays.length > 0 &&
         effectiveDays.every(
           d =>
-            d.getFullYear() === effectiveDays[0].getFullYear() &&
-            d.getMonth()    === effectiveDays[0].getMonth()
+            getManilaYear(d) === getManilaYear(effectiveDays[0]) &&
+            getManilaMonth(d) === getManilaMonth(effectiveDays[0])
         );
 
       let leftDays, rightDays;
       if (sameMonth) {
-        leftDays  = effectiveDays.filter(d => d.getDate() <= 15);
-        rightDays = effectiveDays.filter(d => d.getDate() >  15);
+        leftDays  = effectiveDays.filter(d => getManilaDay(d) <= 15);
+        rightDays = effectiveDays.filter(d => getManilaDay(d) >  15);
       } else {
         const half = Math.ceil(effectiveDays.length / 2);
         leftDays  = effectiveDays.slice(0, half);
@@ -601,11 +635,12 @@ export const generateStaffAttendancePDF = (staff, attendanceRecords, periodCover
         if (!dateVal) return '';
         const d = new Date(dateVal);
         if (isNaN(d.getTime())) return '';
-        let h = d.getHours();
-        const m = String(d.getMinutes()).padStart(2, '0');
-        const ampm = h >= 12 ? 'PM' : 'AM';
-        h = h % 12 || 12;
-        return `${h}:${m} ${ampm}`;
+        return new Intl.DateTimeFormat('en-PH', {
+          timeZone: MANILA_TIME_ZONE,
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        }).format(d);
       };
 
       const calcHours = (rec) => {
@@ -727,7 +762,7 @@ export const generateStaffAttendancePDF = (staff, attendanceRecords, periodCover
           }
 
           const cellValues = [
-            date ? String(date.getDate()) : '',
+            date ? String(getManilaDay(date)) : '',
             rec  ? fmt12h(rec.firstTimeIn || rec.timeIn) : '',
             rec  ? fmt12h(rec.timeOut) : '',
             undertimeLabel,

@@ -28,3 +28,55 @@ Raw Attendance Count in DB for Guard: 3
   Filtering record id 6a0b52bb64d7187c789d0f72: parsedTimeIn=2026-05-18T17:56:11.000Z, inRange=false
   Filtering record id 6a0e6fb3be1c388e5f714478: parsedTimeIn=2026-05-21T02:36:35.000Z, inRange=false
 Filtered Attendance Count: 0
+
+
+--- downloadMyGuardDTR Triggered at 2026-05-31T02:32:06.401Z ---
+Guard ID from token: 69ff98a0134e052a1408b89b
+Guard found in DB: Buzz Lightyear (guardId: G-54654987987)
+Query Params -> from: 2026-05-01, to: 2026-05-31
+Parsed Range -> startDate: 2026-04-30T16:00:00.000Z, endDate: 2026-05-31T15:59:59.000Z
+Raw Attendance Count in DB for Guard: 14
+  [0] id: 6a0b4fce7ead71ede899d3a0, timeIn: "Tue May 19 2026 01:43:42 GMT+0800 (Philippine Standard Time)", timeOut: "Tue May 19 2026 01:43:55 GMT+0800 (Philippine Standard Time)", scheduleId: null
+  [1] id: 6a1a642d03a354d89a264745, timeIn: "Sat May 30 2026 04:14:37 GMT+0000 (Coordinated Universal Time)", timeOut: "Sun May 31 2026 00:52:07 GMT+0800 (Philippine Standard Time)", scheduleId: present
+  [2] id: 6a1a8a6f79020b47f00925f6, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [3] id: 6a1a8a6f79020b47f00925f7, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [4] id: 6a1a8a6f79020b47f00925f8, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [5] id: 6a1a8a6f79020b47f00925f9, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [6] id: 6a1a8a6f79020b47f00925fa, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [7] id: 6a1a8a6f79020b47f00925fb, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [8] id: 6a1a8a6f79020b47f00925fc, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [9] id: 6a1a8a6f79020b47f00925fd, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [10] id: 6a1a8a6f79020b47f00925fe, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [11] id: 6a1a8a6f79020b47f00925ff, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [12] id: 6a1a8a6f79020b47f0092600, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [13] id: 6a1b9c26a4f37f70909a2199, timeIn: "Sun May 31 2026 02:25:42 GMT+0000 (Coordinated Universal Time)", timeOut: "undefined", scheduleId: present
+  Filtering record id 6a0b4fce7ead71ede899d3a0: parsedTimeIn=2026-05-18T17:43:42.000Z, inRange=true
+  Filtering record id 6a1a642d03a354d89a264745: parsedTimeIn=2026-05-30T04:14:37.000Z, inRange=true
+  Filtering record id 6a1b9c26a4f37f70909a2199: parsedTimeIn=2026-05-31T02:25:42.000Z, inRange=true
+Filtered Attendance Count: 3
+
+
+--- downloadMyGuardDTR Triggered at 2026-05-31T02:41:48.580Z ---
+Guard ID from token: 69ff98a0134e052a1408b89b
+Guard found in DB: Buzz Lightyear (guardId: G-54654987987)
+Query Params -> from: 2026-05-01, to: 2026-05-31
+Parsed Range -> startDate: 2026-04-30T16:00:00.000Z, endDate: 2026-05-31T15:59:59.000Z
+Raw Attendance Count in DB for Guard: 14
+  [0] id: 6a0b4fce7ead71ede899d3a0, timeIn: "Tue May 19 2026 01:43:42 GMT+0800 (Philippine Standard Time)", timeOut: "Tue May 19 2026 01:43:55 GMT+0800 (Philippine Standard Time)", scheduleId: null
+  [1] id: 6a1a642d03a354d89a264745, timeIn: "Sat May 30 2026 04:14:37 GMT+0000 (Coordinated Universal Time)", timeOut: "Sun May 31 2026 00:52:07 GMT+0800 (Philippine Standard Time)", scheduleId: present
+  [2] id: 6a1a8a6f79020b47f00925f6, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [3] id: 6a1a8a6f79020b47f00925f7, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [4] id: 6a1a8a6f79020b47f00925f8, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [5] id: 6a1a8a6f79020b47f00925f9, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [6] id: 6a1a8a6f79020b47f00925fa, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [7] id: 6a1a8a6f79020b47f00925fb, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [8] id: 6a1a8a6f79020b47f00925fc, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [9] id: 6a1a8a6f79020b47f00925fd, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [10] id: 6a1a8a6f79020b47f00925fe, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [11] id: 6a1a8a6f79020b47f00925ff, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [12] id: 6a1a8a6f79020b47f0092600, timeIn: "undefined", timeOut: "undefined", scheduleId: present
+  [13] id: 6a1b9c26a4f37f70909a2199, timeIn: "Sun May 31 2026 02:25:42 GMT+0000 (Coordinated Universal Time)", timeOut: "undefined", scheduleId: present
+  Filtering record id 6a0b4fce7ead71ede899d3a0: parsedTimeIn=2026-05-18T17:43:42.000Z, inRange=true
+  Filtering record id 6a1a642d03a354d89a264745: parsedTimeIn=2026-05-30T04:14:37.000Z, inRange=true
+  Filtering record id 6a1b9c26a4f37f70909a2199: parsedTimeIn=2026-05-31T02:25:42.000Z, inRange=true
+Filtered Attendance Count: 3
