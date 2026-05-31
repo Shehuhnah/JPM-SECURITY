@@ -4,6 +4,8 @@ import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { socket } from "../utils/socket";
 import { getPersonName } from "../utils/name";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const api = import.meta.env.VITE_API_URL;
 
@@ -692,7 +694,18 @@ export default function SubadminApplicantMessage() {
                         type="file" 
                         ref={fileInputRef} 
                         className="hidden" 
-                        onChange={(e) => setFile(e.target.files[0])}
+                        onChange={(e) => {
+                          const selected = e.target.files[0];
+                          if (!selected) return;
+                          const ext = selected.name.split(".").pop().toLowerCase();
+                          const allowed = ["png", "jpg", "jpeg", "webp", "gif", "pdf", "docx"];
+                          if (!allowed.includes(ext)) {
+                            toast.error("Unsupported file type! Only image, pdf, docx are allowed.", { theme: "dark" });
+                            e.target.value = "";
+                            return;
+                          }
+                          setFile(selected);
+                        }}
                     />
                     <button 
                         onClick={() => fileInputRef.current.click()} 
@@ -765,6 +778,7 @@ export default function SubadminApplicantMessage() {
           </div>
         </div>
       )}
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 }

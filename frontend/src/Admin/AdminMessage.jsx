@@ -4,6 +4,8 @@ import { Paperclip, Send, Search, CircleUserRound, ArrowLeft, MessageSquare, X, 
 import { useAuth } from "../hooks/useAuth";
 import { socket } from "../utils/socket";
 import { getPersonName } from "../utils/name";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const api = import.meta.env.VITE_API_URL;
 
@@ -343,6 +345,23 @@ export default function MessagesPage() {
       const pid = p?.userId?._id || p?.userId;
       return pid?.toString() !== user._id.toString();
     });
+  };
+
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (!selectedFile) return;
+
+    const allowedExtensions = ["png", "jpg", "jpeg", "webp", "gif", "pdf", "docx"];
+    const extension = selectedFile.name.split(".").pop().toLowerCase();
+
+    if (!allowedExtensions.includes(extension)) {
+      toast.error("Unsupported file type! Only image, pdf, docx are allowed.");
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+    setFile(selectedFile);
   };
 
   const handleSend = async () => {
@@ -718,7 +737,7 @@ export default function MessagesPage() {
                         type="file" 
                         ref={fileInputRef} 
                         className="hidden" 
-                        onChange={(e) => setFile(e.target.files[0])}
+                        onChange={handleFileChange}
                     />
                     <button 
                         onClick={() => fileInputRef.current.click()} 
@@ -798,6 +817,8 @@ export default function MessagesPage() {
           </div>
         </div>
       )}
+
+      <ToastContainer theme="dark" position="top-right" autoClose={3000} />
     </div>
   );
 }

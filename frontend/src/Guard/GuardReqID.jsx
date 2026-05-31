@@ -20,6 +20,19 @@ const toDateKey = (value) => {
   return date.toLocaleDateString("en-CA");
 };
 
+const formatPickupDateTime = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return "";
+  return date.toLocaleString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 const dateInputStyles = `
   .guard-date-filter::-webkit-calendar-picker-indicator {
     filter: brightness(0) invert(1);
@@ -312,7 +325,7 @@ export default function RequestIDPage() {
                         <Calendar className="inline w-4 h-4 mr-1" color="#ffffff" />
                         Pickup Date:{" "}
                         {req.pickupDate
-                          ? new Date(req.pickupDate).toLocaleDateString()
+                          ? formatPickupDateTime(req.pickupDate)
                           : "TBA"}
                       </p>
                       {req.adminRemarks && (

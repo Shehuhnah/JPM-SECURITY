@@ -4,6 +4,8 @@ import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { socket } from "../utils/socket";
 import { getPersonName } from "../utils/name";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const api = import.meta.env.VITE_API_URL;
 
@@ -671,7 +673,23 @@ export default function SubAdminMessagePage() {
               ) : null}
 
               <div className="flex items-end gap-2 md:gap-3">
-                <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => setFile(e.target.files[0])} />
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={(e) => {
+                    const selected = e.target.files[0];
+                    if (!selected) return;
+                    const ext = selected.name.split(".").pop().toLowerCase();
+                    const allowed = ["png", "jpg", "jpeg", "webp", "gif", "pdf", "docx"];
+                    if (!allowed.includes(ext)) {
+                      toast.error("Unsupported file type! Only image, pdf, docx are allowed.", { theme: "dark" });
+                      e.target.value = "";
+                      return;
+                    }
+                    setFile(selected);
+                  }}
+                />
                 <button onClick={() => fileInputRef.current.click()} className="flex-shrink-0 p-3 mb-2 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-blue-400 transition">
                   <Paperclip size={20} />
                 </button>
@@ -746,6 +764,7 @@ export default function SubAdminMessagePage() {
           </div>
         </div>
       )}
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 }

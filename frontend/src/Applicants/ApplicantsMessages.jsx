@@ -12,6 +12,8 @@ import { useAuth } from "../hooks/useAuth.js"
 import { useNavigate } from "react-router-dom";
 import { socket } from "../utils/socket";
 import { getPersonName } from "../utils/name";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const api = import.meta.env.VITE_API_URL;
 
@@ -421,6 +423,7 @@ export default function ApplicantsMessages() {
     const selected = event.target.files?.[0];
     if (!selected) return;
     if (!ALLOWED_ATTACHMENT_TYPES.includes(selected.type)) {
+      toast.error("Unsupported file type! Only image, pdf, docx are allowed.", { theme: "dark" });
       setFile(null);
       setError(ATTACHMENT_ERROR_MESSAGE);
       event.target.value = "";
@@ -1040,6 +1043,7 @@ export default function ApplicantsMessages() {
           />
         </div>
       )}
+      <ToastContainer position="bottom-right" autoClose={3000} />
     </div>
   );
   

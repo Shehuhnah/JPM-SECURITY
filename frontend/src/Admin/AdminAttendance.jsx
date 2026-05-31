@@ -2,7 +2,7 @@ import React, { useState, useEffect, Fragment, useMemo, useCallback } from "reac
 import { useNavigate } from "react-router-dom";
 import { 
   Search, X, User, Shield, CalendarDays, Clock, MapPin, 
-  FileDown, FileImage, RefreshCcw, ChevronRight, IdCard
+  FileDown, FileImage, RefreshCcw, ChevronRight, ChevronLeft, IdCard
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { getPersonName } from "../utils/name";
@@ -17,12 +17,19 @@ import TablePagination from "../components/admin/TablePagination.jsx";
 const api = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
 const DETAIL_PAGE_SIZE = 10;
+
+const getResolvedStatus = (record) => {
+  if (!record) return "Off Duty";
+  if (record.timeOut) return "Off Duty";
+  return record.todayStatus || record.status || "Off Duty";
+};
+
 const ATTENDANCE_STATUS_OPTIONS = [
   { label: "All", value: "All" },
   { label: "On Duty", value: "On Duty" },
   { label: "Off Duty", value: "Off Duty" },
+  { label: "Absent", value: "Absent" },
   { label: "Leave", value: "Leave" },
-  { label: "Day Off", value: "Day Off" },
 ];
 const isSameMonthRange = (from, to) =>
   Boolean(
@@ -85,6 +92,13 @@ const datePickerStyles = `
     outline: 2px solid #60a5fa;
     outline-offset: 2px;
   }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 `;
 
 export default function GuardAttendancePage() {
@@ -124,8 +138,6 @@ export default function GuardAttendancePage() {
   const [allAttendance, setAllAttendance] = useState([]);
   const [selectedClient, setSelectedClient] = useState(""); 
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
   
   // Top Filter State
   const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
@@ -144,29 +156,69 @@ export default function GuardAttendancePage() {
     try {
       setPageLoading(true);
       setError(null);
+      
+      // 1. Fetch all guards to ensure all 13 guards are included
+      const guardsRes = await fetch(`${api}/api/guards`, { credentials: "include" });
+      const guardsData = await guardsRes.json();
+      if (!guardsRes.ok) throw new Error(guardsData?.message || "Failed to fetch guards");
+      const activeGuards = Array.isArray(guardsData) ? guardsData : guardsData.items || [];
+
+      // 2. Fetch attendance records
       const params = new URLSearchParams({
-        page: String(currentPage),
-        limit: String(PAGE_SIZE),
+        page: "1",
+        limit: "10000",
       });
 
       if (search.trim()) params.set("q", search.trim());
       if (selectedClient) params.set("client", selectedClient);
-      if (filter !== "All") params.set("status", filter);
       if (selectedDateRange.from) params.set("from", format(selectedDateRange.from, "yyyy-MM-dd"));
       if (selectedDateRange.to) params.set("to", format(selectedDateRange.to, "yyyy-MM-dd"));
 
       const res = await fetch(`${api}/api/attendance?${params.toString()}`, { credentials: "include" });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Failed to fetch attendance");
-      setAllAttendance(data.items || []);
-      setTotalItems(data.total || 0);
-      setTotalPages(data.totalPages || 1);
+      const attendanceItems = data.items || [];
+
+      // 3. Merge guards with attendance records
+      const merged = [];
+      const guardsWithAttendance = new Set();
+
+      attendanceItems.forEach((rec) => {
+        const guardId = rec.guard?._id || rec.guard;
+        if (guardId) {
+          guardsWithAttendance.add(guardId.toString());
+          merged.push(rec);
+        }
+      });
+
+      // Insert placeholder entries for guards without attendance
+      activeGuards.forEach((guard) => {
+        if (guard?._id && !guardsWithAttendance.has(guard._id.toString())) {
+          const guardName = `${guard.firstName || ""} ${guard.lastName || ""}`.toLowerCase();
+          const matchesSearch = !search.trim() || guardName.includes(search.trim().toLowerCase());
+          const matchesClient = !selectedClient;
+
+          if (matchesSearch && matchesClient) {
+            const hasLeave = guard.status === "On Leave" || guard.status === "Leave";
+            merged.push({
+              _id: `temp-${guard._id}`,
+              guard: guard,
+              status: hasLeave ? "Leave" : "Off Duty",
+              todayStatus: hasLeave ? "On Leave" : "Off Duty",
+              location: null,
+              scheduleId: null,
+            });
+          }
+        }
+      });
+
+      setAllAttendance(merged);
     } catch (err) {
       setError(err.message || "Failed to fetch attendance");
     } finally {
       setPageLoading(false);
     }
-  }, [currentPage, search, selectedClient, filter, selectedDateRange.from, selectedDateRange.to]);
+  }, [search, selectedClient, selectedDateRange.from, selectedDateRange.to]);
 
   useEffect(() => {
     if (!admin && !loading) { navigate("/admin/Login"); return; }
@@ -398,15 +450,55 @@ export default function GuardAttendancePage() {
 
   // Add the '?' before ._id
   const selectedGuardInfo = allAttendance.find(a => a.guard?._id === selectedGuardId)?.guard;
-  const rowNumberMap = new Map(
-    allAttendance.map((record, index) => [record._id, (currentPage - 1) * PAGE_SIZE + index + 1])
-  );
-  const groupedAttendance = allAttendance.reduce((acc, rec) => {
-    const client = rec.scheduleId?.client || "Unassigned Client";
-    if (!acc[client]) acc[client] = [];
-    acc[client].push(rec);
-    return acc;
-  }, {});
+
+  // Filter to keep only the most recent attendance record per unique guard
+  const uniqueGuardsRecords = useMemo(() => {
+    const seen = new Set();
+    return allAttendance.filter((record) => {
+      const guardId = record.guard?._id || record._id;
+      if (!guardId || seen.has(guardId)) return false;
+      seen.add(guardId);
+      return true;
+    });
+  }, [allAttendance]);
+
+  // Filter records by selected status
+  const displayedAttendance = useMemo(() => {
+    return uniqueGuardsRecords.filter((record) => {
+      if (filter === "All") return true;
+      const status = getResolvedStatus(record);
+      if (filter === "On Duty") return status === "On Duty" || status === "Present";
+      if (filter === "Off Duty") return status === "Off Duty";
+      if (filter === "Absent") return status === "Absent";
+      if (filter === "Leave") return status === "Leave" || status === "On Leave";
+      return false;
+    });
+  }, [uniqueGuardsRecords, filter]);
+
+  const totalItems = displayedAttendance.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+
+  const paginatedAttendance = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    return displayedAttendance.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [displayedAttendance, currentPage]);
+
+  const rowNumberMap = useMemo(() => {
+    const map = new Map();
+    displayedAttendance.forEach((record, index) => {
+      map.set(record._id, index + 1);
+    });
+    return map;
+  }, [displayedAttendance]);
+
+  const groupedAttendance = useMemo(() => {
+    return displayedAttendance.reduce((acc, rec) => {
+      const client = rec.scheduleId?.client || "Unassigned Client";
+      if (!acc[client]) acc[client] = [];
+      acc[client].push(rec);
+      return acc;
+    }, {});
+  }, [displayedAttendance]);
 
   const getStatusBadge = (status) => {
       const styles = {
@@ -416,6 +508,7 @@ export default function GuardAttendancePage() {
           "Absent": "bg-red-500/10 text-red-400 border-red-500/20",
           "On Leave": "bg-blue-500/10 text-blue-400 border-blue-500/20",
           "Leave": "bg-blue-500/10 text-blue-400 border-blue-500/20",
+          "Day Off": "bg-purple-500/10 text-purple-400 border-purple-500/20",
       };
       const resolvedStatus = status || "Off Duty";
       return <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${styles[resolvedStatus] || styles["Off Duty"]}`}>{resolvedStatus}</span>;
@@ -462,24 +555,41 @@ export default function GuardAttendancePage() {
   }, [reportCutoff, reportDateRange, reportMode, reportMonth, reportYear]);
 
   const statusCounts = useMemo(() => {
-    const counts = ATTENDANCE_STATUS_OPTIONS.reduce((acc, item) => ({ ...acc, [item.value]: 0 }), {});
-    counts.All = totalItems;
-    allAttendance.forEach((record) => {
-      const status = record.status || "Off Duty";
-      counts[status] = (counts[status] || 0) + 1;
+    const counts = {
+      All: uniqueGuardsRecords.length,
+      "On Duty": 0,
+      "Off Duty": 0,
+      Absent: 0,
+      Leave: 0,
+    };
+    uniqueGuardsRecords.forEach((record) => {
+      const status = getResolvedStatus(record);
+      if (status === "On Duty" || status === "Present") {
+        counts["On Duty"]++;
+      } else if (status === "Off Duty") {
+        counts["Off Duty"]++;
+      } else if (status === "Absent") {
+        counts["Absent"]++;
+      } else if (status === "Leave" || status === "On Leave") {
+        counts["Leave"]++;
+      }
     });
     return counts;
-  }, [allAttendance, totalItems]);
+  }, [uniqueGuardsRecords]);
 
-  const guardCards = useMemo(() => {
-    const seen = new Set();
-    return allAttendance.filter((record) => {
-      const guardId = record.guard?._id || record._id;
-      if (seen.has(guardId)) return false;
-      seen.add(guardId);
-      return true;
-    });
-  }, [allAttendance]);
+  const guardCards = displayedAttendance;
+
+  const sliderRef = React.useRef(null);
+  const scrollPrev = () => {
+    if (sliderRef.current) {
+      sliderRef.current.scrollBy({ left: -340, behavior: "smooth" });
+    }
+  };
+  const scrollNext = () => {
+    if (sliderRef.current) {
+      sliderRef.current.scrollBy({ left: 340, behavior: "smooth" });
+    }
+  };
 
   const selectedGuardRecord = allAttendance.find((record) => record.guard?._id === selectedGuardId);
   const getRecordDateValue = (record) => record?.timeIn || record?.scheduleId?.timeIn;
@@ -578,35 +688,70 @@ export default function GuardAttendancePage() {
                 {pageLoading ? (
                   <GuardCardSkeletonGrid />
                 ) : guardCards.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {guardCards.map((record) => {
-                      const isSelected = record.guard?._id === selectedGuardId;
-                      const displaySchedule = record.todaySchedule || record.scheduleId;
-                      return (
-                        <button key={record._id} type="button" onClick={() => record.guard?._id && setSelectedGuardId(record.guard._id)} className={`rounded-2xl border bg-[#0f172a] p-4 text-left transition hover:border-blue-500/50 ${isSelected ? "border-blue-500 shadow-lg shadow-blue-950/40" : "border-slate-800"}`}>
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-3 min-w-0">
-                              {record.guard?.photo ? (
-                                <img src={record.guard.photo} alt={getPersonName(record.guard)} className="size-14 rounded-full object-cover border border-slate-700" />
-                              ) : (
-                                <div className="size-14 rounded-full border border-slate-700 bg-slate-800 flex items-center justify-center text-slate-400"><User size={24} /></div>
-                              )}
-                              <div className="min-w-0">
-                                <div className="font-semibold text-white truncate">{getPersonName(record.guard, "Unknown Guard")}</div>
-                                <div className="mt-1 text-xs text-slate-500 truncate">{displaySchedule?.client || "Unassigned Client"}</div>
+                  <div className="relative">
+                    {/* Prev/Next buttons */}
+                    <div className="flex justify-end gap-2 mb-3">
+                      <button
+                        type="button"
+                        onClick={scrollPrev}
+                        className="rounded-lg border border-slate-700 bg-slate-800 p-2 text-slate-300 hover:bg-slate-700 hover:text-white transition active:scale-95"
+                        title="Previous"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={scrollNext}
+                        className="rounded-lg border border-slate-700 bg-slate-800 p-2 text-slate-300 hover:bg-slate-700 hover:text-white transition active:scale-95"
+                        title="Next"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+
+                    {/* Scrollable grid container */}
+                    <div
+                      ref={sliderRef}
+                      className="overflow-x-auto scrollbar-none scroll-smooth pb-3 snap-x snap-mandatory"
+                    >
+                      <div className="grid grid-rows-2 grid-flow-col gap-4 auto-cols-[320px]">
+                        {guardCards.map((record) => {
+                          const isSelected = record.guard?._id === selectedGuardId;
+                          const displaySchedule = record.todaySchedule || record.scheduleId;
+                          return (
+                            <button
+                              key={record._id}
+                              type="button"
+                              onClick={() => record.guard?._id && setSelectedGuardId(record.guard._id)}
+                              className={`rounded-2xl border bg-[#0f172a] p-4 text-left transition hover:border-blue-500/50 snap-start h-[210px] flex flex-col justify-between ${
+                                isSelected ? "border-blue-500 shadow-lg shadow-blue-950/40" : "border-slate-800"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3 w-full">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  {record.guard?.photo ? (
+                                    <img src={record.guard.photo} alt={getPersonName(record.guard)} className="size-10 rounded-full object-cover border border-slate-700" />
+                                  ) : (
+                                    <div className="size-10 rounded-full border border-slate-700 bg-slate-800 flex items-center justify-center text-slate-400"><User size={18} /></div>
+                                  )}
+                                  <div className="min-w-0">
+                                    <div className="font-semibold text-white text-sm truncate">{getPersonName(record.guard, "Unknown Guard")}</div>
+                                    <div className="mt-0.5 text-xs text-slate-500 truncate">{displaySchedule?.client || "Unassigned Client"}</div>
+                                  </div>
+                                </div>
+                                {getStatusBadge(getResolvedStatus(record))}
                               </div>
-                            </div>
-                            {getStatusBadge(record.todayStatus || record.status)}
-                          </div>
-                          <div className="mt-4 space-y-2 text-sm text-slate-400">
-                            <div className="flex items-center gap-2"><Shield size={15} className="text-slate-500" /> Security Guard</div>
-                            <div className="flex items-center gap-2"><Clock size={15} className="text-slate-500" /> {displaySchedule?.shiftType || "Shift not set"}</div>
-                            <div className="flex items-center gap-2"><MapPin size={15} className="text-slate-500" /> <span className="truncate">{displaySchedule?.deploymentLocation || "No duty station"}</span></div>
-                          </div>
-                          <div className="mt-4 rounded-xl bg-blue-600 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-blue-500">View Attendance</div>
-                        </button>
-                      );
-                    })}
+                              <div className="space-y-1 text-xs text-slate-400 my-2">
+                                <div className="flex items-center gap-2"><Shield size={13} className="text-slate-500" /> Security Guard</div>
+                                <div className="flex items-center gap-2"><Clock size={13} className="text-slate-500" /> {displaySchedule?.shiftType || "Shift not set"}</div>
+                                <div className="flex items-center gap-2"><MapPin size={13} className="text-slate-500" /> <span className="truncate">{displaySchedule?.deploymentLocation || "No duty station"}</span></div>
+                              </div>
+                              <div className="rounded-xl bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white px-4 py-2 text-center text-xs font-semibold transition w-full">View Attendance</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-16 text-slate-500 border border-dashed border-slate-800 rounded-2xl">
@@ -914,7 +1059,7 @@ export default function GuardAttendancePage() {
                                               <td className="px-6 py-4"><div className="font-medium text-white flex items-center gap-2"><User size={16} className="text-gray-500" />{getPersonName(rec.guard, "Unknown Guard")}</div></td>
                                               <td className="px-6 py-4 text-gray-300">{rec.scheduleId?.deploymentLocation || "—"}</td>
                                               <td className="px-6 py-4"><div className="text-gray-300">{rec.scheduleId?.position}</div><div className="text-xs text-gray-500">{rec.scheduleId?.shiftType}</div></td>
-                                              <td className="px-6 py-4">{getStatusBadge(rec.todayStatus || rec.status)}</td>
+                                              <td className="px-6 py-4">{getStatusBadge(getResolvedStatus(rec))}</td>
                                               <td className="px-6 py-4 text-sm text-gray-300">
                                                 {rec.remarks ? (
                                                   <span className="inline-flex rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-300">
@@ -943,7 +1088,7 @@ export default function GuardAttendancePage() {
                                                   <div className="text-xs text-gray-500 flex items-center gap-1"><MapPin size={10} />{rec.scheduleId?.deploymentLocation}</div>
                                               </div>
                                           </div>
-                                          {getStatusBadge(rec.todayStatus || rec.status)}
+                                          {getStatusBadge(getResolvedStatus(rec))}
                                       </div>
                                       <div className="flex items-center justify-between text-sm pl-12 pr-1">
                                           <div className="text-gray-400"><span className="text-gray-500 text-xs block">Shift</span>{rec.scheduleId?.shiftType} ({rec.scheduleId?.position})</div>

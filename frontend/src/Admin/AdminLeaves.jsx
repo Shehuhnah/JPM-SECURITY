@@ -26,6 +26,7 @@ import "react-day-picker/dist/style.css";
 import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "../hooks/useAuth";
 import { getPersonName } from "../utils/name";
+import TablePagination from "../components/admin/TablePagination.jsx";
 
 const api = import.meta.env.VITE_API_URL;
 
@@ -166,6 +167,7 @@ export default function AdminLeaves() {
   const [approveModal, setApproveModal] = useState({ open: false, request: null });
   const [declineModal, setDeclineModal] = useState({ open: false, requestId: "", name: "" });
   const [declineReason, setDeclineReason] = useState("");
+  const [selectedReasonModal, setSelectedReasonModal] = useState({ open: false, reason: "", name: "" });
   const [revokeModal, setRevokeModal] = useState({ open: false, request: null });
   const [revokeReason, setRevokeReason] = useState("");
   const [editModal, setEditModal] = useState({ open: false, request: null });
@@ -180,6 +182,8 @@ export default function AdminLeaves() {
     dates: [],
     name: "",
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const canRequestLeave = user?.role === "Admin" || user?.role === "Subadmin";
   const canReview = user?.role === "Admin" || user?.role === "Subadmin";
@@ -684,6 +688,15 @@ export default function AdminLeaves() {
     });
   }, [requests, roleFilter, searchQuery, statusFilter]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, roleFilter]);
+
+  const paginatedRequests = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    return filteredRequests.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [filteredRequests, currentPage]);
+
   const summary = useMemo(() => ({
     total: requests.length,
     pending: requests.filter((request) => request.status === "Pending").length,
@@ -706,6 +719,36 @@ export default function AdminLeaves() {
     <div className="min-h-screen bg-[#0f172a] px-4 py-6 text-slate-100 md:px-8 md:py-8">
       <style>{datePickerStyles}</style>
       <ToastContainer theme="dark" position="top-right" autoClose={3000} />
+
+      {selectedReasonModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-700 bg-[#1e293b] p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-700 pb-3 mb-4">
+              <h3 className="text-base font-semibold text-white">Leave Reason</h3>
+              <button
+                onClick={() => setSelectedReasonModal({ open: false, reason: "", name: "" })}
+                className="text-slate-400 hover:text-white transition rounded p-1 hover:bg-slate-800"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+              Requested by {selectedReasonModal.name}
+            </div>
+            <div className="text-sm leading-6 text-slate-200 whitespace-pre-wrap break-words bg-slate-900/60 p-4 rounded-xl border border-slate-800 max-h-[220px] overflow-y-auto scrollbar-thin">
+              {selectedReasonModal.reason}
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={() => setSelectedReasonModal({ open: false, reason: "", name: "" })}
+                className="rounded-lg bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-bold text-white transition shadow-md shadow-blue-600/10 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mx-auto max-w-8xl space-y-6">
         {approveModal.open && (
@@ -1139,7 +1182,7 @@ export default function AdminLeaves() {
                 </div>
               </div>
             ) : (
-              <div className="overflow-hidden bg-[#1e293b] rounded-xl border border-gray-700">
+              <div className="overflow-x-auto bg-[#1e293b] rounded-xl border border-gray-700 scrollbar-thin">
                 <table className="w-full min-w-[1150px] text-left border-collapse">
                   <thead className="bg-[#0f172a] text-gray-400 text-xs uppercase tracking-wider">
                     <tr>
@@ -1149,15 +1192,17 @@ export default function AdminLeaves() {
                       <th className="px-6 py-4 font-semibold">Range</th>
                       <th className="px-6 py-4 font-semibold text-center">Included</th>
                       <th className="px-6 py-4 font-semibold">Leave Type</th>
-                      <th className="px-6 py-4 font-semibold">Reason</th>
+                      <th className="px-6 py-4 font-semibold max-w-[160px]">Reason</th>
                       <th className="px-6 py-4 font-semibold">Status</th>
                       {canReview && <th className="px-6 py-4 font-semibold text-right">Actions</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700/50">
-                    {filteredRequests.map((request, index) => (
+                    {paginatedRequests.map((request, index) => {
+                      const globalIndex = (currentPage - 1) * PAGE_SIZE + index + 1;
+                      return (
                       <tr key={request._id} className="group hover:bg-slate-800/50 transition">
-                        <td className="px-6 py-4 text-sm text-gray-400">{index + 1}</td>
+                        <td className="px-6 py-4 text-sm text-gray-400">{globalIndex}</td>
                         <td className="px-6 py-4">
                           <div className="font-medium text-white">{getRequestDisplayName(request)}</div>
                           <div className="text-xs text-gray-500 mt-1">
@@ -1183,10 +1228,20 @@ export default function AdminLeaves() {
                             {request.leaveType || "Unspecified"}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-300">
-                          <p className="line-clamp-2 max-w-[280px] leading-6">{request.reason}</p>
+                        <td className="px-6 py-4 text-sm text-gray-300 max-w-[160px]">
+                          {request.reason.length > 25 ? (
+                            <button
+                              onClick={() => setSelectedReasonModal({ open: true, reason: request.reason, name: getRequestDisplayName(request) })}
+                              className="text-left font-medium text-blue-400 hover:text-blue-300 hover:underline cursor-pointer transition break-all leading-6"
+                              title="Click to view full reason"
+                            >
+                              {request.reason.slice(0, 22)}...
+                            </button>
+                          ) : (
+                            <p className="break-all leading-6">{request.reason}</p>
+                          )}
                           {request.reviewRemarks ? (
-                            <p className="mt-2 text-xs text-gray-500">
+                            <p className="mt-2 text-xs text-gray-500 break-all leading-relaxed" title={request.reviewRemarks}>
                               Review note: <span className="text-slate-300">{request.reviewRemarks}</span>
                             </p>
                           ) : null}
@@ -1206,19 +1261,19 @@ export default function AdminLeaves() {
                           <td className="px-6 py-4 text-right">
                             {request.status === "Pending" ? (
                               <div className="flex items-center justify-end gap-2">
-                                <button onClick={() => openApproveModal(request)} disabled={reviewingId === request._id} className="p-2 hover:bg-emerald-500/10 text-gray-400 hover:text-emerald-400 rounded-lg transition disabled:opacity-50" title="Approve">
+                                <button onClick={() => openApproveModal(request)} disabled={reviewingId === request._id} className="p-2 bg-green-500/10 hover:bg-green-500/20 text-green-500 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition" title="Approve">
                                   <CheckCircle size={18} />
                                 </button>
-                                <button onClick={() => openDeclineModal(request)} disabled={reviewingId === request._id} className="p-2 hover:bg-red-500/10 text-gray-400 hover:text-red-400 rounded-lg transition disabled:opacity-50" title="Decline">
+                                <button onClick={() => openDeclineModal(request)} disabled={reviewingId === request._id} className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition" title="Decline">
                                   <XCircle size={18} />
                                 </button>
                               </div>
                             ) : request.status === "Approved" ? (
                               <div className="flex items-center justify-end gap-2">
-                                <button onClick={() => openEditModal(request)} disabled={editingId === request._id} className="p-2 hover:bg-blue-500/10 text-gray-400 hover:text-blue-400 rounded-lg transition disabled:opacity-50" title="Edit Leave">
+                                <button onClick={() => openEditModal(request)} disabled={editingId === request._id} className="p-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition" title="Edit Leave">
                                   <Pencil size={16} />
                                 </button>
-                                <button onClick={() => openRevokeModal(request)} disabled={editingId === request._id} className="p-2 hover:bg-orange-500/10 text-gray-400 hover:text-orange-400 rounded-lg transition disabled:opacity-50" title="Revoke Leave">
+                                <button onClick={() => openRevokeModal(request)} disabled={editingId === request._id} className="p-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition" title="Revoke Leave">
                                   <ShieldOff size={16} />
                                 </button>
                               </div>
@@ -1228,7 +1283,8 @@ export default function AdminLeaves() {
                           </td>
                         )}
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1241,7 +1297,9 @@ export default function AdminLeaves() {
                 No leave requests found.
               </div>
             ) : (
-              filteredRequests.map((request, index) => (
+              paginatedRequests.map((request, index) => {
+                const globalIndex = (currentPage - 1) * PAGE_SIZE + index + 1;
+                return (
                 <div key={request._id} className="rounded-xl border border-gray-700 bg-[#0f172a] p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
@@ -1249,7 +1307,7 @@ export default function AdminLeaves() {
                         <User size={18} className="text-slate-400" />
                       </div>
                       <div>
-                        <p className="text-xs font-medium text-gray-500">#{index + 1}</p>
+                        <p className="text-xs font-medium text-gray-500">#{globalIndex}</p>
                         <p className="text-sm font-semibold text-white">
                           {getRequestDisplayName(request)}
                         </p>
@@ -1304,16 +1362,20 @@ export default function AdminLeaves() {
 
                   {canReview && request.status === "Pending" && (
                     <div className="mt-5 flex gap-2">
-                      <button onClick={() => openApproveModal(request)} disabled={reviewingId === request._id} className="flex-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-sm font-medium text-emerald-400 transition hover:bg-emerald-500 hover:text-white">Approve</button>
-                      <button onClick={() => openDeclineModal(request)} disabled={reviewingId === request._id} className="flex-1 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-500 hover:text-white">Decline</button>
+                      <button onClick={() => openApproveModal(request)} disabled={reviewingId === request._id} className="flex-1 rounded-lg bg-green-500/10 hover:bg-green-500/20 px-4 py-2.5 text-sm font-medium text-green-500 disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center justify-center gap-2">
+                        <CheckCircle size={14} /> Approve
+                      </button>
+                      <button onClick={() => openDeclineModal(request)} disabled={reviewingId === request._id} className="flex-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 px-4 py-2.5 text-sm font-medium text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center justify-center gap-2">
+                        <XCircle size={14} /> Decline
+                      </button>
                     </div>
                   )}
                   {canReview && request.status === "Approved" && (
                     <div className="mt-5 flex gap-2">
-                      <button onClick={() => openEditModal(request)} disabled={editingId === request._id} className="flex-1 rounded-lg border border-blue-500/20 bg-blue-500/10 px-4 py-2.5 text-sm font-medium text-blue-400 transition hover:bg-blue-500 hover:text-white flex items-center justify-center gap-2">
+                      <button onClick={() => openEditModal(request)} disabled={editingId === request._id} className="flex-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 px-4 py-2.5 text-sm font-medium text-blue-400 disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center justify-center gap-2">
                         <Pencil size={14} /> Edit
                       </button>
-                      <button onClick={() => openRevokeModal(request)} disabled={editingId === request._id} className="flex-1 rounded-lg border border-orange-500/20 bg-orange-500/10 px-4 py-2.5 text-sm font-medium text-orange-400 transition hover:bg-orange-500 hover:text-white flex items-center justify-center gap-2">
+                      <button onClick={() => openRevokeModal(request)} disabled={editingId === request._id} className="flex-1 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 px-4 py-2.5 text-sm font-medium text-orange-400 disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center justify-center gap-2">
                         <ShieldOff size={14} /> Revoke
                       </button>
                     </div>
@@ -1331,9 +1393,23 @@ export default function AdminLeaves() {
                     </div>
                   )}
                 </div>
-              ))
+                );
+              })
             )}
           </div>
+
+          {filteredRequests.length > 0 && (
+            <TablePagination
+              page={currentPage}
+              limit={PAGE_SIZE}
+              totalItems={filteredRequests.length}
+              currentCount={paginatedRequests.length}
+              totalPages={Math.ceil(filteredRequests.length / PAGE_SIZE)}
+              label="leave requests"
+              onPageChange={setCurrentPage}
+              className="px-4"
+            />
+          )}
         </section>
       </div>
 

@@ -15,7 +15,8 @@ import {
   MessageSquare,
   Plus,
   Trash2,
-  X
+  X,
+  Filter
 } from "lucide-react";
 import { Dialog, Transition } from "@headlessui/react";
 import { useAuth } from "../hooks/useAuth";
@@ -27,7 +28,23 @@ import "react-toastify/dist/ReactToastify.css";
 
 const api = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
-const todayDateOnly = new Date().toISOString().split("T")[0];
+const getMinDateTimeString = () => {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 16);
+};
+const formatPickupDateTime = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return "";
+  return date.toLocaleString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 const getEmployeeDisplayName = (person, fallbackRole = "") => {
   if (!person) return fallbackRole || "Unknown";
   const firstName = person.firstName?.trim() || "";
@@ -134,6 +151,7 @@ export default function RequestedIDs() {
   const [pickupDate, setPickupDate] = useState("");
   const [declineReason, setDeclineReason] = useState("");
   const [approveNotes, setApproveNotes] = useState("");
+  const [selectedDetailsModal, setSelectedDetailsModal] = useState({ open: false, title: "", content: "", subtitle: "" });
   const [submitting, setSubmitting] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [staffOptions, setStaffOptions] = useState([]);
@@ -311,11 +329,11 @@ export default function RequestedIDs() {
 
   const handleConfirmApprove = async () => {
     if (!pickupDate) {
-      toast.error("Please select a pickup date.");
+      toast.error("Please select a pickup date and time.");
       return;
     }
-    if (pickupDate < todayDateOnly) {
-      toast.error("Pickup date cannot be in the past.");
+    if (new Date(pickupDate) < new Date()) {
+      toast.error("Pickup date and time cannot be in the past.");
       return;
     }
     try {
@@ -461,10 +479,42 @@ export default function RequestedIDs() {
   return (
     <div className="flex min-h-screen bg-slate-900/50 text-gray-100 font-sans">
       <ToastContainer theme="dark" position="top-right" autoClose={3000} />
-      <div className="flex-1 flex flex-col p-4 md:p-6">
+      
+      {selectedDetailsModal.open && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/75 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-700 bg-[#1e293b] p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-700 pb-3 mb-4">
+              <h3 className="text-base font-semibold text-white">{selectedDetailsModal.title}</h3>
+              <button
+                onClick={() => setSelectedDetailsModal({ open: false, title: "", content: "", subtitle: "" })}
+                className="text-slate-400 hover:text-white transition rounded p-1 hover:bg-slate-800"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            {selectedDetailsModal.subtitle && (
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                {selectedDetailsModal.subtitle}
+              </div>
+            )}
+            <div className="text-sm leading-6 text-slate-200 whitespace-pre-wrap break-words bg-slate-900/60 p-4 rounded-xl border border-slate-800 max-h-[220px] overflow-y-auto scrollbar-thin">
+              {selectedDetailsModal.content}
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={() => setSelectedDetailsModal({ open: false, title: "", content: "", subtitle: "" })}
+                className="rounded-lg bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-bold text-white transition shadow-md shadow-blue-600/10 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <main className="flex-1 flex flex-col p-4 md:p-6">
         
         {/* ===== Header ===== */}
-        <header className="flex flex-col xl:flex-row xl:items-center xl:justify-between mb-8 gap-6">
+        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between mb-8 gap-6">
           <div className="flex items-center gap-3">
              <div className="p-3 bg-blue-600/10 rounded-xl border border-blue-600/20">
                 <IdCard className="text-blue-500" size={28}/> 
@@ -479,7 +529,7 @@ export default function RequestedIDs() {
                 </div>
              </div>
           </div>
-
+ 
           {/* Controls */}
           <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto flex-wrap">
             {/* Search */}
@@ -494,13 +544,14 @@ export default function RequestedIDs() {
                 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
               />
             </div>
-
+ 
             {/* Status Filter */}
             <div className="relative">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400" size={14} />
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="bg-[#1e293b] border border-gray-700 text-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                className="w-full sm:w-auto bg-[#1e293b] border border-gray-700 text-gray-200 rounded-lg pl-9 pr-8 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
               >
                 <option value="All">All Status</option>
                 <option value="Pending">Pending</option>
@@ -564,7 +615,7 @@ export default function RequestedIDs() {
               </button>
             )}
           </div>
-        </header>
+        </div>
 
         {/* ===== Content ===== */}
         {loadingPage ? (
@@ -580,8 +631,8 @@ export default function RequestedIDs() {
         ) : (
           <>
             {/* --- DESKTOP TABLE --- */}
-            <div className="hidden md:block overflow-hidden bg-[#1e293b]/90 backdrop-blur-md border border-gray-700 rounded-xl shadow-xl">
-              <table className="w-full text-left border-collapse">
+            <div className="hidden md:block overflow-x-auto bg-[#1e293b]/90 backdrop-blur-md border border-gray-700 rounded-xl shadow-xl scrollbar-thin">
+              <table className="w-full min-w-[1100px] text-left border-collapse">
                 <thead className="bg-[#0f172a]/50 text-gray-400 border-b border-gray-700/50 text-xs uppercase tracking-wider">
                   <tr>
                     <th className="px-6 py-4 font-semibold w-16">
@@ -596,10 +647,10 @@ export default function RequestedIDs() {
                       </div>
                     </th>
                     <th className="px-6 py-4 font-semibold">User Details</th>
-                    <th className="px-6 py-4 font-semibold">Request Type</th>
+                    <th className="px-6 py-4 font-semibold max-w-[150px]">Request Type</th>
                     <th className="px-6 py-4 font-semibold">Date Requested</th>
                     <th className="px-6 py-4 font-semibold">Pickup Date</th>
-                    <th className="px-6 py-4 font-semibold">Admin Notes</th>
+                    <th className="px-6 py-4 font-semibold max-w-[160px]">Admin Notes</th>
                     <th className="px-6 py-4 font-semibold">Status</th>
                     <th className="px-6 py-4 font-semibold text-right">{canManage ? "Actions" : ""}</th>
                   </tr>
@@ -638,22 +689,36 @@ export default function RequestedIDs() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 max-w-[150px]">
                         <div className="text-sm text-gray-200">{req.requestType}</div>
-                        <div className="text-xs text-gray-500 italic max-w-[150px] truncate" title={req.requestReason}>
-                            {req.requestReason}
-                        </div>
+                        {req.requestReason ? (
+                          req.requestReason.length > 25 ? (
+                            <button
+                              onClick={() => setSelectedDetailsModal({
+                                open: true,
+                                title: "Request Reason",
+                                content: req.requestReason,
+                                subtitle: `By ${req.guard ? getPersonName(req.guard) : getEmployeeDisplayName(req.admin, req.admin?.role)}`
+                              })}
+                              className="text-[11px] text-blue-400 hover:text-blue-300 hover:underline cursor-pointer transition text-left block mt-1 break-all leading-normal"
+                              title="Click to view full reason"
+                            >
+                              {req.requestReason.slice(0, 22)}...
+                            </button>
+                          ) : (
+                            <div className="text-xs text-gray-500 italic mt-1 break-all leading-normal">{req.requestReason}</div>
+                          )
+                        ) : null}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-400">
                         {new Date(req.createdAt).toLocaleDateString()}
                       </td>
                       
-                      {/* PICKUP DATE COLUMN */}
                       <td className="px-6 py-4 text-sm text-gray-300">
                         {req.pickupDate ? (
                             <div className="flex items-center gap-1.5 text-green-400">
                                 <Calendar size={14}/>
-                                {new Date(req.pickupDate).toLocaleDateString()}
+                                {formatPickupDateTime(req.pickupDate)}
                             </div>
                         ) : (
                             <span className="text-gray-600 italic text-xs">--</span>
@@ -661,14 +726,30 @@ export default function RequestedIDs() {
                       </td>
 
                       {/* ADMIN NOTES COLUMN */}
-                      <td className="px-6 py-4 text-sm text-gray-300">
+                      <td className="px-6 py-4 text-sm text-gray-300 max-w-[160px]">
                         {req.adminRemarks ? (
-                            <div className="flex items-start gap-1.5 max-w-[200px]" title={req.adminRemarks}>
-                                <MessageSquare size={14} className="mt-0.5 text-blue-400 shrink-0"/>
-                                <span className="truncate text-xs text-gray-400">{req.adminRemarks}</span>
+                          req.adminRemarks.length > 25 ? (
+                            <button
+                              onClick={() => setSelectedDetailsModal({
+                                open: true,
+                                title: "Admin Notes",
+                                content: req.adminRemarks,
+                                subtitle: `For ${req.guard ? getPersonName(req.guard) : getEmployeeDisplayName(req.admin, req.admin?.role)}`
+                              })}
+                              className="flex items-start gap-1.5 text-left text-blue-400 hover:text-blue-300 hover:underline cursor-pointer transition break-all leading-normal mt-0.5"
+                              title="Click to view full notes"
+                            >
+                              <MessageSquare size={13} className="mt-0.5 text-blue-400 shrink-0"/>
+                              <span className="text-xs">{req.adminRemarks.slice(0, 22)}...</span>
+                            </button>
+                          ) : (
+                            <div className="flex items-start gap-1.5 break-all leading-normal">
+                              <MessageSquare size={13} className="mt-0.5 text-gray-500 shrink-0"/>
+                              <span className="text-xs text-gray-400">{req.adminRemarks}</span>
                             </div>
+                          )
                         ) : (
-                            <span className="text-gray-600 italic text-xs">--</span>
+                          <span className="text-gray-600 italic text-xs">--</span>
                         )}
                       </td>
 
@@ -753,11 +834,10 @@ export default function RequestedIDs() {
                          <span className="text-gray-200">{new Date(req.createdAt).toLocaleDateString()}</span>
                       </div>
                       
-                      {/* Mobile View of New Fields */}
                       {req.pickupDate && (
                           <div className="flex justify-between text-green-400">
                              <span className="text-gray-500">Pickup Date</span>
-                             <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(req.pickupDate).toLocaleDateString()}</span>
+                             <span className="flex items-center gap-1"><Calendar size={12}/> {formatPickupDateTime(req.pickupDate)}</span>
                           </div>
                       )}
                       
@@ -1016,50 +1096,61 @@ export default function RequestedIDs() {
         {/* ===== Approve Modal ===== */}
         <Transition appear show={approveModal} as={Fragment}>
           <Dialog as="div" className="relative z-50" onClose={() => setApproveModal(false)}>
-            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
-            <div className="fixed inset-0 flex items-center justify-center p-4">
-              <Dialog.Panel className="bg-[#1e293b] border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full">
-                  <Dialog.Title className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                   <Calendar className="text-white" /> Approve Request
-                  </Dialog.Title>
-                
-                <div className="space-y-4">
+            <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" />
+            <div className="fixed inset-0 flex items-center justify-center px-4 py-6">
+              <Dialog.Panel className="w-full max-w-md overflow-hidden rounded-3xl border border-blue-500/20 bg-[#0f172a] shadow-2xl shadow-black/50">
+                <div className="sticky top-0 z-10 border-b border-blue-500/10 bg-[linear-gradient(135deg,rgba(37,99,235,0.18),rgba(15,23,42,0.98))] px-6 py-5 flex items-start justify-between gap-4">
                   <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1.5">Pickup Date</label>
-                        <input
-                           type="date"
-                            value={pickupDate}
-                            onChange={(e) => setPickupDate(e.target.value)}
-                            min={todayDateOnly}
-                            className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition [color-scheme:dark]"
-                        />
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">Approve Request</div>
+                    <h3 className="mt-1 text-xl font-semibold text-white">Approve ID Request</h3>
+                    <p className="mt-1 text-sm text-slate-400">Set the scheduled pickup date/time and optional notes.</p>
                   </div>
-                  <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1.5">Admin Notes (Optional)</label>
-                      <textarea
-                          rows={3}
-                          value={approveNotes}
-                          onChange={(e) => setApproveNotes(e.target.value)}
-                          placeholder="Instructions for the guard..."
-                          className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-4 py-2.5 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                      ></textarea>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setApproveModal(false)}
+                    className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:text-white"
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
 
-                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
-                  <button
-                    onClick={() => setApproveModal(false)}
-                    className="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-800 transition text-sm font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleConfirmApprove}
-                    disabled={submitting}
-                    className="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded-lg text-white font-medium disabled:opacity-50 text-sm shadow-lg shadow-blue-500/20"
-                  >
-                    {submitting ? "Processing..." : "Confirm Approval"}
-                  </button>
+                <div className="p-6 space-y-5">
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Pickup Date & Time</label>
+                    <input
+                      type="datetime-local"
+                      value={pickupDate}
+                      onChange={(e) => setPickupDate(e.target.value)}
+                      min={getMinDateTimeString()}
+                      className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60 [color-scheme:dark]"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Admin Notes (Optional)</label>
+                    <textarea
+                      rows={4}
+                      value={approveNotes}
+                      onChange={(e) => setApproveNotes(e.target.value)}
+                      placeholder="Instructions for the employee..."
+                      className="w-full resize-none rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60"
+                    />
+                  </div>
+
+                  <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end pt-4 border-t border-blue-500/10">
+                    <button
+                      onClick={() => setApproveModal(false)}
+                      className="rounded-lg border border-gray-700 px-5 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleConfirmApprove}
+                      disabled={submitting}
+                      className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-60 shadow-lg shadow-blue-500/20"
+                    >
+                      {submitting ? "Processing..." : "Confirm Approval"}
+                    </button>
+                  </div>
                 </div>
               </Dialog.Panel>
             </div>
@@ -1111,7 +1202,7 @@ export default function RequestedIDs() {
         <footer className="mt-8 text-center text-gray-600 text-xs">
            © {new Date().getFullYear()} JPM Security Agency. All rights reserved.
         </footer>
-      </div>
+      </main>
     </div>
   );
 }
