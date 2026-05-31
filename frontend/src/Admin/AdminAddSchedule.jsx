@@ -345,11 +345,9 @@ export default function AdminAddSchedule() {
 
     setLoadingPage(true);
 
-    // For "24-Hour Cover", each selected day expands into two shifts.
-    // For Day/Night only, it stays as one entry per day.
     const buildShiftEntries = (day) => {
       const dateStr = format(day, "yyyy-MM-dd");
-      if (form.shiftType === "24-Hour Cover") {
+      if (form.shiftType === "Straight Shift") {
         return [
           // Day Shift 07:00 → 19:00
           { timeIn: `${dateStr}T07:00`, timeOut: `${dateStr}T19:00`, shiftType: "Day Shift" },
@@ -709,14 +707,14 @@ export default function AdminAddSchedule() {
                                     <option value="">Select Shift</option>
                                     <option value="Day Shift">Day Shift (7:00 AM – 7:00 PM)</option>
                                     <option value="Night Shift">Night Shift (7:00 PM – 7:00 AM)</option>
-                                    <option value="24-Hour Cover">24-Hour Cover (Both Shifts)</option>
+                                    <option value="Straight Shift">Straight Shift (24 Hours)</option>
                                 </select>
                             </div>
-                            {form.shiftType === "24-Hour Cover" ? (
-                              <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-300">
+                            {form.shiftType === "Straight Shift" ? (
+                              <div className="mt-2 flex items-start gap-2 rounded-lg border border-purple-500/20 bg-purple-500/10 px-3 py-2.5 text-xs text-purple-300">
                                 <span className="mt-0.5 shrink-0">⚡</span>
                                 <span>
-                                  <strong>24-Hour Cover</strong> creates <strong>2 attendance records per day</strong> — one Day Shift (7AM–7PM) and one Night Shift (7PM–7AM). The guard must time in and time out separately for each shift.
+                                  <strong>Straight Shift</strong> creates <strong>2 attendance records per day</strong> — one Day Shift (7AM–7PM) and one Night Shift (7PM–7AM). The guard must time in and time out separately for each shift.
                                 </span>
                               </div>
                             ) : (

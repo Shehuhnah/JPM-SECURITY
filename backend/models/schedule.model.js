@@ -37,7 +37,7 @@ const scheduleSchema = new mongoose.Schema(
     position: String,
     shiftType: {
       type: String,
-      enum: ["Day Shift", "Night Shift"],
+      enum: ["Day Shift", "Night Shift", "Straight Shift"],
     },
 
     timeIn: String,

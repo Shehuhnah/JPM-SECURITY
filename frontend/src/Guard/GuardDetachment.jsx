@@ -97,6 +97,7 @@ const ScheduleCard = ({ schedule }) => {
   const shiftColors = {
     "Day Shift": "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30",
     "Night Shift": "bg-red-500/20 text-red-400 border border-red-500/30",
+    "Straight Shift": "bg-violet-500/20 text-violet-400 border border-violet-500/30",
   };
   
   const badgeClass = shiftColors[schedule.shiftType] || "bg-blue-500/20 text-blue-400 border border-blue-500/30";
@@ -128,16 +129,19 @@ const ScheduleCard = ({ schedule }) => {
 };
 
 const MiniSchedulePill = ({ schedule }) => {
+  const isStraightShift = schedule.shiftType === "Straight Shift";
   const isNightShift = schedule.shiftType === "Night Shift";
 
   return (
     <div className={`rounded-lg border px-2 py-1.5 text-left ${
-      isNightShift
-        ? "border-red-500/20 bg-red-500/10"
-        : "border-amber-500/20 bg-amber-500/10"
+      isStraightShift
+        ? "border-violet-500/20 bg-violet-500/10"
+        : isNightShift
+          ? "border-red-500/20 bg-red-500/10"
+          : "border-amber-500/20 bg-amber-500/10"
     }`}>
       <div className={`truncate text-[10px] font-bold uppercase tracking-[0.16em] ${
-        isNightShift ? "text-red-300" : "text-amber-300"
+        isStraightShift ? "text-violet-300" : isNightShift ? "text-red-300" : "text-amber-300"
       }`}>
         {schedule.shiftType}
       </div>
@@ -238,7 +242,7 @@ const ListView = ({ schedules, currentMonth, setCurrentMonth }) => {
             </span>
           </button>
           {isDateFilterOpen && (
-            <div className="absolute left-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-[1]">
+            <div className="absolute left-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-[49]">
               <DayPicker mode="range" selected={selectedDateRange} onSelect={setSelectedDateRange} className="text-sm w-full" />
               <div className="flex justify-end gap-2 pt-4 border-t border-slate-700 mt-2">
                 <button onClick={() => { setSelectedDateRange({ from: null, to: null }); setIsDateFilterOpen(false); }} className="text-xs text-slate-400 hover:text-white px-2 py-1 transition rounded hover:bg-slate-700">Clear</button>
@@ -587,9 +591,11 @@ const CalendarView = ({ schedules, currentMonth, setCurrentMonth, isMobile }) =>
                   className={`
                     overflow-hidden rounded border px-1 py-0.5 text-left
                     ${
-                      schedule.shiftType === "Night Shift"
-                        ? "border-red-500/20 bg-red-500/10"
-                        : "border-amber-500/20 bg-amber-500/10"
+                      schedule.shiftType === "Straight Shift"
+                        ? "border-violet-500/20 bg-violet-500/10"
+                        : schedule.shiftType === "Night Shift"
+                          ? "border-red-500/20 bg-red-500/10"
+                          : "border-amber-500/20 bg-amber-500/10"
                     }
                   `}
                 >
@@ -597,13 +603,15 @@ const CalendarView = ({ schedules, currentMonth, setCurrentMonth, isMobile }) =>
                     className={`
                       truncate text-[8px] font-bold uppercase
                       ${
-                        schedule.shiftType === "Night Shift"
-                          ? "text-red-300"
-                          : "text-amber-300"
+                        schedule.shiftType === "Straight Shift"
+                          ? "text-violet-300"
+                          : schedule.shiftType === "Night Shift"
+                            ? "text-red-300"
+                            : "text-amber-300"
                       }
                     `}
                   >
-                    {schedule.shiftType === "Night Shift" ? "Night" : "Day"}
+                    {schedule.shiftType === "Straight Shift" ? "Straight" : schedule.shiftType === "Night Shift" ? "Night" : "Day"}
                   </div>
 
                   <div className="truncate text-[9px] font-medium text-white">

@@ -226,8 +226,8 @@ export default function AdminSchedApproval() {
     return "";
   };
 
-  // True when a batch contains both Day Shift and Night Shift entries
-  const batchHas24HourCover = (schedules = []) => {
+  // True when a batch contains both Day Shift and Night Shift entries (= Straight Shift)
+  const batchIsStraightShift = (schedules = []) => {
     const types = new Set(schedules.map((s) => s.shiftType));
     return types.has("Day Shift") && types.has("Night Shift");
   };
@@ -348,7 +348,9 @@ export default function AdminSchedApproval() {
       return acc;
     }, {});
 
-    return Object.values(grouped).sort((a, b) => b.latestCreatedAt - a.latestCreatedAt);
+    return Object.values(grouped)
+      .map((g) => ({ ...g, isStraightShift: batchIsStraightShift(g.schedules) }))
+      .sort((a, b) => b.latestCreatedAt - a.latestCreatedAt);
   }, [filteredSchedules]);
 
   const getGuardSummaries = useCallback((group) => {
@@ -581,13 +583,13 @@ export default function AdminSchedApproval() {
                                     {/* Group Header */}
                                     <div className="p-4 bg-slate-800/50 border-b border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-1 h-8 rounded-full ${group.shiftType === 'Night Shift' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
+                                            <div className={`w-1 h-8 rounded-full ${group.isStraightShift ? 'bg-violet-500' : group.shiftType === 'Night Shift' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
                                             <div>
                                                 <h3 className="font-bold text-white text-lg">{group.client}</h3>
                                                 <div className="flex flex-wrap items-center gap-2 text-sm text-gray-400">
                                                     <span className="text-gray-300">{group.deploymentLocation}</span>
                                                     <span>•</span>
-                                                    <span className={group.shiftType === 'Night Shift' ? 'text-red-400' : 'text-yellow-400'}>{group.shiftType}</span>
+                                                    <span className={group.isStraightShift ? 'text-violet-400' : group.shiftType === 'Night Shift' ? 'text-red-400' : 'text-yellow-400'}>{group.isStraightShift ? 'Straight Shift' : group.shiftType}</span>
                                                     <span>•</span>
                                                     <span className={`px-2 py-0.5 rounded text-xs font-medium border ${
                                                         group.isApproved === "Approved" ? "bg-green-500/10 text-green-400 border-green-500/20" :
@@ -673,13 +675,24 @@ export default function AdminSchedApproval() {
                                                             <div className="flex min-w-0 flex-col">
                                                                 <span className="break-words text-white">{summary.deploymentLocation}</span>
                                                                 <span className="mt-1 text-xs text-blue-400">{summary.position}</span>
-                                                                <span className={`mt-2 inline-flex w-fit rounded-full px-2 py-1 text-[11px] font-medium ${
-                                                                    summary.shiftType === "Night Shift"
-                                                                      ? "bg-red-500/10 text-red-300 border border-red-500/20"
-                                                                      : "bg-yellow-500/10 text-yellow-300 border border-yellow-500/20"
-                                                                }`}>
-                                                                    {summary.shiftType}
-                                                                </span>
+                                                                {(() => {
+                                                                  const isSSGuard = batchIsStraightShift(
+                                                                    (group.schedules || []).filter(
+                                                                      (s) => (s.guardId?._id || s.guardId) === summary.guardKey
+                                                                    )
+                                                                  );
+                                                                  return (
+                                                                    <span className={`mt-2 inline-flex w-fit rounded-full px-2 py-1 text-[11px] font-medium ${
+                                                                      isSSGuard
+                                                                        ? "bg-violet-500/10 text-violet-300 border border-violet-500/20"
+                                                                        : summary.shiftType === "Night Shift"
+                                                                          ? "bg-red-500/10 text-red-300 border border-red-500/20"
+                                                                          : "bg-yellow-500/10 text-yellow-300 border border-yellow-500/20"
+                                                                    }`}>
+                                                                      {isSSGuard ? "Straight Shift" : summary.shiftType}
+                                                                    </span>
+                                                                  );
+                                                                })()}
                                                                 <span className="mt-2 text-xs leading-5 text-slate-400">
                                                                     {formatTimeRange(summary.days[0]?.timeIn, summary.days[0]?.timeOut)}
                                                                 </span>
@@ -723,13 +736,24 @@ export default function AdminSchedApproval() {
                                                     <span className="break-words">{summary.deploymentLocation}</span>
                                                 </div>
                                                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-800/50 px-3 py-2 text-sm">
-                                                    <span className={`rounded-full px-2 py-1 text-[11px] font-medium ${
-                                                        summary.shiftType === "Night Shift"
-                                                          ? "bg-red-500/10 text-red-300 border border-red-500/20"
-                                                          : "bg-yellow-500/10 text-yellow-300 border border-yellow-500/20"
-                                                    }`}>
-                                                        {summary.shiftType}
-                                                    </span>
+                                                    {(() => {
+                                                      const isSSGuardM = batchIsStraightShift(
+                                                        (group.schedules || []).filter(
+                                                          (s) => (s.guardId?._id || s.guardId) === summary.guardKey
+                                                        )
+                                                      );
+                                                      return (
+                                                        <span className={`rounded-full px-2 py-1 text-[11px] font-medium ${
+                                                          isSSGuardM
+                                                            ? "bg-violet-500/10 text-violet-300 border border-violet-500/20"
+                                                            : summary.shiftType === "Night Shift"
+                                                              ? "bg-red-500/10 text-red-300 border border-red-500/20"
+                                                              : "bg-yellow-500/10 text-yellow-300 border border-yellow-500/20"
+                                                        }`}>
+                                                          {isSSGuardM ? "Straight Shift" : summary.shiftType}
+                                                        </span>
+                                                      );
+                                                    })()}
                                                     <span className="text-slate-300">{summary.days.length} day(s)</span>
                                                 </div>
                                                 <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3 text-sm text-slate-300">
@@ -809,7 +833,7 @@ export default function AdminSchedApproval() {
                           <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-slate-300 font-medium">
                             <span className="flex items-center gap-1.5"><MapPin size={14} className="text-slate-400"/> {selectedBatchDetails?.deploymentLocation}</span>
                             <span className="text-slate-600">•</span>
-                            <span className="flex items-center gap-1.5"><Clock size={14} className="text-slate-400"/> {selectedBatchDetails?.shiftType}</span>
+                            <span className="flex items-center gap-1.5"><Clock size={14} className="text-slate-400"/> {batchIsStraightShift(selectedBatchDetails?.schedules || []) ? "Straight Shift" : selectedBatchDetails?.shiftType}</span>
                             <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-300">
                               {selectedBatchDetails?.scopeLabel}
                             </span>
@@ -853,9 +877,9 @@ export default function AdminSchedApproval() {
                              <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">
                                {selectedBatchDetails?.scopeLabel}
                              </span>
-                             {batchHas24HourCover(selectedBatchDetails?.schedules || []) ? (
-                               <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
-                                 ⚡ 24-Hour Cover
+                             {batchIsStraightShift(selectedBatchDetails?.schedules || []) ? (
+                               <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-violet-300">
+                                 ⚡ Straight Shift
                                </span>
                              ) : (
                                <span className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] ${
@@ -1051,10 +1075,10 @@ export default function AdminSchedApproval() {
                                       .filter(s => (s.guardId?._id || s.guardId) === summary.guardKey)
                                       .map(s => s.shiftType)
                                   );
-                                  const is24H = guardShiftTypes.has("Day Shift") && guardShiftTypes.has("Night Shift");
-                                  return is24H ? (
-                                    <span className="w-fit rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider shrink-0 sm:self-center border border-amber-500/30 bg-amber-500/10 text-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.15)]">
-                                      ⚡ 24-Hour Cover
+                                  const isStraightShiftGuard = guardShiftTypes.has("Day Shift") && guardShiftTypes.has("Night Shift");
+                                  return isStraightShiftGuard ? (
+                                    <span className="w-fit rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider shrink-0 sm:self-center border border-violet-500/30 bg-violet-500/10 text-violet-300 shadow-[0_0_15px_rgba(139,92,246,0.2)]">
+                                      ⚡ Straight Shift
                                     </span>
                                   ) : (
                                     <span className={`w-fit rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider shrink-0 sm:self-center ${

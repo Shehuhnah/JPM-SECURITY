@@ -136,6 +136,8 @@ export default function AdminDeployment() {
     }
   };
 
+
+
   useEffect(() => {
     if (user) fetchData();
   }, [user]);
@@ -144,12 +146,28 @@ export default function AdminDeployment() {
   const shiftColors = {
     "Night Shift": "#ef4444",
     "Day Shift": "#eab308",
+    "Straight Shift": "#8b5cf6",
+  };
+
+  const getBatchShiftType = (batchSchedules) => {
+    if (!batchSchedules || batchSchedules.length === 0) return "";
+    const shifts = batchSchedules.map(s => s.shiftType);
+    if (shifts.includes("Day Shift") && shifts.includes("Night Shift")) {
+      return "Straight Shift";
+    }
+    return batchSchedules[0].shiftType;
   };
 
   const filteredSchedules = schedules.filter((s) => {
     const matchesClient = !selectedClient || selectedClient === "All" || s.client === selectedClient;
     const matchesStatus = !statusFilter || statusFilter === "All" || s.isApproved === statusFilter;
-    const matchesShift = shiftFilter === "All" || s.shiftType === shiftFilter;
+    
+    // Check if the batch this schedule belongs to is a Straight Shift
+    const batchKey = s.batchId || s._id;
+    const batchSchedules = schedules.filter(item => (item.batchId || item._id) === batchKey);
+    const actualShiftType = getBatchShiftType(batchSchedules);
+    const matchesShift = shiftFilter === "All" || actualShiftType === shiftFilter || s.shiftType === shiftFilter;
+
     const haystack = [
       getPersonName(s.guardId, ""),
       s.deploymentLocation,
@@ -214,11 +232,12 @@ export default function AdminDeployment() {
             guard: schedule.guardId,
             position: schedule.position,
             deploymentLocation: schedule.deploymentLocation,
-            shiftType: schedule.shiftType,
+            shifts: new Set(),
             days: [],
           };
         }
 
+        acc[guardKey].shifts.add(schedule.shiftType);
         acc[guardKey].days.push({
           id: schedule._id,
           timeIn: schedule.timeIn,
@@ -227,10 +246,17 @@ export default function AdminDeployment() {
 
         return acc;
       }, {})
-    ).map((summary) => ({
-      ...summary,
-      days: [...summary.days].sort((a, b) => new Date(a.timeIn) - new Date(b.timeIn)),
-    }));
+    ).map((summary) => {
+      let finalShift = Array.from(summary.shifts)[0] || "";
+      if (summary.shifts.has("Day Shift") && summary.shifts.has("Night Shift")) {
+        finalShift = "Straight Shift";
+      }
+      return {
+        ...summary,
+        shiftType: finalShift,
+        days: [...summary.days].sort((a, b) => new Date(a.timeIn) - new Date(b.timeIn)),
+      };
+    });
   };
 
   const openBatchDetails = (batchSchedules) => {
@@ -238,7 +264,7 @@ export default function AdminDeployment() {
     setSelectedBatchDetails({
       client: batchSchedules[0]?.client,
       deploymentLocation: batchSchedules[0]?.deploymentLocation,
-      shiftType: batchSchedules[0]?.shiftType,
+      shiftType: getBatchShiftType(batchSchedules),
       isApproved: batchSchedules[0]?.isApproved,
       remarks: batchSchedules[0]?.remarks,
       schedules: orderedSchedules,
@@ -413,6 +439,7 @@ export default function AdminDeployment() {
                 <option value="All">All Shifts</option>
                 <option value="Day Shift">Day Shift</option>
                 <option value="Night Shift">Night Shift</option>
+                <option value="Straight Shift">Straight Shift</option>
             </select>
 
             {/* Actions */}
@@ -500,10 +527,8 @@ export default function AdminDeployment() {
                                             {/* Batch Header */}
                                             <div className="p-4 bg-slate-800/50 border-b border-gray-700 flex flex-col xs:flex-row xs:items-center justify-between gap-4">
                                                 
-                                                {/* Left Side: Info */}
                                                 <div className="flex items-start gap-3">
-                                                    {/* Shift Indicator Bar */}
-                                                    <div className={`w-1 self-stretch rounded-full ${batchSchedules[0].shiftType === 'Night Shift' ? 'bg-red-500' : 'bg-yellow-500'} min-h-[40px] md:min-h-0`}></div>
+                                                    <div className={`w-1 self-stretch rounded-full ${getBatchShiftType(batchSchedules) === 'Night Shift' ? 'bg-red-500' : getBatchShiftType(batchSchedules) === 'Straight Shift' ? 'bg-purple-500' : 'bg-yellow-500'} min-h-[40px] md:min-h-0`}></div>
                                                     
                                                     <div className="flex-1">
                                                         <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-blue-300">
@@ -513,8 +538,8 @@ export default function AdminDeployment() {
                                                         <h3 className="font-semibold text-white text-base md:text-lg leading-tight mb-1">{batchSchedules[0].deploymentLocation}</h3>
                                                         
                                                         <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm text-gray-400">
-                                                            <span className={`font-medium ${batchSchedules[0].shiftType === 'Night Shift' ? 'text-red-400' : 'text-yellow-400'}`}>
-                                                                {batchSchedules[0].shiftType}
+                                                            <span className={`font-medium ${getBatchShiftType(batchSchedules) === 'Night Shift' ? 'text-red-400' : getBatchShiftType(batchSchedules) === 'Straight Shift' ? 'text-purple-400' : 'text-yellow-400'}`}>
+                                                                {getBatchShiftType(batchSchedules)}
                                                             </span>
                                                             <span className="hidden md:inline">•</span>
                                                             <span className={`px-2.5 py-0.5 rounded-md text-[10px] md:text-xs font-bold uppercase tracking-wider border ${
@@ -587,7 +612,9 @@ export default function AdminDeployment() {
                                                                         <span className={`mt-2 inline-flex w-fit rounded-full px-2 py-1 text-[11px] font-medium ${
                                                                             summary.shiftType === "Night Shift"
                                                                               ? "bg-red-500/10 text-red-300 border border-red-500/20"
-                                                                              : "bg-yellow-500/10 text-yellow-300 border border-yellow-500/20"
+                                                                              : summary.shiftType === "Straight Shift"
+                                                                                ? "bg-purple-500/10 text-purple-300 border border-purple-500/20"
+                                                                                : "bg-yellow-500/10 text-yellow-300 border border-yellow-500/20"
                                                                         }`}>
                                                                             {summary.shiftType}
                                                                         </span>
@@ -637,7 +664,9 @@ export default function AdminDeployment() {
                                                             <span className={`rounded-full px-2 py-1 text-[11px] font-medium ${
                                                                 summary.shiftType === "Night Shift"
                                                                   ? "bg-red-500/10 text-red-300 border border-red-500/20"
-                                                                  : "bg-yellow-500/10 text-yellow-300 border border-yellow-500/20"
+                                                                  : summary.shiftType === "Straight Shift"
+                                                                    ? "bg-purple-500/10 text-purple-300 border border-purple-500/20"
+                                                                    : "bg-yellow-500/10 text-yellow-300 border border-yellow-500/20"
                                                             }`}>
                                                                 {summary.shiftType}
                                                             </span>
@@ -866,7 +895,9 @@ export default function AdminDeployment() {
                                 <span className={`w-fit rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider shrink-0 ${
                                   summary.shiftType === "Night Shift"
                                     ? "border border-red-500/30 bg-red-500/10 text-red-400"
-                                    : "border border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
+                                    : summary.shiftType === "Straight Shift"
+                                      ? "border border-purple-500/30 bg-purple-500/10 text-purple-400"
+                                      : "border border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
                                 }`}>
                                   {summary.shiftType}
                                 </span>
@@ -891,6 +922,7 @@ export default function AdminDeployment() {
         </Dialog>
       </Transition>
 
+      {/* ===== ADD CLIENT MODAL ===== */}
       <Transition appear show={showClientModal} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={() => setShowClientModal(false)}>
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
@@ -975,7 +1007,7 @@ export default function AdminDeployment() {
                     </div>
                     <div className="flex justify-between">
                         <span className="text-gray-500">Shift</span>
-                        <span className={batchToDelete[0].shiftType === 'Night Shift' ? 'text-red-400' : 'text-yellow-400'}>{batchToDelete[0].shiftType}</span>
+                        <span className={getBatchShiftType(batchToDelete) === 'Night Shift' ? 'text-red-400' : getBatchShiftType(batchToDelete) === 'Straight Shift' ? 'text-purple-400' : 'text-yellow-400'}>{getBatchShiftType(batchToDelete)}</span>
                     </div>
                   </div>
 

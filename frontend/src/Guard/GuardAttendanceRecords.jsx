@@ -176,6 +176,7 @@ function GuardAttendanceRecords() {
   // ── Filter state ────────────────────────────────────────────
   const [searchClient, setSearchClient] = useState("");
   const [dateRange, setDateRange] = useState({ from: null, to: null });
+  const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
   const [filterShiftType, setFilterShiftType] = useState("");
 
   useEffect(() => {
@@ -220,11 +221,40 @@ function GuardAttendanceRecords() {
   );
 
   // ── Derived filter options ───────────────────────────────────
+  // Detect which batchIds contain both Day + Night (= Straight Shift)
+  const batchShiftMap = useMemo(() => {
+    const map = {}; // batchId -> Set of shiftTypes
+    records.forEach((r) => {
+      const batchId = r.scheduleId?.batchId;
+      const shiftType = r.scheduleId?.shiftType;
+      if (batchId && shiftType) {
+        if (!map[batchId]) map[batchId] = new Set();
+        map[batchId].add(shiftType);
+      }
+    });
+    return map;
+  }, [records]);
+
+  // Resolves the effective shift label for a record (Straight Shift if its batch has both types)
+  const resolveShiftType = (record) => {
+    const batchId = record.scheduleId?.batchId;
+    if (batchId && batchShiftMap[batchId]) {
+      const types = batchShiftMap[batchId];
+      if (types.has("Day Shift") && types.has("Night Shift")) return "Straight Shift";
+    }
+    return record.scheduleId?.shiftType || "";
+  };
+
   const shiftTypes = useMemo(() => {
     const types = new Set();
-    records.forEach((r) => { if (r.scheduleId?.shiftType) types.add(r.scheduleId.shiftType); });
-    return [...types].sort();
-  }, [records]);
+    records.forEach((r) => {
+      const resolved = resolveShiftType(r);
+      if (resolved) types.add(resolved);
+    });
+    // Ensure consistent order
+    const order = ["Day Shift", "Night Shift", "Straight Shift"];
+    return [...types].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  }, [records, batchShiftMap]);
 
   // ── Filtered records ─────────────────────────────────────────
   const filteredRecords = useMemo(() => {
@@ -239,8 +269,11 @@ function GuardAttendanceRecords() {
         if (!client.includes(q)) return false;
       }
 
-      // Shift type
-      if (filterShiftType && record.scheduleId?.shiftType !== filterShiftType) return false;
+      // Shift type — compare against the resolved shift type (handles Straight Shift)
+      if (filterShiftType) {
+        const resolved = resolveShiftType(record);
+        if (resolved !== filterShiftType) return false;
+      }
 
       // Date range — compare against the actual timeIn date
       if (filterDateFrom || filterDateTo) {
@@ -253,7 +286,7 @@ function GuardAttendanceRecords() {
 
       return true;
     });
-  }, [sortedRecords, searchClient, filterShiftType, dateRange]);
+  }, [sortedRecords, searchClient, filterShiftType, dateRange, batchShiftMap]);
 
   const hasActiveFilters = searchClient.trim() || filterShiftType || dateRange.from || dateRange.to;
   const clearFilters = () => {
@@ -398,16 +431,55 @@ function GuardAttendanceRecords() {
             </div>
 
             {/* Date range */}
-            <div className="relative z-50 sm:col-span-2 flex items-center gap-3">
-              <DateRangeFilter dateRange={dateRange} setDateRange={setDateRange} />
-              {(dateRange.from || dateRange.to) && (
+            <div className="relative z-50 sm:col-span-2 flex items-center gap-3 flex-wrap">
+              <div className="relative">
                 <button
-                  onClick={() => setDateRange({ from: null, to: null })}
-                  title="Clear date filter"
-                  className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors px-2.5 py-2.5 rounded-lg bg-[#070b12] hover:bg-slate-900 border border-slate-800"
+                  type="button"
+                  onClick={() => setIsDateFilterOpen((v) => !v)}
+                  className={`rounded-xl border px-4 py-2.5 text-sm flex items-center gap-3 transition ${
+                    dateRange.from
+                      ? "border-blue-500/50 bg-blue-500/10 text-white"
+                      : "border-slate-700 bg-[#0f172a] text-slate-400 hover:border-slate-600"
+                  }`}
                 >
-                  Clear
+                  <span className="flex items-center gap-2">
+                    <CalendarDays className={dateRange.from ? "text-blue-400" : "text-slate-500"} size={17} />
+                    {dateRange.from
+                      ? dateRange.to
+                        ? `${format(dateRange.from, "MMM d")} - ${format(dateRange.to, "MMM d")}`
+                        : format(dateRange.from, "MMM d, yyyy")
+                      : "Date Range"}
+                  </span>
                 </button>
+                {isDateFilterOpen && (
+                  <div className="absolute left-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-[9999]">
+                    <DayPicker
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      className="text-sm w-full"
+                    />
+                    <div className="flex justify-end gap-2 pt-4 border-t border-slate-700 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => { setDateRange({ from: null, to: null }); setIsDateFilterOpen(false); }}
+                        className="text-xs text-slate-400 hover:text-white px-2 py-1 transition rounded hover:bg-slate-700"
+                      >
+                        Clear
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsDateFilterOpen(false)}
+                        className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded font-medium transition"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {dateRange.from && (
+                <span className="text-xs text-slate-400">Showing records in selected range</span>
               )}
             </div>
           </div>
@@ -508,7 +580,8 @@ function GuardAttendanceRecords() {
                         <InfoCard
                           icon={<Shield size={16} />}
                           label="Shift Type"
-                          value={record.scheduleId?.shiftType || "No shift type"}
+                          value={resolveShiftType(record) || record.scheduleId?.shiftType || "No shift type"}
+                          shiftType={resolveShiftType(record)}
                         />
                         <InfoCard
                           icon={<CalendarDays size={16} />}
@@ -794,74 +867,25 @@ function GuardAttendanceRecords() {
   );
 }
 
-function InfoCard({ icon, label, value, accent = false }) {
+function InfoCard({ icon, label, value, accent = false, shiftType }) {
+  const shiftColor =
+    shiftType === "Straight Shift" ? "text-violet-400" :
+    shiftType === "Night Shift"    ? "text-red-400"    :
+    shiftType === "Day Shift"      ? "text-yellow-400" :
+    null;
+
   return (
     <div className="rounded-xl border border-slate-800/80 bg-slate-950/60 p-4">
       <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
         <span className="text-slate-400">{icon}</span>
         {label}
       </div>
-      <div className={`text-sm font-semibold leading-6 ${accent ? "text-blue-400" : "text-white"}`}>{value}</div>
+      <div className={`text-sm font-semibold leading-6 ${shiftColor ?? (accent ? "text-blue-400" : "text-white")}`}>{value}</div>
     </div>
   );
 }
 
 
-
-function DateRangeFilter({ dateRange, setDateRange }) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <div className="relative z-[9999]">
-      <style>{datePickerStyles}</style>
-      <button
-        type="button"
-        onClick={() => setIsOpen((v) => !v)}
-        className={`w-full rounded-xl border px-4 py-2.5 text-sm flex items-center justify-between gap-3 transition ${
-          dateRange.from
-            ? "border-blue-500/50 bg-blue-500/10 text-white"
-            : "border-slate-700 bg-[#0f172a] text-slate-400 hover:border-slate-600"
-        }`}
-      >
-        <span className="flex items-center gap-2">
-          <CalendarDays className={dateRange.from ? "text-blue-400" : "text-slate-500"} size={17} />
-          {dateRange.from
-            ? dateRange.to
-              ? `${format(dateRange.from, "MMM d")} - ${format(dateRange.to, "MMM d")}`
-              : format(dateRange.from, "MMM d, yyyy")
-            : "Date Range"}
-        </span>
-      </button>
-
-      {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-[9999]">
-          <DayPicker
-            mode="range"
-            selected={dateRange}
-            onSelect={setDateRange}
-            className="text-sm w-full"
-          />
-          <div className="flex justify-end gap-2 pt-4 border-t border-slate-700 mt-2">
-            <button
-              type="button"
-              onClick={() => { setDateRange({ from: null, to: null }); setIsOpen(false); }}
-              className="text-xs text-slate-400 hover:text-white px-2 py-1 transition rounded hover:bg-slate-700"
-            >
-              Clear
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded font-medium transition"
-            >
-              Apply
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 
 export default GuardAttendanceRecords;
