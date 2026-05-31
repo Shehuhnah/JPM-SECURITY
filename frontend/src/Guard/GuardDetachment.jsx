@@ -219,7 +219,7 @@ const ListView = ({ schedules, currentMonth, setCurrentMonth }) => {
 
       {/* Date Range Filter */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative z-[9999]">
+        <div className="relative">
           <button
             onClick={() => setIsDateFilterOpen(!isDateFilterOpen)}
             className={`rounded-xl border px-4 py-2.5 text-sm flex items-center gap-3 transition ${
@@ -238,7 +238,7 @@ const ListView = ({ schedules, currentMonth, setCurrentMonth }) => {
             </span>
           </button>
           {isDateFilterOpen && (
-            <div className="absolute left-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-[9999]">
+            <div className="absolute left-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-[1]">
               <DayPicker mode="range" selected={selectedDateRange} onSelect={setSelectedDateRange} className="text-sm w-full" />
               <div className="flex justify-end gap-2 pt-4 border-t border-slate-700 mt-2">
                 <button onClick={() => { setSelectedDateRange({ from: null, to: null }); setIsDateFilterOpen(false); }} className="text-xs text-slate-400 hover:text-white px-2 py-1 transition rounded hover:bg-slate-700">Clear</button>

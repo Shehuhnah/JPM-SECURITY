@@ -418,7 +418,7 @@ export default function AdminLeaves() {
 
     if (!leaveRange?.from || !leaveRange?.to || includedDates.length === 0 || !leaveType || !reason.trim()) {
       toast.error("Please provide a valid leave range, leave type, and reason.");
-      return;
+      return false;
     }
 
     const attendanceConflictDates = includedDates.filter((date) => attendanceBlockedDateSet.has(date));
@@ -426,12 +426,12 @@ export default function AdminLeaves() {
       toast.error(
         `Leave dates already have attendance records: ${attendanceConflictDates.join(", ")}.`
       );
-      return;
+      return false;
     }
 
     if (!selectedAssigneeOption) {
       toast.error("Select the personnel for this leave request.");
-      return;
+      return false;
     }
 
     const pendingLeaveConflictDates = requests
@@ -451,7 +451,7 @@ export default function AdminLeaves() {
         dates: uniquePendingLeaveConflictDates,
         name: getEmployeeLabel(selectedAssigneeOption, selectedAssigneeOption.role),
       });
-      return;
+      return false;
     }
 
     setSubmitting(true);
@@ -477,11 +477,16 @@ export default function AdminLeaves() {
         throw new Error(data?.message || "Failed to submit request.");
       }
 
-      toast.success("Leave request submitted.");
+      toast.success(
+        `Leave request submitted successfully for ${selectedAssigneeOption?.label || "Personnel"} (${includedDates.length} day(s) - ${leaveType}).`,
+        { position: "top-right", autoClose: 3000 }
+      );
       resetForm();
       await fetchRequests();
+      return true;
     } catch (error) {
       toast.error(error.message || "Failed to submit request.");
+      return false;
     } finally {
       setSubmitting(false);
     }
@@ -502,7 +507,13 @@ export default function AdminLeaves() {
         throw new Error(data?.message || "Update failed.");
       }
 
-      toast.success(`Request ${nextStatus}.`);
+      if (nextStatus === "Declined") {
+        toast.success("Leave request has been successfully declined.", { position: "top-right", autoClose: 3000 });
+      } else if (nextStatus === "Approved") {
+        toast.success("Leave request has been successfully approved.", { position: "top-right", autoClose: 3000 });
+      } else {
+        toast.success(`Request ${nextStatus}.`, { position: "top-right", autoClose: 3000 });
+      }
       await fetchRequests();
       return true;
     } catch (error) {
@@ -704,7 +715,7 @@ export default function AdminLeaves() {
     declined: requests.filter((request) => request.status === "Declined").length,
   }), [requests]);
 
-  if (loading || loadingPage) {
+  if (loading || (loadingPage && requests.length === 0)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0f172a]">
         <div className="flex flex-col items-center gap-4 text-blue-400">
@@ -718,7 +729,7 @@ export default function AdminLeaves() {
   return (
     <div className="min-h-screen bg-[#0f172a] px-4 py-6 text-slate-100 md:px-8 md:py-8">
       <style>{datePickerStyles}</style>
-      <ToastContainer theme="dark" position="top-right" autoClose={3000} />
+      <ToastContainer theme="dark" position="top-right" autoClose={3000} style={{ zIndex: 99999 }} />
 
       {selectedReasonModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 px-4 backdrop-blur-sm">
@@ -994,7 +1005,7 @@ export default function AdminLeaves() {
               </div>
 
               <div className="p-6">
-                <form onSubmit={async (e) => { await handleSubmit(e); if (!submitting) setShowLeaveModal(false); }} className="grid gap-6 xl:grid-cols-[340px_1fr]">
+                <form onSubmit={async (e) => { const ok = await handleSubmit(e); if (ok) setShowLeaveModal(false); }} className="grid gap-6 xl:grid-cols-[340px_1fr]">
                   <div className="space-y-4">
                     <div>
                       <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Assign To</label>

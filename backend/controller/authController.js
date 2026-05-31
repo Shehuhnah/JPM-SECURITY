@@ -195,7 +195,7 @@ export const updateMyProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found." });
     }
 
-    const { name, email, position, contactNumber } = req.body;
+    const { name, email, position, contactNumber, removePhoto } = req.body;
 
     if (!name?.trim() || !email?.trim()) {
       return res.status(400).json({ message: "Name and email are required." });
@@ -215,7 +215,13 @@ export const updateMyProfile = async (req, res) => {
     user.position = position?.trim() || "";
     user.contactNumber = contactNumber?.trim() || "";
 
-    if (req.file) {
+    if (removePhoto === "true" || removePhoto === true) {
+      if (user.photoPublicId) {
+        await deleteImageFromCloudinary(user.photoPublicId);
+      }
+      user.photo = "";
+      user.photoPublicId = "";
+    } else if (req.file) {
       if (user.photoPublicId) {
         await deleteImageFromCloudinary(user.photoPublicId);
       }

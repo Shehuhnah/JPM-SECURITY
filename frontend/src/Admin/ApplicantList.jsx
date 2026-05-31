@@ -115,6 +115,7 @@ export default function ApplicantsList() {
   const [walkInForm, setWalkInForm] = useState({
     firstName: "",
     lastName: "",
+    sex: "Male",
     email: "",
     phone: "",
     address: "",
@@ -214,6 +215,7 @@ export default function ApplicantsList() {
     setWalkInForm({
       firstName: "",
       lastName: "",
+      sex: "Male",
       email: "",
       phone: "",
       address: "",
@@ -237,6 +239,7 @@ export default function ApplicantsList() {
         firstName: walkInForm.firstName.trim(),
         lastName: walkInForm.lastName.trim(),
         name: `${walkInForm.firstName.trim()} ${walkInForm.lastName.trim()}`.trim(),
+        sex: walkInForm.sex,
         email: walkInForm.email.trim(),
         phone: walkInForm.phone.trim(),
         address: walkInForm.address.trim(),
@@ -252,6 +255,7 @@ export default function ApplicantsList() {
       formData.append("firstName", payload.firstName);
       formData.append("lastName", payload.lastName);
       formData.append("name", payload.name);
+      formData.append("sex", payload.sex);
       formData.append("email", payload.email);
       formData.append("phone", payload.phone);
       formData.append("address", payload.address);
@@ -872,7 +876,7 @@ export default function ApplicantsList() {
                     </div>
 
                     {/* Date Range Filter */}
-                    <div className="relative z-[9999]">
+                    <div className="relative ">
                       <button
                         onClick={() => setIsDateFilterOpen(!isDateFilterOpen)}
                         className={`w-full rounded-xl border px-4 py-2.5 text-sm flex items-center justify-between gap-3 transition ${
@@ -891,7 +895,7 @@ export default function ApplicantsList() {
                         </span>
                       </button>
                       {isDateFilterOpen && (
-                        <div className="absolute right-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-[9999]">
+                        <div className="absolute right-0 top-full mt-2 w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl shadow-blue-900/40 z-[1]">
                           <DayPicker mode="range" selected={selectedDateRange} onSelect={setSelectedDateRange} className="text-sm w-full" />
                           <div className="flex justify-end gap-2 pt-4 border-t border-slate-700 mt-2">
                             <button onClick={() => { setSelectedDateRange({ from: null, to: null }); setIsDateFilterOpen(false); }} className="text-xs text-slate-400 hover:text-white px-2 py-1 transition rounded hover:bg-slate-700">Clear</button>
@@ -1198,10 +1202,10 @@ export default function ApplicantsList() {
                                         <Eye size={14} /> View Resume
                                       </button>
                                       <button
-                                        disabled={selectedApplicant.status === "Hired"}
+                                        disabled={selectedApplicant.status === "Hired" || selectedApplicant.status === "Declined"}
                                         onClick={() => openInterviewModal(selectedApplicant)}
                                         className={`px-3 py-2 rounded-md flex items-center gap-2 text-sm justify-center transition
-                                          ${selectedApplicant.status === "Hired"
+                                          ${selectedApplicant.status === "Hired" || selectedApplicant.status === "Declined"
                                             ? "bg-gray-700/50 text-gray-500 cursor-not-allowed opacity-50"
                                             : "bg-purple-600/20 hover:bg-purple-600/40 text-purple-300"
                                           }`}
@@ -1211,11 +1215,12 @@ export default function ApplicantsList() {
                                       <button
                                         disabled={
                                           selectedApplicant.status === "Hired" ||
+                                          selectedApplicant.status === "Declined" ||
                                           (selectedApplicant.status === "Review" && selectedApplicant.applicationType !== "Walk-in")
                                         }
                                         onClick={() => openAddGuardModal()}
                                         className={`px-3 py-2 rounded-md flex items-center gap-2 text-sm justify-center transition
-                                          ${selectedApplicant.status === "Hired" || (selectedApplicant.status === "Review" && selectedApplicant.applicationType !== "Walk-in")
+                                          ${selectedApplicant.status === "Hired" || selectedApplicant.status === "Declined" || (selectedApplicant.status === "Review" && selectedApplicant.applicationType !== "Walk-in")
                                             ? "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50" 
                                             : "bg-green-600/20 hover:bg-green-600/40 text-green-300"
                                           }`}
@@ -1831,6 +1836,19 @@ export default function ApplicantsList() {
                               placeholder="9123456789"
                             />
                           </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">Sex<span className="text-red-500">*</span></label>
+                          <select
+                            name="sex"
+                            value={walkInForm.sex}
+                            onChange={handleWalkInChange}
+                            required
+                            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70 [color-scheme:dark]"
+                          >
+                            <option value="Male" className="bg-[#0f172a]">Male</option>
+                            <option value="Female" className="bg-[#0f172a]">Female</option>
+                          </select>
                         </div>
                         <div>
                           <label className="block text-sm text-gray-300 mb-2">Resume<span className="text-red-500">*</span></label>

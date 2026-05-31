@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Camera, RefreshCcw, Save, UserCircle2, User, Mail, Briefcase, Phone, ShieldCheck } from "lucide-react";
+import { Camera, RefreshCcw, Save, UserCircle2, User, Mail, Briefcase, Phone, ShieldCheck, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -17,6 +17,7 @@ export default function AdminProfile() {
     photo: null,
   });
   const [previewUrl, setPreviewUrl] = useState("");
+  const [removePhoto, setRemovePhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Determine if form data differs from initial user data
@@ -25,7 +26,8 @@ export default function AdminProfile() {
     form.email !== (user.email || "") ||
     form.position !== (user.position || "") ||
     form.contactNumber !== (user.contactNumber || "") ||
-    form.photo !== null
+    form.photo !== null ||
+    removePhoto === true
   );
 
   useEffect(() => {
@@ -43,6 +45,7 @@ export default function AdminProfile() {
       photo: null,
     }));
     setPreviewUrl(user.photo || "");
+    setRemovePhoto(false);
   }, [user]);
 
   useEffect(() => {
@@ -50,6 +53,7 @@ export default function AdminProfile() {
 
     const localPreview = URL.createObjectURL(form.photo);
     setPreviewUrl(localPreview);
+    setRemovePhoto(false);
 
     return () => URL.revokeObjectURL(localPreview);
   }, [form.photo]);
@@ -69,6 +73,7 @@ export default function AdminProfile() {
       payload.append("email", form.email);
       payload.append("position", form.position);
       payload.append("contactNumber", form.contactNumber);
+      payload.append("removePhoto", removePhoto);
       if (form.photo) {
         payload.append("photo", form.photo);
       }
@@ -86,6 +91,7 @@ export default function AdminProfile() {
 
       await refreshAuth();
       setForm((prev) => ({ ...prev, photo: null }));
+      setRemovePhoto(false);
       setPreviewUrl(data.user?.photo || previewUrl);
       toast.success("Profile updated successfully.");
     } catch (error) {
@@ -135,6 +141,22 @@ export default function AdminProfile() {
               className="bg-[#1e293b] rounded-3xl border border-gray-800 p-10 shadow-2xl flex flex-col items-center text-center h-full min-h-[500px] justify-center"
             >
               <div className="relative group mb-8">
+                {previewUrl && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setForm((prev) => ({ ...prev, photo: null }));
+                      setPreviewUrl("");
+                      setRemovePhoto(true);
+                    }}
+                    className="absolute -top-1 -right-1 z-10 p-2.5 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-950/40 border border-red-400/20 hover:scale-110 active:scale-95 transition-all cursor-pointer"
+                    title="Remove profile image"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+                
                 <div className="h-48 w-48 rounded-full border-4 border-[#0f172a] overflow-hidden bg-slate-800 shadow-2xl ring-4 ring-blue-500/10 transition-all duration-300 group-hover:ring-blue-500/30">
                   {previewUrl ? (
                     <img src={previewUrl} alt="Profile" className="h-full w-full object-cover transition duration-500 group-hover:scale-110" />

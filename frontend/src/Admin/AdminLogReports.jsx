@@ -37,12 +37,20 @@ export default function AdminLogReports() {
   const [filterCategory, setFilterCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (!user && !loading) { navigate("/admin/login"); return; }
     document.title = "Log Reports | JPM Security Agency";
   }, [user, loading, navigate]);
+
+  useEffect(() => {
+    if (!lightboxImage) return;
+    const handleKey = (e) => { if (e.key === "Escape") setLightboxImage(null); };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [lightboxImage]);
 
   const fetchPageData = async () => {
     try {
@@ -220,7 +228,7 @@ export default function AdminLogReports() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredReports.map((report) => (
-            <ReportCard key={report._id} report={report} />
+            <ReportCard key={report._id} report={report} onImageClick={setLightboxImage} />
           ))}
         </div>
       )}
@@ -320,6 +328,39 @@ export default function AdminLogReports() {
           </div>
         </div>
       )}
+
+      {/* ===== Image Lightbox ===== */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-4"
+          onClick={() => setLightboxImage(null)}
+        >
+          {/* Close button */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setLightboxImage(null); }}
+            className="absolute top-4 right-4 z-10 p-2.5 rounded-full bg-slate-800/80 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700 transition shadow-xl"
+          >
+            <X size={20} />
+          </button>
+
+          {/* Image */}
+          <div
+            className="relative max-w-5xl max-h-[90vh] w-full flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={lightboxImage}
+              alt="Report attachment"
+              className="max-h-[88vh] max-w-full object-contain rounded-2xl shadow-2xl border border-slate-700/50 animate-[fadeScaleIn_0.2s_ease-out]"
+            />
+          </div>
+
+          {/* Hint */}
+          <p className="absolute bottom-5 left-1/2 -translate-x-1/2 text-xs text-slate-500 select-none">
+            Click outside or press <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded text-slate-400">Esc</kbd> to close
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -344,7 +385,7 @@ function StatCard({ title, value, icon, color }) {
   );
 }
 
-function ReportCard({ report }) {
+function ReportCard({ report, onImageClick }) {
   const meta = CATEGORY_META[report.category] || CATEGORY_META["Daily Summary"];
   const CategoryIcon = meta.icon;
   return (
@@ -377,11 +418,20 @@ function ReportCard({ report }) {
       {/* Attachment */}
       {report.imageUrl && (
         report.imageUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i) ? (
-          <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+          <div
+            className="overflow-hidden rounded-xl border border-slate-700 bg-slate-900 cursor-zoom-in relative"
+            onClick={() => onImageClick?.(report.imageUrl)}
+            title="Click to preview"
+          >
             <img src={report.imageUrl} alt={report.title} className="max-h-44 w-full object-cover group-hover:scale-[1.02] transition duration-300" />
+            <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition flex items-center justify-center opacity-0 hover:opacity-100">
+              <div className="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 font-medium shadow">
+                <ImageIcon size={13} /> Preview
+              </div>
+            </div>
           </div>
         ) : (
-          <a href={report.imageUrl} target="_blank" rel="noopener noreferrer"
+          <a href={report.imageUrl.startsWith("http") ? report.imageUrl : `${api}${report.imageUrl}`} target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#2B7FFF]/10 text-[#2B7FFF] hover:bg-[#2B7FFF]/20 transition text-xs font-medium w-fit">
             <FileText size={14} /> View Attached File
           </a>
