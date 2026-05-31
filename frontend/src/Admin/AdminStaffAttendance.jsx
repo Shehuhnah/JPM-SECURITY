@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CalendarClock,
@@ -9,6 +9,9 @@ import {
   RefreshCcw,
   UserCircle2,
   CalendarDays,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   FileImage,
   FileText,
   User,
@@ -22,7 +25,6 @@ import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 
 const api = import.meta.env.VITE_API_URL;
-const SUMMARY_DAYS = 15;
 const MANILA_TIME_ZONE = "Asia/Manila";
 
 const WEEKDAY_HEADERS = ["Sun", "Mon", "Tues", "Wed", "Thurs", "Fri", "Sat"];
@@ -76,14 +78,6 @@ const formatTime = (value) => {
   });
 };
 
-const getDurationLabel = (timeIn, timeOut) => {
-  if (!timeIn || !timeOut) return "--";
-  const diff = Math.max(0, new Date(timeOut) - new Date(timeIn));
-  const hours = Math.floor(diff / 3600000);
-  const minutes = Math.floor((diff % 3600000) / 60000);
-  return `${hours}h ${minutes}m`;
-};
-
 const getWorkedMilliseconds = (record, currentTime = new Date()) => {
   if (!record) return 0;
 
@@ -128,6 +122,29 @@ const getDateKey = (value) => {
   return date.toLocaleDateString("en-CA", { timeZone: MANILA_TIME_ZONE });
 };
 
+const toLocalDateFromKey = (dateKey) => new Date(`${dateKey}T00:00:00`);
+
+const getAttendanceRecordKey = (record) =>
+  record?.dateKey || getDateKey(record?.firstTimeIn || record?.timeIn || record?.createdAt);
+
+const buildDateRangeDays = (fromKey, toKey) => {
+  if (!fromKey || !toKey) return [];
+  const days = [];
+  const cursor = toLocalDateFromKey(fromKey);
+  const end = toLocalDateFromKey(toKey);
+  while (cursor <= end) {
+    days.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+};
+
+const getDateRangeLabel = (fromKey, toKey) => {
+  if (!fromKey || !toKey) return "No date range";
+  if (fromKey === toKey) return format(toLocalDateFromKey(fromKey), "MMMM d, yyyy");
+  return `${format(toLocalDateFromKey(fromKey), "MMMM d, yyyy")} - ${format(toLocalDateFromKey(toKey), "MMMM d, yyyy")}`;
+};
+
 const formatWordDate = (dateStr) => {
   if (!dateStr) return "--";
   const parts = dateStr.split("-");
@@ -156,17 +173,6 @@ const normalizeLeaveDateKey = (value) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
   return getDateKey(parsed);
-};
-
-const getLastNDays = (count) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  return Array.from({ length: count }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() - (count - 1 - index));
-    return date;
-  });
 };
 
 const isWeekend = (date) => {
@@ -213,11 +219,14 @@ export default function AdminStaffAttendance() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [dashboard, setDashboard] = useState(null);
+  const [allAttendanceRecords, setAllAttendanceRecords] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [liveNow, setLiveNow] = useState(new Date());
   const [historyDateFilter, setHistoryDateFilter] = useState("");
+  const [snapshotDateRange, setSnapshotDateRange] = useState({ from: null, to: null });
+  const [heatmapMonthCursor, setHeatmapMonthCursor] = useState(null);
 
   // ── Download DTR modal state ──────────────────────────────────────────
   const [dtrModalOpen, setDtrModalOpen] = useState(false);
@@ -239,11 +248,16 @@ export default function AdminStaffAttendance() {
     document.title = "My Attendance | JPM Security Agency";
   }, [user, loading, navigate]);
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = useCallback(async () => {
+    if (!user?._id) return;
+
     try {
       setPageLoading(true);
-      const [attendanceRes, leaveRes, reportsRes] = await Promise.all([
+      const [attendanceRes, allAttendanceRes, leaveRes, reportsRes] = await Promise.all([
         fetch(`${api}/api/admin-attendance/me`, {
+          credentials: "include",
+        }),
+        fetch(`${api}/api/admin-attendance/user/${user._id}`, {
           credentials: "include",
         }),
         fetch(`${api}/api/leaves/my`, {
@@ -254,16 +268,19 @@ export default function AdminStaffAttendance() {
         }),
       ]);
 
-      const [attendanceData, leaveData, reportsData] = await Promise.all([
+      const [attendanceData, allAttendanceData, leaveData, reportsData] = await Promise.all([
         attendanceRes.json(),
+        allAttendanceRes.json(),
         leaveRes.json(),
         reportsRes.json().catch(() => []),
       ]);
 
       if (!attendanceRes.ok) throw new Error(attendanceData.message || "Failed to load attendance.");
+      if (!allAttendanceRes.ok) throw new Error(allAttendanceData.message || "Failed to load attendance history.");
       if (!leaveRes.ok) throw new Error(leaveData.message || "Failed to load leave requests.");
 
       setDashboard(attendanceData);
+      setAllAttendanceRecords(Array.isArray(allAttendanceData) ? allAttendanceData : []);
       setLeaveRequests(Array.isArray(leaveData) ? leaveData : []);
       setUserReports(Array.isArray(reportsData) ? reportsData : []);
     } catch (error) {
@@ -271,11 +288,11 @@ export default function AdminStaffAttendance() {
     } finally {
       setPageLoading(false);
     }
-  };
+  }, [user?._id]);
 
   useEffect(() => {
     if (user) fetchDashboard();
-  }, [user]);
+  }, [fetchDashboard, user]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -441,7 +458,10 @@ export default function AdminStaffAttendance() {
       ? { label: "Time Out", icon: <LogOut size={18} />, onClick: handleTimeOut }
       : null;
 
-  const recentAttendance = useMemo(() => dashboard?.recentRecords || [], [dashboard]);
+  const recentAttendance = useMemo(
+    () => allAttendanceRecords.length ? allAttendanceRecords : dashboard?.recentRecords || [],
+    [allAttendanceRecords, dashboard]
+  );
   const sortedAttendanceHistory = useMemo(
     () =>
       [...recentAttendance].sort((a, b) => {
@@ -460,7 +480,7 @@ export default function AdminStaffAttendance() {
     const map = new Map();
 
     leaveRequests
-      .filter((request) => request.status !== "Declined")
+      .filter((request) => ["Pending", "Approved"].includes(request.status))
       .forEach((request) => {
         const leaveStatus = request.status === "Approved" ? "leave-approved" : "leave-pending";
         (request.dates || []).forEach((date) => {
@@ -485,10 +505,51 @@ export default function AdminStaffAttendance() {
     [recentAttendance]
   );
 
-  const fifteenDaySummary = useMemo(() => {
-    const days = getLastNDays(SUMMARY_DAYS);
+  const availableSnapshotRange = useMemo(() => {
+    const keys = [
+      ...recentAttendance.map(getAttendanceRecordKey),
+      ...Array.from(leaveDateMap.keys()),
+    ].filter(Boolean).sort();
 
-    return days.reduce(
+    const todayKey = getDateKey(new Date());
+    const selectedFromKey = snapshotDateRange.from ? getDateKey(snapshotDateRange.from) : "";
+    return {
+      fromKey: selectedFromKey || keys[0] || todayKey,
+      toKey: snapshotDateRange.to ? getDateKey(snapshotDateRange.to) : selectedFromKey || keys[keys.length - 1] || todayKey,
+    };
+  }, [leaveDateMap, recentAttendance, snapshotDateRange.from, snapshotDateRange.to]);
+
+  const snapshotDays = useMemo(
+    () => buildDateRangeDays(availableSnapshotRange.fromKey, availableSnapshotRange.toKey),
+    [availableSnapshotRange.fromKey, availableSnapshotRange.toKey]
+  );
+
+  const heatmapAvailableRange = useMemo(() => {
+    const keys = [
+      ...recentAttendance.map(getAttendanceRecordKey),
+      ...Array.from(leaveDateMap.keys()),
+    ].filter(Boolean).sort();
+
+    const todayKey = getDateKey(new Date());
+    return {
+      fromKey: keys[0] || todayKey,
+      toKey: keys[keys.length - 1] || todayKey,
+    };
+  }, [leaveDateMap, recentAttendance]);
+
+  useEffect(() => {
+    const fallbackMonth = heatmapAvailableRange.fromKey?.slice(0, 7) || getDateKey(new Date()).slice(0, 7);
+    setHeatmapMonthCursor((current) => {
+      if (!current) return fallbackMonth;
+      if (current < heatmapAvailableRange.fromKey.slice(0, 7) || current > heatmapAvailableRange.toKey.slice(0, 7)) {
+        return fallbackMonth;
+      }
+      return current;
+    });
+  }, [heatmapAvailableRange.fromKey, heatmapAvailableRange.toKey]);
+
+  const snapshotSummary = useMemo(() => {
+    return snapshotDays.reduce(
       (acc, date) => {
         const status = getHeatmapStatus(date, attendanceMap, leaveDateMap);
         acc.total += 1;
@@ -499,13 +560,13 @@ export default function AdminStaffAttendance() {
       },
       { total: 0, present: 0, leave: 0, noRecord: 0 }
     );
-  }, [attendanceMap, leaveDateMap]);
+  }, [attendanceMap, leaveDateMap, snapshotDays]);
 
-  const hoursLast15Days = useMemo(() => {
-    const validKeys = new Set(getLastNDays(SUMMARY_DAYS).map((date) => getDateKey(date)));
+  const hoursInSnapshotRange = useMemo(() => {
+    const validKeys = new Set(snapshotDays.map((date) => getDateKey(date)));
 
     const totalMinutes = recentAttendance.reduce((sum, record) => {
-      const recordKey = record.dateKey || getDateKey(record.firstTimeIn || record.timeIn || record.createdAt);
+      const recordKey = getAttendanceRecordKey(record);
       if (!validKeys.has(recordKey)) {
         return sum;
       }
@@ -514,59 +575,81 @@ export default function AdminStaffAttendance() {
     }, 0);
 
     return Number((totalMinutes / 60).toFixed(2));
-  }, [recentAttendance]);
+  }, [recentAttendance, snapshotDays]);
+
+  const heatmapMonthOptions = useMemo(() => {
+    const monthKeys = [];
+    const fromMonth = toLocalDateFromKey(`${heatmapAvailableRange.fromKey.slice(0, 7)}-01`);
+    const toMonth = toLocalDateFromKey(`${heatmapAvailableRange.toKey.slice(0, 7)}-01`);
+    const cursor = new Date(fromMonth);
+
+    while (cursor <= toMonth) {
+      monthKeys.push(format(cursor, "yyyy-MM"));
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+
+    return monthKeys;
+  }, [heatmapAvailableRange.fromKey, heatmapAvailableRange.toKey]);
 
   const attendanceHeatmap = useMemo(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayOfMonth = new Date(year, month, 1).getDay();
-
-    const days = Array.from({ length: daysInMonth }, (_, index) => {
-      const date = new Date(year, month, index + 1);
-      const key = getDateKey(date);
-      const status = getHeatmapStatus(date, attendanceMap, leaveDateMap);
-
-      return {
-        key,
-        dayNumber: index + 1,
-        fullLabel: date.toLocaleDateString([], {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        }),
-        status,
-      };
-    });
-
-    const summary = days.reduce(
-      (acc, day) => {
-        if (day.status === "present") acc.present += 1;
-        else if (day.status === "leave-approved" || day.status === "leave-pending") acc.leave += 1;
+    const summary = snapshotDays.reduce(
+      (acc, date) => {
+        const status = getHeatmapStatus(date, attendanceMap, leaveDateMap);
+        if (status === "present") acc.present += 1;
+        else if (status === "leave-approved" || status === "leave-pending") acc.leave += 1;
         else acc.dayoff += 1;
         return acc;
       },
       { present: 0, leave: 0, dayoff: 0 }
     );
 
+    const monthKey = heatmapMonthCursor || heatmapMonthOptions[0] || getDateKey(new Date()).slice(0, 7);
+    const [year, month] = monthKey.split("-").map(Number);
+    const firstOfMonth = new Date(year, month - 1, 1);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const firstDayOfMonth = firstOfMonth.getDay();
+
+    const days = Array.from({ length: daysInMonth }, (_, index) => {
+      const date = new Date(year, month - 1, index + 1);
+      const key = getDateKey(date);
+      const status = getHeatmapStatus(date, attendanceMap, leaveDateMap);
+
+      return {
+        key,
+        dayNumber: index + 1,
+        fullLabel: format(date, "MMMM d, yyyy"),
+        status,
+      };
+    });
+
     const leadingEmptyDays = Array.from({ length: firstDayOfMonth }, (_, index) => ({
-      key: `leading-empty-${index}`,
+      key: `${monthKey}-leading-empty-${index}`,
       empty: true,
     }));
 
     const totalFilledCells = leadingEmptyDays.length + days.length;
     const trailingEmptyCount = totalFilledCells % 7 === 0 ? 0 : 7 - (totalFilledCells % 7);
     const trailingEmptyDays = Array.from({ length: trailingEmptyCount }, (_, index) => ({
-      key: `trailing-empty-${index}`,
+      key: `${monthKey}-trailing-empty-${index}`,
       empty: true,
     }));
 
     return {
       summary,
+      monthKey,
+      monthLabel: format(firstOfMonth, "MMMM yyyy"),
       calendarCells: [...leadingEmptyDays, ...days, ...trailingEmptyDays],
     };
-  }, [attendanceMap, leaveDateMap]);
+  }, [attendanceMap, heatmapMonthCursor, heatmapMonthOptions, leaveDateMap, snapshotDays]);
+
+  const heatmapMonthIndex = Math.max(0, heatmapMonthOptions.indexOf(attendanceHeatmap.monthKey));
+  const canGoPreviousHeatmapMonth = heatmapMonthIndex > 0;
+  const canGoNextHeatmapMonth = heatmapMonthIndex >= 0 && heatmapMonthIndex < heatmapMonthOptions.length - 1;
+  const goToHeatmapMonth = (direction) => {
+    const nextIndex = heatmapMonthIndex + direction;
+    if (nextIndex < 0 || nextIndex >= heatmapMonthOptions.length) return;
+    setHeatmapMonthCursor(heatmapMonthOptions[nextIndex]);
+  };
 
   const openAttendanceDetail = (record) => {
     setSelectedAttendance(record);
@@ -648,13 +731,13 @@ export default function AdminStaffAttendance() {
           accent="amber"
         />
         <StatCard
-          title="Hours Last 15 Days"
-          value={hoursLast15Days}
+          title="Hours in Selected Range"
+          value={hoursInSnapshotRange}
           icon={<Clock3 className="text-emerald-400" size={20} />}
         />
         <StatCard
-          title="Present Last 15 Days"
-          value={fifteenDaySummary.present}
+          title="Present in Selected Range"
+          value={snapshotSummary.present}
           icon={<CalendarClock className="text-blue-400" size={20} />}
         />
       </div>
@@ -710,17 +793,33 @@ export default function AdminStaffAttendance() {
         </section>
 
         <section className="bg-[#1e293b] border border-slate-800 rounded-2xl p-6 shadow-xl">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-xl font-semibold text-white">Attendance Snapshot</h2>
-            <span className="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-300">
-              Last 15 days
-            </span>
+          <div className="flex items-center justify-between mb-5 gap-3">
+            <div>
+              <h2 className="text-xl font-semibold text-white">Attendance Snapshot</h2>
+              <p className="mt-1 text-xs text-slate-400">{getDateRangeLabel(availableSnapshotRange.fromKey, availableSnapshotRange.toKey)}</p>
+            </div>
+            {(snapshotDateRange.from || snapshotDateRange.to) ? (
+              <button
+                type="button"
+                onClick={() => setSnapshotDateRange({ from: null, to: null })}
+                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+              >
+                All Data
+              </button>
+            ) : null}
+          </div>
+
+          <div className="mb-5 flex justify-end">
+            <SnapshotDateRangeFilter
+              dateRange={snapshotDateRange}
+              setDateRange={(range) => setSnapshotDateRange(range || { from: null, to: null })}
+            />
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            <MiniMetric label="Present" value={fifteenDaySummary.present} tone="text-emerald-300" />
-            <MiniMetric label="Leave" value={fifteenDaySummary.leave} tone="text-amber-300" />
-            <MiniMetric label="No Record" value={fifteenDaySummary.noRecord} tone="text-slate-300" />
+            <MiniMetric label="Present" value={snapshotSummary.present} tone="text-emerald-300" />
+            <MiniMetric label="Leave" value={snapshotSummary.leave} tone="text-amber-300" />
+            <MiniMetric label="No Record" value={snapshotSummary.noRecord} tone="text-slate-300" />
           </div>
 
           <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
@@ -740,19 +839,45 @@ export default function AdminStaffAttendance() {
               <div>
                 <h2 className="text-xl font-semibold text-white">Attendance Calendar Heatmap</h2>
                 <p className="text-sm text-slate-400 mt-1">
-                  Daily pattern for {new Date().toLocaleDateString([], { month: "long", year: "numeric" })}.
+                  Daily pattern for the selected range.
                 </p>
               </div>
-              <div className="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-300 w-fit">
-                Personal discipline overview
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => goToHeatmapMonth(-1)}
+                  disabled={!canGoPreviousHeatmapMonth}
+                  className="rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Previous heatmap month"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="min-w-36 rounded-lg bg-slate-800 px-3 py-2 text-center text-xs font-semibold text-slate-300">
+                  {attendanceHeatmap.monthLabel}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => goToHeatmapMonth(1)}
+                  disabled={!canGoNextHeatmapMonth}
+                  className="rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Next heatmap month"
+                >
+                  <ChevronRight size={16} />
+                </button>
               </div>
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 md:p-5">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
+                  {attendanceHeatmap.monthLabel}
+                </h3>
+                <span className="text-xs text-slate-500">Heatmap data: {getDateRangeLabel(heatmapAvailableRange.fromKey, heatmapAvailableRange.toKey)}</span>
+              </div>
               <div className="grid grid-cols-7 gap-2 md:gap-3 mb-3">
                 {WEEKDAY_HEADERS.map((label) => (
                   <div
-                    key={label}
+                    key={`${attendanceHeatmap.monthKey}-${label}`}
                     className="text-[10px] md:text-xs uppercase tracking-wide text-slate-500 text-center"
                   >
                     {label}
@@ -1273,6 +1398,57 @@ function LegendItem({ label, tone }) {
     <div className="flex items-center gap-2">
       <span className={`inline-flex h-3.5 w-3.5 rounded-[4px] border ${tone}`} />
       <span>{label}</span>
+    </div>
+  );
+}
+
+function SnapshotDateRangeFilter({ dateRange, setDateRange }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((value) => !value)}
+        className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-900 hover:text-white"
+      >
+        <CalendarDays size={14} />
+        {dateRange.from ? (
+          <>
+            {format(dateRange.from, "MMM d")} - {dateRange.to ? format(dateRange.to, "MMM d") : "..."}
+          </>
+        ) : (
+          "Select Date"
+        )}
+        <ChevronDown size={14} className="opacity-50" />
+      </button>
+
+      {isOpen ? (
+        <div className="absolute right-0 top-full z-50 mt-2 rounded-xl border border-slate-700 bg-[#1e293b] p-4 shadow-2xl">
+          <DayPicker
+            mode="range"
+            selected={dateRange}
+            onSelect={setDateRange}
+            className="text-sm"
+          />
+          <div className="mt-2 flex justify-end gap-2 border-t border-slate-700 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="px-3 py-1 text-xs text-slate-400 hover:text-white"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-500"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

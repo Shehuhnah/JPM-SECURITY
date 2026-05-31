@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DayPicker } from "react-day-picker";
 import { eachDayOfInterval, format } from "date-fns";
@@ -6,6 +6,7 @@ import {
   AlertCircle,
   CalendarDays,
   CheckCircle,
+  ChevronDown,
   Clock,
   Filter,
   FileText,
@@ -27,17 +28,10 @@ const LEAVE_TYPE_OPTIONS = {
 
 const datePickerStyles = `
   .rdp {
-    --rdp-cell-size: 36px;
+    --rdp-cell-size: 34px;
     --rdp-accent-color: #2563eb;
     --rdp-background-color: #0f172a;
     margin: 0;
-    width: 100%;
-  }
-  .rdp-months,
-  .rdp-month,
-  .rdp-table {
-    width: 100%;
-    max-width: none;
   }
   .rdp-caption_label {
     font-weight: 700;
@@ -53,83 +47,49 @@ const datePickerStyles = `
   }
   .rdp-day_button {
     color: #cbd5e1;
-    width: var(--rdp-cell-size);
-    height: var(--rdp-cell-size);
-    font-size: 0.95rem;
-    border-radius: 8px;
-    transition: all 0.2s ease;
   }
   .rdp-button_previous,
   .rdp-button_next,
   .rdp-nav_button {
     color: #94a3b8;
   }
-  .rdp-day_button:hover:not([disabled]) {
-    background-color: #1e293b !important;
-    color: #ffffff;
+  .rdp-day:hover:not([disabled]) {
+    background-color: #1e293b;
+    border-radius: 8px;
   }
-  
-  /* React Day Picker v9 selection & range modifiers */
-  .rdp-day_selected,
-  .rdp-selected,
-  .rdp-range_start,
-  .rdp-range_end,
-  .rdp-day_range_start,
-  .rdp-day_range_end {
-    background-color: #2563eb !important;
-    color: #ffffff !important;
-    border-radius: 8px !important;
-  }
-  
-  .rdp-day_selected .rdp-day_button,
   .rdp-selected .rdp-day_button,
   .rdp-range_start .rdp-day_button,
-  .rdp-range_end .rdp-day_button,
-  .rdp-day_range_start .rdp-day_button,
-  .rdp-day_range_end .rdp-day_button {
-    background-color: #2563eb !important;
-    color: #ffffff !important;
-    border-radius: 8px !important;
-    font-weight: 700 !important;
+  .rdp-range_end .rdp-day_button {
+    background-color: #2563eb;
+    color: #ffffff;
+    border-radius: 8px;
+    font-weight: 700;
   }
-
-  .rdp-range_middle,
-  .rdp-day_range_middle {
-    background-color: rgba(37, 99, 235, 0.2) !important;
-    color: #60a5fa !important;
-    border-radius: 0px !important;
+  .rdp-range_middle .rdp-day_button {
+    background-color: rgba(37, 99, 235, 0.30);
+    color: #dbeafe;
+    border-radius: 0;
+    font-weight: 600;
   }
-
-  .rdp-range_middle .rdp-day_button,
-  .rdp-day_range_middle .rdp-day_button {
-    background-color: rgba(37, 99, 235, 0.2) !important;
-    color: #60a5fa !important;
-    border-radius: 0px !important;
-    font-weight: 600 !important;
+  .rdp-range_start .rdp-day_button,
+  .rdp-range_end .rdp-day_button {
+    background-color: #2563eb;
+    color: #ffffff;
   }
-
   .rdp-day_button:focus-visible {
     outline: 2px solid #60a5fa;
     outline-offset: 2px;
   }
   .rdp-day_disabled,
   .rdp-day_disabled .rdp-day_button {
-    color: #475569 !important;
+    color: #475569;
     text-decoration: line-through;
     opacity: 0.4;
-    background-color: transparent !important;
+    background-color: transparent;
   }
   .rdp-day_scheduled {
     position: relative;
     box-shadow: inset 0 -3px 0 0 rgba(251, 191, 36, 0.95);
-  }
-  .guard-leave-date-filter::-webkit-calendar-picker-indicator {
-    filter: invert(1) brightness(2);
-    opacity: 1;
-    cursor: pointer;
-  }
-  .guard-leave-date-filter {
-    color-scheme: dark;
   }
 `;
 
@@ -157,12 +117,14 @@ const statusClassMap = {
   Pending: "bg-amber-500/10 text-amber-400 border-amber-500/20",
   Approved: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   Declined: "bg-red-500/10 text-red-400 border-red-500/20",
+  Revoked: "bg-slate-500/10 text-slate-300 border-slate-500/20",
 };
 
 const statusIconMap = {
   Pending: Clock,
   Approved: CheckCircle,
   Declined: XCircle,
+  Revoked: XCircle,
 };
 
 export default function GuardLeaves() {
@@ -177,9 +139,8 @@ export default function GuardLeaves() {
   const [loadingPage, setLoadingPage] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [historyDateFilter, setHistoryDateFilter] = useState("");
+  const [historyDateRange, setHistoryDateRange] = useState({ from: undefined, to: undefined });
   const [historyLeaveTypeFilter, setHistoryLeaveTypeFilter] = useState("");
-  const historyDateInputRef = useRef(null);
 
   const availableLeaveTypes = useMemo(
     () => LEAVE_TYPE_OPTIONS[user?.sex] || LEAVE_TYPE_OPTIONS.default,
@@ -234,6 +195,15 @@ export default function GuardLeaves() {
     return [...new Set(reserved)].sort();
   }, [leaveRequests]);
 
+  const revokedLeaveDateKeys = useMemo(() => {
+    const revokedDates = leaveRequests
+      .filter((request) => request.status === "Revoked")
+      .flatMap((request) => request.dates || [])
+      .map(normalizeDateKey)
+      .filter(Boolean);
+    return new Set(revokedDates);
+  }, [leaveRequests]);
+
   const historyLeaveTypes = useMemo(() => {
     const types = leaveRequests
       .map((request) => request.leaveType)
@@ -242,49 +212,39 @@ export default function GuardLeaves() {
   }, [leaveRequests]);
 
   const filteredLeaveRequests = useMemo(() => {
+    const fromKey = historyDateRange.from ? toDateOnly(historyDateRange.from) : "";
+    const toKey = historyDateRange.to ? toDateOnly(historyDateRange.to) : fromKey;
+
     return leaveRequests.filter((request) => {
       if (historyLeaveTypeFilter && request.leaveType !== historyLeaveTypeFilter) {
         return false;
       }
 
-      if (historyDateFilter) {
+      if (fromKey) {
         const requestDates = (request.dates || []).map(normalizeDateKey);
         const startDate = normalizeDateKey(request.startDate || requestDates[0]);
         const endDate = normalizeDateKey(request.endDate || requestDates[requestDates.length - 1]);
-        const matchesExplicitDate = requestDates.includes(historyDateFilter);
-        const matchesRange =
+        const matchesExplicitDate = requestDates.some((date) => date >= fromKey && date <= toKey);
+        const overlapsRange =
           startDate &&
           endDate &&
-          historyDateFilter >= startDate &&
-          historyDateFilter <= endDate;
+          startDate <= toKey &&
+          endDate >= fromKey;
 
-        if (!matchesExplicitDate && !matchesRange) {
+        if (!matchesExplicitDate && !overlapsRange) {
           return false;
         }
       }
 
       return true;
     });
-  }, [historyDateFilter, historyLeaveTypeFilter, leaveRequests]);
+  }, [historyDateRange.from, historyDateRange.to, historyLeaveTypeFilter, leaveRequests]);
 
-  const hasHistoryFilters = Boolean(historyDateFilter || historyLeaveTypeFilter);
+  const hasHistoryFilters = Boolean(historyDateRange.from || historyLeaveTypeFilter);
 
   const clearHistoryFilters = () => {
-    setHistoryDateFilter("");
+    setHistoryDateRange({ from: undefined, to: undefined });
     setHistoryLeaveTypeFilter("");
-  };
-
-  const openHistoryDatePicker = () => {
-    const input = historyDateInputRef.current;
-    if (!input) return;
-
-    if (typeof input.showPicker === "function") {
-      input.showPicker();
-      return;
-    }
-
-    input.focus();
-    input.click();
   };
 
   const rangeDates = useMemo(() => buildRangeDates(leaveRange), [leaveRange]);
@@ -304,8 +264,11 @@ export default function GuardLeaves() {
   );
 
   const scheduledDates = useMemo(
-    () => scheduleDates.map(toLocalDate),
-    [scheduleDates]
+    () =>
+      scheduleDates
+        .filter((date) => !revokedLeaveDateKeys.has(normalizeDateKey(date)))
+        .map(toLocalDate),
+    [revokedLeaveDateKeys, scheduleDates]
   );
 
   useEffect(() => {
@@ -431,30 +394,15 @@ export default function GuardLeaves() {
             </div>
 
             <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-              <label className="space-y-2">
+              <div className="space-y-2">
                 <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  <Filter size={14} /> Leave Date
+                  <Filter size={14} /> Leave Date Range
                 </span>
-                <button
-                  type="button"
-                  onClick={openHistoryDatePicker}
-                  className="relative flex min-h-[46px] w-full items-center rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 pr-12 text-left text-sm text-white outline-none transition hover:border-blue-500 focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                >
-                  <span className={historyDateFilter ? "text-white" : "text-slate-500"}>
-                    {historyDateFilter ? formatWordDate(historyDateFilter) : "Select leave date"}
-                  </span>
-                  <CalendarDays className="absolute right-4 text-white" size={18} />
-                  <input
-                    ref={historyDateInputRef}
-                    type="date"
-                    value={historyDateFilter}
-                    onChange={(event) => setHistoryDateFilter(event.target.value)}
-                    className="guard-leave-date-filter pointer-events-none absolute h-px w-px opacity-0"
-                    aria-label="Filter leave history by date"
-                    tabIndex={-1}
-                  />
-                </button>
-              </label>
+                <GuardLeaveDateRangeFilter
+                  dateRange={historyDateRange}
+                  setDateRange={(range) => setHistoryDateRange(range || { from: undefined, to: undefined })}
+                />
+              </div>
 
               <label className="space-y-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Type of Leave</span>
@@ -662,6 +610,61 @@ function SummaryTile({ label, value, compact = false }) {
     <div className={`rounded-2xl border border-slate-700 bg-slate-900/60 ${compact ? "p-3" : "p-4"}`}>
       <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{label}</div>
       <div className={`mt-2 font-semibold text-slate-100 ${compact ? "text-sm" : "text-base"}`}>{value}</div>
+    </div>
+  );
+}
+
+function GuardLeaveDateRangeFilter({ dateRange, setDateRange }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((value) => !value)}
+        className="flex min-h-[46px] w-full items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-left text-sm font-medium text-slate-300 transition hover:border-blue-500 hover:bg-[#1e293b] hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <CalendarDays size={16} className="shrink-0 text-white" />
+          <span className="truncate">
+            {dateRange.from ? (
+              <>
+                {format(dateRange.from, "MMM d")} - {dateRange.to ? format(dateRange.to, "MMM d") : "..."}
+              </>
+            ) : (
+              "Select date range"
+            )}
+          </span>
+        </span>
+        <ChevronDown size={16} className="shrink-0 opacity-50" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-full z-50 mt-2 w-max max-w-[calc(100vw-2rem)] rounded-xl border border-gray-700 bg-[#1e293b] p-3 shadow-2xl">
+          <DayPicker
+            mode="range"
+            selected={dateRange}
+            onSelect={setDateRange}
+            className="text-sm"
+          />
+          <div className="mt-2 flex justify-end gap-2 border-t border-gray-700 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="px-3 py-1 text-xs text-gray-400 transition hover:text-white cursor-pointer"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs text-white transition hover:bg-blue-500 cursor-pointer"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
