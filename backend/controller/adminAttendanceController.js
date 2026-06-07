@@ -14,6 +14,11 @@ const getDateKey = (date = new Date()) =>
 
 const isStaff = (user) => STAFF_ROLES.includes(user?.role);
 
+const getRequesterDisplayName = (user = {}) => {
+  const combinedName = `${user?.firstName || ""} ${user?.lastName || ""}`.trim();
+  return combinedName || user?.fullName || user?.name || user?.email || "N/A";
+};
+
 const getMonthRange = () => {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -298,6 +303,7 @@ export const downloadMyStaffAttendance = async (req, res) => {
     const pdfBuffer = await generateStaffAttendancePDF(staff, records, periodCover, {
       startDate,
       endDate,
+      preparedBy: getRequesterDisplayName(req.user),
     });
 
     const safeName = staff.name.replace(/[^a-zA-Z0-9]/g, "_");

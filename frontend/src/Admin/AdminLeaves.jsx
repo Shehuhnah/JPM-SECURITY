@@ -508,9 +508,9 @@ export default function AdminLeaves() {
       }
 
       if (nextStatus === "Declined") {
-        toast.success("Leave request has been successfully declined.", { position: "top-right", autoClose: 3000 });
+        toast.success("Leave request declined. Email notification triggered.", { position: "top-right", autoClose: 3000 });
       } else if (nextStatus === "Approved") {
-        toast.success("Leave request has been successfully approved.", { position: "top-right", autoClose: 3000 });
+        toast.success("Leave request approved. Email notification triggered.", { position: "top-right", autoClose: 3000 });
       } else {
         toast.success(`Request ${nextStatus}.`, { position: "top-right", autoClose: 3000 });
       }
@@ -597,7 +597,7 @@ export default function AdminLeaves() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.message || "Failed to revoke.");
-      toast.success("Leave revoked.");
+      toast.success("Leave revoked. Email notification triggered.");
       setRevokeModal({ open: false, request: null });
       setRevokeReason("");
       await fetchRequests();

@@ -60,10 +60,7 @@ export default function ContactUsPage() {
                   <span className="block font-semibold text-white">
                     Address
                   </span>
-                  <strong>Main Office: </strong>Checkpoint, Purok 4, Brgy.
-                  Mataas na Lupa, Indang, Cavite 4122
-                  <br />
-                  <strong>Sattelite Office: </strong>RGDM Bldg., Brgy.Galicia2,
+                  <strong>Main Office: </strong>RGDM Bldg., Brgy.Galicia2,
                   Mendez-Nunez, Cavite 4121
                 </p>
               </div>
@@ -128,15 +125,13 @@ export default function ContactUsPage() {
 
         {/* Google Map */}
         <div className="mt-16 rounded-2xl overflow-hidden shadow-lg border border-gray-700">
-          <iframe
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3867.1742614066684!2d120.87652947573699!3d14.243054685729085!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x65fbc0d56d1dbb83%3A0x95347c44e07e073e!2sJPM%20Security%20Agency%20Corp.!5e0!3m2!1sen!2sph!4v1760460952437!5m2!1sen!2sph"
-            width="100%"
-            height="400"
-            style={{ border: 0 }}
-            allowFullScreen=""
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          ></iframe>
+              <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d241.82433010940133!2d120.90721832474657!3d14.1249634423808!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33bd77b79a2be499%3A0x2ff40c074683851e!2sLBC%20Express%20-%20Mendez!5e0!3m2!1sen!2sph!4v1780806204064!5m2!1sen!2sph"  
+              width="100%"
+              height="400"
+              style={{ border: 0 }}
+              allowFullScreen=""
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"></iframe>
         </div>
       </div>
     </div>

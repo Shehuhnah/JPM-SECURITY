@@ -67,6 +67,52 @@ const APPLICANT_RESUME_TYPES = [
 ];
 const APPLICANT_RESUME_ERROR =
   "Unsupported resume file type. Please upload JPG, PNG, GIF, PDF, DOC, DOCX, or ZIP only.";
+const INTERVIEW_MIN_TIME = "06:00";
+const INTERVIEW_MAX_TIME = "21:00";
+const INTERVIEW_SCHEDULE_MESSAGE = "Interview schedules are only allowed on weekdays from 6:00 AM to 9:00 PM.";
+
+const parseDateInput = (value) => {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
+const isWeekdayDateInput = (value) => {
+  const date = parseDateInput(value);
+  if (!date) return false;
+  const day = date.getDay();
+  return day >= 1 && day <= 5;
+};
+
+const dateRangeIncludesWeekend = (startValue, endValue) => {
+  const start = parseDateInput(startValue);
+  const end = parseDateInput(endValue);
+  if (!start || !end) return true;
+
+  const current = new Date(start);
+  while (current <= end) {
+    const day = current.getDay();
+    if (day === 0 || day === 6) return true;
+    current.setDate(current.getDate() + 1);
+  }
+  return false;
+};
+
+const isAllowedInterviewTime = (value) =>
+  Boolean(value) && value >= INTERVIEW_MIN_TIME && value <= INTERVIEW_MAX_TIME;
+
+const buildApplicantName = ({ firstName, middleName, lastName, suffix }) =>
+  [firstName, middleName, lastName, suffix].map((part) => part?.trim()).filter(Boolean).join(" ");
+
+const checkApplicantEmailInUse = async (email) => {
+  const res = await fetch(`${api}/api/applicant-messages/check-email?email=${encodeURIComponent(email)}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || "Failed to check applicant email.");
+  }
+  return Boolean(data.exists);
+};
 
 const toPhilippinesMobile = (value) => {
   const digits = String(value || "").replace(/\D/g, "");
@@ -114,7 +160,9 @@ export default function ApplicantsList() {
   const [totalPages, setTotalPages] = useState(1);
   const [walkInForm, setWalkInForm] = useState({
     firstName: "",
+    middleName: "",
     lastName: "",
+    suffix: "",
     sex: "Male",
     email: "",
     phone: "",
@@ -214,7 +262,9 @@ export default function ApplicantsList() {
   const resetWalkInForm = () => {
     setWalkInForm({
       firstName: "",
+      middleName: "",
       lastName: "",
+      suffix: "",
       sex: "Male",
       email: "",
       phone: "",
@@ -237,8 +287,10 @@ export default function ApplicantsList() {
       setCreatingWalkIn(true);
       const payload = {
         firstName: walkInForm.firstName.trim(),
+        middleName: walkInForm.middleName.trim(),
         lastName: walkInForm.lastName.trim(),
-        name: `${walkInForm.firstName.trim()} ${walkInForm.lastName.trim()}`.trim(),
+        suffix: walkInForm.suffix.trim(),
+        name: buildApplicantName(walkInForm),
         sex: walkInForm.sex,
         email: walkInForm.email.trim(),
         phone: walkInForm.phone.trim(),
@@ -250,10 +302,18 @@ export default function ApplicantsList() {
       if (!/^\+63\d{10}$/.test(payload.phone)) {
         throw new Error("Phone number must be in +63 format.");
       }
+      if (!payload.email || !/^[\w-.]+@([\w-]+\.)+[\w-]{2,}$/.test(payload.email)) {
+        throw new Error("Please provide a valid email address.");
+      }
+      if (await checkApplicantEmailInUse(payload.email)) {
+        throw new Error("This email is already used by another applicant.");
+      }
 
       const formData = new FormData();
       formData.append("firstName", payload.firstName);
+      formData.append("middleName", payload.middleName);
       formData.append("lastName", payload.lastName);
+      formData.append("suffix", payload.suffix);
       formData.append("name", payload.name);
       formData.append("sex", payload.sex);
       formData.append("email", payload.email);
@@ -620,12 +680,24 @@ export default function ApplicantsList() {
       toast.error("Please select a date for the interview.");
       return;
     }
+    if (interviewType === "single" && !isWeekdayDateInput(interviewDate)) {
+      toast.error(INTERVIEW_SCHEDULE_MESSAGE);
+      return;
+    }
     if (interviewType === "range" && (!interviewStart || !interviewEnd)) {
       toast.error("Please select a valid start and end date.");
       return;
     }
+    if (interviewType === "range" && dateRangeIncludesWeekend(interviewStart, interviewEnd)) {
+      toast.error(INTERVIEW_SCHEDULE_MESSAGE);
+      return;
+    }
     if (!interviewTime) {
       toast.error("Please select an interview time.");
+      return;
+    }
+    if (!isAllowedInterviewTime(interviewTime)) {
+      toast.error(INTERVIEW_SCHEDULE_MESSAGE);
       return;
     }
 
@@ -1477,6 +1549,9 @@ export default function ApplicantsList() {
                       Send an interview invite to {interviewModal.applicant?.name}
                       .
                     </div>
+                    <p className="mb-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+                      Interviews can only be scheduled on weekdays from 6:00 AM to 9:00 PM.
+                    </p>
 
                     <div className="space-y-4">
                       <div>
@@ -1514,7 +1589,13 @@ export default function ApplicantsList() {
                               type="date"
                               min={new Date().toISOString().split("T")[0]}
                               value={interviewDate}
-                              onChange={(e) => setInterviewDate(e.target.value)}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setInterviewDate(value);
+                                if (value && !isWeekdayDateInput(value)) {
+                                  toast.error(INTERVIEW_SCHEDULE_MESSAGE);
+                                }
+                              }}
                               className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/70 [color-scheme:dark]"
                             />
                           <div className="mt-3">
@@ -1524,8 +1605,16 @@ export default function ApplicantsList() {
                               <input
                                 type="time"
                                 required
+                                min={INTERVIEW_MIN_TIME}
+                                max={INTERVIEW_MAX_TIME}
                                 value={interviewTime}
-                                onChange={(e) => setInterviewTime(e.target.value)}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setInterviewTime(value);
+                                  if (value && !isAllowedInterviewTime(value)) {
+                                    toast.error(INTERVIEW_SCHEDULE_MESSAGE);
+                                  }
+                                }}
                                 className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/70 [color-scheme:dark]"
                               />
                           </div>
@@ -1540,7 +1629,13 @@ export default function ApplicantsList() {
                                 type="date"
                                 min={new Date().toISOString().split("T")[0]}
                                 value={interviewStart}
-                                onChange={(e) => setInterviewStart(e.target.value)}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setInterviewStart(value);
+                                  if (value && !isWeekdayDateInput(value)) {
+                                    toast.error(INTERVIEW_SCHEDULE_MESSAGE);
+                                  }
+                                }}
                                 className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/70 [color-scheme:dark]"
                               />
                           </div>
@@ -1552,7 +1647,13 @@ export default function ApplicantsList() {
                                 type="date"
                                 min={interviewStart || new Date().toISOString().split("T")[0]}
                                 value={interviewEnd}
-                                onChange={(e) => setInterviewEnd(e.target.value)}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setInterviewEnd(value);
+                                  if (value && !isWeekdayDateInput(value)) {
+                                    toast.error(INTERVIEW_SCHEDULE_MESSAGE);
+                                  }
+                                }}
                                 className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/70 [color-scheme:dark]"
                               />
                           </div>
@@ -1563,8 +1664,16 @@ export default function ApplicantsList() {
                               <input
                                 type="time"
                                 required
+                                min={INTERVIEW_MIN_TIME}
+                                max={INTERVIEW_MAX_TIME}
                                 value={interviewTime}
-                                onChange={(e) => setInterviewTime(e.target.value)}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setInterviewTime(value);
+                                  if (value && !isAllowedInterviewTime(value)) {
+                                    toast.error(INTERVIEW_SCHEDULE_MESSAGE);
+                                  }
+                                }}
                                 className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/70 [color-scheme:dark]"
                               />
                           </div>
@@ -1780,6 +1889,16 @@ export default function ApplicantsList() {
                           />
                         </div>
                         <div>
+                          <label className="block text-sm text-gray-300 mb-2">Middle Name</label>
+                          <input
+                            name="middleName"
+                            value={walkInForm.middleName}
+                            onChange={handleWalkInChange}
+                            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
+                            placeholder="Santos"
+                          />
+                        </div>
+                        <div>
                           <label className="block text-sm text-gray-300 mb-2">Last Name<span className="text-red-500">*</span></label>
                           <input
                             name="lastName"
@@ -1788,6 +1907,16 @@ export default function ApplicantsList() {
                             required
                             className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
                             placeholder="Dela Cruz"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">Suffix</label>
+                          <input
+                            name="suffix"
+                            value={walkInForm.suffix}
+                            onChange={handleWalkInChange}
+                            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
+                            placeholder="Jr., Sr., III"
                           />
                         </div>
                         <div>
@@ -1808,6 +1937,7 @@ export default function ApplicantsList() {
                             name="email"
                             value={walkInForm.email}
                             onChange={handleWalkInChange}
+                            required
                             className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
                             placeholder="Email Address"
                           />

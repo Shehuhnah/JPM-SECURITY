@@ -17,7 +17,9 @@ const normalizeId = (value) => {
 const buildApplicantPayload = (applicant) => ({
   _id: applicant._id,
   firstName: applicant.firstName || "",
+  middleName: applicant.middleName || "",
   lastName: applicant.lastName || "",
+  suffix: applicant.suffix || "",
   name: applicant.name,
   email: applicant.email,
   phone: applicant.phone,
@@ -25,6 +27,26 @@ const buildApplicantPayload = (applicant) => ({
   status: applicant.status,
   processedBy: applicant.processedBy ?? null,
 });
+
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export const checkApplicantEmail = async (req, res) => {
+  try {
+    const email = req.query.email?.trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ message: "Email is required." });
+    }
+
+    const applicant = await Applicant.findOne({
+      email: { $regex: `^${escapeRegex(email)}$`, $options: "i" },
+    }).select("_id email");
+
+    res.status(200).json({ exists: Boolean(applicant) });
+  } catch (error) {
+    console.error("Error checking applicant email:", error);
+    res.status(500).json({ message: "Failed to check applicant email." });
+  }
+};
 
 // This function needs to ensure that if an applicant conversation exists, it has an Admin/Subadmin participant.
 // It will dynamically add one if missing.
@@ -51,10 +73,15 @@ const ensureHRParticipant = async (conversation) => {
 
 export const initApplicantConversation = async (req, res) => {
   try {
-    const { name, firstName, lastName, email, phone, address, position } = req.body;
+    const { name, firstName, middleName, lastName, suffix, email, phone, address, position } = req.body;
+    const hasMiddleName = Object.prototype.hasOwnProperty.call(req.body, "middleName");
+    const hasSuffix = Object.prototype.hasOwnProperty.call(req.body, "suffix");
     const firstNameValue = firstName?.trim() || "";
+    const middleNameValue = middleName?.trim() || "";
     const lastNameValue = lastName?.trim() || "";
-    const normalizedName = name?.trim() || `${firstNameValue} ${lastNameValue}`.trim();
+    const suffixValue = suffix?.trim() || "";
+    const normalizedName =
+      name?.trim() || [firstNameValue, middleNameValue, lastNameValue, suffixValue].filter(Boolean).join(" ");
 
     if (!normalizedName) {
       return res.status(400).json({ message: "Applicant name is required." });
@@ -70,7 +97,9 @@ export const initApplicantConversation = async (req, res) => {
     if (!applicant) {
       applicant = await Applicant.create({
         firstName: firstNameValue,
+        middleName: middleNameValue,
         lastName: lastNameValue,
+        suffix: suffixValue,
         name: normalizedName,
         email: email.trim(),
         phone: phone?.trim() || "",
@@ -86,7 +115,9 @@ export const initApplicantConversation = async (req, res) => {
     if (email?.trim() && email.trim() !== (applicant.email || "")) updates.email = email.trim();
     if (address?.trim() && address.trim() !== (applicant.address || "")) updates.address = address.trim();
     if (firstNameValue && firstNameValue !== (applicant.firstName || "")) updates.firstName = firstNameValue;
+    if (hasMiddleName && middleNameValue !== (applicant.middleName || "")) updates.middleName = middleNameValue;
     if (lastNameValue && lastNameValue !== (applicant.lastName || "")) updates.lastName = lastNameValue;
+    if (hasSuffix && suffixValue !== (applicant.suffix || "")) updates.suffix = suffixValue;
     if (normalizedName && normalizedName !== (applicant.name || "")) updates.name = normalizedName;
     if (position?.trim() && position.trim() !== (applicant.position || "")) {
       updates.position = position.trim();

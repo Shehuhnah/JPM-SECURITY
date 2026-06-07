@@ -86,15 +86,12 @@ export default function AboutUsPage() {
                 </h2>
                 <p className="text-gray-200 leading-relaxed text-justify">
                   <span className=" text-white">
-                    <strong>JPM SECURITY AGENCY CORP. (JPMSA) </strong> is duly established Security Management Operating by the virtue of Republic Act 11917, otherwise known as "The Private Security Services Industry Act. " , with SEC REG. NO. 2025020187022-03, with its office address; Checkpoint, Purok 4, Brgy. Mataas na Lupa, Indang, Cavite 4122. As mandated by laws, JPMSA has sufficient personnel, equipment and necessary assets to support its operation, consequent obligation and responsibility as Security Agency.
+                    <strong>JPM SECURITY AGENCY CORP. (JPMSA) </strong> is duly established Security Management Operating by the virtue of Republic Act 11917, otherwise known as "The Private Security Services Industry Act. " , with SEC REG. NO. 2025020187022-03, with its office address; RGDM Bldg., Brgy.Galicia2, Mendez-Nunez, Cavite 4121. As mandated by laws, JPMSA has sufficient personnel, equipment and necessary assets to support its operation, consequent obligation and responsibility as Security Agency.
                     </span>
                 </p>
                 <div className="mt-6">
                   <p className="text-sm text-gray-300">
-                    📍<strong>Main Office: </strong>Checkpoint, Purok 4, Brgy. Mataas na Lupa, Indang, Cavite 4122
-                  </p>
-                  <p className="text-sm text-gray-300">
-                    📍<strong>Sattelite Office: </strong>RGDM Bldg., Brgy.Galicia2, Mendez-Nunez, Cavite 4121
+                    📍<strong>Main Office: </strong>RGDM Bldg., Brgy.Galicia2, Mendez-Nunez, Cavite 4121
                   </p>
                   <p className="text-sm text-gray-300">
                     📞 09368835488 / 09923728671 

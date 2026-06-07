@@ -320,6 +320,8 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
       doc.on("end", () => resolve(Buffer.concat(buffers)));
       doc.on("error", (err) => reject(err));
 
+      const preparedBy = options.preparedBy || "";
+
       const coverageDays = buildCoverageDays(options.startDate, options.endDate);
       const effectiveCoverageDays =
         coverageDays.length > 0
@@ -547,6 +549,13 @@ export const generateWorkHoursByClientPDF = (clientName, groupedAttendance, peri
 
       doc.text("Prepared By:", col1X, labelY);
       doc.moveTo(col1X + 80, lineY).lineTo(col1X + lineLength, lineY).stroke();
+      if (preparedBy) {
+        doc.font("Helvetica").fontSize(8).text(preparedBy, col1X + 80, lineY - 10, {
+          width: Math.max(20, lineLength - 80),
+          align: "center",
+        });
+        doc.font("Helvetica-Bold").fontSize(9);
+      }
       doc.text("Approved By (Client):", col2X, labelY);
       doc.moveTo(col2X + 110, lineY).lineTo(col2X + lineLength + 30, lineY).stroke();
       doc.text("Certified By (Agency):", col3X, labelY);
@@ -588,6 +597,7 @@ export const generateStaffAttendancePDF = (staff, attendanceRecords, periodCover
       doc.on('data', buffers.push.bind(buffers));
       doc.on('end', () => resolve(Buffer.concat(buffers)));
       doc.on('error', reject);
+      const preparedBy = options.preparedBy || "";
 
       // ─── Page dimensions ───────────────────────────────────────────────
       const pageW  = doc.page.width;   // 841.89
@@ -857,6 +867,13 @@ export const generateStaffAttendancePDF = (staff, attendanceRecords, periodCover
       doc.font('Helvetica-Bold').fontSize(8.5).fillColor('black');
       doc.text('Prepared By:', col1X, labelY);
       doc.moveTo(col1X + 72, lineY).lineTo(col1X + lineLen + 30, lineY).stroke('black');
+      if (preparedBy) {
+        doc.font('Helvetica').fontSize(8).text(preparedBy, col1X + 72, lineY - 10, {
+          width: Math.max(20, lineLen - 42),
+          align: 'center',
+        });
+        doc.font('Helvetica-Bold').fontSize(8.5).fillColor('black');
+      }
 
       doc.text('Approved By (Client):', col2X, labelY);
       doc.moveTo(col2X + 108, lineY).lineTo(col2X + lineLen + 50, lineY).stroke('black');

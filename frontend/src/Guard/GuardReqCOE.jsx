@@ -162,15 +162,16 @@ export default function GuardReqCOE() {
           ? `PHP ${Number(coe.approvedCOE.salary).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           : "Undefined",
         companyName: "JPM SECURITY AGENCY CORP",
-        companyAddress: "Indang, Cavite, Philippines",
+        companyAddress: "Mendez-Nunez, Cavite, Philippines",
         issuedDate: new Date(coe.approvedCOE?.issuedDate || Date.now()).toLocaleDateString("en-US", {
               month: "long",
               day: "numeric",
               year: "numeric",
           }),
-        location: "Indang, Cavite",
-        signatory: "KYLE CHRISTOPHER E. PASTRANA",
-        signatoryTitle: "HR and Head Administrator",
+        location: "Mendez-Nunez, Cavite",
+        signatory: coe.approvedCOE?.signatory || coe.approvedCOE?.issuedBy || "Admin",
+        signatoryTitle: coe.approvedCOE?.signatoryTitle || "HR and Head Administrator",
+        signatureImage: coe.approvedCOE?.signatureDataUrl,
         companyShort: "JPMSA Corp.",
       };
 
@@ -423,7 +424,7 @@ export default function GuardReqCOE() {
                     {selectedCOE.approvedCOE.companyName || "JPM SECURITY AGENCY CORP"}
                   </h1>
                   <p className="text-gray-600">
-                    {selectedCOE.approvedCOE.companyAddress || "Indang, Cavite, Philippines"}
+                    {selectedCOE.approvedCOE.companyAddress || "Mendez-Nunez, Cavite, Philippines"}
                   </p>
                 </div>
 
@@ -458,9 +459,11 @@ export default function GuardReqCOE() {
                   <div className="text-center">
                     <div className="border-t border-gray-400 pt-2 w-40 mx-auto">
                       <p className="font-semibold">
-                        {selectedCOE.approvedCOE.issuedBy}
+                        {selectedCOE.approvedCOE.signatory || selectedCOE.approvedCOE.issuedBy}
                       </p>
-                      <p className="text-xs text-gray-600">Authorized Signatory</p>
+                      <p className="text-xs text-gray-600">
+                        {selectedCOE.approvedCOE.signatoryTitle || "Authorized Signatory"}
+                      </p>
                     </div>
                   </div>
                   <p className="text-xs text-gray-600">

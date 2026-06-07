@@ -10,6 +10,11 @@ const getGuardDisplayName = (guard = {}) => {
   return combinedName || guard?.fullName || "Unknown Guard";
 };
 
+const getRequesterDisplayName = (user = {}) => {
+  const combinedName = `${user?.firstName || ""} ${user?.lastName || ""}`.trim();
+  return combinedName || user?.fullName || user?.name || user?.email || "N/A";
+};
+
 const parseAsPHT = (value) =>
   value ? new Date(`${String(value).slice(0, 16)}:00+08:00`) : null;
 
@@ -614,6 +619,7 @@ export const downloadWorkHours = async (req, res) => {
         const pdfBuffer = await generateWorkHoursByClientPDF(detachment, guardAttendanceMap, periodCover, {
           startDate,
           endDate,
+          preparedBy: getRequesterDisplayName(req.user),
         });
 
         res.setHeader('Content-Type', 'application/pdf');
@@ -728,6 +734,7 @@ export const downloadWorkHoursByClient = async (req, res) => {
         const pdfBuffer = await generateWorkHoursByClientPDF(clientName, guardsMap, periodCover, {
           startDate,
           endDate,
+          preparedBy: getRequesterDisplayName(req.user),
         });
         const safeFilename = `Report_${clientName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
@@ -840,6 +847,7 @@ export const downloadMyGuardDTR = async (req, res) => {
     const pdfBuffer = await generateStaffAttendancePDF(staffObj, attendanceRecords, periodCover, {
       startDate,
       endDate,
+      preparedBy: getRequesterDisplayName(req.user),
     });
 
     const safeName   = staffObj.name.replace(/\s+/g, "_");

@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect } from "react";
 import {
   ShieldUser,
   Mail,
@@ -10,7 +10,6 @@ import {
   EyeOff,
   Lock,
 } from "lucide-react";
-import { Dialog, Transition } from "@headlessui/react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
@@ -23,20 +22,10 @@ const formatPHPhoneNumber = (value) => {
   if (!value) return "+63";
 
   let digits = value.replace(/\D/g, "");
+  if (digits.startsWith("63")) digits = digits.slice(2);
+  if (digits.startsWith("0")) digits = digits.slice(1);
 
-  // Remove leading 63
-  if (digits.startsWith("63")) {
-    digits = digits.slice(2);
-  }
-
-  // Remove leading 0
-  if (digits.startsWith("0")) {
-    digits = digits.slice(1);
-  }
-
-  // Limit to 10 digits
   digits = digits.slice(0, 10);
-
   return digits ? `+63${digits}` : "+63";
 };
 
@@ -46,17 +35,9 @@ export default function GuardProfile() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [changedFields, setChangedFields] = useState({});
-
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [confirmationPassword, setConfirmationPassword] = useState("");
-  const [modalError, setModalError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Password visibility
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const [guard, setGuard] = useState({
     fullName: "",
@@ -67,7 +48,6 @@ export default function GuardProfile() {
     phoneNumber: "+63",
     address: "",
     position: "",
-    currentPassword: "",
     newpassword: "",
     confirmNewPassword: "",
     sssId: "",
@@ -90,7 +70,6 @@ export default function GuardProfile() {
         });
 
         const result = await res.json();
-
         if (!result.success) return;
 
         const p = result.data;
@@ -108,6 +87,7 @@ export default function GuardProfile() {
           sssId: p.SSSID || "",
           philHealthId: p.PhilHealthID || "",
           pagibigId: p.PagibigID || "",
+          newpassword: "",
           confirmNewPassword: "",
         }));
 
@@ -120,75 +100,38 @@ export default function GuardProfile() {
     fetchProfile();
   }, [guardData, navigate, loading]);
 
-  const handleInitiateSave = () => {
-    const hasPasswordChange = !!guard.newpassword;
+  const handleInitiateSave = async () => {
+    const hasPasswordChange = Boolean(guard.newpassword);
+    const hasProfileInfoChange = Object.keys(changedFields).some(
+      (key) => !["newpassword", "confirmNewPassword"].includes(key)
+    );
 
     if (hasPasswordChange) {
       if (guard.newpassword !== guard.confirmNewPassword) {
-        alert("⚠️ Passwords do not match!");
+        toast.error("Passwords do not match.");
         return;
       }
 
       if (guard.newpassword.length < 8) {
-        alert("⚠️ Password must be at least 8 characters!");
+        toast.error("Password must be at least 8 characters.");
         return;
       }
     }
 
-    const hasProfileInfoChange = Object.keys(changedFields).some(
-      (key) =>
-        !["currentPassword", "newpassword", "confirmNewPassword"].includes(
-          key
-        )
-    );
-
     if (!hasPasswordChange && !hasProfileInfoChange) {
-      alert("No changes to save.");
+      toast.info("No changes to save.");
       setIsEditing(false);
       return;
     }
 
-    setIsModalOpen(true);
-    setModalError("");
-  };
-
-  const handleConfirmUpdate = async () => {
-    if (!confirmationPassword) {
-      setModalError("Password is required to confirm changes.");
-      return;
-    }
-
     setIsSubmitting(true);
-    setModalError("");
 
-    const fieldsToUpdate = {
-      currentPassword: confirmationPassword,
-    };
+    const fieldsToUpdate = {};
+    if (hasPasswordChange) fieldsToUpdate.newPassword = guard.newpassword;
 
-    if (guard.newpassword) {
-      fieldsToUpdate.newPassword = guard.newpassword;
-    }
-
-    [
-      "email",
-      "phoneNumber",
-      "address",
-      "sssId",
-      "philHealthId",
-      "pagibigId",
-    ].forEach((field) => {
-      if (changedFields.hasOwnProperty(field)) {
-        if (field === "sssId") {
-          fieldsToUpdate.SSSID = changedFields[field];
-        } else if (field === "philHealthId") {
-          fieldsToUpdate.PhilHealthID = changedFields[field];
-        } else if (field === "pagibigId") {
-          fieldsToUpdate.PagibigID = changedFields[field];
-        } else if (field === "email") {
-          fieldsToUpdate.email = changedFields[field].toLowerCase();
-        } else {
-          fieldsToUpdate[field] = changedFields[field];
-        }
+    ["email", "phoneNumber", "address"].forEach((field) => {
+      if (Object.prototype.hasOwnProperty.call(changedFields, field)) {
+        fieldsToUpdate[field] = field === "email" ? changedFields[field].toLowerCase() : changedFields[field];
       }
     });
 
@@ -196,9 +139,7 @@ export default function GuardProfile() {
       const res = await fetch(`${api}/api/guards/update-guard-profile`, {
         method: "PUT",
         credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(fieldsToUpdate),
       });
 
@@ -211,23 +152,19 @@ export default function GuardProfile() {
           theme: "dark",
         });
 
-        setIsModalOpen(false);
-        setConfirmationPassword("");
         setIsEditing(false);
         setChangedFields({});
-
         setGuard((prev) => ({
           ...prev,
-          currentPassword: "",
           newpassword: "",
           confirmNewPassword: "",
         }));
       } else {
-        setModalError(result.message || "Failed to update profile.");
+        toast.error(result.message || "Failed to update profile.");
       }
     } catch (error) {
       console.error("Error updating profile:", error);
-      setModalError("A server error occurred. Please try again later.");
+      toast.error("A server error occurred. Please try again later.");
     } finally {
       setIsSubmitting(false);
     }
@@ -236,15 +173,8 @@ export default function GuardProfile() {
   const handleChange = (e) => {
     let { name, value } = e.target;
 
-    // Phone number formatting
-    if (name === "phoneNumber") {
-      value = formatPHPhoneNumber(value);
-    }
-
-    // Numeric-only fields
-    if (["sssId", "philHealthId", "pagibigId"].includes(name)) {
-      value = value.replace(/\D/g, "");
-    }
+    if (["sssId", "philHealthId", "pagibigId", "guardId"].includes(name)) return;
+    if (name === "phoneNumber") value = formatPHPhoneNumber(value);
 
     setGuard((prevGuard) => ({
       ...prevGuard,
@@ -259,6 +189,12 @@ export default function GuardProfile() {
 
   const handleCancelEdit = () => {
     setIsEditing(false);
+    setChangedFields({});
+    setGuard((prev) => ({
+      ...prev,
+      newpassword: "",
+      confirmNewPassword: "",
+    }));
   };
 
   return (
@@ -269,15 +205,9 @@ export default function GuardProfile() {
             <ShieldUser size={50} className="text-blue-400" />
           </div>
 
-          <h2 className="text-2xl font-bold text-white">
-            {getPersonName(guard)}
-          </h2>
-
+          <h2 className="text-2xl font-bold text-white">{getPersonName(guard)}</h2>
           <p className="text-gray-400 text-sm">{guard.position}</p>
-
-          <p className="text-blue-400 text-xs font-mono mt-1">
-            ID: {guard.guardId}
-          </p>
+          <p className="text-blue-400 text-xs font-mono mt-1">ID: {guard.guardId}</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -315,7 +245,7 @@ export default function GuardProfile() {
             label="SSS ID"
             name="sssId"
             value={guard.sssId}
-            editable={isEditing}
+            editable={false}
             onChange={handleChange}
           />
 
@@ -324,7 +254,7 @@ export default function GuardProfile() {
             label="PhilHealth ID"
             name="philHealthId"
             value={guard.philHealthId}
-            editable={isEditing}
+            editable={false}
             onChange={handleChange}
           />
 
@@ -333,32 +263,32 @@ export default function GuardProfile() {
             label="Pag-IBIG ID"
             name="pagibigId"
             value={guard.pagibigId}
-            editable={isEditing}
+            editable={false}
             onChange={handleChange}
           />
         </div>
 
-        {isEditing && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <PasswordField
-              label="New Password (optional)"
-              name="newpassword"
-              value={guard.newpassword}
-              onChange={handleChange}
-              show={showNew}
-              setShow={setShowNew}
-            />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <PasswordField
+            label="New Password (optional)"
+            name="newpassword"
+            value={guard.newpassword}
+            onChange={handleChange}
+            show={showNew}
+            setShow={setShowNew}
+            disabled={!isEditing}
+          />
 
-            <PasswordField
-              label="Confirm New Password"
-              name="confirmNewPassword"
-              value={guard.confirmNewPassword}
-              onChange={handleChange}
-              show={showConfirm}
-              setShow={setShowConfirm}
-            />
-          </div>
-        )}
+          <PasswordField
+            label="Confirm New Password"
+            name="confirmNewPassword"
+            value={guard.confirmNewPassword}
+            onChange={handleChange}
+            show={showConfirm}
+            setShow={setShowConfirm}
+            disabled={!isEditing}
+          />
+        </div>
 
         <div className="flex justify-end mt-8">
           {isEditing ? (
@@ -372,9 +302,10 @@ export default function GuardProfile() {
 
               <button
                 onClick={handleInitiateSave}
-                className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-6 py-2 rounded-lg shadow-md"
+                disabled={isSubmitting}
+                className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-6 py-2 rounded-lg shadow-md disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Save Changes
+                {isSubmitting ? "Saving..." : "Save Changes"}
               </button>
             </>
           ) : (
@@ -388,91 +319,6 @@ export default function GuardProfile() {
           )}
         </div>
       </div>
-
-      {/* Confirmation Modal */}
-      <Transition appear show={isModalOpen} as={Fragment}>
-        <Dialog
-          as="div"
-          className="relative z-10"
-          onClose={() => setIsModalOpen(false)}
-        >
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black bg-opacity-50" />
-          </Transition.Child>
-
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4 text-center">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-[#1e293b] p-6 text-left align-middle shadow-xl transition-all border border-gray-700">
-                  <Dialog.Title className="text-lg font-medium text-white">
-                    Confirm Changes
-                  </Dialog.Title>
-
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-400">
-                      Enter your current password to confirm changes.
-                    </p>
-                  </div>
-
-                  <div className="mt-4 text-white">
-                    <PasswordField
-                      label="Current Password"
-                      name="confirmationPassword"
-                      value={confirmationPassword}
-                      onChange={(e) =>
-                        setConfirmationPassword(e.target.value)
-                      }
-                      show={showConfirmation}
-                      setShow={setShowConfirmation}
-                    />
-                  </div>
-
-                  {modalError && (
-                    <div className="mt-2 text-sm text-red-400 bg-red-900/50 p-2 rounded">
-                      {modalError}
-                    </div>
-                  )}
-
-                  <div className="mt-6 flex justify-end space-x-3">
-                    <button
-                      type="button"
-                      className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-md text-white"
-                      onClick={() => setIsModalOpen(false)}
-                    >
-                      Cancel
-                    </button>
-
-                    <button
-                      type="button"
-                      className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-md text-white disabled:bg-gray-500"
-                      onClick={handleConfirmUpdate}
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? "Confirming..." : "Confirm"}
-                    </button>
-                  </div>
-                </Dialog.Panel>
-              </Transition.Child>
-            </div>
-          </div>
-        </Dialog>
-      </Transition>
 
       <ToastContainer />
     </section>
@@ -503,17 +349,11 @@ function ProfileField({
             value={value}
             onChange={onChange}
             placeholder={placeholder}
-            inputMode={
-              name === "phoneNumber"
-                ? "tel"
-                : ["sssId", "philHealthId", "pagibigId"].includes(name)
-                ? "numeric"
-                : undefined
-            }
+            inputMode={name === "phoneNumber" ? "tel" : undefined}
             className="w-full bg-transparent border-b border-gray-500 focus:outline-none focus:border-blue-400 text-sm"
           />
         ) : (
-          <p className="text-gray-200 text-sm">{value || "—"}</p>
+          <p className="text-gray-200 text-sm">{value || "-"}</p>
         )}
       </div>
     </div>
@@ -527,9 +367,10 @@ function PasswordField({
   onChange,
   show,
   setShow,
+  disabled = false,
 }) {
   return (
-    <div className="relative bg-[#0f172a]/50 rounded-lg p-3 border border-gray-700 flex flex-col">
+    <div className={`relative bg-[#0f172a]/50 rounded-lg p-3 border border-gray-700 flex flex-col ${disabled ? "opacity-70" : ""}`}>
       <p className="text-xs text-gray-400 mb-1 flex items-center gap-2">
         <Lock className="text-blue-400 w-4 h-4" />
         {label}
@@ -540,14 +381,16 @@ function PasswordField({
         name={name}
         value={value}
         onChange={onChange}
-        className="bg-transparent border-b border-gray-500 focus:outline-none focus:border-blue-400 text-sm pr-8"
-        placeholder="••••••••"
+        disabled={disabled}
+        className="bg-transparent border-b border-gray-500 focus:outline-none focus:border-blue-400 text-sm pr-8 disabled:cursor-not-allowed"
+        placeholder="********"
       />
 
       <button
         type="button"
         onClick={() => setShow(!show)}
         className="absolute right-4 bottom-5 text-gray-400 hover:text-white"
+        aria-label={show ? "Hide password" : "Show password"}
       >
         {show ? <Eye size={16} /> : <EyeOff size={16} />}
       </button>

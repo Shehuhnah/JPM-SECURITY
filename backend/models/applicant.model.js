@@ -7,7 +7,17 @@ const applicantSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    middleName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     lastName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    suffix: {
       type: String,
       trim: true,
       default: "",

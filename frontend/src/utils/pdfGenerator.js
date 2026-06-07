@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import signature from '../assets/headerpdf/signature.png'
+import defaultSignature from '../assets/headerpdf/signature.png'
 
 /**
  * Helper: Formats name to Title Case (e.g. "SysTem TesTer" -> "System Tester")
@@ -62,10 +62,11 @@ export const generateCOEPDF = (request, options = {}) => {
     day: "numeric",
     year: "numeric",
   });
-  const location = options.location || "Indang, Cavite";
+  const location = options.location || "Mendez-Nunez, Cavite";
   const signatory = options.signatory || "KYLE CHRISTOPHER E. PASTRANA";
   const signatoryTitle = options.signatoryTitle || "HR and Head Administrator";
   const companyShort = options.companyShort || "JPMSA Corp.";
+  const signatureImage = options.signatureImage || defaultSignature;
 
   // --- TITLE ---
   doc.setFont("arial", "bold");
@@ -135,10 +136,11 @@ export const generateCOEPDF = (request, options = {}) => {
   
   // --- SIGNATORY ---
   y += 5;
-  if (signature) {
+  if (signatureImage) {
     const sigWidth = 30;
     const sigHeight = 40;
-    doc.addImage(signature, "PNG", pageWidth / 2 - sigWidth / 2, y, sigWidth, sigHeight);
+    const signatureFormat = String(signatureImage).startsWith("data:image/jpeg") ? "JPEG" : "PNG";
+    doc.addImage(signatureImage, signatureFormat, pageWidth / 2 - sigWidth / 2, y, sigWidth, sigHeight);
     y += sigHeight - 12;
   }
 

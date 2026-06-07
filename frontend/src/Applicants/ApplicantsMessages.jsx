@@ -39,6 +39,18 @@ const normalizePhilippinesPhone = (value) => {
   return value.trim();
 };
 
+const buildApplicantName = ({ firstName, middleName, lastName, suffix }) =>
+  [firstName, middleName, lastName, suffix].map((part) => part?.trim()).filter(Boolean).join(" ");
+
+const checkApplicantEmailInUse = async (email) => {
+  const res = await fetch(`${api}/api/applicant-messages/check-email?email=${encodeURIComponent(email)}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || "Failed to check applicant email.");
+  }
+  return Boolean(data.exists);
+};
+
 const formatDateTime = (timestamp) =>
   timestamp
     ? new Date(timestamp).toLocaleString([], {
@@ -115,7 +127,9 @@ export default function ApplicantsMessages() {
   const [previewImage, setPreviewImage] = useState(null);
   const [isPromptOpen, setIsPromptOpen] = useState(!session);
   const [firstNameInput, setFirstNameInput] = useState(() => session?.firstName ?? "");
+  const [middleNameInput, setMiddleNameInput] = useState(() => session?.middleName ?? "");
   const [lastNameInput, setLastNameInput] = useState(() => session?.lastName ?? "");
+  const [suffixInput, setSuffixInput] = useState(() => session?.suffix ?? "");
   const [emailInput, setEmailInput] = useState(session?.email ?? "");
   const [phoneInput, setPhoneInput] = useState(session?.phone ?? "");
   const [addressInput, setAddressInput] = useState(session?.address ?? "");
@@ -178,7 +192,9 @@ export default function ApplicantsMessages() {
   const persistSession = (data) => {
     setSession(data);
     if (data.firstName !== undefined) setFirstNameInput(data.firstName ?? "");
+    if (data.middleName !== undefined) setMiddleNameInput(data.middleName ?? "");
     if (data.lastName !== undefined) setLastNameInput(data.lastName ?? "");
+    if (data.suffix !== undefined) setSuffixInput(data.suffix ?? "");
     if (data.phone !== undefined) setPhoneInput(data.phone ?? "");
     if (data.email !== undefined) setEmailInput(data.email ?? "");
     if (data.address !== undefined) setAddressInput(data.address ?? "");
@@ -232,7 +248,9 @@ export default function ApplicantsMessages() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             firstName: session.firstName,
+            middleName: session.middleName,
             lastName: session.lastName,
+            suffix: session.suffix,
             name: session.name,
             email: session.email,
             phone: phonePayload,
@@ -248,7 +266,9 @@ export default function ApplicantsMessages() {
         const data = await res.json();
         const updatedSession = {
           firstName: data.applicant.firstName ?? session.firstName ?? "",
+          middleName: data.applicant.middleName ?? session.middleName ?? "",
           lastName: data.applicant.lastName ?? session.lastName ?? "",
+          suffix: data.applicant.suffix ?? session.suffix ?? "",
           name: data.applicant.name,
           email: data.applicant.email ?? session.email ?? "",
           applicantId: data.applicant._id,
@@ -380,7 +400,9 @@ export default function ApplicantsMessages() {
   const handleSubmitIdentity = async (e) => {
     e.preventDefault();
     const firstTrim = firstNameInput.trim();
+    const middleTrim = middleNameInput.trim();
     const lastTrim = lastNameInput.trim();
+    const suffixTrim = suffixInput.trim();
     if (!firstTrim || !lastTrim) {
       setError("Please provide both your first name and last name.");
       return;
@@ -404,19 +426,39 @@ export default function ApplicantsMessages() {
       setError("Please provide a valid email address.");
       return;
     }
-    setError("");
-    persistSession({
-      firstName: firstTrim,
-      lastName: lastTrim,
-      name: `${firstTrim} ${lastTrim}`,
-      email: emailTrim,
-      phone: phoneTrim,
-      address: addressTrim,
-    });
-    setEmailInput(emailTrim);
-    setPhoneInput(phoneTrim);
-    setAddressInput(addressTrim);
-    setIsPromptOpen(false);
+    try {
+      setError("");
+      setLoadingPage(true);
+      if (await checkApplicantEmailInUse(emailTrim)) {
+        const message = "This email is already used by another applicant.";
+        setError(message);
+        toast.error(message);
+        return;
+      }
+      persistSession({
+        firstName: firstTrim,
+        middleName: middleTrim,
+        lastName: lastTrim,
+        suffix: suffixTrim,
+        name: buildApplicantName({
+          firstName: firstTrim,
+          middleName: middleTrim,
+          lastName: lastTrim,
+          suffix: suffixTrim,
+        }),
+        email: emailTrim,
+        phone: phoneTrim,
+        address: addressTrim,
+      });
+      setEmailInput(emailTrim);
+      setPhoneInput(phoneTrim);
+      setAddressInput(addressTrim);
+      setIsPromptOpen(false);
+    } catch (err) {
+      setError(err.message || "Failed to check applicant email.");
+    } finally {
+      setLoadingPage(false);
+    }
   };
 
   const handleFileChange = (event) => {
@@ -517,7 +559,9 @@ export default function ApplicantsMessages() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               firstName: session.firstName,
+              middleName: session.middleName,
               lastName: session.lastName,
+              suffix: session.suffix,
               name: session.name,
               email: session.email,
               phone: session.phone || phoneInput,
@@ -530,7 +574,9 @@ export default function ApplicantsMessages() {
             const reinitData = await res.json();
             const updatedSession = {
               firstName: reinitData.applicant.firstName ?? session.firstName ?? "",
+              middleName: reinitData.applicant.middleName ?? session.middleName ?? "",
               lastName: reinitData.applicant.lastName ?? session.lastName ?? "",
+              suffix: reinitData.applicant.suffix ?? session.suffix ?? "",
               name: reinitData.applicant.name,
               email: reinitData.applicant.email ?? session.email ?? "",
               applicantId: reinitData.applicant._id,
@@ -945,7 +991,7 @@ export default function ApplicantsMessages() {
                 </p>
   
                 <form onSubmit={handleSubmitIdentity} className="mt-6 space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
                         First name<span className="text-red-500">*</span>
@@ -961,6 +1007,18 @@ export default function ApplicantsMessages() {
                     </div>
                     <div>
                       <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
+                        Middle name
+                      </label>
+                      <input
+                        type="text"
+                        value={middleNameInput}
+                        onChange={(e) => setMiddleNameInput(e.target.value)}
+                        className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
+                        placeholder="Santos"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
                         Last name<span className="text-red-500">*</span>
                       </label>
                       <input
@@ -970,6 +1028,18 @@ export default function ApplicantsMessages() {
                         className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
                         placeholder="Dela Cruz"
                         required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
+                        Suffix
+                      </label>
+                      <input
+                        type="text"
+                        value={suffixInput}
+                        onChange={(e) => setSuffixInput(e.target.value)}
+                        className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
+                        placeholder="Jr., Sr., III"
                       />
                     </div>
                   </div>
@@ -1016,9 +1086,10 @@ export default function ApplicantsMessages() {
                   </div>
                   <button
                     type="submit"
-                    className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition"
+                    disabled={loadingPage}
+                    className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Start chatting
+                    {loadingPage ? "Checking email..." : "Start chatting"}
                   </button>
                 </form>
               </Dialog.Panel>
@@ -1043,7 +1114,7 @@ export default function ApplicantsMessages() {
           />
         </div>
       )}
-      <ToastContainer position="bottom-right" autoClose={3000} />
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
   

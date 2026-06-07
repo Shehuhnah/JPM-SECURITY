@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { 
   Filter, RefreshCw, CheckCircle, XCircle, Clock, IdCardLanyard, 
   Eye, Download, FileText, Calendar, User, Phone, Mail, Shield, 
-  ReceiptText, X, ChevronRight, Search, Trash2, CalendarDays, ChevronDown 
+  ReceiptText, X, ChevronRight, Search, Trash2, CalendarDays, ChevronDown, Upload
 } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
@@ -15,6 +15,14 @@ import { getPersonName } from "../utils/name";
 
 const api = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
+
+const fileToDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 
 function SearchableStaffSelect({
   options,
@@ -107,6 +115,8 @@ export default function AdminCOE() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [declineReason, setDeclineReason] = useState("");
   const [salary, setSalary] = useState("");
+  const [signatureFile, setSignatureFile] = useState(null);
+  const [signaturePreview, setSignaturePreview] = useState("");
   const [staffOptions, setStaffOptions] = useState([]);
   const [createTarget, setCreateTarget] = useState("");
   const [createPurpose, setCreatePurpose] = useState("");
@@ -118,7 +128,7 @@ export default function AdminCOE() {
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const canManage = user?.role === "Admin";
 
   const selectedCreateTarget = staffOptions.find((option) => option.value === createTarget) || null;
@@ -276,6 +286,8 @@ export default function AdminCOE() {
     setSelectedAction(action);
     setSelectedRequest(request);
     setDeclineReason(""); 
+    setSignatureFile(null);
+    setSignaturePreview("");
     if (action === "accept") {
       setSalaryModal(true);   
       return;                 
@@ -313,10 +325,20 @@ export default function AdminCOE() {
         // 1. SANITIZE: Remove commas before sending to backend
         // "50,000" becomes "50000"
         const cleanSalary = salary.replace(/,/g, ""); 
+        if (!signatureFile) {
+          showToast("Please upload your e-signature before approving.", "error");
+          return;
+        }
+        const signatureDataUrl = await fileToDataUrl(signatureFile);
 
         body = { 
           action: "accept", 
-          approvedCOE: { salary: cleanSalary } 
+          approvedCOE: {
+            salary: cleanSalary,
+            signatory: user?.name || user?.fullName || user?.email || "Admin",
+            signatoryTitle: user?.position || "HR and Head Administrator",
+            signatureDataUrl,
+          } 
         };
       } else {
         body = { action: "decline", declineReason };
@@ -365,6 +387,8 @@ export default function AdminCOE() {
     } finally {
       closePopup();
       setSalary("");
+      setSignatureFile(null);
+      setSignaturePreview("");
     }
   };
 
@@ -395,13 +419,14 @@ export default function AdminCOE() {
               ? `PHP ${Number(approvedCOE.salary).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               : "Undefined",
           companyName: "JPM SECURITY AGENCY CORP",
-          companyAddress: "Indang, Cavite, Philippines",
+          companyAddress: "Mendez-Nunez, Cavite, Philippines",
           issuedDate: new Date(approvedCOE.issuedDate || Date.now()).toLocaleDateString("en-US", {
             month: "long", day: "numeric", year: "numeric",
           }),
-          location: "Indang, Cavite",
-          signatory: "KYLE CHRISTOPHER E. PASTRANA",
-          signatoryTitle: "HR and Head Administrator",
+          location: "Mendez-Nunez, Cavite",
+          signatory: approvedCOE.signatory || approvedCOE.issuedBy || "Admin",
+          signatoryTitle: approvedCOE.signatoryTitle || "HR and Head Administrator",
+          signatureImage: approvedCOE.signatureDataUrl,
           companyShort: "JPMSA Corp.",
         }
       );
@@ -1112,6 +1137,32 @@ export default function AdminCOE() {
                           }}
                       />
                   </div>
+                  <div className="mt-5">
+                    <label className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">
+                      Your E-Signature
+                    </label>
+                    <label className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-gray-600 bg-[#0f172a] px-4 py-3 text-sm text-gray-300 transition hover:border-blue-500/70 hover:bg-blue-500/5">
+                      <Upload size={18} className="text-blue-400" />
+                      <span className="min-w-0 flex-1 truncate">
+                        {signatureFile?.name || "Upload PNG or JPG signature"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg"
+                        className="hidden"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0] || null;
+                          setSignatureFile(file);
+                          setSignaturePreview(file ? URL.createObjectURL(file) : "");
+                        }}
+                      />
+                    </label>
+                    {signaturePreview && (
+                      <div className="mt-3 rounded-xl border border-gray-700 bg-white p-3">
+                        <img src={signaturePreview} alt="E-signature preview" className="mx-auto h-20 max-w-full object-contain" />
+                      </div>
+                    )}
+                  </div>
                </div>
 
                <div className="p-6 pt-2 flex gap-3">
@@ -1121,6 +1172,10 @@ export default function AdminCOE() {
                         // Remove commas before checking if it's empty
                         if (!salary.replace(/,/g, '').trim()) {
                             showToast("Please enter a salary amount.", "error");
+                            return;
+                        }
+                        if (!signatureFile) {
+                            showToast("Please upload your e-signature.", "error");
                             return;
                         }
                         setSalaryModal(false);

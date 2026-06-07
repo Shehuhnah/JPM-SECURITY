@@ -82,10 +82,13 @@ export const getApplicants = async (req, res) => {
 // 🟢 Create a new applicant
 export const createApplicant = async (req, res) => {
   try {
-    const { name, firstName, lastName, email, phone, address, position, applicationType } = req.body;
+    const { name, firstName, middleName, lastName, suffix, email, phone, address, position, applicationType } = req.body;
     const firstNameValue = firstName?.trim() || "";
+    const middleNameValue = middleName?.trim() || "";
     const lastNameValue = lastName?.trim() || "";
-    const normalizedName = name?.trim() || `${firstNameValue} ${lastNameValue}`.trim();
+    const suffixValue = suffix?.trim() || "";
+    const normalizedName =
+      name?.trim() || [firstNameValue, middleNameValue, lastNameValue, suffixValue].filter(Boolean).join(" ");
     const normalizedPhone = phone?.trim() || "";
 
     if (!["Admin", "Subadmin"].includes(req.user?.role)) {
@@ -99,6 +102,15 @@ export const createApplicant = async (req, res) => {
     if (!/^\+63\d{10}$/.test(normalizedPhone)) {
       return res.status(400).json({ message: "Phone number must be in +63 format." });
     }
+    if (!email?.trim()) {
+      return res.status(400).json({ message: "Email is required." });
+    }
+    const existingApplicant = await Applicant.findOne({
+      email: { $regex: `^${email.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" },
+    });
+    if (existingApplicant) {
+      return res.status(400).json({ message: "This email is already used by another applicant." });
+    }
 
     const normalizedType = applicationType === "Online" ? "Online" : "Walk-in";
 
@@ -108,7 +120,9 @@ export const createApplicant = async (req, res) => {
 
     const newApplicant = new Applicant({
       firstName: firstNameValue,
+      middleName: middleNameValue,
       lastName: lastNameValue,
+      suffix: suffixValue,
       name: normalizedName,
       email: email?.trim() || "",
       phone: normalizedPhone,

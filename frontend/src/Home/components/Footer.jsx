@@ -71,9 +71,7 @@ export default function Footer() {
               <li className="flex items-start gap-2">
                 <MapPin size={16} className="text-gray-400 mt-[2px]" />
                 <span>
-                  <strong>Main Office: </strong>Checkpoint, Purok 4, Brgy.
-                  Mataas na Lupa, Indang, Cavite 4122 <br />
-                  <strong>Sattelite Office: </strong>RGDM Bldg., Brgy.Galicia2,
+                  <strong>Main Office: </strong>RGDM Bldg., Brgy.Galicia2,
                   Mendez-Nunez, Cavite 4121
                 </span>
               </li>

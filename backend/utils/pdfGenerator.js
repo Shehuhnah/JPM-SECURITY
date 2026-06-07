@@ -14,6 +14,13 @@ const toTitleCase = (str) => {
     .join(' ');
 };
 
+const getImageBufferFromDataUrl = (dataUrl) => {
+  if (!dataUrl || typeof dataUrl !== 'string') return null;
+  const match = dataUrl.match(/^data:image\/(?:png|jpe?g|webp);base64,(.+)$/i);
+  if (!match) return null;
+  return Buffer.from(match[1], 'base64');
+};
+
 /**
  * Generate a simple COE PDF and save to disk. Returns object with fileName and publicPath
  * @param {Object} requestObj - approvedCOE object and request metadata
@@ -74,7 +81,8 @@ export const generateAndSaveCOE = async (requestObj, opts = {}) => {
 
       const startDate = approved.employmentStartDate || defaultStart;
       const endDate = approved.employmentEndDate || 'Present';
-      const issuedBy = approved.issuedBy || 'HR and Head Administrator';
+      const issuedBy = approved.signatory || approved.issuedBy || 'HR and Head Administrator';
+      const signatoryTitle = approved.signatoryTitle || 'HR and Head Administrator';
       const issuedDate = approved.issuedDate
         ? new Date(approved.issuedDate).toLocaleDateString('en-US', {
             month: 'long',
@@ -167,22 +175,23 @@ export const generateAndSaveCOE = async (requestObj, opts = {}) => {
       // ---- DATE LINE ----
       doc.font('Helvetica')
         .fontSize(11)
-        .text(`Given this ${issuedDate} at Indang, Cavite.`, { align: 'center' });
+        .text(`Given this ${issuedDate} at Mendez-Nunez, Cavite.`, { align: 'center' });
 
       doc.moveDown(3);
 
       // ---- SIGNATURE SECTION ----
+      const signatureBuffer = getImageBufferFromDataUrl(approved.signatureDataUrl);
       const signaturePath = path.join(process.cwd(), 'backend', 'assets', 'headerpdf', 'signature.png');
-      if (fs.existsSync(signaturePath)) {
+      if (signatureBuffer || fs.existsSync(signaturePath)) {
         // place signature roughly centered
         const sigWidth = 100;
         const sigX = leftMargin + (usableWidth - sigWidth) / 2;
-        doc.image(signaturePath, sigX, doc.y - 10, { width: sigWidth });
+        doc.image(signatureBuffer || signaturePath, sigX, doc.y - 10, { width: sigWidth });
       }
 
       doc.moveDown(2);
       doc.font('Helvetica-Bold').fontSize(11).text(issuedBy, { align: 'center' });
-      doc.font('Helvetica-Oblique').fontSize(10).text('HR and Head Administrator', { align: 'center' });
+      doc.font('Helvetica-Oblique').fontSize(10).text(signatoryTitle, { align: 'center' });
       doc.text('JPMSA Corp.', { align: 'center' });
 
       // ---- END ----

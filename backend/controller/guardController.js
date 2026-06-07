@@ -350,23 +350,7 @@ export const updateGuardProfile = async (req, res) => {
       return res.status(404).json({ success: false, message: "Guard not found." });
     }
 
-    const { fullName, email, address, phoneNumber, currentPassword, newPassword, SSSID, PhilHealthID, PagibigID } = req.body;
-    
-    // ALWAYS require currentPassword to authorize any changes.
-    if (!currentPassword) {
-        return res.status(400).json({
-            success: false,
-            message: "Current password is required to make any changes.",
-        });
-    }
-
-    const isMatch = await bcrypt.compare(currentPassword, guard.password);
-    if (!isMatch) {
-        return res.status(400).json({
-            success: false,
-            message: "Incorrect current password.",
-        });
-    }
+    const { fullName, email, address, phoneNumber, newPassword } = req.body;
 
     // At this point, the user is authenticated. We can apply changes.
     if (fullName) guard.fullName = fullName;
@@ -388,12 +372,8 @@ export const updateGuardProfile = async (req, res) => {
     }
     if (address) guard.address = address;
     if (phoneNumber) guard.phoneNumber = phoneNumber;
-    if (SSSID) guard.SSSID = SSSID;
-    if (PhilHealthID) guard.PhilHealthID = PhilHealthID;
-    if (PagibigID) guard.PagibigID = PagibigID;
 
     if (newPassword) {
-      // The password has already been checked, so we just set the new one.
       guard.password = newPassword; // Pre-save hook will hash it
     }
 

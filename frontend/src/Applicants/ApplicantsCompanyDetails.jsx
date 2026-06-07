@@ -14,7 +14,7 @@ export default function ApplicantsCompanyDetails() {
 
         {/* Company Info */}
         <h1 className="text-2xl font-bold text-gray-800 mb-2">JPM Security Agency</h1>
-        <p className="text-gray-600 mb-1">Checkpoint, Purok 4, Brgy. Mataas na Lupa, Indang, Cavite, Indang, Philippines</p>
+        <p className="text-gray-600 mb-1">RGDM Bldg., Brgy.Galicia2, Mendez-Nunez, Cavite, Philippines</p>
         <p className="text-gray-600 mb-1">📞 0917 144 6563</p>
         <p className="text-gray-600 mb-1">✉️ jpmsecagency@gmail.com</p>
 
