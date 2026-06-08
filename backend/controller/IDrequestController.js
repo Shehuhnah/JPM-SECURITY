@@ -2,6 +2,7 @@ import IDRequest from "../models/IDRequest.model.js";
 import mongoose from "mongoose";
 import Guard from "../models/guard.model.js";
 import User from "../models/User.model.js";
+import { sendMail } from "../utils/mailer.js";
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -9,6 +10,7 @@ const parsePositiveInt = (value, fallback) => {
 };
 
 const ALLOWED_REQUEST_TYPES = ["ID only", "Lanyard only", "ID with lanyard"];
+const logoUrl = "https://jpm-security.onrender.com/assets/headerpdf/jpmlogo.png";
 
 const getDisplayName = (person) => {
   if (!person) return "";
@@ -18,6 +20,169 @@ const getDisplayName = (person) => {
   const combinedName = `${firstName} ${lastName}`.trim();
 
   return combinedName || person.fullName?.trim() || person.name?.trim() || "";
+};
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const getRequestRecipient = (request) => {
+  const person = request.guard || request.admin;
+  return {
+    name: getDisplayName(person) || "Personnel",
+    email: person?.email || "",
+  };
+};
+
+const formatEmailDateTime = (value) => {
+  if (!value) return "Not scheduled";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not scheduled";
+  return date.toLocaleString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const isValidPickupDateTime = (value) => {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const day = date.getDay();
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+
+  return day >= 1 && day <= 5 && (hours > 6 || hours === 6) && (hours < 21 || (hours === 21 && minutes === 0));
+};
+
+const sendIDRequestStatusEmail = async (request, status) => {
+  const { name, email } = getRequestRecipient(request);
+  if (!email) {
+    console.warn(`ID request ${status} email skipped: requester has no email. ID: ${request._id}`);
+    return;
+  }
+
+  const statusText = status.toLowerCase();
+  const notes = String(request.adminRemarks || "").trim();
+  const subject = `ID Request ${status} - JPM Security`;
+  const safeName = escapeHtml(name);
+  const safeStatus = escapeHtml(status);
+  const safeStatusText = escapeHtml(statusText);
+  const safeRequestType = escapeHtml(request.requestType);
+  const safePickupDate = escapeHtml(formatEmailDateTime(request.pickupDate));
+  const safeNotes = escapeHtml(notes);
+  const statusTheme = status === "Approved"
+    ? {
+        header: "linear-gradient(135deg,#065f46 0%,#059669 50%,#10b981 100%)",
+        panelBg: "#ecfdf5",
+        panelBorder: "#a7f3d0",
+        panelText: "#065f46",
+      }
+    : {
+        header: "linear-gradient(135deg,#7f1d1d 0%,#dc2626 50%,#ef4444 100%)",
+        panelBg: "#fef2f2",
+        panelBorder: "#fecaca",
+        panelText: "#991b1b",
+      };
+
+  const html = `
+    <div style="margin:0;padding:0;background:#f5f7fb;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f5f7fb;">
+        <tr>
+          <td align="center" style="padding:24px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+              <tr>
+                <td align="center" style="background:${statusTheme.header};padding:36px 24px;color:#ffffff;">
+                  <img src="${logoUrl}" alt="JPM Security Agency" width="160" style="display:block;height:auto;margin:0 auto 12px auto;" />
+                  <div style="font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:.2px;">ID Request ${safeStatus}</div>
+                  <div style="font-family:Arial,Helvetica,sans-serif;color:rgba(255,255,255,0.9);font-size:14px;margin-top:5px;">Personnel ID Update</div>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:28px 24px 8px 24px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:15px;line-height:1.7;">
+                  <p style="margin:0 0 12px 0;">Hello <strong>${safeName}</strong>,</p>
+                  <p style="margin:0 0 16px 0;">Your <strong>${safeRequestType}</strong> request has been <strong>${safeStatusText}</strong>. Please review the details below.</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:0 24px 0 24px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+                    <tr>
+                      <td colspan="2" style="padding:14px 16px;border-bottom:1px solid #e2e8f0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:14px;font-weight:700;">ID Request Details</td>
+                    </tr>
+                    <tr>
+                      <td style="width:36%;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;font-weight:600;">Request Type</td>
+                      <td style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:14px;">${safeRequestType}</td>
+                    </tr>
+                    ${status === "Approved" ? `<tr>
+                      <td style="width:36%;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;font-weight:600;">Pickup Date & Time</td>
+                      <td style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:14px;">${safePickupDate}</td>
+                    </tr>` : ""}
+                    <tr>
+                      <td style="width:36%;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;font-weight:600;">Status</td>
+                      <td style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:${statusTheme.panelText};font-size:14px;font-weight:bold;">${safeStatus}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              ${notes ? `<tr>
+                <td style="padding:18px 24px 0 24px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${statusTheme.panelBg};border:1px solid ${statusTheme.panelBorder};border-radius:10px;">
+                    <tr>
+                      <td style="padding:14px 16px 6px 16px;font-family:Arial,Helvetica,sans-serif;color:${statusTheme.panelText};font-size:13px;font-weight:700;">Admin Notes</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:0 16px 16px 16px;font-family:Arial,Helvetica,sans-serif;color:${statusTheme.panelText};font-size:14px;line-height:1.7;">${safeNotes.replace(/\n/g, "<br />")}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>` : ""}
+              <tr>
+                <td style="padding:18px 24px 0 24px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;">
+                    <tr>
+                      <td style="padding:14px 16px;font-family:Arial,Helvetica,sans-serif;color:#1e3a8a;font-size:13px;line-height:1.7;">
+                        Please contact HR if you have questions about this ID request update.
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:22px 24px 26px 24px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;border-top:1px solid #e2e8f0;">
+                  Best regards,<br />
+                  <strong>JPM Security Agency HR Team</strong>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
+
+  const text = [
+    `Hello ${name},`,
+    `Your ${request.requestType} request has been ${statusText}.`,
+    status === "Approved" ? `Pickup date and time: ${formatEmailDateTime(request.pickupDate)}` : "",
+    `Status: ${status}`,
+    notes ? `Notes: ${notes}` : "",
+    "Please contact HR if you have questions about this update.",
+  ].filter(Boolean).join("\n");
+
+  try {
+    await sendMail({ to: email, subject, html, text });
+  } catch (error) {
+    console.error(`Failed to send ID request ${statusText} email:`, error.message);
+  }
 };
 
 // --- CREATE REQUEST ---
@@ -67,6 +232,28 @@ export const createRequest = async (req, res) => {
       requestData.guard = userId;
     } else {
       requestData.admin = userId; // <--- Uses the new field for Admin/Subadmin
+    }
+
+    const now = new Date();
+    const activeStatusFilter = {
+      $or: [
+        { status: "Pending" },
+        { status: "Approved", pickupDate: { $exists: false } },
+        { status: "Approved", pickupDate: null },
+        { status: "Approved", pickupDate: { $gte: now } },
+      ],
+    };
+    const activeRequestFilter = requestData.guard
+      ? { guard: requestData.guard, ...activeStatusFilter }
+      : { admin: requestData.admin, ...activeStatusFilter };
+
+    const existingActiveRequest = await IDRequest.findOne(activeRequestFilter).select("_id status pickupDate");
+    if (existingActiveRequest) {
+      const message =
+        existingActiveRequest.status === "Pending"
+          ? "You already have a pending ID request. Please wait for admin review before submitting another request."
+          : "You already have an approved ID request scheduled for pickup. Please complete that request before submitting another one.";
+      return res.status(409).json({ message });
     }
 
     const newRequest = await IDRequest.create(requestData);
@@ -229,7 +416,13 @@ export const updateRequest = async (req, res) => {
       adminRemarks: adminRemarks || "",
     };
 
-    if (status === "Approved" && pickupDate) {
+    if (status === "Approved") {
+      if (!pickupDate) {
+        return res.status(400).json({ message: "Pickup date and time is required for approved ID requests." });
+      }
+      if (!isValidPickupDateTime(pickupDate)) {
+        return res.status(400).json({ message: "Pickup must be scheduled on a weekday between 6:00 AM and 9:00 PM." });
+      }
       updateFields.pickupDate = pickupDate;
     }
 
@@ -243,6 +436,10 @@ export const updateRequest = async (req, res) => {
 
     if (!updatedRequest) {
       return res.status(404).json({ message: "Request not found." });
+    }
+
+    if (["Approved", "Declined"].includes(status)) {
+      await sendIDRequestStatusEmail(updatedRequest, status);
     }
 
     res.status(200).json({

@@ -5,6 +5,9 @@ import Guard from "../models/guard.model.js";
 import User from "../models/User.model.js";
 import fs from "fs";
 import path from "path";
+import { sendMail } from "../utils/mailer.js";
+
+const logoUrl = "https://jpm-security.onrender.com/assets/headerpdf/jpmlogo.png";
 
 const getDisplayName = (person) => {
   if (!person) return "";
@@ -14,6 +17,165 @@ const getDisplayName = (person) => {
   const combinedName = `${firstName} ${lastName}`.trim();
 
   return combinedName || person.fullName?.trim() || person.name?.trim() || "";
+};
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const getCOERequester = (request) => {
+  const person = request.requesterRole === "guard" ? request.guard : request.subadmin;
+  return {
+    name: getDisplayName(person) || "Personnel",
+    email: person?.email || "",
+  };
+};
+
+const formatEmailDate = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const sendCOEStatusEmail = async (request) => {
+  const { name, email } = getCOERequester(request);
+  if (!email) {
+    console.warn(`COE ${request.status} email skipped: requester has no email. ID: ${request._id}`);
+    return;
+  }
+
+  const status = request.status;
+  const statusText = status.toLowerCase();
+  const notes = status === "Declined"
+    ? String(request.declineReason || "").trim()
+    : String(request.approvedCOE?.adminComments || "").trim();
+  const subject = `COE Request ${status} - JPM Security`;
+  const safeName = escapeHtml(name);
+  const safeStatus = escapeHtml(status);
+  const safeStatusText = escapeHtml(statusText);
+  const safePurpose = escapeHtml(request.purpose);
+  const safeProcessedBy = escapeHtml(request.processedBy || "JPM Security");
+  const safeIssuedDate = escapeHtml(formatEmailDate(request.approvedCOE?.issuedDate));
+  const safeNotes = escapeHtml(notes);
+  const statusTheme = status === "Accepted"
+    ? {
+        header: "linear-gradient(135deg,#065f46 0%,#059669 50%,#10b981 100%)",
+        panelBg: "#ecfdf5",
+        panelBorder: "#a7f3d0",
+        panelText: "#065f46",
+      }
+    : {
+        header: "linear-gradient(135deg,#7f1d1d 0%,#dc2626 50%,#ef4444 100%)",
+        panelBg: "#fef2f2",
+        panelBorder: "#fecaca",
+        panelText: "#991b1b",
+      };
+
+  const html = `
+    <div style="margin:0;padding:0;background:#f5f7fb;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f5f7fb;">
+        <tr>
+          <td align="center" style="padding:24px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+              <tr>
+                <td align="center" style="background:${statusTheme.header};padding:36px 24px;color:#ffffff;">
+                  <img src="${logoUrl}" alt="JPM Security Agency" width="160" style="display:block;height:auto;margin:0 auto 12px auto;" />
+                  <div style="font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:.2px;">COE Request ${safeStatus}</div>
+                  <div style="font-family:Arial,Helvetica,sans-serif;color:rgba(255,255,255,0.9);font-size:14px;margin-top:5px;">Certificate of Employment Update</div>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:28px 24px 8px 24px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:15px;line-height:1.7;">
+                  <p style="margin:0 0 12px 0;">Hello <strong>${safeName}</strong>,</p>
+                  <p style="margin:0 0 16px 0;">Your Certificate of Employment request has been <strong>${safeStatusText}</strong>. Please review the details below.</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:0 24px 0 24px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+                    <tr>
+                      <td colspan="2" style="padding:14px 16px;border-bottom:1px solid #e2e8f0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:14px;font-weight:700;">COE Request Details</td>
+                    </tr>
+                    <tr>
+                      <td style="width:36%;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;font-weight:600;">Purpose</td>
+                      <td style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:14px;">${safePurpose}</td>
+                    </tr>
+                    ${status === "Accepted" ? `<tr>
+                      <td style="width:36%;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;font-weight:600;">Issued Date</td>
+                      <td style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:14px;">${safeIssuedDate}</td>
+                    </tr>` : ""}
+                    <tr>
+                      <td style="width:36%;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;font-weight:600;">Status</td>
+                      <td style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:${statusTheme.panelText};font-size:14px;font-weight:bold;">${safeStatus}</td>
+                    </tr>
+                    <tr>
+                      <td style="width:36%;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;font-weight:600;">Processed By</td>
+                      <td style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:14px;">${safeProcessedBy}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              ${notes ? `<tr>
+                <td style="padding:18px 24px 0 24px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${statusTheme.panelBg};border:1px solid ${statusTheme.panelBorder};border-radius:10px;">
+                    <tr>
+                      <td style="padding:14px 16px 6px 16px;font-family:Arial,Helvetica,sans-serif;color:${statusTheme.panelText};font-size:13px;font-weight:700;">Review Note</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:0 16px 16px 16px;font-family:Arial,Helvetica,sans-serif;color:${statusTheme.panelText};font-size:14px;line-height:1.7;">${safeNotes.replace(/\n/g, "<br />")}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>` : ""}
+              <tr>
+                <td style="padding:18px 24px 0 24px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;">
+                    <tr>
+                      <td style="padding:14px 16px;font-family:Arial,Helvetica,sans-serif;color:#1e3a8a;font-size:13px;line-height:1.7;">
+                        Please contact HR if you have questions about this COE request update.
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:22px 24px 26px 24px;font-family:Arial,Helvetica,sans-serif;color:#475569;font-size:13px;border-top:1px solid #e2e8f0;">
+                  Best regards,<br />
+                  <strong>JPM Security Agency HR Team</strong>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
+
+  const text = [
+    `Hello ${name},`,
+    `Your Certificate of Employment request has been ${statusText}.`,
+    `Purpose: ${request.purpose}`,
+    status === "Accepted" && request.approvedCOE?.issuedDate ? `Issued date: ${formatEmailDate(request.approvedCOE.issuedDate)}` : "",
+    `Status: ${status}`,
+    `Processed by: ${request.processedBy || "JPM Security"}`,
+    notes ? `Note: ${notes}` : "",
+    "Please contact HR if you have questions about this update.",
+  ].filter(Boolean).join("\n");
+
+  try {
+    await sendMail({ to: email, subject, html, text });
+  } catch (error) {
+    console.error(`Failed to send COE ${statusText} email:`, error.message);
+  }
 };
 
 // Create new COE request (guard or subadmin)
@@ -256,6 +418,7 @@ export const updateStatus = async (req, res) => {
         console.error('PDF generation error:', pdfErr);
       }
 
+      await sendCOEStatusEmail(reqObj);
       return res.json(reqObj);
     }
 
@@ -265,6 +428,7 @@ export const updateStatus = async (req, res) => {
       reqObj.processedAt = new Date();
       reqObj.processedBy = processedBy;
       await reqObj.save();
+      await sendCOEStatusEmail(reqObj);
       return res.json(reqObj);
     }
 

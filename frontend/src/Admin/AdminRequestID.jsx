@@ -50,6 +50,20 @@ const formatPickupDateTime = (value) => {
     minute: "2-digit",
   });
 };
+const isValidPickupDateTime = (value) => {
+  if (!value) return false;
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return false;
+
+  const day = date.getDay();
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const isWeekday = day >= 1 && day <= 5;
+  const isWithinHours = hours > 6 || (hours === 6 && minutes >= 0);
+  const isBeforeClosing = hours < 21 || (hours === 21 && minutes === 0);
+
+  return isWeekday && isWithinHours && isBeforeClosing;
+};
 const getEmployeeDisplayName = (person, fallbackRole = "") => {
   if (!person) return fallbackRole || "Unknown";
   const firstName = person.firstName?.trim() || "";
@@ -338,6 +352,10 @@ export default function RequestedIDs() {
     }
     if (new Date(pickupDate) < new Date()) {
       toast.error("Pickup date and time cannot be in the past.");
+      return;
+    }
+    if (!isValidPickupDateTime(pickupDate)) {
+      toast.error("Pickup must be scheduled on a weekday between 6:00 AM and 9:00 PM.");
       return;
     }
     try {
@@ -1101,10 +1119,20 @@ export default function RequestedIDs() {
                     <input
                       type="datetime-local"
                       value={pickupDate}
-                      onChange={(e) => setPickupDate(e.target.value)}
+                      onChange={(e) => {
+                        const nextPickupDate = e.target.value;
+                        setPickupDate(nextPickupDate);
+                        if (nextPickupDate && !isValidPickupDateTime(nextPickupDate)) {
+                          toast.warn("Pickup must be on a weekday between 6:00 AM and 9:00 PM.");
+                        }
+                      }}
                       min={getMinDateTimeString()}
+                      step={1800}
                       className="w-full rounded-xl border border-gray-700 bg-[#1e293b] px-4 py-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-blue-500/60 [color-scheme:dark]"
                     />
+                    <p className="mt-2 text-xs text-slate-500">
+                      Weekdays only, 6:00 AM to 9:00 PM.
+                    </p>
                   </div>
                   <div>
                     <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Admin Notes (Optional)</label>

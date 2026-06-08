@@ -54,6 +54,15 @@ export default function RequestIDPage() {
   const [message, setMessage] = useState("");
   const [loadingPage, setLoadingPage] = useState(false);
   const [dateFilter, setDateFilter] = useState("");
+  const activeRequest = requests.find((request) => {
+    if (request.status === "Pending") return true;
+    if (request.status !== "Approved") return false;
+    if (!request.pickupDate) return true;
+
+    const pickupDate = new Date(request.pickupDate);
+    return Number.isNaN(pickupDate.getTime()) || pickupDate >= new Date();
+  });
+  const hasActiveRequest = Boolean(activeRequest);
 
   // Fetch requests for the current user (Guard OR Subadmin)
   useEffect(() => {
@@ -88,6 +97,14 @@ export default function RequestIDPage() {
   // Submit new ID/Lanyard request
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (hasActiveRequest) {
+      setMessage(
+        activeRequest.status === "Pending"
+          ? "You already have a pending ID request. Please wait for admin review before submitting another request."
+          : "You already have an approved ID request scheduled for pickup. Please complete that request before submitting another one."
+      );
+      return;
+    }
     if (!form.requestType || !form.reason.trim()) {
       setMessage("⚠️ Please select a request type and provide a reason.");
       return;
@@ -111,7 +128,8 @@ export default function RequestIDPage() {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to submit request");
+      const result = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(result?.message || "Failed to submit request");
 
       // Refresh list
       const res2 = await fetch(`${api}/api/idrequests/myrequests`, {
@@ -127,7 +145,7 @@ export default function RequestIDPage() {
       setMessage("✅ Your request has been submitted successfully!");
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
-      setMessage("❌ Error submitting request. Please try again.");
+      setMessage(error.message || "Error submitting request. Please try again.");
     } finally {
       setLoadingPage(false);
     }
@@ -170,6 +188,15 @@ export default function RequestIDPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {hasActiveRequest && (
+            <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-200">
+              {activeRequest.status === "Pending"
+                ? "You have a pending ID request. New requests are disabled until it is reviewed."
+                : `You have an approved ID request scheduled for pickup${
+                    activeRequest.pickupDate ? ` on ${formatPickupDateTime(activeRequest.pickupDate)}` : ""
+                  }. New requests are disabled until it is completed.`}
+            </div>
+          )}
           <div>
             <label className="block text-gray-300 font-medium mb-2 text-sm sm:text-base">
               Type of Request
@@ -178,6 +205,7 @@ export default function RequestIDPage() {
               name="requestType"
               value={form.requestType}
               onChange={(e) => setForm({ ...form, requestType: e.target.value })}
+              disabled={hasActiveRequest || loadingPage}
               className="w-full bg-[#0f172a] border border-gray-700 rounded-lg p-3 text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
             >
               <option value="">Select an option</option>
@@ -197,6 +225,7 @@ export default function RequestIDPage() {
               onChange={(e) => setForm({ ...form, reason: e.target.value })}
               placeholder="Example: Lost my ID, newly hired, damaged lanyard..."
               rows="4"
+              disabled={hasActiveRequest || loadingPage}
               className="w-full bg-[#0f172a] border border-gray-700 rounded-lg p-3 text-gray-100 focus:ring-2 focus:ring-blue-500 resize-none text-sm sm:text-base"
             />
           </div>
@@ -204,10 +233,10 @@ export default function RequestIDPage() {
           <div className="flex justify-center">
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || loadingPage || hasActiveRequest}
               className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:from-gray-600 disabled:to-gray-500 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition flex items-center justify-center gap-2 text-sm sm:text-base"
             >
-              {loading ? (
+              {loading || loadingPage ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   Submitting...
