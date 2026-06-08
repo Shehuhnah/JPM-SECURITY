@@ -118,10 +118,6 @@ export const createApplicant = async (req, res) => {
 
     const normalizedType = applicationType === "Online" ? "Online" : "Walk-in";
 
-    if (normalizedType === "Walk-in" && !middleNameValue) {
-      return res.status(400).json({ message: "Middle name is required for walk-in applicants." });
-    }
-
     if (normalizedType === "Walk-in" && !req.file) {
       return res.status(400).json({ message: "Resume is required for walk-in applicants." });
     }

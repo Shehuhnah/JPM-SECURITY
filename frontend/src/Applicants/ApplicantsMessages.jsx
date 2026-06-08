@@ -407,8 +407,8 @@ export default function ApplicantsMessages() {
     const middleTrim = middleNameInput.trim();
     const lastTrim = lastNameInput.trim();
     const suffixTrim = suffixInput.trim();
-    if (!firstTrim || !middleTrim || !lastTrim) {
-      setError("Please provide your first name, middle name, and last name.");
+    if (!firstTrim || !lastTrim) {
+      setError("Please provide your first name and last name.");
       return;
     }
     const emailTrim = emailInput.trim();
@@ -1011,7 +1011,7 @@ export default function ApplicantsMessages() {
                     </div>
                     <div>
                       <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
-                        Middle name<span className="text-red-500">*</span>
+                        Middle name <span className="text-gray-500 normal-case">(optional)</span>
                       </label>
                       <input
                         type="text"
@@ -1019,7 +1019,6 @@ export default function ApplicantsMessages() {
                         onChange={(e) => setMiddleNameInput(e.target.value)}
                         className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
                         placeholder="Santos"
-                        required
                       />
                     </div>
                     <div>

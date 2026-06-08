@@ -303,9 +303,6 @@ export default function ApplicantsList() {
         applicationType: walkInForm.applicationType,
       };
 
-      if (!payload.middleName) {
-        throw new Error("Middle name is required for walk-in applicants.");
-      }
       if (!/^\+63\d{10}$/.test(payload.phone)) {
         throw new Error("Phone number must be in +63 format.");
       }
@@ -1897,12 +1894,11 @@ export default function ApplicantsList() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm text-gray-300 mb-2">Middle Name<span className="text-red-500">*</span></label>
+                          <label className="block text-sm text-gray-300 mb-2">Middle Name <span className="text-gray-500 text-xs">(optional)</span></label>
                           <input
                             name="middleName"
                             value={walkInForm.middleName}
                             onChange={handleWalkInChange}
-                            required
                             className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
                             placeholder="Santos"
                           />

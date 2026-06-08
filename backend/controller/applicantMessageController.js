@@ -88,8 +88,8 @@ export const initApplicantConversation = async (req, res) => {
     if (!normalizedName) {
       return res.status(400).json({ message: "Applicant name is required." });
     }
-    if (!firstNameValue || !middleNameValue || !lastNameValue) {
-      return res.status(400).json({ message: "First name, middle name, and last name are required." });
+    if (!firstNameValue || !lastNameValue) {
+      return res.status(400).json({ message: "First name and last name are required." });
     }
     if (!allowedSuffixes.includes(suffixValue)) {
       return res.status(400).json({ message: "Invalid suffix selected." });
