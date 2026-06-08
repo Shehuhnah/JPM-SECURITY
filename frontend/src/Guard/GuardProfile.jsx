@@ -39,6 +39,10 @@ export default function GuardProfile() {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
+  const [verificationPassword, setVerificationPassword] = useState("");
+  const [showVerificationPassword, setShowVerificationPassword] = useState(false);
+
   const [guard, setGuard] = useState({
     fullName: "",
     firstName: "",
@@ -100,7 +104,7 @@ export default function GuardProfile() {
     fetchProfile();
   }, [guardData, navigate, loading]);
 
-  const handleInitiateSave = async () => {
+  const handleInitiateSave = () => {
     const hasPasswordChange = Boolean(guard.newpassword);
     const hasProfileInfoChange = Object.keys(changedFields).some(
       (key) => !["newpassword", "confirmNewPassword"].includes(key)
@@ -124,9 +128,23 @@ export default function GuardProfile() {
       return;
     }
 
+    setIsVerifyingPassword(true);
+    setVerificationPassword("");
+  };
+
+  const handleConfirmSave = async (e) => {
+    if (e) e.preventDefault();
+    if (!verificationPassword) {
+      toast.error("Please enter your current password.");
+      return;
+    }
+
     setIsSubmitting(true);
 
-    const fieldsToUpdate = {};
+    const hasPasswordChange = Boolean(guard.newpassword);
+    const fieldsToUpdate = {
+      currentPassword: verificationPassword,
+    };
     if (hasPasswordChange) fieldsToUpdate.newPassword = guard.newpassword;
 
     ["email", "phoneNumber", "address"].forEach((field) => {
@@ -159,6 +177,8 @@ export default function GuardProfile() {
           newpassword: "",
           confirmNewPassword: "",
         }));
+        setIsVerifyingPassword(false);
+        setVerificationPassword("");
       } else {
         toast.error(result.message || "Failed to update profile.");
       }
@@ -319,6 +339,65 @@ export default function GuardProfile() {
           )}
         </div>
       </div>
+
+      {isVerifyingPassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="w-full max-w-md bg-[#1e293b] border border-gray-700 rounded-2xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3 border-b border-gray-700 pb-3">
+              <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
+                <Lock size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Security Verification</h3>
+                <p className="text-xs text-gray-400">Please verify your identity to save changes.</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmSave} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm text-gray-300 block">Current Password</label>
+                <div className="relative">
+                  <input
+                    type={showVerificationPassword ? "text" : "password"}
+                    value={verificationPassword}
+                    onChange={(e) => setVerificationPassword(e.target.value)}
+                    placeholder="Enter current password"
+                    autoFocus
+                    className="w-full bg-[#0f172a] border border-gray-600 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowVerificationPassword(!showVerificationPassword)}
+                    className="absolute right-3 top-2.5 text-gray-400 hover:text-white"
+                  >
+                    {showVerificationPassword ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsVerifyingPassword(false);
+                    setVerificationPassword("");
+                  }}
+                  className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition disabled:opacity-50"
+                >
+                  {isSubmitting ? "Verifying..." : "Confirm & Save"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <ToastContainer />
     </section>

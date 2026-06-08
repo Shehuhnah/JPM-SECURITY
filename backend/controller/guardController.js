@@ -350,7 +350,16 @@ export const updateGuardProfile = async (req, res) => {
       return res.status(404).json({ success: false, message: "Guard not found." });
     }
 
-    const { fullName, email, address, phoneNumber, newPassword } = req.body;
+    const { currentPassword, fullName, email, address, phoneNumber, newPassword } = req.body;
+
+    if (!currentPassword) {
+      return res.status(400).json({ success: false, message: "Current password is required to save changes." });
+    }
+
+    const isMatch = await guard.matchPassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: "Incorrect current password." });
+    }
 
     // At this point, the user is authenticated. We can apply changes.
     if (fullName) guard.fullName = fullName;

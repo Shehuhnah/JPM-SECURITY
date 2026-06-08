@@ -70,6 +70,7 @@ const APPLICANT_RESUME_ERROR =
 const INTERVIEW_MIN_TIME = "06:00";
 const INTERVIEW_MAX_TIME = "21:00";
 const INTERVIEW_SCHEDULE_MESSAGE = "Interview schedules are only allowed on weekdays from 6:00 AM to 9:00 PM.";
+const SUFFIX_OPTIONS = ["N/A", "Jr.", "Sr.", "II", "III", "IV", "V"];
 
 const parseDateInput = (value) => {
   if (!value) return null;
@@ -103,7 +104,10 @@ const isAllowedInterviewTime = (value) =>
   Boolean(value) && value >= INTERVIEW_MIN_TIME && value <= INTERVIEW_MAX_TIME;
 
 const buildApplicantName = ({ firstName, middleName, lastName, suffix }) =>
-  [firstName, middleName, lastName, suffix].map((part) => part?.trim()).filter(Boolean).join(" ");
+  [firstName, middleName, lastName, suffix === "N/A" ? "" : suffix]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(" ");
 
 const checkApplicantEmailInUse = async (email) => {
   const res = await fetch(`${api}/api/applicant-messages/check-email?email=${encodeURIComponent(email)}`);
@@ -162,7 +166,7 @@ export default function ApplicantsList() {
     firstName: "",
     middleName: "",
     lastName: "",
-    suffix: "",
+    suffix: "N/A",
     sex: "Male",
     email: "",
     phone: "",
@@ -264,7 +268,7 @@ export default function ApplicantsList() {
       firstName: "",
       middleName: "",
       lastName: "",
-      suffix: "",
+      suffix: "N/A",
       sex: "Male",
       email: "",
       phone: "",
@@ -299,6 +303,9 @@ export default function ApplicantsList() {
         applicationType: walkInForm.applicationType,
       };
 
+      if (!payload.middleName) {
+        throw new Error("Middle name is required for walk-in applicants.");
+      }
       if (!/^\+63\d{10}$/.test(payload.phone)) {
         throw new Error("Phone number must be in +63 format.");
       }
@@ -723,8 +730,9 @@ export default function ApplicantsList() {
       if (!res.ok) {
         throw new Error('Failed to send interview email.');
       }
+      const data = await res.json().catch(() => ({}));
 
-      toast.success(`Interview invitation sent to ${applicant.name}`);
+      toast.success(data.message || `Interview invitation sent to ${applicant.name}`);
 
       
       const dateStr = interviewType === "range" ? interviewStart : interviewDate;
@@ -1889,11 +1897,12 @@ export default function ApplicantsList() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm text-gray-300 mb-2">Middle Name</label>
+                          <label className="block text-sm text-gray-300 mb-2">Middle Name<span className="text-red-500">*</span></label>
                           <input
                             name="middleName"
                             value={walkInForm.middleName}
                             onChange={handleWalkInChange}
+                            required
                             className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
                             placeholder="Santos"
                           />
@@ -1911,13 +1920,18 @@ export default function ApplicantsList() {
                         </div>
                         <div>
                           <label className="block text-sm text-gray-300 mb-2">Suffix</label>
-                          <input
+                          <select
                             name="suffix"
                             value={walkInForm.suffix}
                             onChange={handleWalkInChange}
-                            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70"
-                            placeholder="Jr., Sr., III"
-                          />
+                            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/70 [color-scheme:dark]"
+                          >
+                            {SUFFIX_OPTIONS.map((option) => (
+                              <option key={option} value={option} className="bg-[#0f172a]">
+                                {option}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                         <div>
                           <label className="block text-sm text-gray-300 mb-2">Position<span className="text-red-500">*</span></label>

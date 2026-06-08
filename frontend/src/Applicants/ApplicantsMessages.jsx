@@ -29,6 +29,7 @@ const ALLOWED_ATTACHMENT_TYPES = [
 const ATTACHMENT_ACCEPT = ".jpg,.jpeg,.png,.pdf,.doc,.docx,.zip";
 const ATTACHMENT_ERROR_MESSAGE =
   "Unsupported attachment type. Please upload JPG, PNG, PDF, DOC, DOCX, or ZIP files only.";
+const SUFFIX_OPTIONS = ["N/A", "Jr.", "Sr.", "II", "III", "IV", "V"];
 
 const normalizePhilippinesPhone = (value) => {
   const digits = String(value || "").replace(/\D/g, "");
@@ -40,7 +41,10 @@ const normalizePhilippinesPhone = (value) => {
 };
 
 const buildApplicantName = ({ firstName, middleName, lastName, suffix }) =>
-  [firstName, middleName, lastName, suffix].map((part) => part?.trim()).filter(Boolean).join(" ");
+  [firstName, middleName, lastName, suffix === "N/A" ? "" : suffix]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(" ");
 
 const checkApplicantEmailInUse = async (email) => {
   const res = await fetch(`${api}/api/applicant-messages/check-email?email=${encodeURIComponent(email)}`);
@@ -129,7 +133,7 @@ export default function ApplicantsMessages() {
   const [firstNameInput, setFirstNameInput] = useState(() => session?.firstName ?? "");
   const [middleNameInput, setMiddleNameInput] = useState(() => session?.middleName ?? "");
   const [lastNameInput, setLastNameInput] = useState(() => session?.lastName ?? "");
-  const [suffixInput, setSuffixInput] = useState(() => session?.suffix ?? "");
+  const [suffixInput, setSuffixInput] = useState(() => session?.suffix || "N/A");
   const [emailInput, setEmailInput] = useState(session?.email ?? "");
   const [phoneInput, setPhoneInput] = useState(session?.phone ?? "");
   const [addressInput, setAddressInput] = useState(session?.address ?? "");
@@ -194,7 +198,7 @@ export default function ApplicantsMessages() {
     if (data.firstName !== undefined) setFirstNameInput(data.firstName ?? "");
     if (data.middleName !== undefined) setMiddleNameInput(data.middleName ?? "");
     if (data.lastName !== undefined) setLastNameInput(data.lastName ?? "");
-    if (data.suffix !== undefined) setSuffixInput(data.suffix ?? "");
+    if (data.suffix !== undefined) setSuffixInput(data.suffix || "N/A");
     if (data.phone !== undefined) setPhoneInput(data.phone ?? "");
     if (data.email !== undefined) setEmailInput(data.email ?? "");
     if (data.address !== undefined) setAddressInput(data.address ?? "");
@@ -268,7 +272,7 @@ export default function ApplicantsMessages() {
           firstName: data.applicant.firstName ?? session.firstName ?? "",
           middleName: data.applicant.middleName ?? session.middleName ?? "",
           lastName: data.applicant.lastName ?? session.lastName ?? "",
-          suffix: data.applicant.suffix ?? session.suffix ?? "",
+          suffix: data.applicant.suffix || session.suffix || "N/A",
           name: data.applicant.name,
           email: data.applicant.email ?? session.email ?? "",
           applicantId: data.applicant._id,
@@ -403,8 +407,8 @@ export default function ApplicantsMessages() {
     const middleTrim = middleNameInput.trim();
     const lastTrim = lastNameInput.trim();
     const suffixTrim = suffixInput.trim();
-    if (!firstTrim || !lastTrim) {
-      setError("Please provide both your first name and last name.");
+    if (!firstTrim || !middleTrim || !lastTrim) {
+      setError("Please provide your first name, middle name, and last name.");
       return;
     }
     const emailTrim = emailInput.trim();
@@ -576,7 +580,7 @@ export default function ApplicantsMessages() {
               firstName: reinitData.applicant.firstName ?? session.firstName ?? "",
               middleName: reinitData.applicant.middleName ?? session.middleName ?? "",
               lastName: reinitData.applicant.lastName ?? session.lastName ?? "",
-              suffix: reinitData.applicant.suffix ?? session.suffix ?? "",
+              suffix: reinitData.applicant.suffix || session.suffix || "N/A",
               name: reinitData.applicant.name,
               email: reinitData.applicant.email ?? session.email ?? "",
               applicantId: reinitData.applicant._id,
@@ -1007,7 +1011,7 @@ export default function ApplicantsMessages() {
                     </div>
                     <div>
                       <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
-                        Middle name
+                        Middle name<span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1015,6 +1019,7 @@ export default function ApplicantsMessages() {
                         onChange={(e) => setMiddleNameInput(e.target.value)}
                         className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
                         placeholder="Santos"
+                        required
                       />
                     </div>
                     <div>
@@ -1034,13 +1039,17 @@ export default function ApplicantsMessages() {
                       <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
                         Suffix
                       </label>
-                      <input
-                        type="text"
+                      <select
                         value={suffixInput}
                         onChange={(e) => setSuffixInput(e.target.value)}
-                        className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none"
-                        placeholder="Jr., Sr., III"
-                      />
+                        className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500/70 focus:outline-none [color-scheme:dark]"
+                      >
+                        {SUFFIX_OPTIONS.map((option) => (
+                          <option key={option} value={option} className="bg-[#0f172a]">
+                            {option}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                   <div>

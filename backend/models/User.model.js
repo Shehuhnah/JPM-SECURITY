@@ -25,6 +25,8 @@ const adminSchema = new mongoose.Schema(
     contactNumber: { type: String },
     photo: { type: String, default: "" },
     photoPublicId: { type: String, default: "" },
+    eSignature: { type: String, default: "" },
+    eSignaturePublicId: { type: String, default: "" },
     status: { type: String, default: "active" },
     lastLogin: { type: Date },
     resetPasswordToken: String,

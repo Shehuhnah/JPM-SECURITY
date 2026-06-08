@@ -236,7 +236,7 @@ export const updateStatus = async (req, res) => {
         salary: approved.salary || "",
         signatory: approved.signatory || processedBy,
         signatoryTitle: approved.signatoryTitle || req.user?.position || "HR and Head Administrator",
-        signatureDataUrl: approved.signatureDataUrl || "",
+        signatureDataUrl: approved.signatureDataUrl || req.user?.eSignature || "",
         workSchedule: approved.workSchedule || "",
         adminComments: approved.adminComments || "",
         pdfUrl: approved.pdfUrl || null,

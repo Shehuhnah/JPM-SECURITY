@@ -5,6 +5,7 @@ import { sendMail } from "../utils/mailer.js";
 import { generateHiredApplicantsPDF } from "../utils/hiredApplicantsPdfGenerator.js";
 
 const logoUrl = "https://jpm-security.onrender.com/assets/headerpdf/jpmlogo.png";
+const allowedSuffixes = ["N/A", "Jr.", "Sr.", "II", "III", "IV", "V", ""];
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -102,6 +103,9 @@ export const createApplicant = async (req, res) => {
     if (!/^\+63\d{10}$/.test(normalizedPhone)) {
       return res.status(400).json({ message: "Phone number must be in +63 format." });
     }
+    if (!allowedSuffixes.includes(suffixValue)) {
+      return res.status(400).json({ message: "Invalid suffix selected." });
+    }
     if (!email?.trim()) {
       return res.status(400).json({ message: "Email is required." });
     }
@@ -113,6 +117,10 @@ export const createApplicant = async (req, res) => {
     }
 
     const normalizedType = applicationType === "Online" ? "Online" : "Walk-in";
+
+    if (normalizedType === "Walk-in" && !middleNameValue) {
+      return res.status(400).json({ message: "Middle name is required for walk-in applicants." });
+    }
 
     if (normalizedType === "Walk-in" && !req.file) {
       return res.status(400).json({ message: "Resume is required for walk-in applicants." });
@@ -232,6 +240,13 @@ const formatTime = (value) => {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
+const normalizeInterviewTimestamp = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString();
+};
+
 // 📧 Send interview email
 export const sendInterviewEmail = async (req, res) => {
   try {
@@ -250,6 +265,7 @@ export const sendInterviewEmail = async (req, res) => {
       return res.status(400).json({ message: "Applicant email is missing." });
     }
 
+    const previousInterviewTimestamp = normalizeInterviewTimestamp(applicant.dateOfInterview);
     let dateToSave = type === "range" ? startDate : date;
 
     if (dateToSave) {
@@ -259,6 +275,14 @@ export const sendInterviewEmail = async (req, res) => {
           dateToSave = `${dateToSave}T00:00:00+08:00`;
       }
     }
+
+    const nextInterviewTimestamp = normalizeInterviewTimestamp(dateToSave);
+    const hasPreviousInterview = Boolean(previousInterviewTimestamp);
+    const isSameInterviewSchedule =
+      hasPreviousInterview &&
+      nextInterviewTimestamp &&
+      previousInterviewTimestamp === nextInterviewTimestamp;
+    const emailMode = isSameInterviewSchedule ? "reminder" : hasPreviousInterview ? "update" : "invitation";
 
     if (dateToSave) {
       applicant.dateOfInterview = dateToSave;
@@ -272,9 +296,25 @@ export const sendInterviewEmail = async (req, res) => {
         : `Date: ${formatDate(date)}`;
     const timeSummary = time ? `Time: ${formatTime(time)}` : null;
 
-    const subject = `Interview Invitation`;
+    const subject =
+      emailMode === "reminder"
+        ? "Interview Reminder"
+        : emailMode === "update"
+        ? "Updated Interview Schedule"
+        : "Interview Invitation";
+    const emailTitle = subject;
     const defaultMessage =
-      "We would like to invite you for an interview with JPM Security Agency. Please see the details below.";
+      emailMode === "reminder"
+        ? "This is a reminder for your upcoming interview with JPM Security Agency. Please see the confirmed details below."
+        : emailMode === "update"
+        ? "Your interview schedule with JPM Security Agency has been updated. Please review the new details below."
+        : "We would like to invite you for an interview with JPM Security Agency. Please see the details below.";
+    const closingMessage =
+      emailMode === "reminder"
+        ? "We look forward to meeting you."
+        : emailMode === "update"
+        ? "Please follow the updated interview schedule below."
+        : "We look forward to meeting you.";
 
     const plainMessage = [
       `Hello ${applicant.name || "Applicant"},`,
@@ -303,7 +343,7 @@ export const sendInterviewEmail = async (req, res) => {
                 <tr>
                   <td align="center" style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#334155 100%);padding:36px 24px;color:#ffffff;">
                     <img src="${logoUrl}" alt="JPM Security Agency" width="160" style="display:block;height:auto;margin:0 auto 12px auto;" />
-                    <div style="font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:.2px;">Interview Invitation</div>
+                    <div style="font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:.2px;">${emailTitle}</div>
                   </td>
                 </tr>
                 <tr>
@@ -362,7 +402,7 @@ export const sendInterviewEmail = async (req, res) => {
                 </tr>
                 <tr>
                   <td style="padding:18px 24px 0 24px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:15px;line-height:1.7;">
-                    We look forward to meeting you.
+                    ${closingMessage}
                   </td>
                 </tr>
                 <tr>
@@ -390,7 +430,16 @@ export const sendInterviewEmail = async (req, res) => {
       html: htmlMessage,
     });
 
-    res.status(200).json({ success: true, message: "Interview scheduled and email sent." });
+    res.status(200).json({
+      success: true,
+      message:
+        emailMode === "reminder"
+          ? "Interview reminder email sent."
+          : emailMode === "update"
+          ? "Updated interview schedule email sent."
+          : "Interview scheduled and email sent.",
+      emailMode,
+    });
   } catch (error) {
     console.error("Error sending interview email:", error);
     res.status(500).json({ message: "Failed to send interview email." });

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Camera, RefreshCcw, Save, UserCircle2, User, Mail, Briefcase, Phone, ShieldCheck, Trash2 } from "lucide-react";
+import { Camera, RefreshCcw, Save, UserCircle2, User, Mail, Briefcase, Phone, ShieldCheck, Trash2, PenLine, Upload } from "lucide-react";
 import { motion } from "framer-motion";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -15,9 +15,12 @@ export default function AdminProfile() {
     position: "",
     contactNumber: "",
     photo: null,
+    eSignature: null,
   });
   const [previewUrl, setPreviewUrl] = useState("");
+  const [signaturePreviewUrl, setSignaturePreviewUrl] = useState("");
   const [removePhoto, setRemovePhoto] = useState(false);
+  const [removeESignature, setRemoveESignature] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Determine if form data differs from initial user data
@@ -27,7 +30,9 @@ export default function AdminProfile() {
     form.position !== (user.position || "") ||
     form.contactNumber !== (user.contactNumber || "") ||
     form.photo !== null ||
-    removePhoto === true
+    form.eSignature !== null ||
+    removePhoto === true ||
+    removeESignature === true
   );
 
   useEffect(() => {
@@ -43,9 +48,12 @@ export default function AdminProfile() {
       position: user.position || "",
       contactNumber: user.contactNumber || "",
       photo: null,
+      eSignature: null,
     }));
     setPreviewUrl(user.photo || "");
+    setSignaturePreviewUrl(user.eSignature || "");
     setRemovePhoto(false);
+    setRemoveESignature(false);
   }, [user]);
 
   useEffect(() => {
@@ -57,6 +65,16 @@ export default function AdminProfile() {
 
     return () => URL.revokeObjectURL(localPreview);
   }, [form.photo]);
+
+  useEffect(() => {
+    if (!form.eSignature) return undefined;
+
+    const localPreview = URL.createObjectURL(form.eSignature);
+    setSignaturePreviewUrl(localPreview);
+    setRemoveESignature(false);
+
+    return () => URL.revokeObjectURL(localPreview);
+  }, [form.eSignature]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -74,8 +92,12 @@ export default function AdminProfile() {
       payload.append("position", form.position);
       payload.append("contactNumber", form.contactNumber);
       payload.append("removePhoto", removePhoto);
+      payload.append("removeESignature", removeESignature);
       if (form.photo) {
         payload.append("photo", form.photo);
+      }
+      if (form.eSignature) {
+        payload.append("eSignature", form.eSignature);
       }
 
       const res = await fetch(`${api}/api/auth/me`, {
@@ -90,9 +112,11 @@ export default function AdminProfile() {
       }
 
       await refreshAuth();
-      setForm((prev) => ({ ...prev, photo: null }));
+      setForm((prev) => ({ ...prev, photo: null, eSignature: null }));
       setRemovePhoto(false);
+      setRemoveESignature(false);
       setPreviewUrl(data.user?.photo || previewUrl);
+      setSignaturePreviewUrl(data.user?.eSignature || signaturePreviewUrl);
       toast.success("Profile updated successfully.");
     } catch (error) {
       toast.error(error.message || "Failed to update profile.");
@@ -242,6 +266,63 @@ export default function AdminProfile() {
                     onChange={handleChange} 
                     icon={<Phone size={20} />} 
                   />
+                </div>
+              </div>
+
+              <div className="mt-10 rounded-2xl border border-gray-700/50 bg-[#0f172a] p-6">
+                <div className="mb-5 flex items-center gap-3">
+                  <div className="rounded-xl bg-blue-500/10 p-2">
+                    <PenLine className="text-blue-400" size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">COE E-Signature</h3>
+                    <p className="text-xs text-gray-500">This saved signature will be used when approving COE requests.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_220px] xl:items-center">
+                  <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-gray-600 bg-slate-950/50 px-4 py-4 text-sm text-gray-300 transition hover:border-blue-500/70 hover:bg-blue-500/5">
+                    <Upload size={18} className="text-blue-400" />
+                    <span className="min-w-0 flex-1 truncate">
+                      {form.eSignature?.name || (signaturePreviewUrl ? "Replace saved e-signature" : "Upload PNG or JPG signature")}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg"
+                      className="hidden"
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, eSignature: event.target.files?.[0] || null }))
+                      }
+                    />
+                  </label>
+
+                  <div className="relative rounded-xl border border-gray-700 bg-white p-3">
+                    {signaturePreviewUrl ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setForm((prev) => ({ ...prev, eSignature: null }));
+                            setSignaturePreviewUrl("");
+                            setRemoveESignature(true);
+                          }}
+                          className="absolute -right-2 -top-2 rounded-full bg-red-500 p-2 text-white shadow-lg transition hover:bg-red-600"
+                          title="Remove e-signature"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        <img
+                          src={signaturePreviewUrl}
+                          alt="E-signature preview"
+                          className="mx-auto h-20 max-w-full object-contain"
+                        />
+                      </>
+                    ) : (
+                      <div className="flex h-20 items-center justify-center text-xs font-semibold uppercase tracking-widest text-slate-400">
+                        No Signature
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

@@ -41,7 +41,16 @@ router.post("/register", registerUser);
 router.post("/login", loginUser);
 router.post("/logout", logout);
 router.get("/me", getMe);
-router.put("/me", protect, authorizeRoles("Admin", "Subadmin"), upload.single("photo"), updateMyProfile);
+router.put(
+  "/me",
+  protect,
+  authorizeRoles("Admin", "Subadmin"),
+  upload.fields([
+    { name: "photo", maxCount: 1 },
+    { name: "eSignature", maxCount: 1 },
+  ]),
+  updateMyProfile
+);
 router.get("/subadmins", protect, getSubadmins);
 router.get("/admins", protect, getAdmins);
 

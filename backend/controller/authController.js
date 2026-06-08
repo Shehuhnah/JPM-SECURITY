@@ -195,7 +195,7 @@ export const updateMyProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found." });
     }
 
-    const { name, email, position, contactNumber, removePhoto } = req.body;
+    const { name, email, position, contactNumber, removePhoto, removeESignature } = req.body;
 
     if (!name?.trim() || !email?.trim()) {
       return res.status(400).json({ message: "Name and email are required." });
@@ -215,23 +215,45 @@ export const updateMyProfile = async (req, res) => {
     user.position = position?.trim() || "";
     user.contactNumber = contactNumber?.trim() || "";
 
+    const photoFile = req.files?.photo?.[0] || req.file;
+    const eSignatureFile = req.files?.eSignature?.[0];
+
     if (removePhoto === "true" || removePhoto === true) {
       if (user.photoPublicId) {
         await deleteImageFromCloudinary(user.photoPublicId);
       }
       user.photo = "";
       user.photoPublicId = "";
-    } else if (req.file) {
+    } else if (photoFile) {
       if (user.photoPublicId) {
         await deleteImageFromCloudinary(user.photoPublicId);
       }
 
-      const uploadedImage = await uploadImageToCloudinary(req.file, {
+      const uploadedImage = await uploadImageToCloudinary(photoFile, {
         folder: "jpm-security/admin-profiles",
       });
 
       user.photo = uploadedImage.secure_url;
       user.photoPublicId = uploadedImage.public_id;
+    }
+
+    if (removeESignature === "true" || removeESignature === true) {
+      if (user.eSignaturePublicId) {
+        await deleteImageFromCloudinary(user.eSignaturePublicId);
+      }
+      user.eSignature = "";
+      user.eSignaturePublicId = "";
+    } else if (eSignatureFile) {
+      if (user.eSignaturePublicId) {
+        await deleteImageFromCloudinary(user.eSignaturePublicId);
+      }
+
+      const uploadedSignature = await uploadImageToCloudinary(eSignatureFile, {
+        folder: "jpm-security/admin-signatures",
+      });
+
+      user.eSignature = uploadedSignature.secure_url;
+      user.eSignaturePublicId = uploadedSignature.public_id;
     }
 
     await user.save();

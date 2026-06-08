@@ -287,7 +287,7 @@ export default function AdminCOE() {
     setSelectedRequest(request);
     setDeclineReason(""); 
     setSignatureFile(null);
-    setSignaturePreview("");
+    setSignaturePreview(user?.eSignature || "");
     if (action === "accept") {
       setSalaryModal(true);   
       return;                 
@@ -325,11 +325,11 @@ export default function AdminCOE() {
         // 1. SANITIZE: Remove commas before sending to backend
         // "50,000" becomes "50000"
         const cleanSalary = salary.replace(/,/g, ""); 
-        if (!signatureFile) {
+        if (!signatureFile && !user?.eSignature) {
           showToast("Please upload your e-signature before approving.", "error");
           return;
         }
-        const signatureDataUrl = await fileToDataUrl(signatureFile);
+        const signatureDataUrl = signatureFile ? await fileToDataUrl(signatureFile) : user.eSignature;
 
         body = { 
           action: "accept", 
@@ -388,7 +388,7 @@ export default function AdminCOE() {
       closePopup();
       setSalary("");
       setSignatureFile(null);
-      setSignaturePreview("");
+      setSignaturePreview(user?.eSignature || "");
     }
   };
 
@@ -1144,7 +1144,7 @@ export default function AdminCOE() {
                     <label className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-gray-600 bg-[#0f172a] px-4 py-3 text-sm text-gray-300 transition hover:border-blue-500/70 hover:bg-blue-500/5">
                       <Upload size={18} className="text-blue-400" />
                       <span className="min-w-0 flex-1 truncate">
-                        {signatureFile?.name || "Upload PNG or JPG signature"}
+                        {signatureFile?.name || (user?.eSignature ? "Using saved profile e-signature" : "Upload PNG or JPG signature")}
                       </span>
                       <input
                         type="file"
@@ -1162,6 +1162,11 @@ export default function AdminCOE() {
                         <img src={signaturePreview} alt="E-signature preview" className="mx-auto h-20 max-w-full object-contain" />
                       </div>
                     )}
+                    {user?.eSignature && !signatureFile && (
+                      <p className="mt-2 text-xs text-emerald-300">
+                        Saved profile e-signature will be used. Upload a file here only to override it for this COE.
+                      </p>
+                    )}
                   </div>
                </div>
 
@@ -1174,7 +1179,7 @@ export default function AdminCOE() {
                             showToast("Please enter a salary amount.", "error");
                             return;
                         }
-                        if (!signatureFile) {
+                        if (!signatureFile && !user?.eSignature) {
                             showToast("Please upload your e-signature.", "error");
                             return;
                         }

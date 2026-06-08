@@ -7,6 +7,8 @@ import Guard from "../models/guard.model.js"; // Import Guard model explicitly
 
 import { io, onlineUsersMap } from "../server.js";
 
+const allowedSuffixes = ["N/A", "Jr.", "Sr.", "II", "III", "IV", "V", ""];
+
 const normalizeId = (value) => {
   if (!value) return "";
   if (typeof value === "string") return value;
@@ -85,6 +87,12 @@ export const initApplicantConversation = async (req, res) => {
 
     if (!normalizedName) {
       return res.status(400).json({ message: "Applicant name is required." });
+    }
+    if (!firstNameValue || !middleNameValue || !lastNameValue) {
+      return res.status(400).json({ message: "First name, middle name, and last name are required." });
+    }
+    if (!allowedSuffixes.includes(suffixValue)) {
+      return res.status(400).json({ message: "Invalid suffix selected." });
     }
     if (!email?.trim()) {
       return res.status(400).json({ message: "Applicant email is required." });
